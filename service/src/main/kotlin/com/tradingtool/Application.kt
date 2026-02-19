@@ -3,7 +3,7 @@ package com.tradingtool
 import com.tradingtool.config.AppConfig
 import com.tradingtool.config.loadAppConfig
 import com.tradingtool.core.telegram.TelegramSender
-import com.tradingtool.core.watchlist.dal.ExposedWatchlistDal
+import com.tradingtool.core.watchlist.dal.JdbiWatchlistDal
 import com.tradingtool.core.watchlist.dal.WatchlistDatabaseConfig
 import com.tradingtool.core.watchlist.service.WatchlistService
 import com.tradingtool.telegram.registerTelegramResource
@@ -45,7 +45,7 @@ fun Application.module(appConfig: AppConfig = loadAppConfig()) {
         chatId = appConfig.telegram.chatId,
     )
     val watchlistService = WatchlistService(
-        dao = ExposedWatchlistDal(
+        dao = JdbiWatchlistDal(
             config = WatchlistDatabaseConfig(
                 jdbcUrl = appConfig.supabase.dbUrl,
                 user = appConfig.supabase.dbUser,
