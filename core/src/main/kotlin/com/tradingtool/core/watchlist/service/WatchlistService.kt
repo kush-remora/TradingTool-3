@@ -13,9 +13,9 @@ import com.tradingtool.core.model.watchlist.WatchlistRecord
 import com.tradingtool.core.model.watchlist.WatchlistStockRecord
 import com.tradingtool.core.model.watchlist.WatchlistStockUpdateField
 import com.tradingtool.core.model.watchlist.WatchlistUpdateField
-import com.tradingtool.core.watchlist.dao.WatchlistDao
-import com.tradingtool.core.watchlist.dao.WatchlistDaoError
-import com.tradingtool.core.watchlist.dao.WatchlistDaoNotConfiguredError
+import com.tradingtool.core.watchlist.dao.WatchlistDal
+import com.tradingtool.core.watchlist.dao.WatchlistDalError
+import com.tradingtool.core.watchlist.dao.WatchlistDalNotConfiguredError
 
 open class WatchlistServiceError(
     message: String,
@@ -31,12 +31,12 @@ class WatchlistServiceNotConfiguredError(
 ) : WatchlistServiceError(message)
 
 class WatchlistService(
-    private val dao: WatchlistDao,
+    private val dal: WatchlistDal,
 ) {
     fun checkTablesAccess(): List<TableAccessStatus> {
         return runDao(
             action = "check tables access",
-            operation = { dao.checkTablesAccess() },
+            operation = { dal.checkTablesAccess() },
         )
     }
 
@@ -55,7 +55,7 @@ class WatchlistService(
         )
         return runDao(
             action = "create stock",
-            operation = { dao.createStock(normalizedInput) },
+            operation = { dal.createStock(normalizedInput) },
         )
     }
 
@@ -63,7 +63,7 @@ class WatchlistService(
         val validStockId = validatePositiveId(stockId, fieldName = "stock_id")
         return runDao(
             action = "get stock by id",
-            operation = { dao.getStockById(validStockId) },
+            operation = { dal.getStockById(validStockId) },
         )
     }
 
@@ -71,7 +71,7 @@ class WatchlistService(
         val normalizedSymbol = normalizeSymbol(nseSymbol)
         return runDao(
             action = "get stock by symbol",
-            operation = { dao.getStockByNseSymbol(normalizedSymbol) },
+            operation = { dal.getStockByNseSymbol(normalizedSymbol) },
         )
     }
 
@@ -79,7 +79,7 @@ class WatchlistService(
         val validLimit = validateLimit(limit)
         return runDao(
             action = "list stocks",
-            operation = { dao.listStocks(limit = validLimit) },
+            operation = { dal.listStocks(limit = validLimit) },
         )
     }
 
@@ -88,7 +88,7 @@ class WatchlistService(
         val normalizedInput = normalizeUpdateStockInput(inputData)
         return runDao(
             action = "update stock",
-            operation = { dao.updateStock(validStockId, normalizedInput) },
+            operation = { dal.updateStock(validStockId, normalizedInput) },
         )
     }
 
@@ -96,7 +96,7 @@ class WatchlistService(
         val validStockId = validatePositiveId(stockId, fieldName = "stock_id")
         return runDao(
             action = "delete stock",
-            operation = { dao.deleteStock(validStockId) },
+            operation = { dal.deleteStock(validStockId) },
         )
     }
 
@@ -107,7 +107,7 @@ class WatchlistService(
         )
         return runDao(
             action = "create watchlist",
-            operation = { dao.createWatchlist(normalizedInput) },
+            operation = { dal.createWatchlist(normalizedInput) },
         )
     }
 
@@ -118,7 +118,7 @@ class WatchlistService(
         )
         return runDao(
             action = "get watchlist by id",
-            operation = { dao.getWatchlistById(validWatchlistId) },
+            operation = { dal.getWatchlistById(validWatchlistId) },
         )
     }
 
@@ -126,7 +126,7 @@ class WatchlistService(
         val normalizedName = normalizeRequiredText(name, fieldName = "name")
         return runDao(
             action = "get watchlist by name",
-            operation = { dao.getWatchlistByName(normalizedName) },
+            operation = { dal.getWatchlistByName(normalizedName) },
         )
     }
 
@@ -134,7 +134,7 @@ class WatchlistService(
         val validLimit = validateLimit(limit)
         return runDao(
             action = "list watchlists",
-            operation = { dao.listWatchlists(limit = validLimit) },
+            operation = { dal.listWatchlists(limit = validLimit) },
         )
     }
 
@@ -146,7 +146,7 @@ class WatchlistService(
         val normalizedInput = normalizeUpdateWatchlistInput(inputData)
         return runDao(
             action = "update watchlist",
-            operation = { dao.updateWatchlist(validWatchlistId, normalizedInput) },
+            operation = { dal.updateWatchlist(validWatchlistId, normalizedInput) },
         )
     }
 
@@ -157,7 +157,7 @@ class WatchlistService(
         )
         return runDao(
             action = "delete watchlist",
-            operation = { dao.deleteWatchlist(validWatchlistId) },
+            operation = { dal.deleteWatchlist(validWatchlistId) },
         )
     }
 
@@ -185,7 +185,7 @@ class WatchlistService(
         )
         return runDao(
             action = "create watchlist stock mapping",
-            operation = { dao.createWatchlistStock(normalizedInput) },
+            operation = { dal.createWatchlistStock(normalizedInput) },
         )
     }
 
@@ -200,7 +200,7 @@ class WatchlistService(
         )
         return runDao(
             action = "get watchlist stock mapping",
-            operation = { dao.getWatchlistStock(validWatchlistId, validStockId) },
+            operation = { dal.getWatchlistStock(validWatchlistId, validStockId) },
         )
     }
 
@@ -211,7 +211,7 @@ class WatchlistService(
         )
         return runDao(
             action = "list stocks for watchlist",
-            operation = { dao.listStocksForWatchlist(validWatchlistId) },
+            operation = { dal.listStocksForWatchlist(validWatchlistId) },
         )
     }
 
@@ -232,7 +232,7 @@ class WatchlistService(
         return runDao(
             action = "update watchlist stock mapping",
             operation = {
-                dao.updateWatchlistStock(
+                dal.updateWatchlistStock(
                     watchlistId = validWatchlistId,
                     stockId = validStockId,
                     inputData = normalizedInput,
@@ -252,7 +252,7 @@ class WatchlistService(
         )
         return runDao(
             action = "delete watchlist stock mapping",
-            operation = { dao.deleteWatchlistStock(validWatchlistId, validStockId) },
+            operation = { dal.deleteWatchlistStock(validWatchlistId, validStockId) },
         )
     }
 
@@ -429,9 +429,9 @@ class WatchlistService(
     ): ResultT {
         return try {
             operation()
-        } catch (error: WatchlistDaoNotConfiguredError) {
+        } catch (error: WatchlistDalNotConfiguredError) {
             throw WatchlistServiceNotConfiguredError(error.message ?: "Watchlist DB is not configured")
-        } catch (error: WatchlistDaoError) {
+        } catch (error: WatchlistDalError) {
             throw WatchlistServiceError(
                 message = "Watchlist service failed while '$action': ${error.message}",
                 cause = error,

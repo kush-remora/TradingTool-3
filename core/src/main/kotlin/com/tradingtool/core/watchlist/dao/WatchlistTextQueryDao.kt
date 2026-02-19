@@ -1,14 +1,17 @@
-package com.tradingtool.core.watchlist.dal.sql
+package com.tradingtool.core.watchlist.dao
 
 import com.tradingtool.core.model.watchlist.WatchlistStockRecord
-import com.tradingtool.core.watchlist.dal.mapper.WatchlistStockRecordMapper
+import org.jdbi.v3.core.mapper.RowMapper
+import org.jdbi.v3.core.statement.StatementContext
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper
 import org.jdbi.v3.sqlobject.customizer.Bind
 import org.jdbi.v3.sqlobject.statement.SqlQuery
 import org.jdbi.v3.sqlobject.statement.SqlUpdate
+import java.sql.ResultSet
+import java.time.OffsetDateTime
 
 @RegisterRowMapper(WatchlistStockRecordMapper::class)
-interface WatchlistStockSqlObject {
+interface WatchlistTextQueryDao {
     @SqlQuery(
         """
         INSERT INTO $WATCHLIST_STOCKS_TABLE (
@@ -94,5 +97,21 @@ interface WatchlistStockSqlObject {
             notes,
             created_at
         """
+    }
+}
+
+class WatchlistStockRecordMapper : RowMapper<WatchlistStockRecord> {
+    override fun map(rs: ResultSet, ctx: StatementContext): WatchlistStockRecord {
+        return WatchlistStockRecord(
+            watchlistId = rs.getLong("watchlist_id"),
+            stockId = rs.getLong("stock_id"),
+            notes = rs.getString("notes"),
+            createdAt = toUtcString(rs.getObject("created_at", OffsetDateTime::class.java)),
+        )
+    }
+
+    private fun toUtcString(value: OffsetDateTime?): String {
+        return value?.toInstant()?.toString()
+            ?: throw IllegalStateException("Unexpected null timestamp in database row")
     }
 }
