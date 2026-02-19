@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import * as LightweightChartsReact from "lightweight-charts-react";
 import {
   Alert,
@@ -14,6 +15,8 @@ import {
 
 const { Header, Content, Footer } = Layout;
 const { Title, Paragraph, Text } = Typography;
+
+const DEFAULT_API_BASE_URL = "https://tradingtool-3-service.onrender.com";
 
 const watchlistRows = [
   { key: "1", symbol: "RELIANCE", price: "2,938.30", move: "+0.91%" },
@@ -58,6 +61,66 @@ function LightweightChartsReactPanel() {
 }
 
 export default function App() {
+  const apiBaseUrl = useMemo(() => {
+    const rawValue = import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL;
+    return rawValue.trim().replace(/\/+$/, "");
+  }, []);
+
+  const [backendHealth, setBackendHealth] = useState({
+    isLoading: true,
+    status: "",
+    error: "",
+  });
+
+  useEffect(() => {
+    let isActive = true;
+
+    const checkHealth = async () => {
+      try {
+        const response = await fetch(`${apiBaseUrl}/health`, {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const payload = await response.json();
+        const status =
+          typeof payload?.status === "string" ? payload.status : "unknown";
+
+        if (!isActive) {
+          return;
+        }
+
+        setBackendHealth({
+          isLoading: false,
+          status,
+          error: "",
+        });
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        setBackendHealth({
+          isLoading: false,
+          status: "",
+          error: error instanceof Error ? error.message : "Request failed",
+        });
+      }
+    };
+
+    void checkHealth();
+    return () => {
+      isActive = false;
+    };
+  }, [apiBaseUrl]);
+
   return (
     <Layout>
       <Header>
@@ -73,6 +136,29 @@ export default function App() {
               Frontend is configured with React + Ant Design, and the requested{" "}
               <Text code>lightweight-charts-react</Text> dependency.
             </Paragraph>
+            <Paragraph>
+              Backend base URL: <Text code>{apiBaseUrl}</Text>
+            </Paragraph>
+            {backendHealth.isLoading ? (
+              <Alert
+                type="info"
+                showIcon
+                message="Checking Render backend connection..."
+              />
+            ) : backendHealth.error ? (
+              <Alert
+                type="error"
+                showIcon
+                message="Backend check failed"
+                description={backendHealth.error}
+              />
+            ) : (
+              <Alert
+                type="success"
+                showIcon
+                message={`Backend status: ${backendHealth.status}`}
+              />
+            )}
           </Card>
 
           <Row gutter={[16, 16]}>

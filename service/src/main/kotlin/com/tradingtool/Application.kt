@@ -2,6 +2,8 @@ package com.tradingtool
 
 import com.tradingtool.config.AppConfig
 import com.tradingtool.config.loadAppConfig
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
@@ -10,10 +12,12 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.http.ContentType
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import java.net.URI
 
 
 fun main() {
@@ -31,6 +35,27 @@ fun main() {
 fun Application.module(appConfig: AppConfig = loadAppConfig()) {
     install(ContentNegotiation) {
         json()
+    }
+
+    install(CORS) {
+        allowMethod(HttpMethod.Options)
+        allowMethod(HttpMethod.Get)
+        allowMethod(HttpMethod.Post)
+        allowMethod(HttpMethod.Put)
+        allowMethod(HttpMethod.Delete)
+        allowHeader(HttpHeaders.Accept)
+        allowHeader(HttpHeaders.Authorization)
+        allowHeader(HttpHeaders.ContentType)
+        allowCredentials = true
+        allowNonSimpleContentTypes = true
+
+        appConfig.cors.allowedOrigins.forEach { origin ->
+            val uri = runCatching { URI(origin) }.getOrNull() ?: return@forEach
+            val scheme = uri.scheme ?: return@forEach
+            val host = uri.host ?: return@forEach
+            val hostWithPort = if (uri.port == -1) host else "$host:${uri.port}"
+            allowHost(host = hostWithPort, schemes = listOf(scheme))
+        }
     }
 
     routing {
