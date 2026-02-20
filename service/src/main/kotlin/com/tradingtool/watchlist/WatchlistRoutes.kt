@@ -1,5 +1,6 @@
 package com.tradingtool.watchlist
 
+import com.google.inject.Inject
 import com.tradingtool.core.model.watchlist.CreateStockInput
 import com.tradingtool.core.model.watchlist.CreateWatchlistInput
 import com.tradingtool.core.model.watchlist.CreateWatchlistStockInput
@@ -39,6 +40,7 @@ import kotlinx.serialization.json.put
 private val requestJson: Json = Json { ignoreUnknownKeys = true }
 
 class WatchlistResource(
+    @Inject
     private val watchlistService: WatchlistService,
 ) {
     fun register(route: Route) {
@@ -754,7 +756,7 @@ class WatchlistResource(
 }
 
 fun Route.registerWatchlistResource(
-    watchlistService: WatchlistService,
+    resource: WatchlistResource,
 ) {
-    WatchlistResource(watchlistService).register(this)
+    resource.register(this)
 }

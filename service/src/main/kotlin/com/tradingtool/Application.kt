@@ -1,11 +1,12 @@
 package com.tradingtool
 
+import com.google.inject.Guice
 import com.tradingtool.config.AppConfig
 import com.tradingtool.config.loadAppConfig
+import com.tradingtool.di.ServiceModule
 import com.tradingtool.core.telegram.TelegramSender
-import com.tradingtool.core.watchlist.dao.WatchlistDal
-import com.tradingtool.core.watchlist.dao.WatchlistDatabaseConfig
-import com.tradingtool.core.watchlist.service.WatchlistService
+import com.tradingtool.telegram.TelegramResource
+import com.tradingtool.watchlist.WatchlistResource
 import com.tradingtool.telegram.registerTelegramResource
 import com.tradingtool.watchlist.registerWatchlistResource
 import io.ktor.http.HttpHeaders
@@ -26,7 +27,6 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import java.net.URI
 
-
 fun main() {
     val appConfig: AppConfig = loadAppConfig()
     embeddedServer(
@@ -40,19 +40,10 @@ fun main() {
 }
 
 fun Application.module(appConfig: AppConfig = loadAppConfig()) {
-    val telegramSender = TelegramSender(
-        botToken = appConfig.telegram.botToken,
-        chatId = appConfig.telegram.chatId,
-    )
-    val watchlistService = WatchlistService(
-        dal = WatchlistDal(
-            config = WatchlistDatabaseConfig(
-                jdbcUrl = appConfig.supabase.dbUrl,
-                user = appConfig.supabase.dbUser,
-                password = appConfig.supabase.dbPassword,
-            ),
-        ),
-    )
+    val injector = Guice.createInjector(ServiceModule(appConfig))
+    val telegramSender = injector.getInstance(TelegramSender::class.java)
+    val telegramResource = injector.getInstance(TelegramResource::class.java)
+    val watchlistResource = injector.getInstance(WatchlistResource::class.java)
 
     monitor.subscribe(ApplicationStopped) {
         telegramSender.close()
@@ -110,7 +101,7 @@ fun Application.module(appConfig: AppConfig = loadAppConfig()) {
             )
         }
 
-        registerTelegramResource(telegramSender = telegramSender)
-        registerWatchlistResource(watchlistService = watchlistService)
+        registerTelegramResource(resource = telegramResource)
+        registerWatchlistResource(resource = watchlistResource)
     }
 }

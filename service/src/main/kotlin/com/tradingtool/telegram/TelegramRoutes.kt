@@ -1,5 +1,6 @@
 package com.tradingtool.telegram
 
+import com.google.inject.Inject
 import com.tradingtool.core.model.telegram.TelegramSendFileRequest
 import com.tradingtool.core.model.telegram.TelegramSendResult
 import com.tradingtool.core.model.telegram.TelegramSendStatus
@@ -37,6 +38,7 @@ private data class UploadedFile(
 private val requestJson: Json = Json { ignoreUnknownKeys = true }
 
 class TelegramResource(
+    @Inject
     private val telegramSender: TelegramSender,
 ) {
     fun register(route: Route) {
@@ -244,7 +246,7 @@ class TelegramResource(
 }
 
 fun Route.registerTelegramResource(
-    telegramSender: TelegramSender,
+    resource: TelegramResource,
 ) {
-    TelegramResource(telegramSender).register(this)
+    resource.register(this)
 }

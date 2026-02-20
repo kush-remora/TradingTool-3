@@ -32,6 +32,11 @@
             <version>${kotlin.version}</version>
         </dependency>
         <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+            <version>7.0.0</version>
+        </dependency>
+        <dependency>
             <groupId>io.ktor</groupId>
             <artifactId>ktor-server-core-jvm</artifactId>
         </dependency>
