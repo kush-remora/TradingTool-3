@@ -34,3 +34,8 @@ supabase:
 deployment:
   renderExternalUrl: ${RENDER_EXTERNAL_URL:-https://tradingtool-3-service.onrender.com}
   githubPagesUrl: ${GITHUB_PAGES_URL:-https://kushb2.github.io/TradingTool-3/}
+
+kite:
+  apiKey: ${KITE_API_KEY:-}
+  apiSecret: ${KITE_API_SECRET:-}
+  accessToken: ${KITE_ACCESS_TOKEN:-}

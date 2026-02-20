@@ -15,6 +15,7 @@ data class AppConfig(
     val telegram: TelegramConfig,
     val supabase: SupabaseConfig,
     val deployment: DeploymentConfig,
+    val kite: KiteConfig,
 )
 
 data class ServerConfig(
@@ -48,6 +49,13 @@ data class SupabaseConfig(
 data class DeploymentConfig(
     val renderExternalUrl: String,
     val githubPagesUrl: String,
+)
+
+data class KiteConfig(
+    val apiKey: String,
+    val apiSecret: String,
+    // Short-lived token set via env or manual login. Empty = not yet authenticated.
+    val accessToken: String,
 )
 
 fun loadAppConfig(resourceName: String = defaultConfigFileName()): AppConfig {
@@ -162,6 +170,27 @@ fun loadAppConfig(resourceName: String = defaultConfigFileName()): AppConfig {
         ),
     )
 
+    val kite = KiteConfig(
+        apiKey = getString(
+            fileValues = fileValues,
+            yamlKey = "kite.apiKey",
+            envVars = listOf("KITE_API_KEY"),
+            defaultValue = "",
+        ),
+        apiSecret = getString(
+            fileValues = fileValues,
+            yamlKey = "kite.apiSecret",
+            envVars = listOf("KITE_API_SECRET"),
+            defaultValue = "",
+        ),
+        accessToken = getString(
+            fileValues = fileValues,
+            yamlKey = "kite.accessToken",
+            envVars = listOf("KITE_ACCESS_TOKEN"),
+            defaultValue = "",
+        ),
+    )
+
     return AppConfig(
         server = server,
         service = service,
@@ -169,6 +198,7 @@ fun loadAppConfig(resourceName: String = defaultConfigFileName()): AppConfig {
         telegram = telegram,
         supabase = supabase,
         deployment = deployment,
+        kite = kite,
     )
 }
 

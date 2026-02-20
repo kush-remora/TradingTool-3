@@ -68,6 +68,20 @@
             <version>42.7.2</version>
         </dependency>
 
+        <!-- Kite Connect Java SDK -->
+        <dependency>
+            <groupId>com.zerodhatech.kiteconnect</groupId>
+            <artifactId>kiteconnect</artifactId>
+            <version>3.5.1</version>
+        </dependency>
+
+        <!-- ta4j — technical analysis + backtesting engine -->
+        <dependency>
+            <groupId>org.ta4j</groupId>
+            <artifactId>ta4j-core</artifactId>
+            <version>0.17</version>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

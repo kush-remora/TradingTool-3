@@ -31,6 +31,11 @@ class DropwizardConfig : Configuration() {
     @NotNull
     var deployment: DropwizardDeploymentConfig = DropwizardDeploymentConfig()
 
+    @JsonProperty("kite")
+    @Valid
+    @NotNull
+    var kite: DropwizardKiteConfig = DropwizardKiteConfig()
+
     fun toAppConfig(): AppConfig {
         val defaultAllowedOrigins = "https://kushb2.github.io,http://localhost:5173,http://127.0.0.1:5173"
         return AppConfig(
@@ -56,6 +61,11 @@ class DropwizardConfig : Configuration() {
             deployment = DeploymentConfig(
                 renderExternalUrl = deployment.renderExternalUrl ?: "",
                 githubPagesUrl = deployment.githubPagesUrl ?: "https://kushb2.github.io/TradingTool-3/",
+            ),
+            kite = KiteConfig(
+                apiKey = kite.apiKey ?: "",
+                apiSecret = kite.apiSecret ?: "",
+                accessToken = kite.accessToken ?: "",
             ),
         )
     }
@@ -123,4 +133,15 @@ class DropwizardDeploymentConfig {
 
     @JsonProperty("githubPagesUrl")
     var githubPagesUrl: String? = "https://kushb2.github.io/TradingTool-3/"
+}
+
+class DropwizardKiteConfig {
+    @JsonProperty("apiKey")
+    var apiKey: String? = ""
+
+    @JsonProperty("apiSecret")
+    var apiSecret: String? = ""
+
+    @JsonProperty("accessToken")
+    var accessToken: String? = ""
 }

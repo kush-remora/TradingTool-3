@@ -5,6 +5,8 @@ import com.google.inject.Provides
 import com.google.inject.Singleton
 import com.google.inject.name.Named
 import com.tradingtool.config.AppConfig
+import com.tradingtool.core.kite.InstrumentCache
+import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.database.WatchlistJdbiHandler
 import com.tradingtool.core.http.HttpRequestExecutor
@@ -35,6 +37,18 @@ class ServiceModule(
         bind(HealthResource::class.java).`in`(Singleton::class.java)
         bind(TelegramResource::class.java).`in`(Singleton::class.java)
         bind(WatchlistResource::class.java).`in`(Singleton::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideKiteConnectClient(config: AppConfig): KiteConnectClient {
+        return KiteConnectClient(config.kite)
+    }
+
+    @Provides
+    @Singleton
+    fun provideInstrumentCache(): InstrumentCache {
+        return InstrumentCache()
     }
 
     @Provides
