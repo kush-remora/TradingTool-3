@@ -39,3 +39,47 @@ export async function sendRequest(
 
   return payload;
 }
+
+export async function getJson<T>(path: string): Promise<T> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) {
+    throw new Error(`GET ${path} failed with status ${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+export async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(`POST ${path} failed with status ${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+export async function patchJson<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(`PATCH ${path} failed with status ${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+export async function deleteJson(path: string): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    method: "DELETE",
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) {
+    throw new Error(`DELETE ${path} failed with status ${response.status}`);
+  }
+}

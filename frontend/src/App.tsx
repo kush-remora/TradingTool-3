@@ -1,57 +1,115 @@
-import { Card, Col, Divider, Layout, Row, Space, Typography } from "antd";
-import { HealthStatus } from "./components/HealthStatus";
-import { TelegramSender } from "./components/TelegramSender";
-import { WatchlistTable } from "./components/WatchlistTable";
-import { PriceChart } from "./components/PriceChart";
-import { apiBaseUrl } from "./utils/api";
+import { useState } from "react";
+import { ConfigProvider, theme } from "antd";
+import { WatchlistSidebar } from "./components/WatchlistSidebar";
+import { StockDataGrid } from "./components/StockDataGrid";
+import { TelegramChatWidget } from "./components/TelegramChatWidget";
+import { useWatchlists } from "./hooks/useWatchlists";
+import { useWatchlistStocks } from "./hooks/useWatchlistStocks";
 
-const { Header, Content, Footer } = Layout;
-const { Title, Paragraph, Text } = Typography;
+const BG = "#0a0a0a";
+const BORDER = "#1f1f1f";
 
 export default function App() {
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  const {
+    watchlists,
+    loading: wlLoading,
+    createWatchlist,
+    renameWatchlist,
+    removeWatchlist,
+  } = useWatchlists();
+
+  const selectedWatchlist = watchlists.find((w) => w.id === selectedId);
+
+  const { rows, loading: stockLoading, error } = useWatchlistStocks(selectedId);
+
   return (
-    <Layout>
-      <Header>
-        <Title level={3} style={{ color: "white", margin: 0 }}>
-          TradingTool-3
-        </Title>
-      </Header>
-      <Content style={{ padding: 24 }}>
-        <Space direction="vertical" size="large" style={{ width: "100%" }}>
-          <Card>
-            <Title level={4}>React Setup</Title>
-            <Paragraph>
-              Frontend is configured with React + Ant Design, and the requested{" "}
-              <Text code>lightweight-charts-react</Text> dependency.
-            </Paragraph>
-            <Paragraph>
-              Backend base URL: <Text code>{apiBaseUrl}</Text>
-            </Paragraph>
-            <HealthStatus />
-          </Card>
+    <ConfigProvider
+      theme={{
+        algorithm: theme.darkAlgorithm,
+        token: {
+          colorBgBase: BG,
+          colorBgContainer: "#141414",
+          colorBorder: BORDER,
+          fontSize: 12,
+          borderRadius: 4,
+        },
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          height: "100vh",
+          width: "100vw",
+          background: BG,
+          overflow: "hidden",
+          fontFamily: "'Roboto Mono', 'JetBrains Mono', monospace",
+        }}
+      >
+        {/* Left sidebar */}
+        <WatchlistSidebar
+          watchlists={watchlists}
+          selectedId={selectedId}
+          loading={wlLoading}
+          onSelect={setSelectedId}
+          onCreate={async (name) => { await createWatchlist(name); }}
+          onRename={async (id, name) => { await renameWatchlist(id, name); }}
+          onDelete={async (id) => {
+            await removeWatchlist(id);
+            if (selectedId === id) setSelectedId(null);
+          }}
+        />
 
-          <TelegramSender />
+        {/* Main content */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          {/* Top bar */}
+          <div
+            style={{
+              padding: "0 12px",
+              height: 36,
+              borderBottom: `1px solid ${BORDER}`,
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              flexShrink: 0,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "#26a69a",
+                letterSpacing: 2,
+                fontFamily: "monospace",
+              }}
+            >
+              TRADINGTOOL
+            </span>
+            <span style={{ fontSize: 10, color: "#333" }}>|</span>
+            <span style={{ fontSize: 10, color: "#555" }}>
+              {new Date().toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })}
+            </span>
+          </div>
 
-          <Row gutter={[16, 16]}>
-            <Col xs={24} lg={12}>
-              <Card title="Watchlist (Ant Design Table)">
-                <WatchlistTable />
-              </Card>
-            </Col>
-            <Col xs={24} lg={12}>
-              <Card title="Chart Module">
-                <PriceChart />
-                <Divider />
-                <Paragraph type="secondary">
-                  UI components are built with Ant Design only, with no custom
-                  stylesheet files.
-                </Paragraph>
-              </Card>
-            </Col>
-          </Row>
-        </Space>
-      </Content>
-      <Footer style={{ textAlign: "center" }}>TradingTool-3 Frontend</Footer>
-    </Layout>
+          {/* Data grid */}
+          <div style={{ flex: 1, overflow: "hidden" }}>
+            <StockDataGrid
+              rows={rows}
+              loading={stockLoading}
+              error={error}
+              watchlistName={selectedWatchlist?.name}
+            />
+          </div>
+        </div>
+
+        {/* Telegram FAB */}
+        <TelegramChatWidget />
+      </div>
+    </ConfigProvider>
   );
 }
