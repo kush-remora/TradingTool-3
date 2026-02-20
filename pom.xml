@@ -12,7 +12,8 @@
 
     <modules>
         <module>core</module>
-        <module>service</module>
+        <module>resources</module>
+        <module>app</module>
         <module>event-service</module>
         <module>cron-job</module>
     </modules>
@@ -20,8 +21,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <kotlin.version>2.3.10</kotlin.version>
-        <ktor.version>3.4.0</ktor.version>
-        <kotlinx.serialization.version>1.10.0</kotlinx.serialization.version>
+        <dropwizard.version>4.0.9</dropwizard.version>
         <junit.version>6.0.3</junit.version>
         <maven.compiler.release>21</maven.compiler.release>
     </properties>
@@ -29,9 +29,9 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>io.ktor</groupId>
-                <artifactId>ktor-bom</artifactId>
-                <version>${ktor.version}</version>
+                <groupId>io.dropwizard</groupId>
+                <artifactId>dropwizard-bom</artifactId>
+                <version>${dropwizard.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

@@ -6,26 +6,27 @@ import com.tradingtool.core.model.telegram.TelegramSendResponse
 import com.tradingtool.core.model.telegram.TelegramSendResult
 import com.tradingtool.core.model.telegram.TelegramSendStatus
 import com.tradingtool.core.model.telegram.TelegramSendTextRequest
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.request.forms.MultiPartFormDataContent
-import io.ktor.client.request.forms.formData
-import io.ktor.client.request.forms.submitForm
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.client.statement.HttpResponse
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.Headers
-import io.ktor.http.HttpHeaders
-import io.ktor.http.parameters
+
+import kotlinx.coroutines.future.await
 import kotlinx.serialization.json.Json
+import java.io.ByteArrayOutputStream
+import java.net.URI
+import java.net.URLEncoder
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.nio.charset.StandardCharsets
+import java.time.Duration
 
 class TelegramSender(
     private val botToken: String,
     private val chatId: String,
-    private val httpClient: HttpClient = HttpClient(CIO),
+    private val httpClient: HttpClient = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(30))
+        .build(),
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) : AutoCloseable {
+
     fun isConfigured(): Boolean {
         return botToken.isNotBlank() && chatId.isNotBlank()
     }
@@ -35,19 +36,25 @@ class TelegramSender(
             return notConfiguredResult()
         }
 
-        val text: String = request.text.trim()
+        val text = request.text.trim()
         if (text.isEmpty()) {
             return badRequestResult("Text message cannot be empty.")
         }
 
         return runCatching {
-            val response: HttpResponse = httpClient.submitForm(
-                url = "$baseUrl/sendMessage",
-                formParameters = parameters {
-                    append("chat_id", chatId)
-                    append("text", text)
-                },
+            val formBody = buildFormUrlEncoded(
+                "chat_id" to chatId,
+                "text" to text,
             )
+
+            val httpRequest = HttpRequest.newBuilder()
+                .uri(URI.create("$baseUrl/sendMessage"))
+                .timeout(Duration.ofSeconds(60))
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .POST(HttpRequest.BodyPublishers.ofString(formBody))
+                .build()
+
+            val response = httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.ofString()).await()
             parseHttpResponse(response, successMessage = "Text sent to Telegram.")
         }.getOrElse { error ->
             failedResult(error.message ?: "Failed to send text to Telegram.")
@@ -89,7 +96,7 @@ class TelegramSender(
     }
 
     override fun close() {
-        httpClient.close()
+        // JDK HttpClient doesn't require explicit close
     }
 
     private suspend fun sendMultipartFile(
@@ -99,46 +106,104 @@ class TelegramSender(
         successMessage: String,
     ): TelegramSendResult {
         return runCatching {
-            val safeFileName: String = sanitizeFileName(request.fileName)
-            val response: HttpResponse = httpClient.post("$baseUrl/$method") {
-                setBody(
-                    MultiPartFormDataContent(
-                        parts = formData {
-                            append("chat_id", chatId)
-                            if (!request.caption.isNullOrBlank()) {
-                                append("caption", request.caption.trim())
-                            }
-                            append(
-                                key = fileFieldName,
-                                value = request.bytes,
-                                headers = Headers.build {
-                                    append(
-                                        HttpHeaders.ContentDisposition,
-                                        "filename=\"$safeFileName\"",
-                                    )
-                                    append(HttpHeaders.ContentType, request.contentType)
-                                },
-                            )
-                        },
-                    ),
-                )
-            }
+            val boundary = "----TelegramBoundary${System.currentTimeMillis()}"
+            val safeFileName = sanitizeFileName(request.fileName)
+
+            val multipartBody = buildMultipartBody(
+                boundary = boundary,
+                fileFieldName = fileFieldName,
+                fileBytes = request.bytes,
+                fileName = safeFileName,
+                contentType = request.contentType,
+                chatId = chatId,
+                caption = request.caption?.trim()?.takeIf { it.isNotEmpty() },
+            )
+
+            val httpRequest = HttpRequest.newBuilder()
+                .uri(URI.create("$baseUrl/$method"))
+                .timeout(Duration.ofSeconds(120))
+                .header("Content-Type", "multipart/form-data; boundary=$boundary")
+                .POST(HttpRequest.BodyPublishers.ofByteArray(multipartBody))
+                .build()
+
+            val response = httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.ofString()).await()
             parseHttpResponse(response, successMessage = successMessage)
         }.getOrElse { error ->
             failedResult(error.message ?: "Failed to upload file to Telegram.")
         }
     }
 
-    private suspend fun parseHttpResponse(
-        response: HttpResponse,
+    private fun buildMultipartBody(
+        boundary: String,
+        fileFieldName: String,
+        fileBytes: ByteArray,
+        fileName: String,
+        contentType: String,
+        chatId: String,
+        caption: String?,
+    ): ByteArray {
+        val output = ByteArrayOutputStream()
+        val lineEnd = "\r\n".toByteArray(StandardCharsets.UTF_8)
+        val boundaryBytes = "--$boundary".toByteArray(StandardCharsets.UTF_8)
+        val finalBoundaryBytes = "--$boundary--".toByteArray(StandardCharsets.UTF_8)
+
+        // chat_id field
+        output.write(boundaryBytes)
+        output.write(lineEnd)
+        output.write("Content-Disposition: form-data; name=\"chat_id\"".toByteArray(StandardCharsets.UTF_8))
+        output.write(lineEnd)
+        output.write(lineEnd)
+        output.write(chatId.toByteArray(StandardCharsets.UTF_8))
+        output.write(lineEnd)
+
+        // caption field (optional)
+        if (caption != null) {
+            output.write(boundaryBytes)
+            output.write(lineEnd)
+            output.write("Content-Disposition: form-data; name=\"caption\"".toByteArray(StandardCharsets.UTF_8))
+            output.write(lineEnd)
+            output.write(lineEnd)
+            output.write(caption.toByteArray(StandardCharsets.UTF_8))
+            output.write(lineEnd)
+        }
+
+        // file field
+        output.write(boundaryBytes)
+        output.write(lineEnd)
+        output.write(
+            "Content-Disposition: form-data; name=\"$fileFieldName\"; filename=\"$fileName\""
+                .toByteArray(StandardCharsets.UTF_8)
+        )
+        output.write(lineEnd)
+        output.write("Content-Type: $contentType".toByteArray(StandardCharsets.UTF_8))
+        output.write(lineEnd)
+        output.write(lineEnd)
+        output.write(fileBytes)
+        output.write(lineEnd)
+
+        // final boundary
+        output.write(finalBoundaryBytes)
+        output.write(lineEnd)
+
+        return output.toByteArray()
+    }
+
+    private fun buildFormUrlEncoded(vararg pairs: Pair<String, String>): String {
+        return pairs.joinToString("&") { (key, value) ->
+            "${URLEncoder.encode(key, StandardCharsets.UTF_8)}=${URLEncoder.encode(value, StandardCharsets.UTF_8)}"
+        }
+    }
+
+    private fun parseHttpResponse(
+        response: HttpResponse<String>,
         successMessage: String,
     ): TelegramSendResult {
-        val responseText: String = response.bodyAsText()
-        val parsedResponse: TelegramApiResponse = parseTelegramResponse(responseText)
+        val responseText = response.body() ?: ""
+        val parsedResponse = parseTelegramResponse(responseText)
 
-        if (response.status.value !in 200..299 || !parsedResponse.ok) {
-            val description: String = parsedResponse.description
-                ?: "Telegram API request failed with status ${response.status.value}."
+        if (response.statusCode() !in 200..299 || !parsedResponse.ok) {
+            val description = parsedResponse.description
+                ?: "Telegram API request failed with status ${response.statusCode()}."
             return failedResult(description)
         }
 
@@ -164,12 +229,12 @@ class TelegramSender(
     }
 
     private fun isImageFile(request: TelegramSendFileRequest): Boolean {
-        val lowerContentType: String = request.contentType.lowercase()
+        val lowerContentType = request.contentType.lowercase()
         if (lowerContentType.startsWith("image/")) {
             return true
         }
 
-        val lowerName: String = request.fileName.lowercase()
+        val lowerName = request.fileName.lowercase()
         return lowerName.endsWith(".png")
             || lowerName.endsWith(".jpg")
             || lowerName.endsWith(".jpeg")
@@ -177,18 +242,18 @@ class TelegramSender(
     }
 
     private fun isExcelFile(request: TelegramSendFileRequest): Boolean {
-        val lowerName: String = request.fileName.lowercase()
+        val lowerName = request.fileName.lowercase()
         if (lowerName.endsWith(".xls") || lowerName.endsWith(".xlsx")) {
             return true
         }
 
-        val lowerContentType: String = request.contentType.lowercase()
+        val lowerContentType = request.contentType.lowercase()
         return lowerContentType == "application/vnd.ms-excel"
             || lowerContentType == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     }
 
     private fun sanitizeFileName(fileName: String): String {
-        val cleanName: String = fileName.trim().replace("\"", "")
+        val cleanName = fileName.trim().replace("\"", "")
         if (cleanName.isBlank()) {
             return "upload.bin"
         }
