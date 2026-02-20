@@ -19,7 +19,7 @@ interface Props {
   selectedId: number | null;
   loading: boolean;
   onSelect: (id: number) => void;
-  onCreate: (name: string) => Promise<void>;
+  onCreate: (name: string, description: string) => Promise<void>;
   onRename: (id: number, name: string) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
 }
@@ -35,6 +35,7 @@ export function WatchlistSidebar({
 }: Props) {
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
+  const [createDescription, setCreateDescription] = useState("");
   const [createBusy, setCreateBusy] = useState(false);
 
   const [renameId, setRenameId] = useState<number | null>(null);
@@ -45,8 +46,9 @@ export function WatchlistSidebar({
     if (!createName.trim()) return;
     setCreateBusy(true);
     try {
-      await onCreate(createName.trim());
+      await onCreate(createName.trim(), createDescription.trim());
       setCreateName("");
+      setCreateDescription("");
       setCreateOpen(false);
     } finally {
       setCreateBusy(false);
@@ -133,7 +135,11 @@ export function WatchlistSidebar({
         open={createOpen}
         title={<span style={{ fontSize: 12, color: C.text }}>New Watchlist</span>}
         onOk={() => void handleCreate()}
-        onCancel={() => { setCreateOpen(false); setCreateName(""); }}
+        onCancel={() => {
+          setCreateOpen(false);
+          setCreateName("");
+          setCreateDescription("");
+        }}
         confirmLoading={createBusy}
         style={{ background: C.panel }}
         width={280}
@@ -146,6 +152,13 @@ export function WatchlistSidebar({
           onChange={(e) => setCreateName(e.target.value)}
           onPressEnter={() => void handleCreate()}
           autoFocus
+        />
+        <Input
+          size="small"
+          placeholder="Description"
+          value={createDescription}
+          onChange={(e) => setCreateDescription(e.target.value)}
+          style={{ marginTop: 8 }}
         />
       </Modal>
 

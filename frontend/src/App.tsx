@@ -53,7 +53,7 @@ export default function App() {
           selectedId={selectedId}
           loading={wlLoading}
           onSelect={setSelectedId}
-          onCreate={async (name) => { await createWatchlist(name); }}
+          onCreate={async (name, description) => { await createWatchlist(name, description); }}
           onRename={async (id, name) => { await renameWatchlist(id, name); }}
           onDelete={async (id) => {
             await removeWatchlist(id);
