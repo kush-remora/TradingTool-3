@@ -1,4 +1,8 @@
-const DEFAULT_API_BASE_URL = "https://tradingtool-3-service.onrender.com";
+const DEV_API_BASE_URL = "http://localhost:8080";
+const PROD_API_BASE_URL = "https://tradingtool-3-service.onrender.com";
+const DEFAULT_API_BASE_URL = import.meta.env.DEV
+  ? DEV_API_BASE_URL
+  : PROD_API_BASE_URL;
 
 export const apiBaseUrl = (
   import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL
