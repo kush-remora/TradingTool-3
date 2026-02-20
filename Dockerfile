@@ -2,7 +2,11 @@ FROM maven:3.9.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
 
 COPY pom.xml ./
+COPY Models Models
 COPY core core
+COPY resources resources
+COPY event-service event-service
+COPY cron-job cron-job
 COPY service service
 
 RUN mvn -pl service -am clean package -DskipTests
