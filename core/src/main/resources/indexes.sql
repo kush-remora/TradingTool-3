@@ -1,30 +1,29 @@
 -- =================================================================
 -- indexes.sql
 --
--- Description: Extra indexes for watchlist feature queries.
--- Note: PK + UNIQUE indexes are auto-created by PostgreSQL.
+-- Description: All indexes are now defined in tables.sql
+-- This file contains optional additional performance indexes
 -- =================================================================
 
--- Find all watchlists that include a given stock.
-CREATE INDEX IF NOT EXISTS idx_watchlist_stocks_stock_id
-    ON public.watchlist_stocks(stock_id);
+-- NOTE: Core indexes are defined in tables.sql:
+--   - idx_stocks_symbol
+--   - idx_stocks_instrument_token
+--   - idx_watchlist_stocks_watchlist_id
+--   - idx_watchlist_stocks_stock_id
+--   - idx_tags_name
+--   - idx_stock_tags_stock_id
+--   - idx_stock_tags_tag_id
+--   - idx_watchlist_tags_watchlist_id
+--   - idx_watchlist_tags_tag_id
 
--- Fast filter for stocks by tag values in v1 (tags is TEXT[]).
-CREATE INDEX IF NOT EXISTS idx_stocks_tags_gin
-    ON public.stocks USING GIN(tags);
-
--- Optional read optimization for recent additions to watchlists.
+-- Optional: Index for recent additions to watchlists
 CREATE INDEX IF NOT EXISTS idx_watchlist_stocks_created_at
     ON public.watchlist_stocks(created_at DESC);
 
--- Fast lookups for tags assigned to stocks/watchlists via shared link table.
-CREATE INDEX IF NOT EXISTS idx_tag_links_tag_id
-    ON public.tag_links(tag_id);
+-- Optional: Index for recent stock additions
+CREATE INDEX IF NOT EXISTS idx_stocks_created_at
+    ON public.stocks(created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_tag_links_stock_id
-    ON public.tag_links(stock_id)
-    WHERE stock_id IS NOT NULL;
-
-CREATE INDEX IF NOT EXISTS idx_tag_links_watchlist_id
-    ON public.tag_links(watchlist_id)
-    WHERE watchlist_id IS NOT NULL;
+-- Optional: Composite index for filtering stocks by exchange and symbol
+CREATE INDEX IF NOT EXISTS idx_stocks_exchange_symbol
+    ON public.stocks(exchange, symbol);

@@ -1,0 +1,37 @@
+server:
+  applicationConnectors:
+    - type: http
+      port: ${PORT:-8080}
+  adminConnectors:
+    - type: http
+      port: 8081
+
+database:
+  driverClass: org.postgresql.Driver
+  url: ${SUPABASE_DB_URL:-jdbc:postgresql://localhost:5432/postgres}
+  user: ${SUPABASE_DB_USER:-postgres}
+  password: ${SUPABASE_DB_PASSWORD:-}
+  validationQuery: "SELECT 1"
+  minSize: 2
+  maxSize: 10
+  checkConnectionWhileIdle: true
+  evictionInterval: 10s
+  minIdleTime: 1 minute
+
+telegram:
+  botToken: ${TELEGRAM_BOT_TOKEN:-""}
+  chatId: ${TELEGRAM_CHAT_ID:-""}
+  webhookSecret: ${TELEGRAM_WEBHOOK_SECRET:-""}
+
+cors:
+  allowedOrigins: ${CORS_ALLOWED_ORIGINS:-"https://kushb2.github.io,http://localhost:5173"}
+
+logging:
+  level: INFO
+  loggers:
+    com.tradingtool: DEBUG
+  appenders:
+    - type: console
+      threshold: INFO
+      target: stdout
+      logFormat: "%-5level [%date{ISO8601}] %logger{36} - %msg%n"
