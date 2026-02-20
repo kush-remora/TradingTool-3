@@ -1,54 +1,61 @@
 package com.tradingtool.resources.watchlist
 
-import com.tradingtool.core.model.watchlist.*
-import com.tradingtool.core.watchlist.service.WatchlistService
-import com.tradingtool.core.watchlist.service.WatchlistServiceError
-import com.tradingtool.core.watchlist.service.WatchlistServiceNotConfiguredError
-import com.tradingtool.core.watchlist.service.WatchlistValidationError
-import jakarta.ws.rs.*
+import com.tradingtool.core.model.JdbiHandlerError
+import com.tradingtool.core.model.JdbiNotConfiguredError
+import com.tradingtool.core.model.watchlist.CreateStockInput
+import com.tradingtool.core.model.watchlist.CreateWatchlistInput
+import com.tradingtool.core.model.watchlist.CreateWatchlistStockInput
+import com.tradingtool.core.model.watchlist.StockUpdateField
+import com.tradingtool.core.model.watchlist.UpdateStockInput
+import com.tradingtool.core.model.watchlist.UpdateStockPayload
+import com.tradingtool.core.model.watchlist.UpdateWatchlistInput
+import com.tradingtool.core.model.watchlist.UpdateWatchlistPayload
+import com.tradingtool.core.model.watchlist.WatchlistUpdateField
+import com.tradingtool.core.watchlist.service.WatchlistReadService
+import com.tradingtool.core.watchlist.service.WatchlistWriteService
+import jakarta.ws.rs.Consumes
+import jakarta.ws.rs.DELETE
+import jakarta.ws.rs.GET
+import jakarta.ws.rs.PATCH
+import jakarta.ws.rs.POST
+import jakarta.ws.rs.Path
+import jakarta.ws.rs.PathParam
+import jakarta.ws.rs.Produces
+import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.future.asCompletableFuture
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import java.util.concurrent.CompletableFuture
 
 @Path("/api/watchlist")
 class WatchlistResource(
-    private val watchlistService: WatchlistService,
+    private val readService: WatchlistReadService,
+    private val writeService: WatchlistWriteService,
 ) {
     private val ioScope = CoroutineScope(Dispatchers.IO)
-    private val json = Json { ignoreUnknownKeys = true }
 
-    // Table access check
     @GET
     @Path("tables")
     @Produces(MediaType.APPLICATION_JSON)
     fun getTables(): CompletableFuture<Response> = ioScope.async {
-        runService {
-            val statuses = watchlistService.checkTablesAccess()
-            Response.ok(json.encodeToString(statuses)).type(MediaType.APPLICATION_JSON).build()
+        runResourceAction {
+            ok(readService.checkTablesAccess())
         }
     }.asCompletableFuture()
 
-    // Stock endpoints
     @POST
     @Path("stocks")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    fun createStock(body: String): CompletableFuture<Response> = ioScope.async {
-        val payload = parseBody<CreateStockInput>(body)
+    fun createStock(body: CreateStockInput?): CompletableFuture<Response> = ioScope.async {
+        val payload: CreateStockInput = body
             ?: return@async badRequest("Invalid request body for create stock")
 
-        runService {
-            val created = watchlistService.createStock(payload)
-            Response.status(201).entity(json.encodeToString(created)).type(MediaType.APPLICATION_JSON).build()
+        runResourceAction {
+            created(writeService.createStock(payload))
         }
     }.asCompletableFuture()
 
@@ -56,11 +63,11 @@ class WatchlistResource(
     @Path("stocks")
     @Produces(MediaType.APPLICATION_JSON)
     fun listStocks(@QueryParam("limit") limitParam: String?): CompletableFuture<Response> = ioScope.async {
-        val limit = parseLimit(limitParam) ?: return@async badRequest("Invalid limit parameter")
+        val limit: Int = parseLimit(limitParam)
+            ?: return@async badRequest("Query parameter 'limit' must be a positive integer")
 
-        runService {
-            val stocks = watchlistService.listStocks(limit)
-            Response.ok(json.encodeToString(stocks)).type(MediaType.APPLICATION_JSON).build()
+        runResourceAction {
+            ok(readService.listStocks(limit))
         }
     }.asCompletableFuture()
 
@@ -68,11 +75,16 @@ class WatchlistResource(
     @Path("stocks/{stockId}")
     @Produces(MediaType.APPLICATION_JSON)
     fun getStockById(@PathParam("stockId") stockId: String): CompletableFuture<Response> = ioScope.async {
-        val id = parseLongPathParam(stockId, "stockId")
+        val id: Long = parseLongPathParam(stockId)
             ?: return@async badRequest("Path parameter 'stockId' must be a valid integer")
 
-        runNullableService(entityName = "Stock", entityId = id.toString()) {
-            watchlistService.getStockById(id)
+        runResourceAction {
+            val stock = readService.getStockById(id)
+            if (stock == null) {
+                notFound("Stock '$id' not found")
+            } else {
+                ok(stock)
+            }
         }
     }.asCompletableFuture()
 
@@ -80,10 +92,18 @@ class WatchlistResource(
     @Path("stocks/by-symbol/{nseSymbol}")
     @Produces(MediaType.APPLICATION_JSON)
     fun getStockBySymbol(@PathParam("nseSymbol") nseSymbol: String?): CompletableFuture<Response> = ioScope.async {
-        val symbol = nseSymbol?.trim() ?: return@async badRequest("Path parameter 'nseSymbol' is required")
+        val symbol: String = nseSymbol?.trim().orEmpty()
+        if (symbol.isEmpty()) {
+            return@async badRequest("Path parameter 'nseSymbol' is required")
+        }
 
-        runNullableService(entityName = "Stock", entityId = symbol) {
-            watchlistService.getStockByNseSymbol(symbol)
+        runResourceAction {
+            val stock = readService.getStockBySymbol(symbol = symbol, exchange = DEFAULT_STOCK_EXCHANGE)
+            if (stock == null) {
+                notFound("Stock '$symbol' not found")
+            } else {
+                ok(stock)
+            }
         }
     }.asCompletableFuture()
 
@@ -91,15 +111,23 @@ class WatchlistResource(
     @Path("stocks/{stockId}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    fun updateStock(@PathParam("stockId") stockId: String, body: String): CompletableFuture<Response> = ioScope.async {
-        val id = parseLongPathParam(stockId, "stockId")
+    fun updateStock(
+        @PathParam("stockId") stockId: String,
+        body: UpdateStockPayload?,
+    ): CompletableFuture<Response> = ioScope.async {
+        val id: Long = parseLongPathParam(stockId)
             ?: return@async badRequest("Path parameter 'stockId' must be a valid integer")
 
-        val inputData = parseUpdateStockBody(body)
-            ?: return@async badRequest("Invalid request body for update stock")
+        val input: UpdateStockInput = toUpdateStockInput(body)
+            ?: return@async badRequest("At least one updatable stock field is required")
 
-        runNullableService(entityName = "Stock", entityId = id.toString()) {
-            watchlistService.updateStock(id, inputData)
+        runResourceAction {
+            val updated = writeService.updateStock(id, input)
+            if (updated == null) {
+                notFound("Stock '$id' not found")
+            } else {
+                ok(updated)
+            }
         }
     }.asCompletableFuture()
 
@@ -107,31 +135,29 @@ class WatchlistResource(
     @Path("stocks/{stockId}")
     @Produces(MediaType.APPLICATION_JSON)
     fun deleteStock(@PathParam("stockId") stockId: String): CompletableFuture<Response> = ioScope.async {
-        val id = parseLongPathParam(stockId, "stockId")
+        val id: Long = parseLongPathParam(stockId)
             ?: return@async badRequest("Path parameter 'stockId' must be a valid integer")
 
-        runService {
-            val deleted = watchlistService.deleteStock(id)
-            if (deleted) {
-                Response.ok("""{"deleted":true}""").type(MediaType.APPLICATION_JSON).build()
+        runResourceAction {
+            val affectedRows = writeService.deleteStock(id)
+            if (affectedRows > 0) {
+                ok(DeleteResponse(deleted = true))
             } else {
                 notFound("Stock '$id' not found")
             }
         }
     }.asCompletableFuture()
 
-    // Watchlist endpoints
     @POST
     @Path("lists")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    fun createWatchlist(body: String): CompletableFuture<Response> = ioScope.async {
-        val payload = parseBody<CreateWatchlistInput>(body)
+    fun createWatchlist(body: CreateWatchlistInput?): CompletableFuture<Response> = ioScope.async {
+        val payload: CreateWatchlistInput = body
             ?: return@async badRequest("Invalid request body for create watchlist")
 
-        runService {
-            val created = watchlistService.createWatchlist(payload)
-            Response.status(201).entity(json.encodeToString(created)).type(MediaType.APPLICATION_JSON).build()
+        runResourceAction {
+            created(writeService.createWatchlist(payload))
         }
     }.asCompletableFuture()
 
@@ -139,11 +165,11 @@ class WatchlistResource(
     @Path("lists")
     @Produces(MediaType.APPLICATION_JSON)
     fun listWatchlists(@QueryParam("limit") limitParam: String?): CompletableFuture<Response> = ioScope.async {
-        val limit = parseLimit(limitParam) ?: return@async badRequest("Invalid limit parameter")
+        val limit: Int = parseLimit(limitParam)
+            ?: return@async badRequest("Query parameter 'limit' must be a positive integer")
 
-        runService {
-            val watchlists = watchlistService.listWatchlists(limit)
-            Response.ok(json.encodeToString(watchlists)).type(MediaType.APPLICATION_JSON).build()
+        runResourceAction {
+            ok(readService.listWatchlists(limit))
         }
     }.asCompletableFuture()
 
@@ -151,11 +177,16 @@ class WatchlistResource(
     @Path("lists/{watchlistId}")
     @Produces(MediaType.APPLICATION_JSON)
     fun getWatchlistById(@PathParam("watchlistId") watchlistId: String): CompletableFuture<Response> = ioScope.async {
-        val id = parseLongPathParam(watchlistId, "watchlistId")
+        val id: Long = parseLongPathParam(watchlistId)
             ?: return@async badRequest("Path parameter 'watchlistId' must be a valid integer")
 
-        runNullableService(entityName = "Watchlist", entityId = id.toString()) {
-            watchlistService.getWatchlistById(id)
+        runResourceAction {
+            val watchlist = readService.getWatchlistById(id)
+            if (watchlist == null) {
+                notFound("Watchlist '$id' not found")
+            } else {
+                ok(watchlist)
+            }
         }
     }.asCompletableFuture()
 
@@ -163,10 +194,18 @@ class WatchlistResource(
     @Path("lists/by-name/{name}")
     @Produces(MediaType.APPLICATION_JSON)
     fun getWatchlistByName(@PathParam("name") name: String?): CompletableFuture<Response> = ioScope.async {
-        val watchlistName = name?.trim() ?: return@async badRequest("Path parameter 'name' is required")
+        val watchlistName: String = name?.trim().orEmpty()
+        if (watchlistName.isEmpty()) {
+            return@async badRequest("Path parameter 'name' is required")
+        }
 
-        runNullableService(entityName = "Watchlist", entityId = watchlistName) {
-            watchlistService.getWatchlistByName(watchlistName)
+        runResourceAction {
+            val watchlist = readService.getWatchlistByName(watchlistName)
+            if (watchlist == null) {
+                notFound("Watchlist '$watchlistName' not found")
+            } else {
+                ok(watchlist)
+            }
         }
     }.asCompletableFuture()
 
@@ -174,15 +213,23 @@ class WatchlistResource(
     @Path("lists/{watchlistId}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    fun updateWatchlist(@PathParam("watchlistId") watchlistId: String, body: String): CompletableFuture<Response> = ioScope.async {
-        val id = parseLongPathParam(watchlistId, "watchlistId")
+    fun updateWatchlist(
+        @PathParam("watchlistId") watchlistId: String,
+        body: UpdateWatchlistPayload?,
+    ): CompletableFuture<Response> = ioScope.async {
+        val id: Long = parseLongPathParam(watchlistId)
             ?: return@async badRequest("Path parameter 'watchlistId' must be a valid integer")
 
-        val inputData = parseUpdateWatchlistBody(body)
-            ?: return@async badRequest("Invalid request body for update watchlist")
+        val input: UpdateWatchlistInput = toUpdateWatchlistInput(body)
+            ?: return@async badRequest("At least one updatable watchlist field is required")
 
-        runNullableService(entityName = "Watchlist", entityId = id.toString()) {
-            watchlistService.updateWatchlist(id, inputData)
+        runResourceAction {
+            val updated = writeService.updateWatchlist(id, input)
+            if (updated == null) {
+                notFound("Watchlist '$id' not found")
+            } else {
+                ok(updated)
+            }
         }
     }.asCompletableFuture()
 
@@ -190,31 +237,29 @@ class WatchlistResource(
     @Path("lists/{watchlistId}")
     @Produces(MediaType.APPLICATION_JSON)
     fun deleteWatchlist(@PathParam("watchlistId") watchlistId: String): CompletableFuture<Response> = ioScope.async {
-        val id = parseLongPathParam(watchlistId, "watchlistId")
+        val id: Long = parseLongPathParam(watchlistId)
             ?: return@async badRequest("Path parameter 'watchlistId' must be a valid integer")
 
-        runService {
-            val deleted = watchlistService.deleteWatchlist(id)
-            if (deleted) {
-                Response.ok("""{"deleted":true}""").type(MediaType.APPLICATION_JSON).build()
+        runResourceAction {
+            val affectedRows = writeService.deleteWatchlist(id)
+            if (affectedRows > 0) {
+                ok(DeleteResponse(deleted = true))
             } else {
                 notFound("Watchlist '$id' not found")
             }
         }
     }.asCompletableFuture()
 
-    // Watchlist-Stock mapping endpoints
     @POST
     @Path("items")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    fun createWatchlistStock(body: String): CompletableFuture<Response> = ioScope.async {
-        val payload = parseBody<CreateWatchlistStockInput>(body)
+    fun createWatchlistStock(body: CreateWatchlistStockInput?): CompletableFuture<Response> = ioScope.async {
+        val payload: CreateWatchlistStockInput = body
             ?: return@async badRequest("Invalid request body for create watchlist stock mapping")
 
-        runService {
-            val created = watchlistService.createWatchlistStock(payload)
-            Response.status(201).entity(json.encodeToString(created)).type(MediaType.APPLICATION_JSON).build()
+        runResourceAction {
+            created(writeService.createWatchlistStock(payload))
         }
     }.asCompletableFuture()
 
@@ -225,13 +270,18 @@ class WatchlistResource(
         @PathParam("watchlistId") watchlistId: String,
         @PathParam("stockId") stockId: String,
     ): CompletableFuture<Response> = ioScope.async {
-        val wid = parseLongPathParam(watchlistId, "watchlistId")
+        val watchlistIdValue: Long = parseLongPathParam(watchlistId)
             ?: return@async badRequest("Path parameter 'watchlistId' must be a valid integer")
-        val sid = parseLongPathParam(stockId, "stockId")
+        val stockIdValue: Long = parseLongPathParam(stockId)
             ?: return@async badRequest("Path parameter 'stockId' must be a valid integer")
 
-        runNullableService(entityName = "Mapping", entityId = "$wid:$sid") {
-            watchlistService.getWatchlistStock(wid, sid)
+        runResourceAction {
+            val mapping = readService.getWatchlistStock(watchlistIdValue, stockIdValue)
+            if (mapping == null) {
+                notFound("Mapping '$watchlistIdValue:$stockIdValue' not found")
+            } else {
+                ok(mapping)
+            }
         }
     }.asCompletableFuture()
 
@@ -239,12 +289,11 @@ class WatchlistResource(
     @Path("lists/{watchlistId}/items")
     @Produces(MediaType.APPLICATION_JSON)
     fun listWatchlistItems(@PathParam("watchlistId") watchlistId: String): CompletableFuture<Response> = ioScope.async {
-        val wid = parseLongPathParam(watchlistId, "watchlistId")
+        val watchlistIdValue: Long = parseLongPathParam(watchlistId)
             ?: return@async badRequest("Path parameter 'watchlistId' must be a valid integer")
 
-        runService {
-            val mappings = watchlistService.listStocksForWatchlist(wid)
-            Response.ok(json.encodeToString(mappings)).type(MediaType.APPLICATION_JSON).build()
+        runResourceAction {
+            ok(readService.getWatchlistStocksForWatchlist(watchlistIdValue))
         }
     }.asCompletableFuture()
 
@@ -255,20 +304,21 @@ class WatchlistResource(
     fun updateWatchlistStock(
         @PathParam("watchlistId") watchlistId: String,
         @PathParam("stockId") stockId: String,
-        body: String,
-    ): CompletableFuture<Response> = ioScope.async {
-        val wid = parseLongPathParam(watchlistId, "watchlistId")
-            ?: return@async badRequest("Path parameter 'watchlistId' must be a valid integer")
-        val sid = parseLongPathParam(stockId, "stockId")
-            ?: return@async badRequest("Path parameter 'stockId' must be a valid integer")
-
-        val inputData = parseUpdateWatchlistStockBody(body)
-            ?: return@async badRequest("Invalid request body for update watchlist stock mapping")
-
-        runNullableService(entityName = "Mapping", entityId = "$wid:$sid") {
-            watchlistService.updateWatchlistStock(wid, sid, inputData)
+    ): Response {
+        val watchlistIdValue: Long? = parseLongPathParam(watchlistId)
+        val stockIdValue: Long? = parseLongPathParam(stockId)
+        if (watchlistIdValue == null || stockIdValue == null) {
+            return badRequest("Path parameters 'watchlistId' and 'stockId' must be valid integers")
         }
-    }.asCompletableFuture()
+
+        return Response.status(501)
+            .entity(
+                ErrorResponse(
+                    detail = "Watchlist item update is not supported. Delete and recreate the mapping instead.",
+                ),
+            )
+            .build()
+    }
 
     @DELETE
     @Path("items/{watchlistId}/{stockId}")
@@ -277,62 +327,75 @@ class WatchlistResource(
         @PathParam("watchlistId") watchlistId: String,
         @PathParam("stockId") stockId: String,
     ): CompletableFuture<Response> = ioScope.async {
-        val wid = parseLongPathParam(watchlistId, "watchlistId")
+        val watchlistIdValue: Long = parseLongPathParam(watchlistId)
             ?: return@async badRequest("Path parameter 'watchlistId' must be a valid integer")
-        val sid = parseLongPathParam(stockId, "stockId")
+        val stockIdValue: Long = parseLongPathParam(stockId)
             ?: return@async badRequest("Path parameter 'stockId' must be a valid integer")
 
-        runService {
-            val deleted = watchlistService.deleteWatchlistStock(wid, sid)
-            if (deleted) {
-                Response.ok("""{"deleted":true}""").type(MediaType.APPLICATION_JSON).build()
+        runResourceAction {
+            val affectedRows = writeService.deleteWatchlistStock(watchlistIdValue, stockIdValue)
+            if (affectedRows > 0) {
+                ok(DeleteResponse(deleted = true))
             } else {
-                notFound("Mapping '$wid:$sid' not found")
+                notFound("Mapping '$watchlistIdValue:$stockIdValue' not found")
             }
         }
     }.asCompletableFuture()
 
-    // Helper functions for PATCH field detection
-    private fun parseUpdateStockBody(body: String): UpdateStockInput? {
-        val bodyObject = runCatching {
-            json.parseToJsonElement(body) as? JsonObject
-        }.getOrNull() ?: return null
+    private suspend fun runResourceAction(operation: suspend () -> Response): Response {
+        return try {
+            operation()
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid request")
+        } catch (error: JdbiNotConfiguredError) {
+            serviceUnavailable(error.message ?: "Database is not configured")
+        } catch (error: JdbiHandlerError) {
+            internalError(error.message ?: "Database error")
+        } catch (error: Exception) {
+            internalError(error.message ?: "Unexpected watchlist error")
+        }
+    }
 
-        val payload = runCatching {
-            json.decodeFromJsonElement(UpdateStockPayload.serializer(), bodyObject)
-        }.getOrNull() ?: return null
+    private fun toUpdateStockInput(payload: UpdateStockPayload?): UpdateStockInput? {
+        if (payload == null) {
+            return null
+        }
 
-        val fieldsToUpdate = mutableSetOf<StockUpdateField>()
-        if (bodyObject.containsKey("company_name")) fieldsToUpdate.add(StockUpdateField.COMPANY_NAME)
-        if (bodyObject.containsKey("groww_symbol")) fieldsToUpdate.add(StockUpdateField.GROWW_SYMBOL)
-        if (bodyObject.containsKey("kite_symbol")) fieldsToUpdate.add(StockUpdateField.KITE_SYMBOL)
-        if (bodyObject.containsKey("description")) fieldsToUpdate.add(StockUpdateField.DESCRIPTION)
-        if (bodyObject.containsKey("rating")) fieldsToUpdate.add(StockUpdateField.RATING)
-        if (bodyObject.containsKey("tags")) fieldsToUpdate.add(StockUpdateField.TAGS)
+        val fieldsToUpdate: MutableSet<StockUpdateField> = mutableSetOf()
+        if (payload.companyName != null) {
+            fieldsToUpdate.add(StockUpdateField.COMPANY_NAME)
+        }
+        if (payload.exchange != null) {
+            fieldsToUpdate.add(StockUpdateField.EXCHANGE)
+        }
+
+        if (fieldsToUpdate.isEmpty()) {
+            return null
+        }
 
         return UpdateStockInput(
             fieldsToUpdate = fieldsToUpdate,
             companyName = payload.companyName,
-            growwSymbol = payload.growwSymbol,
-            kiteSymbol = payload.kiteSymbol,
-            description = payload.description,
-            rating = payload.rating,
-            tags = payload.tags,
+            exchange = payload.exchange,
         )
     }
 
-    private fun parseUpdateWatchlistBody(body: String): UpdateWatchlistInput? {
-        val bodyObject = runCatching {
-            json.parseToJsonElement(body) as? JsonObject
-        }.getOrNull() ?: return null
+    private fun toUpdateWatchlistInput(payload: UpdateWatchlistPayload?): UpdateWatchlistInput? {
+        if (payload == null) {
+            return null
+        }
 
-        val payload = runCatching {
-            json.decodeFromJsonElement(UpdateWatchlistPayload.serializer(), bodyObject)
-        }.getOrNull() ?: return null
+        val fieldsToUpdate: MutableSet<WatchlistUpdateField> = mutableSetOf()
+        if (payload.name != null) {
+            fieldsToUpdate.add(WatchlistUpdateField.NAME)
+        }
+        if (payload.description != null) {
+            fieldsToUpdate.add(WatchlistUpdateField.DESCRIPTION)
+        }
 
-        val fieldsToUpdate = mutableSetOf<WatchlistUpdateField>()
-        if (bodyObject.containsKey("name")) fieldsToUpdate.add(WatchlistUpdateField.NAME)
-        if (bodyObject.containsKey("description")) fieldsToUpdate.add(WatchlistUpdateField.DESCRIPTION)
+        if (fieldsToUpdate.isEmpty()) {
+            return null
+        }
 
         return UpdateWatchlistInput(
             fieldsToUpdate = fieldsToUpdate,
@@ -341,88 +404,62 @@ class WatchlistResource(
         )
     }
 
-    private fun parseUpdateWatchlistStockBody(body: String): UpdateWatchlistStockInput? {
-        val bodyObject = runCatching {
-            json.parseToJsonElement(body) as? JsonObject
-        }.getOrNull() ?: return null
+    private fun parseLongPathParam(value: String?): Long? {
+        val rawValue = value?.trim().orEmpty()
+        if (rawValue.isEmpty()) {
+            return null
+        }
 
-        val payload = runCatching {
-            json.decodeFromJsonElement(UpdateWatchlistStockPayload.serializer(), bodyObject)
-        }.getOrNull() ?: return null
-
-        val fieldsToUpdate = mutableSetOf<WatchlistStockUpdateField>()
-        if (bodyObject.containsKey("notes")) fieldsToUpdate.add(WatchlistStockUpdateField.NOTES)
-
-        return UpdateWatchlistStockInput(
-            fieldsToUpdate = fieldsToUpdate,
-            notes = payload.notes,
-        )
-    }
-
-    // Parsing helpers
-    private inline fun <reified T> parseBody(body: String): T? {
-        return runCatching {
-            json.decodeFromString<T>(body)
-        }.getOrNull()
-    }
-
-    private fun parseLongPathParam(value: String, name: String): Long? {
-        return value.trim().toLongOrNull()
+        return rawValue.toLongOrNull()
     }
 
     private fun parseLimit(limitParam: String?): Int? {
-        if (limitParam.isNullOrBlank()) return 200
-        return limitParam.trim().toIntOrNull()
-    }
-
-    // Error handling wrappers
-    private fun runService(operation: () -> Response): Response {
-        return try {
-            operation()
-        } catch (e: WatchlistValidationError) {
-            badRequest(e.message ?: "Validation failed")
-        } catch (e: WatchlistServiceNotConfiguredError) {
-            serviceUnavailable(e.message ?: "Watchlist service is not configured")
-        } catch (e: WatchlistServiceError) {
-            internalError(e.message ?: "Watchlist service error")
+        if (limitParam.isNullOrBlank()) {
+            return DEFAULT_LIMIT
         }
-    }
 
-    private fun <T> runNullableService(entityName: String, entityId: String, operation: () -> T?): Response {
-        return try {
-            val result = operation()
-            if (result == null) {
-                notFound("$entityName '$entityId' not found")
-            } else {
-                Response.ok(json.encodeToString(result)).type(MediaType.APPLICATION_JSON).build()
-            }
-        } catch (e: WatchlistValidationError) {
-            badRequest(e.message ?: "Validation failed")
-        } catch (e: WatchlistServiceNotConfiguredError) {
-            serviceUnavailable(e.message ?: "Watchlist service is not configured")
-        } catch (e: WatchlistServiceError) {
-            internalError(e.message ?: "Watchlist service error")
+        val parsedLimit = limitParam.trim().toIntOrNull() ?: return null
+        if (parsedLimit <= 0) {
+            return null
         }
+
+        return parsedLimit
     }
 
-    // Response builders
+    private fun ok(entity: Any): Response {
+        return Response.ok(entity).build()
+    }
+
+    private fun created(entity: Any): Response {
+        return Response.status(201).entity(entity).build()
+    }
+
     private fun badRequest(detail: String): Response {
-        val payload = buildJsonObject { put("detail", detail) }
-        return Response.status(400).entity(payload.toString()).type(MediaType.APPLICATION_JSON).build()
+        return Response.status(400).entity(ErrorResponse(detail = detail)).build()
     }
 
     private fun notFound(detail: String): Response {
-        val payload = buildJsonObject { put("detail", detail) }
-        return Response.status(404).entity(payload.toString()).type(MediaType.APPLICATION_JSON).build()
+        return Response.status(404).entity(ErrorResponse(detail = detail)).build()
     }
 
     private fun serviceUnavailable(detail: String): Response {
-        val payload = buildJsonObject { put("detail", detail) }
-        return Response.status(503).entity(payload.toString()).type(MediaType.APPLICATION_JSON).build()
+        return Response.status(503).entity(ErrorResponse(detail = detail)).build()
     }
 
     private fun internalError(detail: String): Response {
-        val payload = buildJsonObject { put("detail", detail) }
-        return Response.status(500).entity(payload.toString()).type(MediaType.APPLICATION_JSON).build()
+        return Response.status(500).entity(ErrorResponse(detail = detail)).build()
+    }
+
+    private data class DeleteResponse(
+        val deleted: Boolean,
+    )
+
+    private data class ErrorResponse(
+        val detail: String,
+    )
+
+    private companion object {
+        const val DEFAULT_LIMIT: Int = 200
+        const val DEFAULT_STOCK_EXCHANGE: String = "NSE"
     }
 }

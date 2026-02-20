@@ -131,21 +131,19 @@ class JdbiHandler<R, W>(
 
     private fun createJdbi(config: DatabaseConfig): Jdbi? {
         val jdbcUrl = config.jdbcUrl.trim()
-        val user = config.user.trim()
-        val password = config.password.trim()
 
-        if (jdbcUrl.isEmpty() || user.isEmpty() || password.isEmpty()) {
+        if (jdbcUrl.isEmpty()) {
             return null
         }
 
-        return Jdbi.create(jdbcUrl, user, password)
+        return Jdbi.create(jdbcUrl)
             .installPlugin(PostgresPlugin())
             .installPlugin(SqlObjectPlugin())
     }
 
     private fun requireJdbi(): Jdbi {
         return jdbi ?: throw JdbiNotConfiguredError(
-            "Database is not configured. Set SUPABASE_DB_URL, SUPABASE_DB_USER and SUPABASE_DB_PASSWORD."
+            "Database is not configured. Set SUPABASE_DB_URL."
         )
     }
 

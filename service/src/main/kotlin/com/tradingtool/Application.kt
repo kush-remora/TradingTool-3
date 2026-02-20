@@ -4,8 +4,6 @@ import com.google.inject.Guice
 import com.tradingtool.config.AppConfig
 import com.tradingtool.config.loadAppConfig
 import com.tradingtool.di.ServiceModule
-import com.tradingtool.watchlist.WatchlistResource
-import com.tradingtool.watchlist.registerWatchlistResource
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.serialization.kotlinx.json.json
@@ -38,7 +36,6 @@ fun main() {
 
 fun Application.module(appConfig: AppConfig = loadAppConfig()) {
     val injector = Guice.createInjector(ServiceModule(appConfig))
-    val watchlistResource = injector.getInstance(WatchlistResource::class.java)
     val appJson = injector.getInstance(Json::class.java)
 
     install(ContentNegotiation) {
@@ -92,7 +89,5 @@ fun Application.module(appConfig: AppConfig = loadAppConfig()) {
                 contentType = ContentType.Application.Json,
             )
         }
-
-        registerWatchlistResource(resource = watchlistResource)
     }
 }

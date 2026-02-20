@@ -5,8 +5,6 @@ package com.tradingtool.core.model
  */
 data class DatabaseConfig(
     val jdbcUrl: String,
-    val user: String,
-    val password: String,
 )
 
 /**
