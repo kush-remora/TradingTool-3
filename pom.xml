@@ -12,6 +12,7 @@
 
     <modules>
         <module>core</module>
+        <module>Models</module>
         <module>resources</module>
         <module>service</module>
         <module>event-service</module>

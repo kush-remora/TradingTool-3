@@ -5,6 +5,8 @@ import com.tradingtool.core.model.telegram.TelegramSendResult
 import com.tradingtool.core.model.telegram.TelegramSendStatus
 import com.tradingtool.core.model.telegram.TelegramSendTextRequest
 import com.tradingtool.core.telegram.TelegramSender
+import com.tradingtool.model.telegram.TelegramRequestModel
+import com.tradingtool.model.telegram.TelegramResponseModel
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.DELETE
 import jakarta.ws.rs.GET
@@ -18,12 +20,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.future.asCompletableFuture
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.put
 import org.glassfish.jersey.media.multipart.FormDataBodyPart
 import org.glassfish.jersey.media.multipart.FormDataParam
 import java.io.InputStream
@@ -34,31 +30,37 @@ class TelegramResource(
     private val telegramSender: TelegramSender,
 ) {
     private val ioScope = CoroutineScope(Dispatchers.IO)
-    private val json = Json { ignoreUnknownKeys = true }
 
     @GET
     @Path("status")
     @Produces(MediaType.APPLICATION_JSON)
     fun getStatus(): Response {
-        val payload = buildJsonObject {
-            put("status", "ok")
-            put("configured", telegramSender.isConfigured())
-        }
-        return Response.ok(payload.toString()).type(MediaType.APPLICATION_JSON).build()
+        return Response.ok(
+            TelegramResponseModel.StatusResponse(
+                status = "ok",
+                configured = telegramSender.isConfigured(),
+            ),
+        ).build()
     }
 
     @POST
     @Path("send/text")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    fun sendText(body: String): CompletableFuture<Response> = ioScope.async {
-        val request = parseTextRequest(body)
-            ?: return@async Response.status(400)
-                .entity(errorJson("Request body must be valid JSON with a non-empty 'text' field."))
-                .type(MediaType.APPLICATION_JSON)
+    fun sendText(body: TelegramRequestModel.SendTextRequest?): CompletableFuture<Response> = ioScope.async {
+        val text: String = body?.text?.trim().orEmpty()
+        if (text.isEmpty()) {
+            return@async Response.status(400)
+                .entity(
+                    TelegramResponseModel.ActionResponse(
+                        ok = false,
+                        message = "Request body must be valid JSON with a non-empty 'text' field.",
+                    ),
+                )
                 .build()
+        }
 
-        val result = telegramSender.sendText(request)
+        val result = telegramSender.sendText(TelegramSendTextRequest(text = text))
         toTelegramResponse(result)
     }.asCompletableFuture()
 
@@ -73,8 +75,12 @@ class TelegramResource(
     ): CompletableFuture<Response> = ioScope.async {
         if (inputStream == null || fileMetadata == null) {
             return@async Response.status(400)
-                .entity(errorJson("Image file is required."))
-                .type(MediaType.APPLICATION_JSON)
+                .entity(
+                    TelegramResponseModel.ActionResponse(
+                        ok = false,
+                        message = "Image file is required.",
+                    ),
+                )
                 .build()
         }
 
@@ -104,8 +110,12 @@ class TelegramResource(
     ): CompletableFuture<Response> = ioScope.async {
         if (inputStream == null || fileMetadata == null) {
             return@async Response.status(400)
-                .entity(errorJson("Excel file is required."))
-                .type(MediaType.APPLICATION_JSON)
+                .entity(
+                    TelegramResponseModel.ActionResponse(
+                        ok = false,
+                        message = "Excel file is required.",
+                    ),
+                )
                 .build()
         }
 
@@ -128,24 +138,14 @@ class TelegramResource(
     @Path("messages/{messageId}")
     @Produces(MediaType.APPLICATION_JSON)
     fun deleteMessage(@PathParam("messageId") messageId: String): Response {
-        val payload = buildJsonObject {
-            put("ok", false)
-            put("message", "Delete is not enabled in send-only mode. Message ID: $messageId")
-        }
-        return Response.status(501).entity(payload.toString()).type(MediaType.APPLICATION_JSON).build()
-    }
-
-    private fun parseTextRequest(body: String): TelegramSendTextRequest? {
-        val text = runCatching {
-            val jsonElement = json.parseToJsonElement(body) as? JsonObject ?: return null
-            jsonElement["text"]?.jsonPrimitive?.content?.trim() ?: ""
-        }.getOrElse { "" }
-
-        if (text.isEmpty()) {
-            return null
-        }
-
-        return TelegramSendTextRequest(text = text)
+        return Response.status(501)
+            .entity(
+                TelegramResponseModel.ActionResponse(
+                    ok = false,
+                    message = "Delete is not enabled in send-only mode. Message ID: $messageId",
+                ),
+            )
+            .build()
     }
 
     private fun toTelegramResponse(result: TelegramSendResult): Response {
@@ -156,22 +156,14 @@ class TelegramResource(
             TelegramSendStatus.FAILED -> 502
         }
 
-        val payload = buildJsonObject {
-            put("ok", result.response.ok)
-            put("message", result.response.message)
-            put("telegramDescription", result.response.telegramDescription)
-        }
-
         return Response.status(httpStatus)
-            .entity(payload.toString())
-            .type(MediaType.APPLICATION_JSON)
+            .entity(
+                TelegramResponseModel.ActionResponse(
+                    ok = result.response.ok,
+                    message = result.response.message,
+                    telegramDescription = result.response.telegramDescription,
+                ),
+            )
             .build()
-    }
-
-    private fun errorJson(message: String): String {
-        return buildJsonObject {
-            put("ok", false)
-            put("message", message)
-        }.toString()
     }
 }
