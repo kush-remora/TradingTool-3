@@ -13,9 +13,12 @@ import io.dropwizard.configuration.EnvironmentVariableSubstitutor
 import io.dropwizard.configuration.SubstitutingSourceProvider
 import io.dropwizard.core.setup.Bootstrap
 import io.dropwizard.core.setup.Environment
+import jakarta.servlet.DispatcherType
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.EnumSet
+import org.eclipse.jetty.servlets.CrossOriginFilter
 import org.glassfish.jersey.media.multipart.MultiPartFeature
 import org.glassfish.jersey.server.filter.RolesAllowedDynamicFeature
 
@@ -86,6 +89,22 @@ class DropwizardApplication : Application<DropwizardConfig>() {
     override fun run(config: DropwizardConfig, environment: Environment) {
         // Convert Dropwizard config to AppConfig
         val appConfig = config.toAppConfig()
+
+        val corsFilter = environment.servlets().addFilter("CORS", CrossOriginFilter::class.java)
+        corsFilter.setInitParameter(
+            CrossOriginFilter.ALLOWED_ORIGINS_PARAM,
+            appConfig.cors.allowedOrigins.joinToString(","),
+        )
+        corsFilter.setInitParameter(
+            CrossOriginFilter.ALLOWED_METHODS_PARAM,
+            "GET,POST,PUT,PATCH,DELETE,OPTIONS,HEAD",
+        )
+        corsFilter.setInitParameter(
+            CrossOriginFilter.ALLOWED_HEADERS_PARAM,
+            "X-Requested-With,Content-Type,Accept,Origin,Authorization",
+        )
+        corsFilter.setInitParameter(CrossOriginFilter.ALLOW_CREDENTIALS_PARAM, "true")
+        corsFilter.addMappingForUrlPatterns(EnumSet.allOf(DispatcherType::class.java), true, "/*")
 
         // Create Guice injector
         val injector = Guice.createInjector(ServiceModule(appConfig))
