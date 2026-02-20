@@ -18,6 +18,7 @@ import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.future.asCompletableFuture
 import org.glassfish.jersey.media.multipart.FormDataBodyPart
@@ -29,7 +30,12 @@ import java.util.concurrent.CompletableFuture
 class TelegramResource(
     private val telegramSender: TelegramSender,
 ) {
-    private val ioScope = CoroutineScope(Dispatchers.IO)
+    /**
+     * Coroutine scope for lightweight request handling.
+     * Uses Dispatchers.Default for non-blocking work.
+     * Actual I/O operations happen in HttpRequestExecutor's Dispatchers.IO pool.
+     */
+    private val resourceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     @GET
     @Path("status")
@@ -47,7 +53,7 @@ class TelegramResource(
     @Path("send/text")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    fun sendText(body: TelegramRequestModel.SendTextRequest?): CompletableFuture<Response> = ioScope.async {
+    fun sendText(body: TelegramRequestModel.SendTextRequest?): CompletableFuture<Response> = resourceScope.async {
         val text: String = body?.text?.trim().orEmpty()
         if (text.isEmpty()) {
             return@async Response.status(400)
@@ -72,7 +78,7 @@ class TelegramResource(
         @FormDataParam("file") inputStream: InputStream?,
         @FormDataParam("file") fileMetadata: FormDataBodyPart?,
         @FormDataParam("caption") caption: String?,
-    ): CompletableFuture<Response> = ioScope.async {
+    ): CompletableFuture<Response> = resourceScope.async {
         if (inputStream == null || fileMetadata == null) {
             return@async Response.status(400)
                 .entity(
@@ -107,7 +113,7 @@ class TelegramResource(
         @FormDataParam("file") inputStream: InputStream?,
         @FormDataParam("file") fileMetadata: FormDataBodyPart?,
         @FormDataParam("caption") caption: String?,
-    ): CompletableFuture<Response> = ioScope.async {
+    ): CompletableFuture<Response> = resourceScope.async {
         if (inputStream == null || fileMetadata == null) {
             return@async Response.status(400)
                 .entity(
