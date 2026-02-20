@@ -1,0 +1,19 @@
+# Git history — not needed in build context
+.git/
+.gitignore
+
+# Compiled output — builder stage starts clean
+**/target/
+
+# Frontend — not part of the backend Docker build
+frontend/
+**/node_modules/
+
+# Docs and config — not needed at build time
+docs/
+.claude/
+*.md
+
+# IDE
+.idea/
+*.iml

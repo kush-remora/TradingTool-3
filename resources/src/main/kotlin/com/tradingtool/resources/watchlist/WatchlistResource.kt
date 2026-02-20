@@ -26,6 +26,7 @@ import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.future.asCompletableFuture
 import java.util.concurrent.CompletableFuture
@@ -35,7 +36,7 @@ class WatchlistResource(
     private val readService: WatchlistReadService,
     private val writeService: WatchlistWriteService,
 ) {
-    private val ioScope = CoroutineScope(Dispatchers.IO)
+    private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     @GET
     @Path("tables")
@@ -304,21 +305,21 @@ class WatchlistResource(
     fun updateWatchlistStock(
         @PathParam("watchlistId") watchlistId: String,
         @PathParam("stockId") stockId: String,
-    ): Response {
+    ): CompletableFuture<Response> = ioScope.async {
         val watchlistIdValue: Long? = parseLongPathParam(watchlistId)
         val stockIdValue: Long? = parseLongPathParam(stockId)
         if (watchlistIdValue == null || stockIdValue == null) {
-            return badRequest("Path parameters 'watchlistId' and 'stockId' must be valid integers")
+            return@async badRequest("Path parameters 'watchlistId' and 'stockId' must be valid integers")
         }
 
-        return Response.status(501)
+        Response.status(501)
             .entity(
                 ErrorResponse(
                     detail = "Watchlist item update is not supported. Delete and recreate the mapping instead.",
                 ),
             )
             .build()
-    }
+    }.asCompletableFuture()
 
     @DELETE
     @Path("items/{watchlistId}/{stockId}")
@@ -426,11 +427,11 @@ class WatchlistResource(
         return parsedLimit
     }
 
-    private fun ok(entity: Any): Response {
+    private fun <T : Any> ok(entity: T): Response {
         return Response.ok(entity).build()
     }
 
-    private fun created(entity: Any): Response {
+    private fun <T : Any> created(entity: T): Response {
         return Response.status(201).entity(entity).build()
     }
 

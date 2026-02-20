@@ -12,15 +12,29 @@ class HealthResource {
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     fun root(): Response {
-        val json = """{"service":"TradingTool-3","status":"ok"}"""
-        return Response.ok(json).type(MediaType.APPLICATION_JSON).build()
+        return Response.ok(
+            RootResponse(
+                service = "TradingTool-3",
+                status = "ok",
+            ),
+        ).build()
     }
 
     @GET
     @Path("health")
     @Produces(MediaType.APPLICATION_JSON)
     fun health(): Response {
-        val json = """{"status":"ok"}"""
-        return Response.ok(json).type(MediaType.APPLICATION_JSON).build()
+        return Response.ok(
+            StatusResponse(status = "ok"),
+        ).build()
     }
+
+    private data class RootResponse(
+        val service: String,
+        val status: String,
+    )
+
+    private data class StatusResponse(
+        val status: String,
+    )
 }

@@ -4,18 +4,18 @@ WORKDIR /workspace
 COPY pom.xml ./
 COPY core core
 COPY service service
-COPY event-service event-service
-COPY cron-job cron-job
 
-RUN mvn -pl service -am clean install -DskipTests
-RUN mvn -pl service dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=target/lib
+RUN mvn -pl service -am clean package -DskipTests
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+
 COPY --from=build /workspace/service/target/service-0.1.0-SNAPSHOT.jar /app/service.jar
-COPY --from=build /workspace/service/target/lib /app/lib
+
+USER appuser
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-cp", "/app/service.jar:/app/lib/*", "com.tradingtool.ApplicationKt"]
+ENTRYPOINT ["java", "-jar", "/app/service.jar"]
