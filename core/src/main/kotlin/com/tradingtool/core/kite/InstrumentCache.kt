@@ -29,11 +29,11 @@ class InstrumentCache {
     }
 
     /**
-     * Look up the numeric [Instrument.instrumentToken] for a symbol.
+     * Look up the numeric instrument token for a symbol.
      * Returns null if the cache is empty or the symbol is not found.
      */
     fun token(exchange: String, symbol: String): Long? =
-        find(exchange, symbol)?.instrumentToken
+        find(exchange, symbol)?.instrument_token
 
     /** Full instrument record lookup by exchange + symbol. */
     fun find(exchange: String, symbol: String): Instrument? =
