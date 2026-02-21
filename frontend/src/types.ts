@@ -32,6 +32,20 @@ export interface Tag {
   updatedAt: string;
 }
 
+export interface StockTag {
+  id: number;
+  stockId: number;
+  tagId: number;
+  createdAt: string;
+}
+
+export interface WatchlistTag {
+  id: number;
+  watchlistId: number;
+  tagId: number;
+  createdAt: string;
+}
+
 export interface StockNote {
   id: number;
   stockId: number;

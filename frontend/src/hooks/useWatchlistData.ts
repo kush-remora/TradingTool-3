@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { getJson, postJson, deleteJson } from "../utils/api";
-import type { Stock, StockTag, Tag, Watchlist, WatchlistStock, WatchlistTag } from "../types";
+import type {
+  Stock,
+  StockTag,
+  Tag,
+  Watchlist,
+  WatchlistStock,
+  WatchlistTag,
+} from "../types";
 
 export interface WatchlistDataState {
   watchlists: Watchlist[];

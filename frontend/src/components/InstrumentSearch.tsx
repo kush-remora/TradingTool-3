@@ -1,4 +1,4 @@
-import { AutoComplete, Button, Select, Space } from "antd";
+import { AutoComplete, Button, Space } from "antd";
 import { useState } from "react";
 import { useInstrumentSearch } from "../hooks/useInstrumentSearch";
 import { postJson } from "../utils/api";
@@ -75,9 +75,8 @@ export function InstrumentSearch({ watchlistId, existingStockIds, onStockAdded }
         onClear={() => { setSelected(null); clearResults(); }}
         allowClear
         placeholder="Search instrument (e.g. RELIANCE)"
-        loading={searching}
         size="small"
-        notFoundContent={searching ? "Searching..." : results.length === 0 ? null : "No results"}
+        notFoundContent={searching ? "Searching..." : ""}
       />
       <Button
         type="primary"

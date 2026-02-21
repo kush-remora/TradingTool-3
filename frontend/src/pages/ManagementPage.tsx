@@ -2,7 +2,6 @@ import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import {
   Button,
   Input,
-  InputNumber,
   Popconfirm,
   Rate,
   Space,
