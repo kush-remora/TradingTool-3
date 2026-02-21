@@ -1,8 +1,9 @@
-import { AutoComplete, Button, Space } from "antd";
+import { Button, Space, Spin } from "antd";
 import { useState } from "react";
 import { useInstrumentSearch } from "../hooks/useInstrumentSearch";
 import { postJson } from "../utils/api";
 import type { InstrumentSearchResult, Stock } from "../types";
+import { AutoComplete } from "antd";
 
 interface Props {
   watchlistId: number;
@@ -11,25 +12,39 @@ interface Props {
 }
 
 export function InstrumentSearch({ watchlistId, existingStockIds, onStockAdded }: Props) {
-  const { results, searching, search, clearResults } = useInstrumentSearch();
+  const { allInstruments, loading, error } = useInstrumentSearch();
   const [selected, setSelected] = useState<InstrumentSearchResult | null>(null);
   const [adding, setAdding] = useState(false);
 
-  const options = results
-    .filter((r) => {
-      // Only show EQ instruments to keep the list clean
-      return r.instrumentType === "EQ";
-    })
-    .map((r) => ({
-      value: String(r.instrumentToken),
-      label: (
-        <span>
-          <strong>{r.tradingSymbol}</strong>
-          <span style={{ color: "#888", fontSize: 11, marginLeft: 6 }}>{r.companyName}</span>
+  if (loading) {
+    return <Spin size="small" style={{ display: "flex", justifyContent: "center", padding: "8px 0" }} />;
+  }
+
+  if (error) {
+    return (
+      <div style={{ fontSize: 12, color: "#ff4d4f", padding: "8px" }}>
+        {error}
+      </div>
+    );
+  }
+
+  // Filter to EQ only (equities), exclude already-added stocks
+  const availableInstruments = allInstruments.filter(
+    (i) => i.instrumentType === "EQ" && !existingStockIds.has(i.instrumentToken),
+  );
+
+  const options = availableInstruments.map((inst) => ({
+    value: String(inst.instrumentToken),
+    label: (
+      <span>
+        <strong>{inst.tradingSymbol}</strong>
+        <span style={{ color: "#888", fontSize: 11, marginLeft: 6 }}>
+          {inst.companyName || inst.exchange}
         </span>
-      ),
-      instrument: r,
-    }));
+      </span>
+    ),
+    instrument: inst,
+  }));
 
   const handleSelect = (_: string, option: (typeof options)[0]) => {
     setSelected(option.instrument);
@@ -46,7 +61,7 @@ export function InstrumentSearch({ watchlistId, existingStockIds, onStockAdded }
         company_name: selected.companyName,
         exchange: selected.exchange,
       }).catch(async () => {
-        // Stock already exists — fetch by instrument token
+        // Stock already exists — fetch by symbol
         const { getJson } = await import("../utils/api");
         return getJson<Stock>(`/api/watchlist/stocks/by-symbol/${selected.tradingSymbol}`);
       });
@@ -59,7 +74,6 @@ export function InstrumentSearch({ watchlistId, existingStockIds, onStockAdded }
         onStockAdded(stock);
       }
       setSelected(null);
-      clearResults();
     } finally {
       setAdding(false);
     }
@@ -70,13 +84,15 @@ export function InstrumentSearch({ watchlistId, existingStockIds, onStockAdded }
       <AutoComplete
         style={{ flex: 1 }}
         options={options}
-        onSearch={(q) => search(q)}
         onSelect={handleSelect}
-        onClear={() => { setSelected(null); clearResults(); }}
+        onClear={() => setSelected(null)}
         allowClear
-        placeholder="Search instrument (e.g. RELIANCE)"
+        placeholder="Search eg: infy, reliance..."
         size="small"
-        notFoundContent={searching ? "Searching..." : ""}
+        notFoundContent={availableInstruments.length === 0 ? "All stocks already added" : null}
+        filterOption={(inputValue, option) =>
+          option?.label?.toString().toLowerCase().includes(inputValue.toLowerCase())
+        }
       />
       <Button
         type="primary"

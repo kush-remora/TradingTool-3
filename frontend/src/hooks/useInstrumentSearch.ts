@@ -1,36 +1,32 @@
-import { useCallback, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { getJson } from "../utils/api";
 import type { InstrumentSearchResult } from "../types";
 
+/**
+ * Load all NSE instruments once at hook mount for client-side search.
+ * Returns the full list; filtering happens in the component via AutoComplete.filterOption.
+ */
 export function useInstrumentSearch() {
-  const [results, setResults] = useState<InstrumentSearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [allInstruments, setAllInstruments] = useState<InstrumentSearchResult[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const search = useCallback((query: string, exchange = "NSE") => {
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-
-    if (query.trim().length < 2) {
-      setResults([]);
-      return;
-    }
-
-    debounceTimer.current = setTimeout(async () => {
-      setSearching(true);
+  useEffect(() => {
+    const fetchInstruments = async () => {
       try {
-        const data = await getJson<InstrumentSearchResult[]>(
-          `/api/instruments/search?q=${encodeURIComponent(query)}&exchange=${exchange}`,
-        );
-        setResults(data);
-      } catch {
-        setResults([]);
+        const data = await getJson<InstrumentSearchResult[]>("/api/instruments/all");
+        setAllInstruments(data);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load instruments");
+        setAllInstruments([]);
       } finally {
-        setSearching(false);
+        setLoading(false);
       }
-    }, 300);
+    };
+
+    fetchInstruments();
   }, []);
 
-  const clearResults = useCallback(() => setResults([]), []);
-
-  return { results, searching, search, clearResults };
+  return { allInstruments, loading, error };
 }
