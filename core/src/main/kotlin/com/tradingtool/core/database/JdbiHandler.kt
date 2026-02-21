@@ -48,10 +48,21 @@ class JdbiHandler<R, W>(
      * Runs on Dispatchers.IO thread pool.
      */
     suspend fun <T> read(operation: (R) -> T): T = withContext(Dispatchers.IO) {
-        val activeJdbi = requireJdbi()
-        activeJdbi.withHandle<T, Exception> { handle ->
-            val dao = handle.attach(readDaoClass)
-            operation(dao)
+        try {
+            val activeJdbi = requireJdbi()
+            activeJdbi.withHandle<T, Exception> { handle ->
+                val dao = handle.attach(readDaoClass)
+                operation(dao)
+            }
+        } catch (error: JdbiHandlerError) {
+            throw error
+        } catch (error: Exception) {
+            throw JdbiHandlerError(
+                sanitizeJdbcErrorMessage(
+                    message = error.message,
+                    fallback = "Database read operation failed",
+                )
+            )
         }
     }
 
@@ -60,10 +71,21 @@ class JdbiHandler<R, W>(
      * Runs on Dispatchers.IO thread pool.
      */
     suspend fun <T> write(operation: (W) -> T): T = withContext(Dispatchers.IO) {
-        val activeJdbi = requireJdbi()
-        activeJdbi.withHandle<T, Exception> { handle ->
-            val dao = handle.attach(writeDaoClass)
-            operation(dao)
+        try {
+            val activeJdbi = requireJdbi()
+            activeJdbi.withHandle<T, Exception> { handle ->
+                val dao = handle.attach(writeDaoClass)
+                operation(dao)
+            }
+        } catch (error: JdbiHandlerError) {
+            throw error
+        } catch (error: Exception) {
+            throw JdbiHandlerError(
+                sanitizeJdbcErrorMessage(
+                    message = error.message,
+                    fallback = "Database write operation failed",
+                )
+            )
         }
     }
 
@@ -80,11 +102,22 @@ class JdbiHandler<R, W>(
      *   }
      */
     suspend fun <T> transaction(operation: (R, W) -> T): T = withContext(Dispatchers.IO) {
-        val activeJdbi = requireJdbi()
-        activeJdbi.inTransaction<T, Exception> { handle ->
-            val readDao = handle.attach(readDaoClass)
-            val writeDao = handle.attach(writeDaoClass)
-            operation(readDao, writeDao)
+        try {
+            val activeJdbi = requireJdbi()
+            activeJdbi.inTransaction<T, Exception> { handle ->
+                val readDao = handle.attach(readDaoClass)
+                val writeDao = handle.attach(writeDaoClass)
+                operation(readDao, writeDao)
+            }
+        } catch (error: JdbiHandlerError) {
+            throw error
+        } catch (error: Exception) {
+            throw JdbiHandlerError(
+                sanitizeJdbcErrorMessage(
+                    message = error.message,
+                    fallback = "Database transaction failed",
+                )
+            )
         }
     }
 
@@ -136,9 +169,30 @@ class JdbiHandler<R, W>(
             return null
         }
 
-        return Jdbi.create(jdbcUrl)
-            .installPlugin(PostgresPlugin())
-            .installPlugin(SqlObjectPlugin())
+        if (jdbcUrl.startsWith("postgresql://", ignoreCase = true)) {
+            throw JdbiHandlerError(
+                "Invalid SUPABASE_DB_URL: missing 'jdbc:' prefix. Use 'jdbc:postgresql://...'"
+            )
+        }
+
+        if (!jdbcUrl.startsWith("jdbc:postgresql://", ignoreCase = true)) {
+            throw JdbiHandlerError(
+                "Invalid SUPABASE_DB_URL: expected format 'jdbc:postgresql://<host>:<port>/<db>?sslmode=require'"
+            )
+        }
+
+        return try {
+            Jdbi.create(jdbcUrl)
+                .installPlugin(PostgresPlugin())
+                .installPlugin(SqlObjectPlugin())
+        } catch (error: Exception) {
+            throw JdbiHandlerError(
+                sanitizeJdbcErrorMessage(
+                    message = error.message,
+                    fallback = "Failed to initialize database connection",
+                )
+            )
+        }
     }
 
     private fun requireJdbi(): Jdbi {
@@ -154,7 +208,21 @@ class JdbiHandler<R, W>(
         return tableName
     }
 
+    private fun sanitizeJdbcErrorMessage(message: String?, fallback: String): String {
+        if (message.isNullOrBlank()) {
+            return fallback
+        }
+
+        return message
+            .replace(JDBC_USERINFO_REGEX, "$1***@")
+            .replace(POSTGRES_USERINFO_REGEX, "$1***@")
+            .replace(PASSWORD_QUERY_REGEX, "$1***")
+    }
+
     private companion object {
         val IDENTIFIER_REGEX: Regex = Regex("^[A-Za-z_][A-Za-z0-9_]*$")
+        val JDBC_USERINFO_REGEX: Regex = Regex("(jdbc:postgresql://)([^@\\s/]+)@")
+        val POSTGRES_USERINFO_REGEX: Regex = Regex("(postgresql://)([^@\\s/]+)@")
+        val PASSWORD_QUERY_REGEX: Regex = Regex("([?&]password=)[^&\\s]+", RegexOption.IGNORE_CASE)
     }
 }
