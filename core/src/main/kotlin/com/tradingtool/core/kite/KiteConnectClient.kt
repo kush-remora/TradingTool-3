@@ -1,6 +1,6 @@
 package com.tradingtool.core.kite
 
-import com.tradingtool.config.KiteConfig
+import com.tradingtool.core.kite.KiteConfig
 import com.zerodhatech.kiteconnect.KiteConnect
 import com.zerodhatech.models.User
 

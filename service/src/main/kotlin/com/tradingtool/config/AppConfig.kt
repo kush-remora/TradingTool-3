@@ -1,5 +1,6 @@
 package com.tradingtool.config
 
+import com.tradingtool.core.kite.KiteConfig
 import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.Path
@@ -49,13 +50,6 @@ data class SupabaseConfig(
 data class DeploymentConfig(
     val renderExternalUrl: String,
     val githubPagesUrl: String,
-)
-
-data class KiteConfig(
-    val apiKey: String,
-    val apiSecret: String,
-    // Short-lived token set via env or manual login. Empty = not yet authenticated.
-    val accessToken: String,
 )
 
 fun loadAppConfig(resourceName: String = defaultConfigFileName()): AppConfig {

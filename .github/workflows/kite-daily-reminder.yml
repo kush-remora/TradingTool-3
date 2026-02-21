@@ -5,7 +5,7 @@ name: Kite Daily Login Reminder
 # Markets are closed on weekends — no login needed Sat/Sun.
 on:
   schedule:
-    - cron: '35 0 * * 1-5'
+    - cron: '35 0 * * *'
   workflow_dispatch: # allow manual trigger from GitHub UI for testing
 
 jobs:
