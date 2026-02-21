@@ -4,6 +4,11 @@
 Personal weekend project. Solo developer. Prioritize **simplicity and maintainability** over cleverness.
 When in doubt, choose the simpler solution.
 
+## Interaction Style
+**Before writing any code, always state your understanding of the task in 2-4 sentences.**
+Wait for the user to confirm before starting implementation.
+Only skip this step for trivial one-liner changes (typos, renaming a variable, etc.).
+
 ## Development Phase
 **This project is in active development. There are no backward compatibility or migration constraints.**
 - Feel free to rename, restructure, delete, or rewrite any code, files, or DB schema
