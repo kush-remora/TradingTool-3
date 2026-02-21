@@ -79,4 +79,35 @@ CREATE TABLE IF NOT EXISTS public.user_layout (
 );
 INSERT INTO public.user_layout (id, layout_data) VALUES (1, '{}') ON CONFLICT (id) DO NOTHING;
 
--- Indexes are defined in indexes.sql — run that file after this one.
+-- Kite tokens: persists Kite Connect access tokens across service restarts
+-- Only the latest row is used; older rows are kept for audit trail.
+-- Tokens expire at 6:00 AM IST daily — the cron-job refreshes them via /kite/callback.
+CREATE TABLE IF NOT EXISTS public.kite_tokens (
+    id           SERIAL PRIMARY KEY,
+    access_token TEXT        NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_stocks_symbol              ON public.stocks(symbol);
+CREATE INDEX IF NOT EXISTS idx_stocks_instrument_token    ON public.stocks(instrument_token);
+CREATE INDEX IF NOT EXISTS idx_stocks_exchange_symbol     ON public.stocks(exchange, symbol);
+CREATE INDEX IF NOT EXISTS idx_stocks_created_at          ON public.stocks(created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_watchlist_stocks_wl        ON public.watchlist_stocks(watchlist_id);
+CREATE INDEX IF NOT EXISTS idx_watchlist_stocks_stock     ON public.watchlist_stocks(stock_id);
+CREATE INDEX IF NOT EXISTS idx_watchlist_stocks_created   ON public.watchlist_stocks(created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_tags_name                  ON public.tags(name);
+
+CREATE INDEX IF NOT EXISTS idx_stock_tags_stock           ON public.stock_tags(stock_id);
+CREATE INDEX IF NOT EXISTS idx_stock_tags_tag             ON public.stock_tags(tag_id);
+
+CREATE INDEX IF NOT EXISTS idx_watchlist_tags_wl          ON public.watchlist_tags(watchlist_id);
+CREATE INDEX IF NOT EXISTS idx_watchlist_tags_tag         ON public.watchlist_tags(tag_id);
+
+CREATE INDEX IF NOT EXISTS idx_stock_notes_stock          ON public.stock_notes(stock_id);
+CREATE INDEX IF NOT EXISTS idx_stock_notes_created        ON public.stock_notes(created_at DESC);
+
+-- kite_tokens
+CREATE INDEX IF NOT EXISTS idx_kite_tokens_created        ON public.kite_tokens(created_at DESC);
