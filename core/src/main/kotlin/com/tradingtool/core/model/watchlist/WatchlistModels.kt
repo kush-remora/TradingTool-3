@@ -1,5 +1,6 @@
 package com.tradingtool.core.model.watchlist
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.time.Instant
@@ -11,15 +12,19 @@ data class Stock(
     val id: Long,
     val symbol: String,
     @SerialName("instrument_token")
+    @get:JsonProperty("instrument_token")
     val instrumentToken: Long,
     @SerialName("company_name")
+    @get:JsonProperty("company_name")
     val companyName: String,
     val exchange: String,
     val description: String? = null,
     val priority: Int? = null,
     @SerialName("created_at")
+    @get:JsonProperty("created_at")
     val createdAt: String,
     @SerialName("updated_at")
+    @get:JsonProperty("updated_at")
     val updatedAt: String,
 )
 
@@ -29,8 +34,10 @@ data class Watchlist(
     val name: String,
     val description: String? = null,
     @SerialName("created_at")
+    @get:JsonProperty("created_at")
     val createdAt: String,
     @SerialName("updated_at")
+    @get:JsonProperty("updated_at")
     val updatedAt: String,
 )
 
@@ -39,8 +46,10 @@ data class Tag(
     val id: Long,
     val name: String,
     @SerialName("created_at")
+    @get:JsonProperty("created_at")
     val createdAt: String,
     @SerialName("updated_at")
+    @get:JsonProperty("updated_at")
     val updatedAt: String,
 )
 
@@ -48,10 +57,13 @@ data class Tag(
 data class WatchlistStock(
     val id: Long,
     @SerialName("watchlist_id")
+    @get:JsonProperty("watchlist_id")
     val watchlistId: Long,
     @SerialName("stock_id")
+    @get:JsonProperty("stock_id")
     val stockId: Long,
     @SerialName("created_at")
+    @get:JsonProperty("created_at")
     val createdAt: String,
 )
 
@@ -59,10 +71,13 @@ data class WatchlistStock(
 data class StockTag(
     val id: Long,
     @SerialName("stock_id")
+    @get:JsonProperty("stock_id")
     val stockId: Long,
     @SerialName("tag_id")
+    @get:JsonProperty("tag_id")
     val tagId: Long,
     @SerialName("created_at")
+    @get:JsonProperty("created_at")
     val createdAt: String,
 )
 
@@ -70,10 +85,13 @@ data class StockTag(
 data class WatchlistTag(
     val id: Long,
     @SerialName("watchlist_id")
+    @get:JsonProperty("watchlist_id")
     val watchlistId: Long,
     @SerialName("tag_id")
+    @get:JsonProperty("tag_id")
     val tagId: Long,
     @SerialName("created_at")
+    @get:JsonProperty("created_at")
     val createdAt: String,
 )
 
@@ -83,8 +101,10 @@ data class WatchlistTag(
 data class CreateStockInput(
     val symbol: String,
     @SerialName("instrument_token")
+    @JsonProperty("instrument_token")
     val instrumentToken: Long,
     @SerialName("company_name")
+    @JsonProperty("company_name")
     val companyName: String,
     val exchange: String,
     val description: String? = null,
@@ -105,24 +125,30 @@ data class CreateTagInput(
 @Serializable
 data class CreateWatchlistStockInput(
     @SerialName("watchlist_id")
+    @JsonProperty("watchlist_id")
     val watchlistId: Long,
     @SerialName("stock_id")
+    @JsonProperty("stock_id")
     val stockId: Long,
 )
 
 @Serializable
 data class CreateStockTagInput(
     @SerialName("stock_id")
+    @JsonProperty("stock_id")
     val stockId: Long,
     @SerialName("tag_id")
+    @JsonProperty("tag_id")
     val tagId: Long,
 )
 
 @Serializable
 data class CreateWatchlistTagInput(
     @SerialName("watchlist_id")
+    @JsonProperty("watchlist_id")
     val watchlistId: Long,
     @SerialName("tag_id")
+    @JsonProperty("tag_id")
     val tagId: Long,
 )
 
@@ -157,6 +183,7 @@ data class UpdateStockInput(
 @Serializable
 data class UpdateStockPayload(
     @SerialName("company_name")
+    @JsonProperty("company_name")
     val companyName: String? = null,
     val exchange: String? = null,
     val description: String? = null,
@@ -211,9 +238,11 @@ data class WatchlistWithStocks(
 data class StockNote(
     val id: Long,
     @SerialName("stock_id")
+    @get:JsonProperty("stock_id")
     val stockId: Long,
     val content: String,
     @SerialName("created_at")
+    @get:JsonProperty("created_at")
     val createdAt: String,
 )
 
@@ -228,14 +257,17 @@ data class CreateStockNoteInput(
 data class UserLayout(
     val id: Int,
     @SerialName("layout_data")
+    @get:JsonProperty("layout_data")
     val layoutData: String, // raw JSON string, parsed by frontend
     @SerialName("updated_at")
+    @get:JsonProperty("updated_at")
     val updatedAt: String,
 )
 
 @Serializable
 data class UpdateLayoutPayload(
     @SerialName("layout_data")
+    @JsonProperty("layout_data")
     val layoutData: String,
 )
 
@@ -244,13 +276,17 @@ data class UpdateLayoutPayload(
 @Serializable
 data class InstrumentSearchResult(
     @SerialName("instrument_token")
+    @get:JsonProperty("instrument_token")
     val instrumentToken: Long,
     @SerialName("trading_symbol")
+    @get:JsonProperty("trading_symbol")
     val tradingSymbol: String,
     @SerialName("company_name")
+    @get:JsonProperty("company_name")
     val companyName: String,
     val exchange: String,
     @SerialName("instrument_type")
+    @get:JsonProperty("instrument_type")
     val instrumentType: String,
 )
 
@@ -259,9 +295,11 @@ data class InstrumentSearchResult(
 @Serializable
 data class TableAccessStatus(
     @SerialName("table_name")
+    @get:JsonProperty("table_name")
     val tableName: String,
     val accessible: Boolean,
     @SerialName("sample_row_count")
+    @get:JsonProperty("sample_row_count")
     val sampleRowCount: Int? = null,
     val error: String? = null,
 )

@@ -41,7 +41,7 @@ export interface StockRow {
   key: string;
   stockId: number;
   symbol: string;
-  companyName: string;
+  company_name: string;
   exchange: string;
   price: number;
   prevClose: number;
@@ -63,7 +63,7 @@ function toStockRow(stock: Stock): StockRow {
     key: String(stock.id),
     stockId: stock.id,
     symbol: stock.symbol,
-    companyName: stock.companyName,
+    company_name: stock.company_name,
     exchange: stock.exchange,
     price,
     prevClose: +(price * (1 - (seedFromSymbol(stock.symbol, 9) % 5 - 2) / 100)).toFixed(2),
@@ -106,7 +106,7 @@ export function useWatchlistStocks(watchlistId: number | null) {
 
         const stockMap = new Map<number, Stock>(allStocks.map((s) => [s.id, s]));
         const matched = items
-          .map((item) => stockMap.get(item.stockId))
+          .map((item) => stockMap.get(item.stock_id))
           .filter((s): s is Stock => s !== undefined)
           .map(toStockRow);
 

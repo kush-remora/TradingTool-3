@@ -2,61 +2,61 @@ export interface Watchlist {
   id: number;
   name: string;
   description: string | null;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Stock {
   id: number;
   symbol: string;
-  instrumentToken: number;
-  companyName: string;
+  instrument_token: number;
+  company_name: string;
   exchange: string;
   description: string | null;
   priority: number | null;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface WatchlistStock {
   id: number;
-  watchlistId: number;
-  stockId: number;
-  createdAt: string;
+  watchlist_id: number;
+  stock_id: number;
+  created_at: string;
 }
 
 export interface Tag {
   id: number;
   name: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface StockTag {
   id: number;
-  stockId: number;
-  tagId: number;
-  createdAt: string;
+  stock_id: number;
+  tag_id: number;
+  created_at: string;
 }
 
 export interface WatchlistTag {
   id: number;
-  watchlistId: number;
-  tagId: number;
-  createdAt: string;
+  watchlist_id: number;
+  tag_id: number;
+  created_at: string;
 }
 
 export interface StockNote {
   id: number;
-  stockId: number;
+  stock_id: number;
   content: string;
-  createdAt: string;
+  created_at: string;
 }
 
 export interface UserLayout {
   id: number;
-  layoutData: string; // raw JSON string: { watchlistOrder: number[], stockOrder: Record<string, number[]> }
-  updatedAt: string;
+  layout_data: string; // raw JSON string: { watchlistOrder: number[], stockOrder: Record<string, number[]> }
+  updated_at: string;
 }
 
 export interface LayoutData {
@@ -65,9 +65,9 @@ export interface LayoutData {
 }
 
 export interface InstrumentSearchResult {
-  instrumentToken: number;
-  tradingSymbol: string;
-  companyName: string;
+  instrument_token: number;
+  trading_symbol: string;
+  company_name: string;
   exchange: string;
-  instrumentType: string;
+  instrument_type: string;
 }

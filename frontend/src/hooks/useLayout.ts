@@ -25,7 +25,7 @@ export function useLayout() {
   useEffect(() => {
     setLoading(true);
     getJson<UserLayout>("/api/layout")
-      .then((data) => setLayout(parseLayout(data.layoutData)))
+      .then((data) => setLayout(parseLayout(data.layout_data)))
       .catch(() => setLayout(EMPTY_LAYOUT))
       .finally(() => setLoading(false));
   }, []);

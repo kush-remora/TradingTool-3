@@ -90,7 +90,7 @@ export function useWatchlistData(): WatchlistDataState {
   const removeStockFromWatchlist = async (watchlistId: number, stockId: number) => {
     await deleteJson(`/api/watchlist/items/${watchlistId}/${stockId}`);
     setWatchlistStocks((prev) =>
-      prev.filter((ws) => !(ws.watchlistId === watchlistId && ws.stockId === stockId)),
+      prev.filter((ws) => !(ws.watchlist_id === watchlistId && ws.stock_id === stockId)),
     );
   };
 
@@ -113,8 +113,8 @@ export function useWatchlistData(): WatchlistDataState {
   const deleteWatchlist = async (id: number) => {
     await deleteJson(`/api/watchlist/lists/${id}`);
     setWatchlists((prev) => prev.filter((w) => w.id !== id));
-    setWatchlistStocks((prev) => prev.filter((ws) => ws.watchlistId !== id));
-    setWatchlistTags((prev) => prev.filter((wt) => wt.watchlistId !== id));
+    setWatchlistStocks((prev) => prev.filter((ws) => ws.watchlist_id !== id));
+    setWatchlistTags((prev) => prev.filter((wt) => wt.watchlist_id !== id));
   };
 
   const updateStock = async (id: number, fields: { description?: string; priority?: number }) => {
@@ -129,31 +129,31 @@ export function useWatchlistData(): WatchlistDataState {
     // Ensure tag is in allTags
     setAllTags((prev) => (prev.some((t) => t.id === tag.id) ? prev : [...prev, tag]));
     setStockTags((prev) =>
-      prev.some((st) => st.stockId === stockId && st.tagId === tag.id)
+      prev.some((st) => st.stock_id === stockId && st.tag_id === tag.id)
         ? prev
-        : [...prev, { id: Date.now(), stockId, tagId: tag.id, createdAt: new Date().toISOString() }],
+        : [...prev, { id: Date.now(), stock_id: stockId, tag_id: tag.id, created_at: new Date().toISOString() }],
     );
   };
 
   const removeTagFromStock = async (stockId: number, tagId: number) => {
     await deleteJson(`/api/watchlist/stocks/${stockId}/tags/${tagId}`);
-    setStockTags((prev) => prev.filter((st) => !(st.stockId === stockId && st.tagId === tagId)));
+    setStockTags((prev) => prev.filter((st) => !(st.stock_id === stockId && st.tag_id === tagId)));
   };
 
   const addTagToWatchlist = async (watchlistId: number, tagName: string) => {
     const tag = await postJson<Tag>(`/api/watchlist/lists/${watchlistId}/tags`, { tagName });
     setAllTags((prev) => (prev.some((t) => t.id === tag.id) ? prev : [...prev, tag]));
     setWatchlistTags((prev) =>
-      prev.some((wt) => wt.watchlistId === watchlistId && wt.tagId === tag.id)
+      prev.some((wt) => wt.watchlist_id === watchlistId && wt.tag_id === tag.id)
         ? prev
-        : [...prev, { id: Date.now(), watchlistId, tagId: tag.id, createdAt: new Date().toISOString() }],
+        : [...prev, { id: Date.now(), watchlist_id: watchlistId, tag_id: tag.id, created_at: new Date().toISOString() }],
     );
   };
 
   const removeTagFromWatchlist = async (watchlistId: number, tagId: number) => {
     await deleteJson(`/api/watchlist/lists/${watchlistId}/tags/${tagId}`);
     setWatchlistTags((prev) =>
-      prev.filter((wt) => !(wt.watchlistId === watchlistId && wt.tagId === tagId)),
+      prev.filter((wt) => !(wt.watchlist_id === watchlistId && wt.tag_id === tagId)),
     );
   };
 

@@ -89,7 +89,7 @@ export function StockNotesPanel({ stock, tags, onClose, onUpdateDescription, onU
           </Typography.Text>
           <div>
             <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-              {stock.companyName}
+              {stock.company_name}
             </Typography.Text>
           </div>
         </div>
@@ -180,7 +180,7 @@ export function StockNotesPanel({ stock, tags, onClose, onUpdateDescription, onU
               <Typography.Text style={{ fontSize: 12, display: "block" }}>{note.content}</Typography.Text>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
                 <Typography.Text type="secondary" style={{ fontSize: 10 }}>
-                  {formatTime(note.createdAt)}
+                  {formatTime(note.created_at)}
                 </Typography.Text>
                 <Tooltip title="Delete note">
                   <Button

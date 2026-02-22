@@ -34,10 +34,10 @@ export function WatchlistPage() {
     const tagById = new Map(data.allTags.map((t) => [t.id, t]));
     const map = new Map<number, typeof data.allTags>();
     data.stockTags.forEach((st) => {
-      const tag = tagById.get(st.tagId);
+      const tag = tagById.get(st.tag_id);
       if (!tag) return;
-      const existing = map.get(st.stockId) ?? [];
-      map.set(st.stockId, [...existing, tag]);
+      const existing = map.get(st.stock_id) ?? [];
+      map.set(st.stock_id, [...existing, tag]);
     });
     return map;
   }, [data.stockTags, data.allTags]);
@@ -68,8 +68,8 @@ export function WatchlistPage() {
     const orderMap = new Map(stockOrder.map((id, i) => [id, i]));
     const ids = new Set(
       data.watchlistStocks
-        .filter((ws) => ws.watchlistId === watchlist.id)
-        .map((ws) => ws.stockId),
+        .filter((ws) => ws.watchlist_id === watchlist.id)
+        .map((ws) => ws.stock_id),
     );
     const stocks = [...ids]
       .map((id) => stockById.get(id))
@@ -84,9 +84,18 @@ export function WatchlistPage() {
   const existingStockIdsForWatchlist = (watchlistId: number): Set<number> =>
     new Set(
       data.watchlistStocks
-        .filter((ws) => ws.watchlistId === watchlistId)
-        .map((ws) => ws.stockId),
+        .filter((ws) => ws.watchlist_id === watchlistId)
+        .map((ws) => ws.stock_id),
     );
+
+  const existingTokensForWatchlist = (watchlistId: number): Set<number> => {
+    const stockIds = existingStockIdsForWatchlist(watchlistId);
+    return new Set(
+      data.stocks
+        .filter((s) => stockIds.has(s.id))
+        .map((s) => s.instrument_token),
+    );
+  };
 
   const handleCreateWatchlist = async () => {
     if (!createWlName.trim()) return;
@@ -147,6 +156,7 @@ export function WatchlistPage() {
   const collapseItems = orderedWatchlists.map((watchlist) => {
     const stocks = stocksForWatchlist(watchlist);
     const existingIds = existingStockIdsForWatchlist(watchlist.id);
+    const existingTokens = existingTokensForWatchlist(watchlist.id);
 
     return {
       key: String(watchlist.id),
@@ -199,6 +209,7 @@ export function WatchlistPage() {
             <InstrumentSearch
               watchlistId={watchlist.id}
               existingStockIds={existingIds}
+              existingStockTokens={existingTokens}
               onStockAdded={(stock) => handleStockAdded(watchlist.id, stock)}
             />
           </div>
@@ -228,6 +239,7 @@ export function WatchlistPage() {
       ),
     };
   });
+
 
   return (
     <>
@@ -368,7 +380,7 @@ function StockRow({ stock, tags, isSelected, onSelect, onRemove }: StockRowProps
             ellipsis
             style={{ fontSize: 10, display: "block", maxWidth: 180 }}
           >
-            {stock.companyName}
+            {stock.company_name}
           </Typography.Text>
         )}
       </div>
