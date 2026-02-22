@@ -34,16 +34,20 @@ export function InstrumentSearch({ watchlistId, existingStockIds, onStockAdded }
   );
 
   const options = availableInstruments.map((inst) => ({
-    value: String(inst.instrumentToken),
+    value: inst.tradingSymbol,
     label: (
-      <span>
-        <strong>{inst.tradingSymbol}</strong>
-        <span style={{ color: "#888", fontSize: 11, marginLeft: 6 }}>
-          {inst.companyName || inst.exchange}
-        </span>
-      </span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+        <strong style={{ fontSize: 13 }}>{inst.tradingSymbol}</strong>
+        {inst.companyName && (
+          <span style={{ color: "#999", fontSize: 10, marginLeft: 8, textAlign: "right" }}>
+            {inst.companyName}
+          </span>
+        )}
+      </div>
     ),
     instrument: inst,
+    // For client-side search/filtering (search by symbol, company name, or exchange)
+    searchText: `${inst.tradingSymbol} ${inst.companyName} ${inst.exchange}`.toLowerCase(),
   }));
 
   const handleSelect = (_: string, option: (typeof options)[0]) => {
@@ -57,8 +61,8 @@ export function InstrumentSearch({ watchlistId, existingStockIds, onStockAdded }
       // Upsert stock (create if not exists, or fetch existing)
       const stock = await postJson<Stock>("/api/watchlist/stocks", {
         symbol: selected.tradingSymbol,
-        instrument_token: selected.instrumentToken,
-        company_name: selected.companyName,
+        instrumentToken: selected.instrumentToken,
+        companyName: selected.companyName,
         exchange: selected.exchange,
       }).catch(async () => {
         // Stock already exists — fetch by symbol
@@ -68,8 +72,8 @@ export function InstrumentSearch({ watchlistId, existingStockIds, onStockAdded }
 
       if (!existingStockIds.has(stock.id)) {
         await postJson("/api/watchlist/items", {
-          watchlist_id: watchlistId,
-          stock_id: stock.id,
+          watchlistId: watchlistId,
+          stockId: stock.id,
         });
         onStockAdded(stock);
       }
@@ -86,12 +90,13 @@ export function InstrumentSearch({ watchlistId, existingStockIds, onStockAdded }
         options={options}
         onSelect={handleSelect}
         onClear={() => setSelected(null)}
+        onPressEnter={() => void handleAdd()}
         allowClear
         placeholder="Search eg: infy, reliance..."
         size="small"
         notFoundContent={availableInstruments.length === 0 ? "All stocks already added" : null}
         filterOption={(inputValue, option) =>
-          option?.label?.toString().toLowerCase().includes(inputValue.toLowerCase())
+          (option as any)?.searchText?.includes(inputValue.toLowerCase()) ?? false
         }
       />
       <Button

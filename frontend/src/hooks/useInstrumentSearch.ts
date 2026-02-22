@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getJson } from "../utils/api";
 import type { InstrumentSearchResult } from "../types";
 
@@ -10,8 +10,12 @@ export function useInstrumentSearch() {
   const [allInstruments, setAllInstruments] = useState<InstrumentSearchResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasFetchedRef = useRef(false);
 
   useEffect(() => {
+    if (hasFetchedRef.current) return; // Prevent double-fetch in StrictMode
+    hasFetchedRef.current = true;
+
     const fetchInstruments = async () => {
       try {
         const data = await getJson<InstrumentSearchResult[]>("/api/instruments/all");
