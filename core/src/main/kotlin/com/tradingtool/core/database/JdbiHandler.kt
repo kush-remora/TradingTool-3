@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.Handle
+import org.jdbi.v3.core.kotlin.KotlinPlugin
 import org.jdbi.v3.postgres.PostgresPlugin
 import org.jdbi.v3.sqlobject.SqlObjectPlugin
 
@@ -185,6 +186,7 @@ class JdbiHandler<R, W>(
             Jdbi.create(jdbcUrl)
                 .installPlugin(PostgresPlugin())
                 .installPlugin(SqlObjectPlugin())
+                .installPlugin(KotlinPlugin())
         } catch (error: Exception) {
             throw JdbiHandlerError(
                 sanitizeJdbcErrorMessage(

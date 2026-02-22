@@ -168,7 +168,7 @@ class StockMapper : RowMapper<Stock> {
             companyName = rs.getString(StockColumns.COMPANY_NAME),
             exchange = rs.getString(StockColumns.EXCHANGE),
             description = rs.getString(StockColumns.DESCRIPTION),
-            priority = rs.getObject(StockColumns.PRIORITY, Int::class.java),
+            priority = rs.getObject(StockColumns.PRIORITY, Int::class.javaObjectType),
             createdAt = toUtcString(rs.getObject(StockColumns.CREATED_AT, OffsetDateTime::class.java)),
             updatedAt = toUtcString(rs.getObject(StockColumns.UPDATED_AT, OffsetDateTime::class.java)),
         )
