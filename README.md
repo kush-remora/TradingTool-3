@@ -9,6 +9,7 @@ Kotlin migration bootstrap for the TradingTool backend.
 - `service`: API/service layer (active module with current Ktor app)
 - `event-service`: event-driven processing module (empty scaffold)
 
+
 ## Stack
 
 - Kotlin 2.3.10
