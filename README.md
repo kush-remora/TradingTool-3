@@ -25,6 +25,18 @@ Prerequisites:
 - JDK 21
 - Maven 3.9+
 - Node.js 20+ and npm
+- Docker (Docker Desktop recommended)
+
+Install and verify Docker:
+
+- macOS (Homebrew): `brew install --cask docker`
+- Windows: install Docker Desktop from https://www.docker.com/products/docker-desktop/
+- Linux: install Docker Engine from https://docs.docker.com/engine/install/
+- Start Docker, then verify:
+  ```bash
+  docker version
+  docker run --rm hello-world
+  ```
 
 Clone and install frontend dependencies:
 
@@ -66,6 +78,13 @@ Alternative: run both with one command:
 ./run-local.sh
 ```
 
+Build and run backend with Docker (optional):
+
+```bash
+docker build -t trading-tool-backend .
+docker run --rm --name trading-tool-backend-local -p 8080:8080 trading-tool-backend
+```
+
 ### 3. Debug if you face issues
 
 - Check backend health quickly:
@@ -82,6 +101,7 @@ Alternative: run both with one command:
   lsof -ti tcp:8080 -sTCP:LISTEN | xargs kill -9
   lsof -ti tcp:5173 -sTCP:LISTEN | xargs kill -9
   ```
+- If Docker build fails while pulling base images (for example TLS timeout), retry once and check network/proxy/VPN connectivity to Docker Hub.
 - Rebuild and rerun backend after config/dependency changes:
   ```bash
   mvn -f pom.xml -pl service -am clean package -DskipTests
