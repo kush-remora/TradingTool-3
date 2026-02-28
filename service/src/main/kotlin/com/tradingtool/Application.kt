@@ -2,9 +2,14 @@ package com.tradingtool
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.inject.Guice
+import com.google.inject.Key
+import com.google.inject.TypeLiteral
 import com.tradingtool.config.AppConfig
 import com.tradingtool.config.DropwizardConfig
 import com.tradingtool.di.ServiceModule
+import com.tradingtool.core.database.JdbiHandler
+import com.tradingtool.core.kite.KiteTokenReadDao
+import com.tradingtool.core.kite.KiteTokenWriteDao
 import com.tradingtool.resources.health.HealthResource
 import com.tradingtool.resources.instruments.InstrumentResource
 import com.tradingtool.resources.kite.KiteResource
@@ -22,6 +27,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.EnumSet
+import kotlinx.coroutines.runBlocking
 import org.eclipse.jetty.servlets.CrossOriginFilter
 import org.glassfish.jersey.media.multipart.MultiPartFeature
 import org.glassfish.jersey.server.filter.RolesAllowedDynamicFeature
@@ -117,8 +123,14 @@ class DropwizardApplication : Application<DropwizardConfig>() {
         val objectMapper: ObjectMapper = environment.objectMapper
         objectMapper.registerModule(com.fasterxml.jackson.module.kotlin.KotlinModule.Builder().build())
 
-        // Populate instrument cache at startup if Kite token is already set
+        // Apply latest persisted Kite token from DB so restarts use the freshest token.
+        val tokenDb = injector.getInstance(
+            Key.get(object : TypeLiteral<JdbiHandler<KiteTokenReadDao, KiteTokenWriteDao>>() {})
+        )
         val kiteClient = injector.getInstance(com.tradingtool.core.kite.KiteConnectClient::class.java)
+        applyLatestKiteTokenFromDb(tokenDb, kiteClient)
+
+        // Populate instrument cache at startup if Kite token is available.
         val instrumentCache = injector.getInstance(com.tradingtool.core.kite.InstrumentCache::class.java)
         if (kiteClient.isAuthenticated) {
             Thread {
@@ -155,5 +167,26 @@ class DropwizardApplication : Application<DropwizardConfig>() {
 
         // Enable RolesAllowed feature for security annotations
         environment.jersey().register(RolesAllowedDynamicFeature::class.java)
+    }
+}
+
+private fun applyLatestKiteTokenFromDb(
+    tokenDb: JdbiHandler<KiteTokenReadDao, KiteTokenWriteDao>,
+    kiteClient: com.tradingtool.core.kite.KiteConnectClient,
+) {
+    try {
+        val latestToken: String? = runBlocking {
+            tokenDb.read { dao -> dao.getLatestToken() }
+        }?.takeIf { token -> token.isNotBlank() }
+
+        if (latestToken != null) {
+            kiteClient.applyAccessToken(latestToken)
+            println("[KiteToken] Applied latest token from kite_tokens table at startup.")
+        } else {
+            println("[KiteToken] No token found in kite_tokens table. Using configured token if present.")
+        }
+    } catch (error: Exception) {
+        println("[KiteToken] Failed to load token from DB at startup: ${error.message}")
+        println("[KiteToken] Falling back to configured token.")
     }
 }
