@@ -45,11 +45,13 @@ fun main() {
     """.trimIndent()
 
     runBlocking {
-        telegramSender.sendText(TelegramSendTextRequest(message))
-        println("Telegram reminder sent.")
-
+        // Wake Render first — token callback will hit a live server
         wakeRenderService(wakeUrl, executor)
         println("Render wake-up ping sent.")
+
+        // Only notify after the server is confirmed awake
+        telegramSender.sendText(TelegramSendTextRequest(message))
+        println("Telegram reminder sent.")
     }
     exitProcess(0)
 }
