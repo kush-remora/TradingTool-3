@@ -16,6 +16,77 @@ Kotlin migration bootstrap for the TradingTool backend.
 - Maven
 - Ktor 3.4.0
 
+## New Developer Setup
+
+### 1. Set up the code
+
+Prerequisites:
+
+- JDK 21
+- Maven 3.9+
+- Node.js 20+ and npm
+
+Clone and install frontend dependencies:
+
+```bash
+git clone <your-repo-url>
+cd TradingTool-3
+npm --prefix frontend install
+```
+
+Set required backend environment variable:
+
+```bash
+export SUPABASE_DB_URL="jdbc:postgresql://db.<project-ref>.supabase.co:5432/postgres?sslmode=require"
+```
+
+### 2. Run frontend and backend locally
+
+Run backend (terminal 1):
+
+```bash
+mvn -f pom.xml -pl service -am package -DskipTests
+java -jar service/target/service-0.1.0-SNAPSHOT.jar server service/src/main/resources/localconfig.yaml
+```
+
+Run frontend (terminal 2):
+
+```bash
+npm --prefix frontend run dev -- --host 0.0.0.0 --port 5173
+```
+
+Open:
+
+- Frontend: http://localhost:5173
+- Backend health: http://localhost:8080/health
+
+Alternative: run both with one command:
+
+```bash
+./run-local.sh
+```
+
+### 3. Debug if you face issues
+
+- Check backend health quickly:
+  ```bash
+  curl http://localhost:8080/health
+  curl http://localhost:8080/health/config
+  ```
+- If backend fails to start, verify:
+  - `SUPABASE_DB_URL` is set in the same shell session.
+  - `service/src/main/resources/localconfig.yaml` exists.
+- If frontend cannot call backend, confirm backend is running on `localhost:8080`.
+- If ports are busy (`8080` or `5173`), stop existing listeners:
+  ```bash
+  lsof -ti tcp:8080 -sTCP:LISTEN | xargs kill -9
+  lsof -ti tcp:5173 -sTCP:LISTEN | xargs kill -9
+  ```
+- Rebuild and rerun backend after config/dependency changes:
+  ```bash
+  mvn -f pom.xml -pl service -am clean package -DskipTests
+  ```
+
 ## Run locally
 
 ```bash
