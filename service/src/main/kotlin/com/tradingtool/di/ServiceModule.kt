@@ -6,32 +6,29 @@ import com.google.inject.Singleton
 import com.google.inject.name.Named
 import com.tradingtool.config.AppConfig
 import com.tradingtool.core.database.JdbiHandler
-import com.tradingtool.core.kite.InstrumentCache
-import com.tradingtool.core.kite.KiteTokenReadDao
-import com.tradingtool.core.kite.KiteTokenWriteDao
-import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.database.KiteTokenJdbiHandler
-import com.tradingtool.core.database.WatchlistJdbiHandler
+import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.http.HttpRequestExecutor
 import com.tradingtool.core.http.JdkHttpRequestExecutor
+import com.tradingtool.core.kite.InstrumentCache
+import com.tradingtool.core.kite.KiteConnectClient
+import com.tradingtool.core.kite.KiteTokenReadDao
+import com.tradingtool.core.kite.KiteTokenWriteDao
 import com.tradingtool.core.model.DatabaseConfig
+import com.tradingtool.core.stock.dao.StockReadDao
+import com.tradingtool.core.stock.dao.StockWriteDao
+import com.tradingtool.core.stock.service.StockService
 import com.tradingtool.core.telegram.TelegramApiClient
 import com.tradingtool.core.telegram.TelegramSender
 import com.tradingtool.core.trade.dao.TradeReadDao
 import com.tradingtool.core.trade.dao.TradeWriteDao
 import com.tradingtool.core.trade.service.TradeService
-import com.tradingtool.core.watchlist.dao.WatchlistReadDao
-import com.tradingtool.core.watchlist.dao.WatchlistWriteDao
-import com.tradingtool.core.watchlist.service.WatchlistReadService
-import com.tradingtool.core.watchlist.service.WatchlistWriteService
 import com.tradingtool.resources.health.HealthResource
 import com.tradingtool.resources.instruments.InstrumentResource
 import com.tradingtool.resources.kite.KiteResource
-import com.tradingtool.resources.layout.LayoutResource
-import com.tradingtool.resources.notes.StockNotesResource
+import com.tradingtool.resources.stock.StockResource
 import com.tradingtool.resources.telegram.TelegramResource
 import com.tradingtool.resources.trade.TradeResource
-import com.tradingtool.resources.watchlist.WatchlistResource
 import java.net.http.HttpClient
 import kotlinx.serialization.json.Json
 
@@ -40,77 +37,50 @@ class ServiceModule(
 ) : AbstractModule() {
     override fun configure() {
         bind(AppConfig::class.java).toInstance(appConfig)
-        bind(WatchlistReadService::class.java).`in`(Singleton::class.java)
-        bind(WatchlistWriteService::class.java).`in`(Singleton::class.java)
+        bind(StockService::class.java).`in`(Singleton::class.java)
         bind(TradeService::class.java).`in`(Singleton::class.java)
         bind(HttpRequestExecutor::class.java).to(JdkHttpRequestExecutor::class.java).`in`(Singleton::class.java)
 
-        // Register resources for Dropwizard
         bind(HealthResource::class.java).`in`(Singleton::class.java)
         bind(KiteResource::class.java).`in`(Singleton::class.java)
         bind(TelegramResource::class.java).`in`(Singleton::class.java)
-        bind(WatchlistResource::class.java).`in`(Singleton::class.java)
+        bind(StockResource::class.java).`in`(Singleton::class.java)
         bind(InstrumentResource::class.java).`in`(Singleton::class.java)
-        bind(StockNotesResource::class.java).`in`(Singleton::class.java)
-        bind(LayoutResource::class.java).`in`(Singleton::class.java)
         bind(TradeResource::class.java).`in`(Singleton::class.java)
     }
 
     @Provides
     @Singleton
-    fun provideKiteConnectClient(config: AppConfig): KiteConnectClient {
-        return KiteConnectClient(config.kite)
-    }
+    fun provideKiteConnectClient(config: AppConfig): KiteConnectClient =
+        KiteConnectClient(config.kite)
 
     @Provides
     @Singleton
-    fun provideInstrumentCache(): InstrumentCache {
-        return InstrumentCache()
-    }
+    fun provideInstrumentCache(): InstrumentCache = InstrumentCache()
 
     @Provides
     @Singleton
-    fun provideJson(): Json {
-        return Json { ignoreUnknownKeys = true }
-    }
+    fun provideJson(): Json = Json { ignoreUnknownKeys = true }
 
     @Provides
     @Singleton
-    fun provideDatabaseConfig(config: AppConfig): DatabaseConfig {
-        return DatabaseConfig(
-            jdbcUrl = config.supabase.dbUrl,
-        )
-    }
+    fun provideDatabaseConfig(config: AppConfig): DatabaseConfig =
+        DatabaseConfig(jdbcUrl = config.supabase.dbUrl)
 
     @Provides
     @Singleton
-    fun provideKiteTokenJdbiHandler(config: DatabaseConfig): KiteTokenJdbiHandler {
-        return JdbiHandler(
-            config = config,
-            readDaoClass = KiteTokenReadDao::class.java,
-            writeDaoClass = KiteTokenWriteDao::class.java,
-        )
-    }
+    fun provideKiteTokenJdbiHandler(config: DatabaseConfig): KiteTokenJdbiHandler =
+        JdbiHandler(config = config, readDaoClass = KiteTokenReadDao::class.java, writeDaoClass = KiteTokenWriteDao::class.java)
 
     @Provides
     @Singleton
-    fun provideWatchlistJdbiHandler(config: DatabaseConfig): WatchlistJdbiHandler {
-        return JdbiHandler(
-            config = config,
-            readDaoClass = WatchlistReadDao::class.java,
-            writeDaoClass = WatchlistWriteDao::class.java,
-        )
-    }
+    fun provideStockJdbiHandler(config: DatabaseConfig): StockJdbiHandler =
+        JdbiHandler(config = config, readDaoClass = StockReadDao::class.java, writeDaoClass = StockWriteDao::class.java)
 
     @Provides
     @Singleton
-    fun provideTradeJdbiHandler(config: DatabaseConfig): JdbiHandler<TradeReadDao, TradeWriteDao> {
-        return JdbiHandler(
-            config = config,
-            readDaoClass = TradeReadDao::class.java,
-            writeDaoClass = TradeWriteDao::class.java,
-        )
-    }
+    fun provideTradeJdbiHandler(config: DatabaseConfig): JdbiHandler<TradeReadDao, TradeWriteDao> =
+        JdbiHandler(config = config, readDaoClass = TradeReadDao::class.java, writeDaoClass = TradeWriteDao::class.java)
 
     @Provides
     @Singleton
@@ -119,26 +89,21 @@ class ServiceModule(
         @Named("telegramChatId") chatId: String,
         httpRequestExecutor: HttpRequestExecutor,
         json: Json,
-    ): TelegramApiClient {
-        return TelegramApiClient(
-            botToken = botToken,
-            chatId = chatId,
-            httpRequestExecutor = httpRequestExecutor,
-            json = json,
-        )
-    }
+    ): TelegramApiClient = TelegramApiClient(
+        botToken = botToken,
+        chatId = chatId,
+        httpRequestExecutor = httpRequestExecutor,
+        json = json,
+    )
 
     @Provides
     @Singleton
-    fun provideTelegramSender(telegramApiClient: TelegramApiClient): TelegramSender {
-        return TelegramSender(telegramApiClient = telegramApiClient)
-    }
+    fun provideTelegramSender(telegramApiClient: TelegramApiClient): TelegramSender =
+        TelegramSender(telegramApiClient = telegramApiClient)
 
     @Provides
     @Singleton
-    fun provideHttpClient(): HttpClient {
-        return HttpClient.newBuilder().build()
-    }
+    fun provideHttpClient(): HttpClient = HttpClient.newBuilder().build()
 
     @Provides
     @Singleton

@@ -1,116 +1,36 @@
 package com.tradingtool.core.constants
 
-/**
- * Database table and column name constants.
- * Used by ReadDao and WriteDao to avoid hardcoding SQL identifiers.
- */
 object DatabaseConstants {
 
-    // ==================== Table Names ====================
     object Tables {
         const val STOCKS = "stocks"
-        const val WATCHLISTS = "watchlists"
-        const val TAGS = "tags"
-        const val STOCK_TAGS = "stock_tags"
-        const val WATCHLIST_TAGS = "watchlist_tags"
-        const val WATCHLIST_STOCKS = "watchlist_stocks"
         const val KITE_TOKENS = "kite_tokens"
-        const val STOCK_NOTES = "stock_notes"
-        const val USER_LAYOUT = "user_layout"
         const val TRADES = "trades"
     }
 
-    // ==================== KiteToken Columns ====================
     object KiteTokenColumns {
         const val ID = "id"
         const val ACCESS_TOKEN = "access_token"
         const val CREATED_AT = "created_at"
     }
 
-    // ==================== Stock Columns ====================
     object StockColumns {
         const val ID = "id"
         const val SYMBOL = "symbol"
         const val INSTRUMENT_TOKEN = "instrument_token"
         const val COMPANY_NAME = "company_name"
         const val EXCHANGE = "exchange"
-        const val DESCRIPTION = "description"
+        const val NOTES = "notes"
         const val PRIORITY = "priority"
+        const val TAGS = "tags"
         const val CREATED_AT = "created_at"
         const val UPDATED_AT = "updated_at"
 
-        const val ALL = "$ID, $SYMBOL, $INSTRUMENT_TOKEN, $COMPANY_NAME, $EXCHANGE, $DESCRIPTION, $PRIORITY, $CREATED_AT, $UPDATED_AT"
+        // tags cast to text so the JDBC driver returns a plain String (not PGobject)
+        const val ALL_WITH_TAGS =
+            "$ID, $SYMBOL, $INSTRUMENT_TOKEN, $COMPANY_NAME, $EXCHANGE, $NOTES, $PRIORITY, $TAGS::text AS $TAGS, $CREATED_AT, $UPDATED_AT"
     }
 
-    // ==================== Watchlist Columns ====================
-    object WatchlistColumns {
-        const val ID = "id"
-        const val NAME = "name"
-        const val DESCRIPTION = "description"
-        const val CREATED_AT = "created_at"
-        const val UPDATED_AT = "updated_at"
-
-        const val ALL = "$ID, $NAME, $DESCRIPTION, $CREATED_AT, $UPDATED_AT"
-    }
-
-    // ==================== Tag Columns ====================
-    object TagColumns {
-        const val ID = "id"
-        const val NAME = "name"
-        const val CREATED_AT = "created_at"
-        const val UPDATED_AT = "updated_at"
-
-        const val ALL = "$ID, $NAME, $CREATED_AT, $UPDATED_AT"
-    }
-
-    // ==================== WatchlistStock Columns ====================
-    object WatchlistStockColumns {
-        const val ID = "id"
-        const val WATCHLIST_ID = "watchlist_id"
-        const val STOCK_ID = "stock_id"
-        const val CREATED_AT = "created_at"
-
-        const val ALL = "$ID, $WATCHLIST_ID, $STOCK_ID, $CREATED_AT"
-    }
-
-    // ==================== StockTag Columns ====================
-    object StockTagColumns {
-        const val ID = "id"
-        const val STOCK_ID = "stock_id"
-        const val TAG_ID = "tag_id"
-        const val CREATED_AT = "created_at"
-
-        const val ALL = "$ID, $STOCK_ID, $TAG_ID, $CREATED_AT"
-    }
-
-    // ==================== WatchlistTag Columns ====================
-    object WatchlistTagColumns {
-        const val ID = "id"
-        const val WATCHLIST_ID = "watchlist_id"
-        const val TAG_ID = "tag_id"
-        const val CREATED_AT = "created_at"
-
-        const val ALL = "$ID, $WATCHLIST_ID, $TAG_ID, $CREATED_AT"
-    }
-
-    // ==================== StockNote Columns ====================
-    object StockNoteColumns {
-        const val ID = "id"
-        const val STOCK_ID = "stock_id"
-        const val CONTENT = "content"
-        const val CREATED_AT = "created_at"
-
-        const val ALL = "$ID, $STOCK_ID, $CONTENT, $CREATED_AT"
-    }
-
-    // ==================== UserLayout Columns ====================
-    object UserLayoutColumns {
-        const val ID = "id"
-        const val LAYOUT_DATA = "layout_data"
-        const val UPDATED_AT = "updated_at"
-    }
-
-    // ==================== Trade Columns ====================
     object TradeColumns {
         const val ID = "id"
         const val STOCK_ID = "stock_id"

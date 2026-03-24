@@ -43,6 +43,13 @@ class TradeService @Inject constructor(
     }
 
     /**
+     * Fetch trade by stock ID (at most one — unique constraint on stock_id).
+     */
+    suspend fun getTradeByStockId(stockId: Long): com.tradingtool.core.model.trade.Trade? {
+        return runRead { dao -> dao.getTradeByStockId(stockId) }
+    }
+
+    /**
      * Fetch single trade with GTT targets.
      */
     suspend fun getTradeWithTargets(tradeId: Long): TradeWithTargets? {

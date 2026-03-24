@@ -1,138 +1,137 @@
 import { useState } from "react";
-import { Button, Card, Col, Input, Row, Space, Tag, Typography } from "antd";
-import { FileSendCard } from "./FileSendCard";
+import { Alert, Button, Card, Input, Space, Upload } from "antd";
+import type { UploadFile } from "antd";
 import { sendRequest } from "../utils/api";
 
-const { Text } = Typography;
+type SendStatus = { type: "success" | "error"; message: string } | null;
 
-interface ChatMessage {
-  key: string;
-  sender: string;
-  text: string;
-  time: string;
-}
-
-function senderColor(sender: string): string {
-  if (sender === "You") return "blue";
-  if (sender === "Error") return "red";
-  return "green";
+// Routes to the correct endpoint based on file extension / MIME type.
+function detectEndpoint(file: File): string | null {
+  const name = file.name.toLowerCase();
+  const mime = file.type.toLowerCase();
+  if (mime.startsWith("image/") || [".png", ".jpg", ".jpeg", ".webp"].some((ext) => name.endsWith(ext))) {
+    return "/api/telegram/send/image";
+  }
+  if (name.endsWith(".xls") || name.endsWith(".xlsx")) {
+    return "/api/telegram/send/excel";
+  }
+  return null;
 }
 
 export function TelegramSender() {
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [textMessage, setTextMessage] = useState("");
-  const [isSendingText, setIsSendingText] = useState(false);
+  const [text, setText] = useState("");
+  const [caption, setCaption] = useState("");
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [sending, setSending] = useState(false);
+  const [status, setStatus] = useState<SendStatus>(null);
 
-  const appendMessage = (sender: string, text: string) => {
-    setChatHistory((prev) => [
-      ...prev,
-      {
-        key: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        sender,
-        text,
-        time: new Date().toLocaleTimeString(),
-      },
-    ]);
+  const showStatus = (type: "success" | "error", message: string) => {
+    setStatus({ type, message });
+    setTimeout(() => setStatus(null), 3000);
   };
 
   const handleSendText = async () => {
-    const trimmed = textMessage.trim();
-    if (trimmed.length === 0 || isSendingText) return;
-
-    setIsSendingText(true);
-    appendMessage("You", trimmed);
-
+    const trimmed = text.trim();
+    if (!trimmed || sending) return;
+    setSending(true);
     try {
-      const payload = await sendRequest("/api/telegram/send/text", {
+      const res = await sendRequest("/api/telegram/send/text", {
         method: "POST",
-        credentials: "include",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: trimmed }),
       });
-      setTextMessage("");
-      appendMessage(
-        "Telegram",
-        (payload.message as string | undefined) ?? "Text sent successfully.",
-      );
-    } catch (error) {
-      appendMessage(
-        "Error",
-        error instanceof Error ? error.message : "Failed to send text.",
-      );
+      setText("");
+      showStatus("success", (res.message as string | undefined) ?? "Text sent.");
+    } catch (e) {
+      showStatus("error", e instanceof Error ? e.message : "Failed to send text.");
     } finally {
-      setIsSendingText(false);
+      setSending(false);
+    }
+  };
+
+  const handleSendFile = async () => {
+    const file = fileList[0]?.originFileObj ?? null;
+    if (!file || sending) return;
+
+    const endpoint = detectEndpoint(file);
+    if (!endpoint) {
+      showStatus("error", "Unsupported file type. Use PNG/JPG/WEBP or XLS/XLSX.");
+      return;
+    }
+
+    setSending(true);
+    const formData = new FormData();
+    formData.append("file", file, file.name);
+    if (caption.trim()) formData.append("caption", caption.trim());
+
+    try {
+      const res = await sendRequest(endpoint, { method: "POST", body: formData });
+      setFileList([]);
+      setCaption("");
+      showStatus("success", (res.message as string | undefined) ?? "File sent.");
+    } catch (e) {
+      showStatus("error", e instanceof Error ? e.message : "Failed to send file.");
+    } finally {
+      setSending(false);
     }
   };
 
   return (
-    <Card title="Telegram Sender">
-      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-        <div style={{ maxHeight: 280, overflowY: "auto" }}>
-          {chatHistory.length === 0 ? (
-            <Text type="secondary">No messages yet.</Text>
-          ) : (
-            <Space direction="vertical" size={10} style={{ width: "100%" }}>
-              {chatHistory.map((item) => (
-                <div
-                  key={item.key}
-                  style={{
-                    border: "1px solid #f0f0f0",
-                    borderRadius: 8,
-                    padding: 10,
-                  }}
-                >
-                  <Space direction="vertical" size={2} style={{ width: "100%" }}>
-                    <Space>
-                      <Tag color={senderColor(item.sender)}>{item.sender}</Tag>
-                      <Text type="secondary">{item.time}</Text>
-                    </Space>
-                    <Text>{item.text}</Text>
-                  </Space>
-                </div>
-              ))}
-            </Space>
-          )}
-        </div>
+    <Card size="small" title="Telegram">
+      <Space direction="vertical" size="small" style={{ width: "100%" }}>
+        {status && (
+          <Alert
+            type={status.type}
+            message={status.message}
+            showIcon
+            closable
+            onClose={() => setStatus(null)}
+          />
+        )}
 
+        {/* Text send */}
         <Space.Compact style={{ width: "100%" }}>
           <Input
-            value={textMessage}
-            placeholder="Type message text..."
-            onChange={(e) => setTextMessage(e.target.value)}
+            value={text}
+            placeholder="Message..."
+            onChange={(e) => setText(e.target.value)}
             onPressEnter={() => void handleSendText()}
           />
-          <Button
-            type="primary"
-            loading={isSendingText}
-            onClick={() => void handleSendText()}
-          >
-            Send Text
+          <Button type="primary" loading={sending} onClick={() => void handleSendText()}>
+            Send
           </Button>
         </Space.Compact>
 
-        <Row gutter={[16, 16]}>
-          <Col xs={24} lg={12}>
-            <FileSendCard
-              title="Send Image"
-              accept="image/*"
-              endpoint="/api/telegram/send/image"
-              fileLabel="Image selected: "
-              onMessage={appendMessage}
-            />
-          </Col>
-          <Col xs={24} lg={12}>
-            <FileSendCard
-              title="Send Excel"
-              accept=".xlsx,.xls"
-              endpoint="/api/telegram/send/excel"
-              fileLabel="Excel selected: "
-              onMessage={appendMessage}
-            />
-          </Col>
-        </Row>
+        {/* File send — caption + send button only appear once a file is attached */}
+        <Space direction="vertical" size={4} style={{ width: "100%" }}>
+          <Upload
+            maxCount={1}
+            accept="image/*,.xls,.xlsx"
+            beforeUpload={() => false}
+            fileList={fileList}
+            onChange={({ fileList: updated }) => setFileList(updated.slice(-1))}
+          >
+            <Button size="small">Attach Image or Excel</Button>
+          </Upload>
+          {fileList.length > 0 && (
+            <Space.Compact style={{ width: "100%" }}>
+              <Input
+                size="small"
+                value={caption}
+                placeholder="Optional caption"
+                onChange={(e) => setCaption(e.target.value)}
+              />
+              <Button
+                size="small"
+                type="primary"
+                loading={sending}
+                onClick={() => void handleSendFile()}
+              >
+                Send File
+              </Button>
+            </Space.Compact>
+          )}
+        </Space>
       </Space>
     </Card>
   );

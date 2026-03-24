@@ -1,55 +1,54 @@
-import { CloseOutlined, DeleteOutlined, SendOutlined } from "@ant-design/icons";
-import { Button, Input, Rate, Spin, Tag, Tooltip, Typography } from "antd";
-import { useState } from "react";
-import { useStockNotes } from "../hooks/useStockNotes";
-import type { Stock, Tag as TagType } from "../types";
+import { CloseOutlined } from "@ant-design/icons";
+import { Button, Input, Rate, Spin, Table, Tag, Typography } from "antd";
+import { useEffect, useState } from "react";
+import { getJson } from "../utils/api";
+import type { UpdateStockInput } from "../hooks/useStocks";
+import type { Stock, Trade } from "../types";
 
 interface Props {
   stock: Stock;
-  tags: TagType[];
   onClose: () => void;
-  onUpdateDescription: (description: string) => Promise<void>;
-  onUpdatePriority: (priority: number) => Promise<void>;
+  onUpdate: (payload: UpdateStockInput) => Promise<void>;
 }
 
-export function StockNotesPanel({ stock, tags, onClose, onUpdateDescription, onUpdatePriority }: Props) {
-  const { notes, loading, addNote, removeNote } = useStockNotes(stock.id);
-  const [noteInput, setNoteInput] = useState("");
-  const [sendingNote, setSendingNote] = useState(false);
-  const [editingDescription, setEditingDescription] = useState(false);
-  const [descriptionDraft, setDescriptionDraft] = useState(stock.description ?? "");
-  const [savingDescription, setSavingDescription] = useState(false);
+export function StockNotesPanel({ stock, onClose, onUpdate }: Props) {
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [notesDraft, setNotesDraft] = useState(stock.notes ?? "");
+  const [savingNotes, setSavingNotes] = useState(false);
 
-  const handleSendNote = async () => {
-    const content = noteInput.trim();
-    if (!content) return;
-    setSendingNote(true);
+  const [trades, setTrades] = useState<Trade[]>([]);
+  const [loadingTrades, setLoadingTrades] = useState(false);
+
+  // Sync draft when stock changes (e.g. parent re-fetches)
+  useEffect(() => {
+    setNotesDraft(stock.notes ?? "");
+  }, [stock.notes]);
+
+  // Load trades for this stock
+  useEffect(() => {
+    setLoadingTrades(true);
+    getJson<Trade[]>(`/api/stocks/${stock.id}/trades`)
+      .then(setTrades)
+      .catch(() => setTrades([]))
+      .finally(() => setLoadingTrades(false));
+  }, [stock.id]);
+
+  const handleSaveNotes = async () => {
+    setSavingNotes(true);
     try {
-      await addNote(content);
-      setNoteInput("");
+      await onUpdate({ notes: notesDraft });
+      setEditingNotes(false);
     } finally {
-      setSendingNote(false);
+      setSavingNotes(false);
     }
   };
 
-  const handleSaveDescription = async () => {
-    setSavingDescription(true);
-    try {
-      await onUpdateDescription(descriptionDraft);
-      setEditingDescription(false);
-    } finally {
-      setSavingDescription(false);
-    }
-  };
-
-  const formatTime = (iso: string) =>
-    new Date(iso).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const tradeColumns = [
+    { title: "Qty", dataIndex: "quantity", key: "qty", width: 50 },
+    { title: "Avg Price", dataIndex: "avg_buy_price", key: "avg", width: 80 },
+    { title: "SL %", dataIndex: "stop_loss_percent", key: "sl", width: 60, render: (v: string) => `${v}%` },
+    { title: "Date", dataIndex: "trade_date", key: "date", width: 90 },
+  ];
 
   return (
     <div
@@ -57,8 +56,8 @@ export function StockNotesPanel({ stock, tags, onClose, onUpdateDescription, onU
         position: "fixed",
         bottom: 80,
         right: 24,
-        width: 360,
-        height: 520,
+        width: 380,
+        maxHeight: 560,
         background: "#fff",
         border: "1px solid #e8e8e8",
         borderRadius: 12,
@@ -66,6 +65,7 @@ export function StockNotesPanel({ stock, tags, onClose, onUpdateDescription, onU
         display: "flex",
         flexDirection: "column",
         zIndex: 1000,
+        overflowY: "auto",
       }}
     >
       {/* Header */}
@@ -78,6 +78,9 @@ export function StockNotesPanel({ stock, tags, onClose, onUpdateDescription, onU
           justifyContent: "space-between",
           background: "#fafafa",
           borderRadius: "12px 12px 0 0",
+          position: "sticky",
+          top: 0,
+          zIndex: 1,
         }}
       >
         <div>
@@ -97,124 +100,87 @@ export function StockNotesPanel({ stock, tags, onClose, onUpdateDescription, onU
           <Rate
             count={5}
             value={stock.priority ?? 0}
-            onChange={(val) => void onUpdatePriority(val)}
+            onChange={(val) => void onUpdate({ priority: val })}
             style={{ fontSize: 12 }}
           />
-          <Button
-            type="text"
-            size="small"
-            icon={<CloseOutlined />}
-            onClick={onClose}
-          />
+          <Button type="text" size="small" icon={<CloseOutlined />} onClick={onClose} />
         </div>
       </div>
 
-      {/* Tags */}
-      {tags.length > 0 && (
+      {/* Tags — colored chips from stock.tags */}
+      {stock.tags.length > 0 && (
         <div style={{ padding: "8px 16px", borderBottom: "1px solid #f0f0f0", display: "flex", flexWrap: "wrap", gap: 4 }}>
-          {tags.map((tag) => (
-            <Tag key={tag.id} color="blue" style={{ margin: 0, fontSize: 11 }}>
+          {stock.tags.map((tag) => (
+            <Tag key={tag.name} color={tag.color} style={{ margin: 0, fontSize: 11 }}>
               {tag.name}
             </Tag>
           ))}
         </div>
       )}
 
-      {/* Description */}
+      {/* MOAT / THESIS — single editable text field */}
       <div style={{ padding: "10px 16px", borderBottom: "1px solid #f0f0f0" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
           <Typography.Text style={{ fontSize: 11, color: "#888", fontWeight: 600 }}>MOAT / THESIS</Typography.Text>
-          {!editingDescription && (
-            <Button type="link" size="small" style={{ fontSize: 11, padding: 0, height: "auto" }} onClick={() => setEditingDescription(true)}>
+          {!editingNotes && (
+            <Button type="link" size="small" style={{ fontSize: 11, padding: 0, height: "auto" }} onClick={() => setEditingNotes(true)}>
               Edit
             </Button>
           )}
         </div>
-        {editingDescription ? (
+        {editingNotes ? (
           <div>
             <Input.TextArea
               autoFocus
-              rows={3}
-              value={descriptionDraft}
-              onChange={(e) => setDescriptionDraft(e.target.value)}
+              rows={4}
+              value={notesDraft}
+              onChange={(e) => setNotesDraft(e.target.value)}
               style={{ fontSize: 12, resize: "none" }}
+              placeholder="Write your moat analysis, thesis, research here..."
             />
             <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-              <Button size="small" type="primary" loading={savingDescription} onClick={() => void handleSaveDescription()}>
+              <Button size="small" type="primary" loading={savingNotes} onClick={() => void handleSaveNotes()}>
                 Save
               </Button>
-              <Button size="small" onClick={() => { setEditingDescription(false); setDescriptionDraft(stock.description ?? ""); }}>
+              <Button
+                size="small"
+                onClick={() => {
+                  setEditingNotes(false);
+                  setNotesDraft(stock.notes ?? "");
+                }}
+              >
                 Cancel
               </Button>
             </div>
           </div>
         ) : (
-          <Typography.Text style={{ fontSize: 12, color: stock.description ? "#333" : "#bbb" }}>
-            {stock.description || "No thesis yet — click Edit to add one."}
+          <Typography.Text style={{ fontSize: 12, color: stock.notes ? "#333" : "#bbb", whiteSpace: "pre-wrap" }}>
+            {stock.notes || "No thesis yet — click Edit to add one."}
           </Typography.Text>
         )}
       </div>
 
-      {/* Notes timeline */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "8px 16px" }}>
-        {loading ? (
-          <div style={{ textAlign: "center", paddingTop: 16 }}>
-            <Spin size="small" />
-          </div>
-        ) : notes.length === 0 ? (
+      {/* Trades */}
+      <div style={{ padding: "10px 16px" }}>
+        <Typography.Text style={{ fontSize: 11, color: "#888", fontWeight: 600, display: "block", marginBottom: 6 }}>
+          TRADE POSITION
+        </Typography.Text>
+        {loadingTrades ? (
+          <Spin size="small" />
+        ) : trades.length === 0 ? (
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            No journal entries yet.
+            No open position.
           </Typography.Text>
         ) : (
-          notes.map((note) => (
-            <div
-              key={note.id}
-              style={{
-                marginBottom: 10,
-                background: "#f6f8fa",
-                borderRadius: 8,
-                padding: "8px 10px",
-                position: "relative",
-              }}
-            >
-              <Typography.Text style={{ fontSize: 12, display: "block" }}>{note.content}</Typography.Text>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                <Typography.Text type="secondary" style={{ fontSize: 10 }}>
-                  {formatTime(note.created_at)}
-                </Typography.Text>
-                <Tooltip title="Delete note">
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<DeleteOutlined style={{ fontSize: 10, color: "#ccc" }} />}
-                    onClick={() => void removeNote(note.id)}
-                    style={{ padding: "0 2px", height: 16 }}
-                  />
-                </Tooltip>
-              </div>
-            </div>
-          ))
+          <Table
+            dataSource={trades}
+            columns={tradeColumns}
+            rowKey="id"
+            size="small"
+            pagination={false}
+            style={{ fontSize: 12 }}
+          />
         )}
-      </div>
-
-      {/* Input */}
-      <div style={{ padding: "10px 12px", borderTop: "1px solid #f0f0f0", display: "flex", gap: 8 }}>
-        <Input
-          placeholder="Add a journal entry..."
-          value={noteInput}
-          onChange={(e) => setNoteInput(e.target.value)}
-          onPressEnter={() => void handleSendNote()}
-          size="small"
-          style={{ fontSize: 12 }}
-        />
-        <Button
-          type="primary"
-          size="small"
-          icon={<SendOutlined />}
-          loading={sendingNote}
-          onClick={() => void handleSendNote()}
-          disabled={!noteInput.trim()}
-        />
       </div>
     </div>
   );

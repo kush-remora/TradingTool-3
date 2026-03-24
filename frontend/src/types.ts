@@ -1,9 +1,8 @@
-export interface Watchlist {
-  id: number;
+// ==================== Stock (Master Record) ====================
+
+export interface StockTag {
   name: string;
-  description: string | null;
-  created_at: string;
-  updated_at: string;
+  color: string;
 }
 
 export interface Stock {
@@ -12,57 +11,14 @@ export interface Stock {
   instrument_token: number;
   company_name: string;
   exchange: string;
-  description: string | null;
+  notes: string | null;
   priority: number | null;
+  tags: StockTag[];
   created_at: string;
   updated_at: string;
 }
 
-export interface WatchlistStock {
-  id: number;
-  watchlist_id: number;
-  stock_id: number;
-  created_at: string;
-}
-
-export interface Tag {
-  id: number;
-  name: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface StockTag {
-  id: number;
-  stock_id: number;
-  tag_id: number;
-  created_at: string;
-}
-
-export interface WatchlistTag {
-  id: number;
-  watchlist_id: number;
-  tag_id: number;
-  created_at: string;
-}
-
-export interface StockNote {
-  id: number;
-  stock_id: number;
-  content: string;
-  created_at: string;
-}
-
-export interface UserLayout {
-  id: number;
-  layout_data: string; // raw JSON string: { watchlistOrder: number[], stockOrder: Record<string, number[]> }
-  updated_at: string;
-}
-
-export interface LayoutData {
-  watchlistOrder: number[];
-  stockOrder: Record<string, number[]>; // key is watchlistId string
-}
+// ==================== Kite Instruments ====================
 
 export interface InstrumentSearchResult {
   instrument_token: number;
@@ -72,6 +28,8 @@ export interface InstrumentSearchResult {
   instrument_type: string;
 }
 
+// ==================== Trades ====================
+
 export interface GttTarget {
   percent: number;
   price: string;
@@ -80,7 +38,7 @@ export interface GttTarget {
 
 export interface Trade {
   id: number;
-  stock_id: number;
+  stock_id: number | null;
   nse_symbol: string;
   quantity: number;
   avg_buy_price: string;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Input } from "antd";
-import { SendOutlined } from "@ant-design/icons";
+import { PaperClipOutlined, SendOutlined } from "@ant-design/icons";
 import { sendRequest } from "../utils/api";
 
 const C = {
@@ -20,6 +20,19 @@ interface Message {
   time: string;
 }
 
+// Routes to the correct endpoint based on file extension / MIME type.
+function detectEndpoint(file: File): string | null {
+  const name = file.name.toLowerCase();
+  const mime = file.type.toLowerCase();
+  if (mime.startsWith("image/") || [".png", ".jpg", ".jpeg", ".webp"].some((ext) => name.endsWith(ext))) {
+    return "/api/telegram/send/image";
+  }
+  if (name.endsWith(".xls") || name.endsWith(".xlsx")) {
+    return "/api/telegram/send/excel";
+  }
+  return null;
+}
+
 // Telegram SVG icon (monochrome)
 function TelegramIcon({ size = 20 }: { size?: number }) {
   return (
@@ -35,6 +48,7 @@ export function TelegramChatWidget() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -49,15 +63,14 @@ export function TelegramChatWidget() {
     ]);
   };
 
-  const handleSend = async () => {
+  const handleSendText = async () => {
     const text = input.trim();
     if (!text || sending) return;
     setSending(true);
     setInput("");
     append("you", text);
-
     try {
-      const payload = await sendRequest("/api/telegram/send/text", {
+      await sendRequest("/api/telegram/send/text", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ text }),
@@ -68,6 +81,44 @@ export function TelegramChatWidget() {
     } finally {
       setSending(false);
     }
+  };
+
+  const handleSendFile = async (file: File, displayLabel?: string) => {
+    const endpoint = detectEndpoint(file);
+    if (!endpoint) {
+      append("error", `Unsupported file type: ${file.name}`);
+      return;
+    }
+    setSending(true);
+    append("you", `📎 ${displayLabel ?? file.name}`);
+    const formData = new FormData();
+    formData.append("file", file, file.name);
+    try {
+      await sendRequest(endpoint, { method: "POST", body: formData });
+      append("bot", "Sent ✓");
+    } catch (e) {
+      append("error", e instanceof Error ? e.message : "Send failed");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Intercept Ctrl+V paste — if clipboard contains a file/image, send it directly.
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = Array.from(e.clipboardData.items);
+    const fileItem = items.find((item) => item.kind === "file");
+    if (!fileItem) return;
+    const file = fileItem.getAsFile();
+    if (!file) return;
+    e.preventDefault();
+    void handleSendFile(file, file.name || "pasted image");
+  };
+
+  const handleFilePickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) void handleSendFile(file);
+    // Reset so the same file can be re-selected if needed
+    e.target.value = "";
   };
 
   return (
@@ -116,20 +167,16 @@ export function TelegramChatWidget() {
           {/* Messages */}
           <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
             {messages.length === 0 && (
-              <span style={{ fontSize: 11, color: C.label }}>Send a message to Telegram…</span>
+              <span style={{ fontSize: 11, color: C.label }}>Send a message or paste/attach a file…</span>
             )}
             {messages.map((m) => (
               <div
                 key={m.id}
-                style={{
-                  alignSelf: m.role === "you" ? "flex-end" : "flex-start",
-                  maxWidth: "80%",
-                }}
+                style={{ alignSelf: m.role === "you" ? "flex-end" : "flex-start", maxWidth: "80%" }}
               >
                 <div
                   style={{
-                    background:
-                      m.role === "you" ? C.you : m.role === "error" ? "#2d1111" : "#1a2a1a",
+                    background: m.role === "you" ? C.you : m.role === "error" ? "#2d1111" : "#1a2a1a",
                     borderRadius: 6,
                     padding: "4px 8px",
                     fontSize: 11,
@@ -151,14 +198,32 @@ export function TelegramChatWidget() {
               borderTop: `1px solid ${C.border}`,
               display: "flex",
               gap: 6,
+              alignItems: "center",
             }}
           >
+            {/* Hidden file input triggered by the paperclip button */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,.xls,.xlsx"
+              style={{ display: "none" }}
+              onChange={handleFilePickerChange}
+            />
+            <Button
+              size="small"
+              type="text"
+              icon={<PaperClipOutlined style={{ fontSize: 12 }} />}
+              onClick={() => fileInputRef.current?.click()}
+              style={{ color: C.label, padding: "0 4px", flexShrink: 0 }}
+              title="Attach image or Excel"
+            />
             <Input
               size="small"
               value={input}
-              placeholder="Message…"
+              placeholder="Message or Ctrl+V to paste image…"
               onChange={(e) => setInput(e.target.value)}
-              onPressEnter={() => void handleSend()}
+              onPressEnter={() => void handleSendText()}
+              onPaste={handlePaste}
               style={{ flex: 1, fontSize: 11 }}
             />
             <Button
@@ -166,8 +231,8 @@ export function TelegramChatWidget() {
               type="primary"
               icon={<SendOutlined style={{ fontSize: 11 }} />}
               loading={sending}
-              onClick={() => void handleSend()}
-              style={{ background: C.accent, borderColor: C.accent }}
+              onClick={() => void handleSendText()}
+              style={{ background: C.accent, borderColor: C.accent, flexShrink: 0 }}
             />
           </div>
         </div>

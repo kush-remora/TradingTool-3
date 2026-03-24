@@ -13,11 +13,9 @@ import com.tradingtool.core.kite.KiteTokenWriteDao
 import com.tradingtool.resources.health.HealthResource
 import com.tradingtool.resources.instruments.InstrumentResource
 import com.tradingtool.resources.kite.KiteResource
-import com.tradingtool.resources.layout.LayoutResource
-import com.tradingtool.resources.notes.StockNotesResource
+import com.tradingtool.resources.stock.StockResource
 import com.tradingtool.resources.telegram.TelegramResource
 import com.tradingtool.resources.trade.TradeResource
-import com.tradingtool.resources.watchlist.WatchlistResource
 import io.dropwizard.core.Application
 import io.dropwizard.configuration.EnvironmentVariableSubstitutor
 import io.dropwizard.configuration.SubstitutingSourceProvider
@@ -151,20 +149,16 @@ class DropwizardApplication : Application<DropwizardConfig>() {
         val healthResource = injector.getInstance(HealthResource::class.java)
         val kiteResource = injector.getInstance(KiteResource::class.java)
         val telegramResource = injector.getInstance(TelegramResource::class.java)
-        val watchlistResource = injector.getInstance(WatchlistResource::class.java)
+        val stockResource = injector.getInstance(StockResource::class.java)
         val instrumentResource = injector.getInstance(InstrumentResource::class.java)
-        val stockNotesResource = injector.getInstance(StockNotesResource::class.java)
-        val layoutResource = injector.getInstance(LayoutResource::class.java)
         val tradeResource = injector.getInstance(TradeResource::class.java)
 
         // Register resources with Jersey
         environment.jersey().register(healthResource)
         environment.jersey().register(kiteResource)
         environment.jersey().register(telegramResource)
-        environment.jersey().register(watchlistResource)
+        environment.jersey().register(stockResource)
         environment.jersey().register(instrumentResource)
-        environment.jersey().register(stockNotesResource)
-        environment.jersey().register(layoutResource)
         environment.jersey().register(tradeResource)
         environment.jersey().register(MultiPartFeature::class.java)
 

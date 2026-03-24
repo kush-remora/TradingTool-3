@@ -2,7 +2,7 @@ package com.tradingtool.resources.instruments
 
 import com.google.inject.Inject
 import com.tradingtool.core.kite.InstrumentCache
-import com.tradingtool.core.model.watchlist.InstrumentSearchResult
+import com.tradingtool.core.model.stock.InstrumentSearchResult
 import jakarta.ws.rs.GET
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
