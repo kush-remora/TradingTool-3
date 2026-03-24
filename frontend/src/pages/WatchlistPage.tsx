@@ -1,9 +1,10 @@
 import { DeleteOutlined, EditOutlined } from "@ant-design/icons";
-import { Button, Input, Popconfirm, Space, Spin, Tooltip, Typography, message } from "antd";
+import { Button, Popconfirm, Space, Spin, Tooltip, Typography, message } from "antd";
 import { useEffect, useState } from "react";
 import { InstrumentSearch } from "../components/InstrumentSearch";
 import { StockDetailPanel } from "../components/StockDetailPanel";
 import { TelegramChatWidget } from "../components/TelegramChatWidget";
+import { WatchlistDashboard } from "../components/WatchlistDashboard";
 import { useStocks, type CreateStockInput } from "../hooks/useStocks";
 import { useLivePrices } from "../hooks/useLivePrices";
 import type { InstrumentSearchResult, Stock, TickSnapshot } from "../types";
@@ -154,17 +155,11 @@ export function WatchlistPage() {
           <div
             style={{
               flex: 1,
-              background: "#f5f7fa",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#999",
-              fontSize: 14,
+              background: "#141414", // dark mode background for the dashboard
+              overflow: "hidden",
             }}
           >
-            {selectedStock && panelMode === "view"
-              ? "Stock details shown below"
-              : "Select a stock to view details"}
+            <WatchlistDashboard />
           </div>
         </div>
 

@@ -13,6 +13,7 @@ import com.tradingtool.core.kite.KiteTokenWriteDao
 import com.tradingtool.resources.health.HealthResource
 import com.tradingtool.resources.instruments.InstrumentResource
 import com.tradingtool.resources.kite.KiteResource
+import com.tradingtool.resources.stock.StockDetailResource
 import com.tradingtool.resources.stock.StockResource
 import com.tradingtool.resources.telegram.TelegramResource
 import com.tradingtool.resources.trade.TradeResource
@@ -153,6 +154,12 @@ class DropwizardApplication : Application<DropwizardConfig>() {
         val stockHandler = injector.getInstance(
             Key.get(object : TypeLiteral<JdbiHandler<StockReadDao, StockWriteDao>>() {})
         )
+
+        // Task 1: when the cron-job refreshes the daily Kite token, restart the ticker.
+        kiteClient.setTokenRefreshCallback { newToken ->
+            kiteTickerService.restart(newToken)
+        }
+
         Thread {
             try {
                 val instruments = kiteClient.client().getInstruments("NSE")
@@ -162,15 +169,15 @@ class DropwizardApplication : Application<DropwizardConfig>() {
                 println("[InstrumentCache] Failed to load at startup: ${e.message}")
             }
 
-            // Start Kite WebSocket ticker with all watchlist instrument tokens.
+            // Task 4: start ticker with market-hours schedule (start 9:14 AM IST, stop 3:31 PM IST).
             try {
                 val tokens = runBlocking {
                     stockHandler.read { dao -> dao.listAll() }
                 }.map { it.instrumentToken }.filter { it > 0 }
-                kiteTickerService.start(tokens)
-                println("[KiteTicker] Started — subscribing to ${tokens.size} instruments")
+                kiteTickerService.startWithMarketSchedule(tokens)
+                println("[KiteTicker] Market schedule registered — ${tokens.size} instruments queued")
             } catch (e: Exception) {
-                println("[KiteTicker] Failed to start at startup: ${e.message}")
+                println("[KiteTicker] Failed to register market schedule: ${e.message}")
             }
         }.also { it.isDaemon = true }.start()
 
@@ -183,17 +190,27 @@ class DropwizardApplication : Application<DropwizardConfig>() {
         val tradeResource = injector.getInstance(TradeResource::class.java)
         val watchlistResource = injector.getInstance(WatchlistResource::class.java)
         val liveStreamResource = injector.getInstance(LiveStreamResource::class.java)
+        val stockDetailResource = injector.getInstance(StockDetailResource::class.java)
 
         // Register resources with Jersey
         environment.jersey().register(healthResource)
         environment.jersey().register(kiteResource)
         environment.jersey().register(telegramResource)
         environment.jersey().register(stockResource)
+        environment.jersey().register(stockDetailResource)
         environment.jersey().register(instrumentResource)
         environment.jersey().register(tradeResource)
         environment.jersey().register(watchlistResource)
         environment.jersey().register(liveStreamResource)
         environment.jersey().register(MultiPartFeature::class.java)
+
+        // Manage Redis connection pool lifecycle
+        environment.lifecycle().manage(object : io.dropwizard.lifecycle.Managed {
+            override fun start() {}
+            override fun stop() {
+                injector.getInstance(com.tradingtool.core.database.RedisHandler::class.java).close()
+            }
+        })
 
         // Enable RolesAllowed feature for security annotations
         environment.jersey().register(RolesAllowedDynamicFeature::class.java)

@@ -41,6 +41,14 @@ class KiteConnectClient(private val config: KiteConfig) {
 
     val apiKey: String get() = config.apiKey
 
+    @Volatile
+    private var onTokenRefreshed: ((String) -> Unit)? = null
+
+    /** Register a callback invoked every time a new access token is applied. */
+    fun setTokenRefreshCallback(callback: (String) -> Unit) {
+        onTokenRefreshed = callback
+    }
+
     /** The URL the user must open in a browser to start the Kite login flow. */
     fun loginUrl(): String = kite.loginURL
 
@@ -67,6 +75,7 @@ class KiteConnectClient(private val config: KiteConfig) {
         kite.setAccessToken(token)
         accessToken = token
         isAuthenticated = true
+        onTokenRefreshed?.invoke(token)
     }
 
     /**

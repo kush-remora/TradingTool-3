@@ -1,6 +1,7 @@
 package com.tradingtool.resources.stock
 
 import com.google.inject.Inject
+import com.tradingtool.core.kite.TickerSubscriptions
 import com.tradingtool.core.model.stock.CreateStockInput
 import com.tradingtool.core.model.stock.UpdateStockPayload
 import com.tradingtool.core.stock.service.StockService
@@ -27,6 +28,7 @@ class StockResource @Inject constructor(
     private val stockService: StockService,
     private val tradeService: TradeService,
     private val resourceScope: ResourceScope,
+    private val tickerSubscriptions: TickerSubscriptions,
 ) {
     private val ioScope = resourceScope.ioScope
 
@@ -98,7 +100,9 @@ class StockResource @Inject constructor(
         if (priority != null && priority !in 1..5) return@async badRequest("Field 'priority' must be between 1 and 5")
 
         runCatching {
-            created(stockService.create(input))
+            val stock = stockService.create(input)
+            if (stock.instrumentToken > 0) tickerSubscriptions.addInstrument(stock.instrumentToken)
+            created(stock)
         }.getOrElse { e ->
             if (e.message?.contains("duplicate") == true || e.message?.contains("unique") == true) {
                 Response.status(409).entity(error("Stock '${input.symbol}' already exists")).build()
@@ -133,7 +137,9 @@ class StockResource @Inject constructor(
     @Path("/{id}")
     fun deleteStock(@PathParam("id") id: String): CompletableFuture<Response> = ioScope.async {
         val stockId = id.toLongOrNull() ?: return@async badRequest("Path parameter 'id' must be a valid integer")
+        val stock = stockService.getById(stockId) ?: return@async notFound("Stock $stockId not found")
         if (!stockService.delete(stockId)) return@async notFound("Stock $stockId not found")
+        if (stock.instrumentToken > 0) tickerSubscriptions.removeInstrument(stock.instrumentToken)
         ok(mapOf("deleted" to true))
     }.asCompletableFuture()
 

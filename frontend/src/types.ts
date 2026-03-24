@@ -81,3 +81,43 @@ export interface CreateTradeInput {
   notes?: string;
   trade_date?: string;
 }
+
+// ==================== Stock 7-Day Detail ====================
+
+export interface DayDetail {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  daily_change_pct: number | null;
+  rsi14: number | null;
+  vol_ratio: number | null;
+}
+
+export interface StockDetailResponse {
+  symbol: string;
+  avg_volume_20d: number | null;
+  days: DayDetail[];
+}
+
+// ==================== Watchlist Dashboard ====================
+
+export interface WatchlistRow {
+  symbol: string;
+  exchange: string;
+  sector: string | null;
+  ltp: number | null;
+  changePercent: number | null;
+  sma50: number | null;
+  sma200: number | null;
+  priceVs200maPct: number | null;
+  rsi14: number | null;
+  roc1w: number | null;
+  roc3m: number | null;
+  macdSignal: string | null;
+  drawdownPct: number | null;
+  maxDd1y: number | null;
+  volumeVsAvg: number | null;
+}

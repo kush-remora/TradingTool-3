@@ -14,8 +14,8 @@
         <module>core</module>
         <module>Models</module>
         <module>resources</module>
-        <module>service</module>
         <module>event-service</module>
+        <module>service</module>
         <module>cron-job</module>
     </modules>
 
