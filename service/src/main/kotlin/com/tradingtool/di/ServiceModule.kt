@@ -31,7 +31,6 @@ import com.tradingtool.resources.kite.KiteResource
 import com.tradingtool.resources.stock.StockResource
 import com.tradingtool.resources.telegram.TelegramResource
 import com.tradingtool.resources.trade.TradeResource
-import java.net.http.HttpClient
 
 class ServiceModule(
     private val appConfig: AppConfig,
@@ -100,10 +99,6 @@ class ServiceModule(
     @Singleton
     fun provideTelegramSender(telegramApiClient: TelegramApiClient): TelegramSender =
         TelegramSender(telegramApiClient = telegramApiClient)
-
-    @Provides
-    @Singleton
-    fun provideHttpClient(): HttpClient = HttpClient.newBuilder().build()
 
     @Provides
     @Singleton
