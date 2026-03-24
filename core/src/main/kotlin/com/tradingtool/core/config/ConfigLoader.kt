@@ -53,10 +53,11 @@ object ConfigLoader {
 
     private fun findLocalConfigPath(): Path? {
         val candidates = listOf(
-            // Absolute path for this machine — same pattern used in Application.kt
-            Paths.get("/Users/kushbhardwaj/Documents/github/TradingTool-3/service/src/main/resources/localconfig.yaml"),
-            // Relative paths for running from project root or service/
+            // Running from project root (most common: mvn exec:java from repo root)
             Paths.get("service/src/main/resources/localconfig.yaml"),
+            // Running from service/ subdirectory
+            Paths.get("src/main/resources/localconfig.yaml"),
+            // Running from cron-job/ or any other module root
             Paths.get("localconfig.yaml"),
         )
         return candidates.firstOrNull { Files.exists(it) }

@@ -59,4 +59,16 @@ interface StockWriteDao {
         """
     )
     fun delete(@Bind("id") id: Long): Int
+
+    @SqlUpdate(
+        """
+        UPDATE public.${Tables.STOCKS}
+        SET ${StockColumns.NEEDS_REFRESH} = :needsRefresh, ${StockColumns.UPDATED_AT} = NOW()
+        WHERE ${StockColumns.INSTRUMENT_TOKEN} = :instrumentToken
+        """
+    )
+    fun setNeedsRefresh(
+        @Bind("instrumentToken") instrumentToken: Long,
+        @Bind("needsRefresh") needsRefresh: Boolean
+    ): Int
 }

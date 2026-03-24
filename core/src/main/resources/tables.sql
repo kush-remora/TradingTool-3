@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.stocks (
     notes            TEXT,
     priority         INTEGER,
     tags             JSONB       NOT NULL DEFAULT '[]',
+    needs_refresh    BOOLEAN     NOT NULL DEFAULT false,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(symbol, exchange),
@@ -56,3 +57,12 @@ CREATE TABLE IF NOT EXISTS public.trades (
 CREATE INDEX IF NOT EXISTS idx_trades_stock_id   ON public.trades(stock_id);
 CREATE INDEX IF NOT EXISTS idx_trades_stock_date ON public.trades(stock_id, trade_date);
 CREATE INDEX IF NOT EXISTS idx_trades_created_at ON public.trades(created_at DESC);
+
+-- Stock Indicators Snapshot: JSONB payload of computed daily indicators from Cron Job
+CREATE TABLE IF NOT EXISTS public.stock_indicators_snapshot (
+    instrument_token BIGINT PRIMARY KEY REFERENCES public.stocks(instrument_token) ON DELETE CASCADE,
+    indicators_payload JSONB NOT NULL,
+    computed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_stock_indicators_computed ON public.stock_indicators_snapshot(computed_at DESC);

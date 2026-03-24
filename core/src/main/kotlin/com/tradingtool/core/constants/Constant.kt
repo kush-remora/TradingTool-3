@@ -6,6 +6,7 @@ object DatabaseConstants {
         const val STOCKS = "stocks"
         const val KITE_TOKENS = "kite_tokens"
         const val TRADES = "trades"
+        const val STOCK_INDICATORS_SNAPSHOT = "stock_indicators_snapshot"
     }
 
     object KiteTokenColumns {
@@ -23,12 +24,19 @@ object DatabaseConstants {
         const val NOTES = "notes"
         const val PRIORITY = "priority"
         const val TAGS = "tags"
+        const val NEEDS_REFRESH = "needs_refresh"
         const val CREATED_AT = "created_at"
         const val UPDATED_AT = "updated_at"
 
         // tags cast to text so the JDBC driver returns a plain String (not PGobject)
         const val ALL_WITH_TAGS =
             "$ID, $SYMBOL, $INSTRUMENT_TOKEN, $COMPANY_NAME, $EXCHANGE, $NOTES, $PRIORITY, $TAGS::text AS $TAGS, $CREATED_AT, $UPDATED_AT"
+    }
+
+    object StockIndicatorColumns {
+        const val INSTRUMENT_TOKEN = "instrument_token"
+        const val INDICATORS_PAYLOAD = "indicators_payload"
+        const val COMPUTED_AT = "computed_at"
     }
 
     object TradeColumns {

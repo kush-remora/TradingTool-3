@@ -5,6 +5,7 @@
 -- =============================================================
 
 DROP TABLE IF EXISTS public.trades       CASCADE;
+DROP TABLE IF EXISTS public.stock_indicators_snapshot CASCADE;
 DROP TABLE IF EXISTS public.kite_tokens  CASCADE;
 DROP TABLE IF EXISTS public.stocks       CASCADE;
 
