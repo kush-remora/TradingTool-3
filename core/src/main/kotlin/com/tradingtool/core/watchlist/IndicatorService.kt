@@ -106,6 +106,17 @@ class IndicatorService(
         log.info("Indicator sync complete: ${results.size}/${stocks.size} stocks succeeded")
     }
 
+    /** Refreshes indicators for all stocks under [tag] only. */
+    suspend fun refreshTag(kiteClient: KiteConnectClient, tag: String) {
+        val stocks = stockHandler.read { it.listByTagName(tag) }
+        log.info("Starting indicator sync for tag=$tag (${stocks.size} stocks)")
+
+        val results = syncStocksSequentially(kiteClient, stocks)
+        pushTagIndicatorsToRedis(stocks, results)
+
+        log.info("Indicator sync complete for tag=$tag: ${results.size}/${stocks.size} stocks succeeded")
+    }
+
     // ── Private pipeline ──────────────────────────────────────────────────────
 
     private suspend fun syncStocksSequentially(

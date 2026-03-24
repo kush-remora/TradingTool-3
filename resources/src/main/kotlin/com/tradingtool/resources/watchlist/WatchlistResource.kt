@@ -2,9 +2,12 @@ package com.tradingtool.resources.watchlist
 
 import com.google.inject.Inject
 import com.tradingtool.core.di.ResourceScope
+import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.watchlist.IndicatorService
 import com.tradingtool.core.watchlist.WatchlistService
+import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.GET
+import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
@@ -13,13 +16,17 @@ import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import kotlinx.coroutines.async
 import kotlinx.coroutines.future.asCompletableFuture
+import kotlinx.coroutines.launch
 import java.util.concurrent.CompletableFuture
+
+data class RefreshRequest(val tags: List<String> = emptyList())
 
 @Path("/api/watchlist")
 @Produces(MediaType.APPLICATION_JSON)
 class WatchlistResource @Inject constructor(
     private val indicatorService: IndicatorService,
     private val watchlistService: WatchlistService,
+    private val kiteClient: KiteConnectClient,
     private val resourceScope: ResourceScope,
 ) {
     private val ioScope = resourceScope.ioScope
@@ -60,6 +67,33 @@ class WatchlistResource @Inject constructor(
             ?: return@async notFound("OHLCV data not yet available for token $instrumentToken. It will be populated on the next cron run.")
         // Return the pre-serialized JSON string directly — do not wrap it.
         Response.ok(raw, MediaType.APPLICATION_JSON).build()
+    }.asCompletableFuture()
+
+    /**
+     * Triggers a background indicator refresh and returns 202 immediately.
+     *
+     * - Empty or missing [tags] → refreshes all stocks (equivalent to running the cron job).
+     * - Non-empty [tags] → refreshes only the stocks under those tags.
+     *
+     * Example: POST /api/watchlist/refresh  {"tags": ["momentum", "swing"]}
+     */
+    @POST
+    @Path("/refresh")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun refresh(request: RefreshRequest?): CompletableFuture<Response> = ioScope.async {
+        val tags = request?.tags?.filter { it.isNotBlank() } ?: emptyList()
+
+        // Fire-and-forget: launch a sibling coroutine so this handler returns 202 immediately.
+        ioScope.launch {
+            if (tags.isEmpty()) {
+                indicatorService.refreshAll(kiteClient)
+            } else {
+                tags.distinct().forEach { tag -> indicatorService.refreshTag(kiteClient, tag) }
+            }
+        }
+
+        val message = if (tags.isEmpty()) "Refreshing all stocks" else "Refreshing tags: ${tags.joinToString()}"
+        Response.accepted(mapOf("message" to message)).build()
     }.asCompletableFuture()
 
     // ── Helpers ──────────────────────────────────────────────────────────────
