@@ -40,4 +40,4 @@ kite:
   apiSecret: ${KITE_API_SECRET:-}
 
 redis:
-  url: ${REDIS_URL:-redis://localhost:6379}
+  url: ${REDIS_URL:-}

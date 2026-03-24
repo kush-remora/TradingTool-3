@@ -16,6 +16,7 @@ import com.tradingtool.resources.kite.KiteResource
 import com.tradingtool.resources.stock.StockResource
 import com.tradingtool.resources.telegram.TelegramResource
 import com.tradingtool.resources.trade.TradeResource
+import com.tradingtool.resources.watchlist.WatchlistResource
 import io.dropwizard.core.Application
 import io.dropwizard.configuration.EnvironmentVariableSubstitutor
 import io.dropwizard.configuration.SubstitutingSourceProvider
@@ -161,6 +162,7 @@ class DropwizardApplication : Application<DropwizardConfig>() {
         val stockResource = injector.getInstance(StockResource::class.java)
         val instrumentResource = injector.getInstance(InstrumentResource::class.java)
         val tradeResource = injector.getInstance(TradeResource::class.java)
+        val watchlistResource = injector.getInstance(WatchlistResource::class.java)
 
         // Register resources with Jersey
         environment.jersey().register(healthResource)
@@ -169,6 +171,7 @@ class DropwizardApplication : Application<DropwizardConfig>() {
         environment.jersey().register(stockResource)
         environment.jersey().register(instrumentResource)
         environment.jersey().register(tradeResource)
+        environment.jersey().register(watchlistResource)
         environment.jersey().register(MultiPartFeature::class.java)
 
         // Enable RolesAllowed feature for security annotations

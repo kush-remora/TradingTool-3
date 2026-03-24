@@ -22,15 +22,24 @@ import com.tradingtool.core.stock.dao.StockWriteDao
 import com.tradingtool.core.stock.service.StockService
 import com.tradingtool.core.telegram.TelegramApiClient
 import com.tradingtool.core.telegram.TelegramSender
+import com.tradingtool.core.config.IndicatorConfig
+import com.tradingtool.core.database.RedisHandler
+import com.tradingtool.core.database.StockIndicatorsJdbiHandler
+import com.tradingtool.core.stock.dao.StockIndicatorsReadDao
+import com.tradingtool.core.stock.dao.StockIndicatorsWriteDao
 import com.tradingtool.core.trade.dao.TradeReadDao
 import com.tradingtool.core.trade.dao.TradeWriteDao
 import com.tradingtool.core.trade.service.TradeService
+import com.tradingtool.core.kite.LiveMarketService
+import com.tradingtool.core.watchlist.IndicatorService
+import com.tradingtool.core.watchlist.WatchlistService
 import com.tradingtool.resources.health.HealthResource
 import com.tradingtool.resources.instruments.InstrumentResource
 import com.tradingtool.resources.kite.KiteResource
 import com.tradingtool.resources.stock.StockResource
 import com.tradingtool.resources.telegram.TelegramResource
 import com.tradingtool.resources.trade.TradeResource
+import com.tradingtool.resources.watchlist.WatchlistResource
 
 class ServiceModule(
     private val appConfig: AppConfig,
@@ -50,6 +59,7 @@ class ServiceModule(
         bind(StockResource::class.java).`in`(Singleton::class.java)
         bind(InstrumentResource::class.java).`in`(Singleton::class.java)
         bind(TradeResource::class.java).`in`(Singleton::class.java)
+        bind(WatchlistResource::class.java).`in`(Singleton::class.java)
     }
 
     @Provides
@@ -109,4 +119,43 @@ class ServiceModule(
     @Singleton
     @Named("telegramChatId")
     fun provideChatId(config: AppConfig): String = config.telegram.chatId
+
+    @Provides
+    @Singleton
+    fun provideRedisHandler(): RedisHandler = RedisHandler.fromEnv()
+
+    @Provides
+    @Singleton
+    fun provideStockIndicatorsJdbiHandler(config: DatabaseConfig): StockIndicatorsJdbiHandler =
+        JdbiHandler(config = config, readDaoClass = StockIndicatorsReadDao::class.java, writeDaoClass = StockIndicatorsWriteDao::class.java)
+
+    @Provides
+    @Singleton
+    fun provideIndicatorService(
+        stockIndicatorsHandler: StockIndicatorsJdbiHandler,
+        stockHandler: StockJdbiHandler,
+        redis: RedisHandler,
+    ): IndicatorService = IndicatorService(
+        stockIndicatorsHandler = stockIndicatorsHandler,
+        stockHandler = stockHandler,
+        redis = redis,
+        config = IndicatorConfig.DEFAULT,
+    )
+
+    @Provides
+    @Singleton
+    fun provideLiveMarketService(kiteClient: KiteConnectClient): LiveMarketService =
+        LiveMarketService(kiteClient)
+
+    @Provides
+    @Singleton
+    fun provideWatchlistService(
+        stockHandler: StockJdbiHandler,
+        indicatorService: IndicatorService,
+        liveMarketService: LiveMarketService,
+    ): WatchlistService = WatchlistService(
+        stockHandler = stockHandler,
+        indicatorService = indicatorService,
+        liveMarketService = liveMarketService,
+    )
 }

@@ -158,7 +158,7 @@ class IndicatorService(
             return null
         }
 
-        val indicators = Ta4jIndicatorCalculator.calculate(series)
+        val indicators = Ta4jIndicatorCalculator.calculate(series).copy(instrumentToken = stock.instrumentToken)
         stockIndicatorsHandler.write {
             it.upsertIndicators(stock.instrumentToken, json.encodeToString(indicators))
         }
@@ -211,7 +211,7 @@ class IndicatorService(
             val jsonStr = stockIndicatorsHandler.read { it.getIndicatorsJson(stock.instrumentToken) }
                 ?: return@mapNotNull null
             deserializeOrLog(jsonStr, "stock:${stock.instrumentToken}") {
-                json.decodeFromString<ComputedIndicators>(it)
+                json.decodeFromString<ComputedIndicators>(it).copy(instrumentToken = stock.instrumentToken)
             }
         }
     }
