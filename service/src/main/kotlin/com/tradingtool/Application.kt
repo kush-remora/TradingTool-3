@@ -132,21 +132,26 @@ class DropwizardApplication : Application<DropwizardConfig>() {
         val kiteClient = injector.getInstance(com.tradingtool.core.kite.KiteConnectClient::class.java)
         applyLatestKiteTokenFromDb(tokenDb, kiteClient)
 
-        // Populate instrument cache at startup if Kite token is available.
-        val instrumentCache = injector.getInstance(com.tradingtool.core.kite.InstrumentCache::class.java)
-        if (kiteClient.isAuthenticated) {
-            Thread {
-                try {
-                    val instruments = kiteClient.client().getInstruments("NSE")
-                    instrumentCache.refresh(instruments)
-                    println("[InstrumentCache] Loaded ${instrumentCache.size()} NSE instruments at startup")
-                } catch (e: Exception) {
-                    println("[InstrumentCache] Failed to load at startup: ${e.message}")
-                }
-            }.also { it.isDaemon = true }.start()
-        } else {
-            println("[InstrumentCache] Kite not authenticated — cache empty. Complete Kite login to enable instrument search.")
+        // Fail fast if Kite is not authenticated at startup.
+        // Services should only run when dependencies (like Kite auth) are ready.
+        if (!kiteClient.isAuthenticated) {
+            throw IllegalStateException(
+                "Kite authentication required to start. " +
+                    "Open the login URL and exchange the request token first: ${kiteClient.loginUrl()}"
+            )
         }
+
+        // Populate instrument cache at startup (now guaranteed to have auth).
+        val instrumentCache = injector.getInstance(com.tradingtool.core.kite.InstrumentCache::class.java)
+        Thread {
+            try {
+                val instruments = kiteClient.client().getInstruments("NSE")
+                instrumentCache.refresh(instruments)
+                println("[InstrumentCache] Loaded ${instrumentCache.size()} NSE instruments at startup")
+            } catch (e: Exception) {
+                println("[InstrumentCache] Failed to load at startup: ${e.message}")
+            }
+        }.also { it.isDaemon = true }.start()
 
         // Get resource instances from Guice
         val healthResource = injector.getInstance(HealthResource::class.java)
