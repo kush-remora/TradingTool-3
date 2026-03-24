@@ -6,15 +6,13 @@ import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.model.telegram.TelegramSendTextRequest
 import com.tradingtool.core.telegram.TelegramSender
+import com.tradingtool.core.di.ResourceScope
 import jakarta.ws.rs.GET
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.future.asCompletableFuture
 import java.util.concurrent.CompletableFuture
@@ -26,8 +24,9 @@ class KiteResource @Inject constructor(
     private val tokenDb: KiteTokenJdbiHandler,
     private val telegramSender: TelegramSender,
     private val instrumentCache: InstrumentCache,
+    private val resourceScope: ResourceScope,
 ) {
-    private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val ioScope = resourceScope.ioScope
 
     /**
      * Returns the Kite login URL.

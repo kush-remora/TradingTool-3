@@ -15,6 +15,7 @@ import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.kite.KiteTokenReadDao
 import com.tradingtool.core.kite.KiteTokenWriteDao
+import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.model.DatabaseConfig
 import com.tradingtool.core.stock.dao.StockReadDao
 import com.tradingtool.core.stock.dao.StockWriteDao
@@ -31,7 +32,6 @@ import com.tradingtool.resources.stock.StockResource
 import com.tradingtool.resources.telegram.TelegramResource
 import com.tradingtool.resources.trade.TradeResource
 import java.net.http.HttpClient
-import kotlinx.serialization.json.Json
 
 class ServiceModule(
     private val appConfig: AppConfig,
@@ -40,6 +40,7 @@ class ServiceModule(
         install(CoreHttpModule())
 
         bind(AppConfig::class.java).toInstance(appConfig)
+        bind(ResourceScope::class.java).`in`(Singleton::class.java)
         bind(StockService::class.java).`in`(Singleton::class.java)
         bind(TradeService::class.java).`in`(Singleton::class.java)
         bind(HttpRequestExecutor::class.java).to(JdkHttpRequestExecutor::class.java).`in`(Singleton::class.java)
@@ -60,10 +61,6 @@ class ServiceModule(
     @Provides
     @Singleton
     fun provideInstrumentCache(): InstrumentCache = InstrumentCache()
-
-    @Provides
-    @Singleton
-    fun provideJson(): Json = Json { ignoreUnknownKeys = true }
 
     @Provides
     @Singleton

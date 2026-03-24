@@ -122,6 +122,9 @@ class DropwizardApplication : Application<DropwizardConfig>() {
         val objectMapper: ObjectMapper = environment.objectMapper
         objectMapper.registerModule(com.fasterxml.jackson.module.kotlin.KotlinModule.Builder().build())
 
+        // Note: ResourceScope is injected as a singleton into resources.
+        // Coroutines will be cleaned up automatically when the JVM shuts down.
+
         // Apply latest persisted Kite token from DB so restarts use the freshest token.
         val tokenDb = injector.getInstance(
             Key.get(object : TypeLiteral<JdbiHandler<KiteTokenReadDao, KiteTokenWriteDao>>() {})

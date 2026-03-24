@@ -3,6 +3,7 @@ package com.tradingtool.resources.trade
 import com.google.inject.Inject
 import com.tradingtool.core.model.trade.CreateTradeInput
 import com.tradingtool.core.trade.service.TradeService
+import com.tradingtool.core.di.ResourceScope
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.DELETE
 import jakarta.ws.rs.GET
@@ -12,9 +13,6 @@ import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.future.asCompletableFuture
 import java.util.concurrent.CompletableFuture
@@ -22,8 +20,9 @@ import java.util.concurrent.CompletableFuture
 @Path("/api/trades")
 class TradeResource @Inject constructor(
     private val tradeService: TradeService,
+    private val resourceScope: ResourceScope,
 ) {
-    private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val ioScope = resourceScope.ioScope
 
     /**
      * GET /api/trades — Fetch all trades with GTT targets, ordered by creation date (newest first).

@@ -19,6 +19,9 @@ interface TradeWriteDao {
      * Upsert trade: insert new trade or consolidate with existing trade for the same stock.
      * If stock_id already exists, updates quantity and avg_buy_price via weighted average formula:
      * new_avg = (qty1 * price1 + qty2 * price2) / (qty1 + qty2)
+     *
+     * Note: Uses @SqlQuery (not @SqlUpdate) because PostgreSQL's RETURNING clause makes this
+     * return a result row. JDBI3 treats INSERT/UPDATE/DELETE with RETURNING as a query operation.
      */
     @SqlQuery(
         """

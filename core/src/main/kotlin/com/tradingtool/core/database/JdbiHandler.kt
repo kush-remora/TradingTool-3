@@ -55,6 +55,8 @@ class JdbiHandler<R, W>(
                 val dao = handle.attach(readDaoClass)
                 operation(dao)
             }
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
         } catch (error: JdbiHandlerError) {
             throw error
         } catch (error: Exception) {
@@ -78,6 +80,8 @@ class JdbiHandler<R, W>(
                 val dao = handle.attach(writeDaoClass)
                 operation(dao)
             }
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
         } catch (error: JdbiHandlerError) {
             throw error
         } catch (error: Exception) {
@@ -110,6 +114,8 @@ class JdbiHandler<R, W>(
                 val writeDao = handle.attach(writeDaoClass)
                 operation(readDao, writeDao)
             }
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
         } catch (error: JdbiHandlerError) {
             throw error
         } catch (error: Exception) {

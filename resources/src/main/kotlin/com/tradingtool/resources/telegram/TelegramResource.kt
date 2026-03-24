@@ -8,6 +8,7 @@ import com.tradingtool.core.telegram.TelegramSender
 import com.tradingtool.model.telegram.TelegramRequestModel
 import com.tradingtool.model.telegram.TelegramResponseModel
 import com.google.inject.Inject
+import com.tradingtool.core.di.ResourceScope
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.DELETE
 import jakarta.ws.rs.GET
@@ -17,9 +18,6 @@ import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.future.asCompletableFuture
 import org.glassfish.jersey.media.multipart.FormDataBodyPart
@@ -30,8 +28,9 @@ import java.util.concurrent.CompletableFuture
 @Path("/api/telegram")
 class TelegramResource @Inject constructor(
     private val telegramSender: TelegramSender,
+    private val resourceScope: ResourceScope,
 ) {
-    private val resourceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val ioScope = resourceScope.ioScope
 
     @GET
     @Path("status")
@@ -44,7 +43,7 @@ class TelegramResource @Inject constructor(
     @Path("send/text")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    fun sendText(body: TelegramRequestModel.SendTextRequest?): CompletableFuture<Response> = resourceScope.async {
+    fun sendText(body: TelegramRequestModel.SendTextRequest?): CompletableFuture<Response> = ioScope.async {
         val text = body?.text?.trim().orEmpty()
         if (text.isEmpty()) {
             return@async Response.status(400)
@@ -62,7 +61,7 @@ class TelegramResource @Inject constructor(
         @FormDataParam("file") inputStream: InputStream?,
         @FormDataParam("file") fileMetadata: FormDataBodyPart?,
         @FormDataParam("caption") caption: String?,
-    ): CompletableFuture<Response> = resourceScope.async {
+    ): CompletableFuture<Response> = ioScope.async {
         handleFileUpload(inputStream, fileMetadata, caption, "Image file is required.", telegramSender::sendImage)
     }.asCompletableFuture()
 
@@ -74,7 +73,7 @@ class TelegramResource @Inject constructor(
         @FormDataParam("file") inputStream: InputStream?,
         @FormDataParam("file") fileMetadata: FormDataBodyPart?,
         @FormDataParam("caption") caption: String?,
-    ): CompletableFuture<Response> = resourceScope.async {
+    ): CompletableFuture<Response> = ioScope.async {
         handleFileUpload(inputStream, fileMetadata, caption, "Excel file is required.", telegramSender::sendExcel)
     }.asCompletableFuture()
 

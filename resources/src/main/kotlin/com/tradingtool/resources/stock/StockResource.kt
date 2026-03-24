@@ -5,6 +5,7 @@ import com.tradingtool.core.model.stock.CreateStockInput
 import com.tradingtool.core.model.stock.UpdateStockPayload
 import com.tradingtool.core.stock.service.StockService
 import com.tradingtool.core.trade.service.TradeService
+import com.tradingtool.core.di.ResourceScope
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.DELETE
 import jakarta.ws.rs.GET
@@ -16,9 +17,6 @@ import jakarta.ws.rs.Produces
 import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.future.asCompletableFuture
 import java.util.concurrent.CompletableFuture
@@ -28,8 +26,9 @@ import java.util.concurrent.CompletableFuture
 class StockResource @Inject constructor(
     private val stockService: StockService,
     private val tradeService: TradeService,
+    private val resourceScope: ResourceScope,
 ) {
-    private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val ioScope = resourceScope.ioScope
 
     /** Health check — confirms the stocks and trades tables are accessible. */
     @GET
