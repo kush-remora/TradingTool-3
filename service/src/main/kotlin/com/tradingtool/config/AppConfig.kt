@@ -17,6 +17,7 @@ data class AppConfig(
     val supabase: SupabaseConfig,
     val deployment: DeploymentConfig,
     val kite: KiteConfig,
+    val redis: RedisAppConfig,
 )
 
 data class ServerConfig(
@@ -50,6 +51,10 @@ data class SupabaseConfig(
 data class DeploymentConfig(
     val renderExternalUrl: String,
     val githubPagesUrl: String,
+)
+
+data class RedisAppConfig(
+    val url: String,
 )
 
 fun loadAppConfig(resourceName: String = defaultConfigFileName()): AppConfig {
@@ -179,6 +184,15 @@ fun loadAppConfig(resourceName: String = defaultConfigFileName()): AppConfig {
         ),
     )
 
+    val redis = RedisAppConfig(
+        url = getString(
+            fileValues = fileValues,
+            yamlKey = "redis.url",
+            envVars = listOf("REDIS_URL"),
+            defaultValue = "redis://localhost:6379",
+        ),
+    )
+
     return AppConfig(
         server = server,
         service = service,
@@ -187,6 +201,7 @@ fun loadAppConfig(resourceName: String = defaultConfigFileName()): AppConfig {
         supabase = supabase,
         deployment = deployment,
         kite = kite,
+        redis = redis,
     )
 }
 

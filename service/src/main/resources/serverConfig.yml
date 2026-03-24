@@ -38,3 +38,6 @@ deployment:
 kite:
   apiKey: ${KITE_API_KEY:-}
   apiSecret: ${KITE_API_SECRET:-}
+
+redis:
+  url: ${REDIS_URL:-redis://localhost:6379}

@@ -38,6 +38,11 @@ class DropwizardConfig : Configuration() {
     @NotNull
     var kite: DropwizardKiteConfig = DropwizardKiteConfig()
 
+    @JsonProperty("redis")
+    @Valid
+    @NotNull
+    var redis: DropwizardRedisConfig = DropwizardRedisConfig()
+
     fun toAppConfig(): AppConfig {
         val defaultAllowedOrigins = "https://kushb2.github.io,http://localhost:5173,http://127.0.0.1:5173"
         return AppConfig(
@@ -67,6 +72,9 @@ class DropwizardConfig : Configuration() {
             kite = KiteConfig(
                 apiKey = kite.apiKey ?: "",
                 apiSecret = kite.apiSecret ?: "",
+            ),
+            redis = RedisAppConfig(
+                url = redis.url ?: "redis://localhost:6379",
             ),
         )
     }
@@ -143,4 +151,9 @@ class DropwizardKiteConfig {
 
     @JsonProperty("apiSecret")
     var apiSecret: String? = ""
+}
+
+class DropwizardRedisConfig {
+    @JsonProperty("url")
+    var url: String? = "redis://localhost:6379"
 }
