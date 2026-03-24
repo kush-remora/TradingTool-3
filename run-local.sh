@@ -51,7 +51,7 @@ trap cleanup EXIT INT TERM
 
 echo "Starting backend on http://localhost:8080 ..."
 echo "Building backend jar (service module)..."
-mvn -f pom.xml -pl service -am package -DskipTests
+mvn -f pom.xml -pl service -am clean package -DskipTests
 
 BACKEND_JAR="$(find service/target -maxdepth 1 -type f -name 'service-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n 1)"
 if [[ -z "$BACKEND_JAR" ]]; then

@@ -58,7 +58,7 @@ export SUPABASE_DB_URL="jdbc:postgresql://db.<project-ref>.supabase.co:5432/post
 Run backend (terminal 1):
 
 ```bash
-mvn -f pom.xml -pl service -am package -DskipTests
+mvn -f pom.xml -pl service -am clean package -DskipTests
 java -jar service/target/service-0.1.0-SNAPSHOT.jar server service/src/main/resources/localconfig.yaml
 ```
 
@@ -82,9 +82,12 @@ Alternative: run both with one command:
 Build and run backend with Docker (optional):
 
 ```bash
+docker version
 docker build -t trading-tool-backend .
 docker run --rm --name trading-tool-backend-local -p 8080:8080 trading-tool-backend
 ```
+
+Make sure Docker Desktop or Docker Engine is running before `docker build`.
 
 ### 3. Debug if you face issues
 
@@ -112,7 +115,7 @@ docker run --rm --name trading-tool-backend-local -p 8080:8080 trading-tool-back
 
 ```bash
 mvn clean test
-mvn -f pom.xml -pl service -am package -DskipTests
+mvn -f pom.xml -pl service -am clean package -DskipTests
 java -jar service/target/service-0.1.0-SNAPSHOT.jar server /Users/kushbhardwaj/Documents/github/TradingTool-3/service/src/main/resources/localconfig.yaml
 ```
 
