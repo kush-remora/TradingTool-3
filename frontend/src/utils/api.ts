@@ -107,14 +107,6 @@ export async function patchJson<T>(path: string, body: unknown): Promise<T> {
   });
 }
 
-export async function putJson<T>(path: string, body: unknown): Promise<T> {
-  return sendRequest<T>(path, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(body),
-  });
-}
-
 export async function deleteJson(path: string): Promise<void> {
   await sendRequest<unknown>(path, {
     method: "DELETE",

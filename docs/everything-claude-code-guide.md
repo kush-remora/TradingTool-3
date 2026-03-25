@@ -7,6 +7,7 @@
 
 ## Project Context
 
+
 This is a personal trading tool with the following stack:
 
 | Layer | Technology |

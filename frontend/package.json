@@ -10,8 +10,6 @@
   },
   "dependencies": {
     "antd": "^6.3.0",
-    "lightweight-charts": "^5.1.0",
-    "lightweight-charts-react": "^0.0.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
