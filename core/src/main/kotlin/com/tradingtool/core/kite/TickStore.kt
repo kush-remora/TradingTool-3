@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * In-memory store for the latest tick snapshot per instrument.
@@ -24,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap
 class TickStore {
 
     private val store = ConcurrentHashMap<Long, TickSnapshot>()
+    private val listeners = CopyOnWriteArrayList<(TickSnapshot) -> Unit>()
 
     private val _ticks = MutableSharedFlow<TickSnapshot>(
         extraBufferCapacity = 64,
@@ -37,7 +39,11 @@ class TickStore {
     fun put(tick: TickSnapshot) {
         store[tick.instrumentToken] = tick
         _ticks.tryEmit(tick)
+        listeners.forEach { it(tick) }
     }
+
+    fun addListener(listener: (TickSnapshot) -> Unit) { listeners.add(listener) }
+    fun removeListener(listener: (TickSnapshot) -> Unit) { listeners.remove(listener) }
 
     /** Returns the latest snapshot for all subscribed instruments. Used for initial SSE flush. */
     fun getAll(): List<TickSnapshot> = store.values.toList()
