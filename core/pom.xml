@@ -103,6 +103,12 @@
             <artifactId>kiteconnect</artifactId>
             <version>3.5.1</version>
         </dependency>
+        <!-- Override Kite SDK's bundled OkHttp 4.4.0 — incompatible with Java 21 TLS -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>4.12.0</version>
+        </dependency>
 
         <!-- ta4j — technical analysis + backtesting engine -->
         <dependency>

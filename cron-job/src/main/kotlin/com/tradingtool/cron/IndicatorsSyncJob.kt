@@ -77,24 +77,26 @@ fun main() {
     // All signal scanners — add new strategies here to include them in the daily run.
     val scanners: List<SignalScanner> = listOf(remoraService)
 
-    runBlocking {
-        notifier.cronStarted("IndicatorsSyncJob")
-        try {
-            val kiteClient = buildAuthenticatedKiteClient(kiteTokenHandler)
-            indicatorService.refreshAll(kiteClient, onlyNeedsRefresh = false)
-            scanners.forEach { scanner ->
-                log.info("Running scanner: {}", scanner.name)
-                scanner.scan(kiteClient)
+    try {
+        runBlocking {
+            notifier.cronStarted("IndicatorsSyncJob")
+            try {
+                val kiteClient = buildAuthenticatedKiteClient(kiteTokenHandler)
+                indicatorService.refreshAll(kiteClient, onlyNeedsRefresh = false)
+                scanners.forEach { scanner ->
+                    log.info("Running scanner: {}", scanner.name)
+                    scanner.scan(kiteClient)
+                }
+                notifier.cronCompleted("IndicatorsSyncJob", "${scanners.size} scanner(s) run")
+            } catch (e: Exception) {
+                notifier.cronFailed("IndicatorsSyncJob", e)
+                throw e
             }
-            notifier.cronCompleted("IndicatorsSyncJob", "${scanners.size} scanner(s) run")
-        } catch (e: Exception) {
-            notifier.cronFailed("IndicatorsSyncJob", e)
-            throw e
         }
+    } finally {
+        redis.close()
+        log.info("IndicatorsSyncJob finished.")
     }
-
-    redis.close()
-    log.info("IndicatorsSyncJob finished.")
 }
 
 private fun resolveDatabaseUrl(): String {

@@ -107,6 +107,7 @@ class IndicatorService(
         pushTagIndicatorsToRedis(stocks, results)
 
         log.info("Indicator sync complete: ${results.size}/${stocks.size} stocks succeeded")
+        requireSuccessfulSync(stocks.size, results.size, "all stocks")
     }
 
     /** Refreshes indicators for all stocks under [tag] only. */
@@ -118,6 +119,7 @@ class IndicatorService(
         pushTagIndicatorsToRedis(stocks, results)
 
         log.info("Indicator sync complete for tag=$tag: ${results.size}/${stocks.size} stocks succeeded")
+        requireSuccessfulSync(stocks.size, results.size, "tag=$tag")
     }
 
     // ── Private pipeline ──────────────────────────────────────────────────────
@@ -258,4 +260,14 @@ class IndicatorService(
             log.warn("Deserialization failed for '$context': ${e.message}")
             null
         }
+
+    private fun requireSuccessfulSync(totalStocks: Int, successfulStocks: Int, context: String) {
+        if (totalStocks == 0) {
+            return
+        }
+
+        check(successfulStocks > 0) {
+            "Indicator sync failed for $context: 0/$totalStocks stocks succeeded."
+        }
+    }
 }

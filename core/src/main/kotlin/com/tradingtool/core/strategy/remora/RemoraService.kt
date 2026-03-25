@@ -45,6 +45,7 @@ class RemoraService(
         log.info("Remora scan starting for ${stocks.size} stocks")
 
         var signalsFound = 0
+        var successfulFetches = 0
         val dateRange = buildDateRange()
 
         for (stock in stocks) {
@@ -63,6 +64,7 @@ class RemoraService(
                     val localDt = LocalDateTime.parse(hk.timeStamp.substring(0, 19))
                     series.addBar(localDt.atZone(ist), hk.open, hk.high, hk.low, hk.close, hk.volume)
                 }
+                successfulFetches++
 
                 val result = RemoraSignalCalculator.compute(series) ?: continue
 
@@ -95,6 +97,11 @@ class RemoraService(
         }
 
         log.info("Remora scan complete: $signalsFound new signals out of ${stocks.size} stocks")
+        if (stocks.isNotEmpty()) {
+            check(successfulFetches > 0) {
+                "Remora scan failed for all ${stocks.size} stocks."
+            }
+        }
     }
 
     suspend fun getSignals(type: String? = null): List<RemoraSignal> {

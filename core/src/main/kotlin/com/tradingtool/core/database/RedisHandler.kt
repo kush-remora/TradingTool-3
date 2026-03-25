@@ -1,5 +1,6 @@
 package com.tradingtool.core.database
 
+import com.tradingtool.core.config.ConfigLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import redis.clients.jedis.Jedis
@@ -54,11 +55,12 @@ class RedisHandler(redisUrl: String) : Closeable {
 
     companion object {
         /**
-         * Creates a [RedisHandler] from the REDIS_URL environment variable,
+         * Creates a [RedisHandler] from configuration files/env variables,
          * falling back to localhost:6379 for local development.
          */
         fun fromEnv(): RedisHandler {
-            val url = System.getenv("REDIS_URL")?.takeIf { it.isNotBlank() }
+            val url = runCatching { ConfigLoader.get("REDIS_URL", "redis.url") }.getOrNull()
+                ?: System.getenv("REDIS_URL")?.takeIf { it.isNotBlank() }
                 ?: "redis://localhost:6379"
             return RedisHandler(url)
         }
