@@ -122,7 +122,7 @@ class TradeService @Inject constructor(
      * Yield = ((target - avgBuyPrice) / avgBuyPrice) * 100
      */
     private fun calculateGttTargets(trade: Trade): List<GttTarget> {
-        val basePrice = if (trade.todayLow != null) {
+        val basePrice = if (!trade.todayLow.isNullOrBlank()) {
             BigDecimal(trade.todayLow)
         } else {
             BigDecimal(trade.avgBuyPrice)

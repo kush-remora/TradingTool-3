@@ -43,13 +43,13 @@ private val log = LoggerFactory.getLogger("IndicatorsSyncJob")
  * token in environment variables or config files.
  *
  * To run locally:
- *   mvn -pl cron-job -am compile exec:java -Dexec.mainClass=com.tradingtool.cron.IndicatorsSyncJobKt
+ *   mvn -f cron-job/pom.xml clean compile exec:java -Dexec.mainClass=com.tradingtool.cron.IndicatorsSyncJobKt
  */
 fun main() {
     val env = ConfigLoader.detect()
     log.info("IndicatorsSyncJob starting in environment: {}", env)
 
-    val dbConfig = DatabaseConfig(ConfigLoader.get("DATABASE_URL", "database.url"))
+    val dbConfig = DatabaseConfig(resolveDatabaseUrl())
     val redis = RedisHandler.fromEnv()
 
     val kiteTokenHandler = JdbiHandler(dbConfig, KiteTokenReadDao::class.java, KiteTokenWriteDao::class.java)
@@ -95,6 +95,14 @@ fun main() {
 
     redis.close()
     log.info("IndicatorsSyncJob finished.")
+}
+
+private fun resolveDatabaseUrl(): String {
+    val supabaseUrl = runCatching { ConfigLoader.get("SUPABASE_DB_URL", "supabase.dbUrl") }.getOrNull()
+    if (!supabaseUrl.isNullOrBlank()) return supabaseUrl
+
+    // Backward compatibility for deployment environments still using DATABASE_URL.
+    return ConfigLoader.get("DATABASE_URL", "database.url")
 }
 
 /**

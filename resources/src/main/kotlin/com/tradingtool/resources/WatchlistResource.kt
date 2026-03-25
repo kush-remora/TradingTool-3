@@ -46,7 +46,7 @@ class WatchlistResource @Inject constructor(
     private val remoraService: RemoraService,
 ) {
     private val ioScope = resourceScope.ioScope
-    private val objectMapper = ObjectMapper()
+    private val objectMapper = ObjectMapper().registerModule(com.fasterxml.jackson.module.kotlin.KotlinModule.Builder().build())
 
     // One scheduler shared across all SSE connections — each connection registers its own sender.
     private val heartbeatSenders = CopyOnWriteArrayList<() -> Unit>()

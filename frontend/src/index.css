@@ -1,0 +1,30 @@
+/* Groww-Inspired UI Density Overrides */
+
+/* Make Ant Design small tables even more compact */
+.ant-table-small .ant-table-thead > tr > th,
+.ant-table-small .ant-table-tbody > tr > td {
+  padding: 4px 8px !important;
+  font-size: 11px !important;
+}
+
+/* Adjust row hover and selection for dense tables */
+.ant-table-tbody > tr.ant-table-row:hover > td {
+  background-color: #f5f5f5 !important;
+}
+
+/* Make tags inside tables tighter */
+.ant-table-small .ant-tag {
+  line-height: 1.1 !important;
+  padding: 1px 4px !important;
+}
+
+/* Enhance green/red text clarity */
+.success-text {
+  color: #52c41a !important;
+  font-weight: 500;
+}
+
+.danger-text {
+  color: #ff4d4f !important;
+  font-weight: 500;
+}

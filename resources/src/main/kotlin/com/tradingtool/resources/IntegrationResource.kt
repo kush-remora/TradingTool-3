@@ -84,11 +84,30 @@ class IntegrationResource @Inject constructor(
     ): CompletableFuture<Response> = ioScope.endpoint {
         if (requestToken.isNullOrBlank()) return@endpoint badRequest("Missing request_token parameter")
 
+        log.info("[KiteCallback] Received callback with request token prefix={}", requestToken.prefix())
+
         val sessionResult = kiteClient.generateSession(requestToken)
         when (sessionResult) {
             is com.tradingtool.core.http.Result.Success -> {
                 val user = sessionResult.data
-                tokenDb.write { dao -> dao.saveToken(user.accessToken) }
+                val accessToken = user.accessToken
+                if (accessToken.isBlank() || accessToken == requestToken) {
+                    log.error(
+                        "[KiteCallback] Refusing to persist invalid access token. requestPrefix={}, accessPrefix={}",
+                        requestToken.prefix(),
+                        accessToken.prefix(),
+                    )
+                    return@endpoint Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                        .entity(mapOf("error" to "Kite returned an invalid access token."))
+                        .build()
+                }
+
+                log.info(
+                    "[KiteCallback] Session exchange succeeded for userId={}, access token prefix={}",
+                    user.userId,
+                    accessToken.prefix(),
+                )
+                tokenDb.write { dao -> dao.saveToken(accessToken) }
                 telegramSender.sendText(
                     TelegramSendTextRequest("Kite login successful. Token refreshed for user: ${user.userId}")
                 )
@@ -105,6 +124,11 @@ class IntegrationResource @Inject constructor(
                 Response.ok(mapOf("status" to "authenticated", "userId" to user.userId)).build()
             }
             is com.tradingtool.core.http.Result.Failure -> {
+                log.error(
+                    "[KiteCallback] Session exchange failed for request token prefix={}: {}",
+                    requestToken.prefix(),
+                    sessionResult.error.describe(),
+                )
                 Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity(mapOf("error" to sessionResult.error.describe()))
                     .build()
@@ -202,4 +226,6 @@ class IntegrationResource @Inject constructor(
             ))
             .build()
     }
+
+    private fun String.prefix(): String = take(12)
 }

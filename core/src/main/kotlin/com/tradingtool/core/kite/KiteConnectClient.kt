@@ -64,8 +64,20 @@ class KiteConnectClient(private val config: KiteConfig) {
     }.fold(
         onSuccess = { Result.Success(it) },
         onFailure = { e ->
+            val detail = buildString {
+                append(e::class.simpleName ?: e.javaClass.simpleName)
+                val message = e.message?.takeIf { it.isNotBlank() }
+                val causeMessage = e.cause?.message?.takeIf { it.isNotBlank() }
+                if (message != null) {
+                    append(": ")
+                    append(message)
+                } else if (causeMessage != null) {
+                    append(": ")
+                    append(causeMessage)
+                }
+            }
             Result.Failure(
-                HttpError.UnknownError(e, "Failed to generate Kite session: ${e.message}")
+                HttpError.UnknownError(e, "Failed to generate Kite session: $detail")
             )
         }
     )
