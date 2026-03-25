@@ -58,20 +58,20 @@ class IndicatorService(
     // ── Public API ────────────────────────────────────────────────────────────
 
     /**
-     * Returns computed indicators for all stocks under [tag].
+     * Returns computed indicators for all stocks under [tag], or ALL stocks if tag is null.
      * L1: Redis → L2: Postgres (heals Redis on miss).
      */
-    suspend fun getIndicatorsForTag(tag: String): List<ComputedIndicators> {
-        val redisKey = config.tagIndicatorsKey(tag)
+    suspend fun getIndicatorsForTag(tag: String?): List<ComputedIndicators> {
+        val redisKey = if (tag == null) "watchlist:indicators:ALL" else config.tagIndicatorsKey(tag)
 
         val cached = redis.get(redisKey)
         if (cached != null) {
-            return deserializeOrLog(cached, "tag=$tag") {
+            return deserializeOrLog(cached, "tag=${tag ?: "ALL"}") {
                 json.decodeFromString<List<ComputedIndicators>>(it)
             } ?: emptyList()
         }
 
-        val indicators = loadTagIndicatorsFromDb(tag)
+        val indicators = if (tag == null) loadAllIndicatorsFromDb() else loadTagIndicatorsFromDb(tag)
         if (indicators.isNotEmpty()) {
             redis.set(redisKey, json.encodeToString(indicators), config.indicatorsTtlSeconds)
         }
@@ -229,6 +229,21 @@ class IndicatorService(
     private suspend fun loadTagIndicatorsFromDb(tag: String): List<ComputedIndicators> {
         val stocks = stockHandler.read { it.listByTagName(tag) }
         // Each stock is an independent DB read — fetch all in parallel.
+        return coroutineScope {
+            stocks.map { stock ->
+                async {
+                    val jsonStr = stockIndicatorsHandler.read { it.getIndicatorsJson(stock.instrumentToken) }
+                        ?: return@async null
+                    deserializeOrLog(jsonStr, "stock:${stock.instrumentToken}") {
+                        json.decodeFromString<ComputedIndicators>(it).copy(instrumentToken = stock.instrumentToken)
+                    }
+                }
+            }.awaitAll().filterNotNull()
+        }
+    }
+
+    private suspend fun loadAllIndicatorsFromDb(): List<ComputedIndicators> {
+        val stocks = stockHandler.read { it.listAll() }
         return coroutineScope {
             stocks.map { stock ->
                 async {

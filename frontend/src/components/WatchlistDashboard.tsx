@@ -7,7 +7,13 @@ import type { WatchlistRow } from "../types";
 
 const { Text } = Typography;
 
-export function WatchlistDashboard({ tag = "" }: { tag?: string }) {
+interface WatchlistDashboardProps {
+  tag?: string;
+  onAddClick?: () => void;
+  onRowClick?: (symbol: string) => void;
+}
+
+export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: WatchlistDashboardProps) {
   const { rows, loading, refreshIndicators } = useWatchlist(tag);
   const [detailSymbol, setDetailSymbol] = useState<string | null>(null);
 
@@ -135,11 +141,18 @@ export function WatchlistDashboard({ tag = "" }: { tag?: string }) {
         <div>
           <Text strong style={{ fontSize: 18, letterSpacing: 0.5 }}>WATCHLIST {tag ? `: ${tag.toUpperCase()}` : ""}</Text>
         </div>
-        <Tooltip title="Trigger Cache Refresh (Background Job)">
-          <Button type="text" icon={<SyncOutlined />} onClick={refreshIndicators}>
-            Refresh Engine
-          </Button>
-        </Tooltip>
+        <Space>
+          <Tooltip title="Trigger Cache Refresh (Background Job)">
+            <Button type="text" icon={<SyncOutlined />} onClick={refreshIndicators}>
+              Refresh Engine
+            </Button>
+          </Tooltip>
+          {onAddClick && (
+            <Button type="primary" onClick={onAddClick}>
+              + Add Stock
+            </Button>
+          )}
+        </Space>
       </div>
       
       <Table
@@ -152,7 +165,13 @@ export function WatchlistDashboard({ tag = "" }: { tag?: string }) {
         size="small"
         style={{ borderRadius: 8, overflow: "hidden", border: "1px solid #f0f0f0" }}
         onRow={(record) => ({
-          onClick: () => setDetailSymbol(record.symbol),
+          onClick: () => {
+            if (onRowClick) {
+              onRowClick(record.symbol);
+            } else {
+              setDetailSymbol(record.symbol);
+            }
+          },
           style: { cursor: "pointer" },
         })}
       />

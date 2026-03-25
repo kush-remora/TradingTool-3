@@ -1,0 +1,2 @@
+sed -i '' 's/if (tag.isNullOrBlank()) return@endpoint badRequest("Query parameter '"'"'tag'"'"' is required")//g' /Users/kushbhardwaj/Documents/github/TradingTool-3/resources/src/main/kotlin/com/tradingtool/resources/WatchlistResource.kt
+sed -i '' 's/ok(watchlistService.getRows(tag.trim()))/ok(watchlistService.getRows(tag?.trim()?.takeIf { it.isNotEmpty() }))/' /Users/kushbhardwaj/Documents/github/TradingTool-3/resources/src/main/kotlin/com/tradingtool/resources/WatchlistResource.kt

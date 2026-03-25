@@ -75,8 +75,7 @@ class WatchlistResource @Inject constructor(
     @GET
     @Path("/indicators")
     fun getIndicatorsByTag(@QueryParam("tag") tag: String?): CompletableFuture<Response> = ioScope.endpoint {
-        if (tag.isNullOrBlank()) return@endpoint badRequest("Query parameter 'tag' is required")
-        ok(indicatorService.getIndicatorsForTag(tag.trim()))
+        ok(indicatorService.getIndicatorsForTag(tag?.trim()?.takeIf { it.isNotEmpty() }))
     }
 
     /**
@@ -87,8 +86,8 @@ class WatchlistResource @Inject constructor(
     @GET
     @Path("/rows")
     fun getRows(@QueryParam("tag") tag: String?): CompletableFuture<Response> = ioScope.endpoint {
-        if (tag.isNullOrBlank()) return@endpoint badRequest("Query parameter 'tag' is required")
-        ok(watchlistService.getRows(tag.trim()))
+        
+        ok(watchlistService.getRows(tag?.trim()?.takeIf { it.isNotEmpty() }))
     }
 
     /**

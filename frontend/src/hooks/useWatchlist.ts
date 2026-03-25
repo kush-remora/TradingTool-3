@@ -10,7 +10,8 @@ export function useWatchlist(tag: string = "") {
   const fetchRows = async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/watchlist/rows?tag=${encodeURIComponent(tag)}`);
+      const queryParams = tag ? `?tag=${encodeURIComponent(tag)}` : "";
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/watchlist/rows${queryParams}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch watchlist: ${response.statusText}`);
       }

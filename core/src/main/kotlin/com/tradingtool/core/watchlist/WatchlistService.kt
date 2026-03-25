@@ -23,11 +23,16 @@ class WatchlistService(
     private val indicatorService: IndicatorService,
     private val liveMarketService: LiveMarketService,
 ) {
-    suspend fun getRows(tag: String): List<WatchlistRow> {
+    suspend fun getRows(tag: String?): List<WatchlistRow> {
         // stocks and indicators both depend only on `tag` — fetch in parallel.
         val (stocks, indicatorsList) = coroutineScope {
-            val stocksJob = async { stockHandler.read { it.listByTagName(tag) } }
-            val indicatorsJob = async { indicatorService.getIndicatorsForTag(tag) }
+            val stocksJob = async {
+                if (tag.isNullOrBlank()) stockHandler.read { it.listAll() }
+                else stockHandler.read { it.listByTagName(tag) }
+            }
+            val indicatorsJob = async {
+                indicatorService.getIndicatorsForTag(tag?.trim()?.takeIf { it.isNotEmpty() })
+            }
             stocksJob.await() to indicatorsJob.await()
         }
         if (stocks.isEmpty()) return emptyList()
