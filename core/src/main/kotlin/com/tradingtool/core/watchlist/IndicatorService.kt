@@ -10,18 +10,21 @@ import com.tradingtool.core.model.stock.Stock
 import com.tradingtool.core.model.watchlist.ComputedIndicators
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.slf4j.LoggerFactory
 import org.ta4j.core.BarSeries
 import org.ta4j.core.BaseBarSeriesBuilder
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.Date
-import java.util.logging.Logger
 
 /**
  * Orchestrates the two-tier indicator cache: Redis (L1) → PostgreSQL (L2).
@@ -42,7 +45,7 @@ class IndicatorService(
     private val redis: RedisHandler,
     private val config: IndicatorConfig = IndicatorConfig.DEFAULT,
 ) {
-    private val log = Logger.getLogger(IndicatorService::class.java.name)
+    private val log = LoggerFactory.getLogger(IndicatorService::class.java)
 
     // kotlinx.Json for our own @Serializable models (ComputedIndicators)
     private val json = Json { ignoreUnknownKeys = true }
@@ -138,7 +141,7 @@ class IndicatorService(
             } catch (e: CancellationException) {
                 throw e  // never swallow coroutine cancellation
             } catch (e: Exception) {
-                log.warning("Failed to sync ${stock.symbol}: ${e.message}")
+                log.warn("Failed to sync ${stock.symbol}: ${e.message}")
             }
         }
 
@@ -165,7 +168,7 @@ class IndicatorService(
 
         val series = buildBarSeries(history.dataArrayList, stock.symbol)
         if (series.barCount == 0) {
-            log.warning("No bars returned for ${stock.symbol} — skipping indicator calculation")
+            log.warn("No bars returned for ${stock.symbol} — skipping indicator calculation")
             return null
         }
 
@@ -205,25 +208,35 @@ class IndicatorService(
     ) {
         val allTags = stocks.flatMap { s -> s.tags.map { it.name } }.distinct()
 
-        for (tag in allTags) {
-            val tagIndicators = stocks
-                .filter { s -> s.tags.any { it.name == tag } }
-                .mapNotNull { computedResults[it.instrumentToken] }
+        // Each tag write is independent — push all in parallel.
+        coroutineScope {
+            allTags.map { tag ->
+                async {
+                    val tagIndicators = stocks
+                        .filter { s -> s.tags.any { it.name == tag } }
+                        .mapNotNull { computedResults[it.instrumentToken] }
 
-            if (tagIndicators.isNotEmpty()) {
-                redis.set(config.tagIndicatorsKey(tag), json.encodeToString(tagIndicators), config.indicatorsTtlSeconds)
-            }
+                    if (tagIndicators.isNotEmpty()) {
+                        redis.set(config.tagIndicatorsKey(tag), json.encodeToString(tagIndicators), config.indicatorsTtlSeconds)
+                    }
+                }
+            }.awaitAll()
         }
     }
 
     private suspend fun loadTagIndicatorsFromDb(tag: String): List<ComputedIndicators> {
         val stocks = stockHandler.read { it.listByTagName(tag) }
-        return stocks.mapNotNull { stock ->
-            val jsonStr = stockIndicatorsHandler.read { it.getIndicatorsJson(stock.instrumentToken) }
-                ?: return@mapNotNull null
-            deserializeOrLog(jsonStr, "stock:${stock.instrumentToken}") {
-                json.decodeFromString<ComputedIndicators>(it).copy(instrumentToken = stock.instrumentToken)
-            }
+        // Each stock is an independent DB read — fetch all in parallel.
+        return coroutineScope {
+            stocks.map { stock ->
+                async {
+                    val jsonStr = stockIndicatorsHandler.read { it.getIndicatorsJson(stock.instrumentToken) }
+                        ?: return@async null
+                    deserializeOrLog(jsonStr, "stock:${stock.instrumentToken}") {
+                        json.decodeFromString<ComputedIndicators>(it).copy(instrumentToken = stock.instrumentToken)
+                    }
+                }
+            }.awaitAll().filterNotNull()
         }
     }
 
@@ -242,7 +255,7 @@ class IndicatorService(
         try {
             block(raw)
         } catch (e: Exception) {
-            log.warning("Deserialization failed for '$context': ${e.message}")
+            log.warn("Deserialization failed for '$context': ${e.message}")
             null
         }
 }

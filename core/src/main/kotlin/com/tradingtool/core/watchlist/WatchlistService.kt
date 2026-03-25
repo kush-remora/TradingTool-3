@@ -5,6 +5,8 @@ import com.tradingtool.core.kite.LiveMarketService
 import com.tradingtool.core.model.watchlist.ComputedIndicators
 import com.tradingtool.core.model.watchlist.WatchlistRow
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 
 /**
@@ -22,12 +24,15 @@ class WatchlistService(
     private val liveMarketService: LiveMarketService,
 ) {
     suspend fun getRows(tag: String): List<WatchlistRow> {
-        val stocks = stockHandler.read { it.listByTagName(tag) }
+        // stocks and indicators both depend only on `tag` — fetch in parallel.
+        val (stocks, indicatorsList) = coroutineScope {
+            val stocksJob = async { stockHandler.read { it.listByTagName(tag) } }
+            val indicatorsJob = async { indicatorService.getIndicatorsForTag(tag) }
+            stocksJob.await() to indicatorsJob.await()
+        }
         if (stocks.isEmpty()) return emptyList()
 
-        val indicators: Map<Long, ComputedIndicators> =
-            indicatorService.getIndicatorsForTag(tag)
-                .associateBy { it.instrumentToken }
+        val indicators: Map<Long, ComputedIndicators> = indicatorsList.associateBy { it.instrumentToken }
 
         // Kite format: "NSE:INFY", "BSE:RELIANCE"
         val instruments = stocks.map { "${it.exchange}:${it.symbol}" }

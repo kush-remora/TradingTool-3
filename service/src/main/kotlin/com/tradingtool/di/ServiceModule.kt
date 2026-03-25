@@ -9,6 +9,7 @@ import com.tradingtool.core.config.IndicatorConfig
 import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.database.KiteTokenJdbiHandler
 import com.tradingtool.core.database.RedisHandler
+import com.tradingtool.core.database.RemoraJdbiHandler
 import com.tradingtool.core.database.StockIndicatorsJdbiHandler
 import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.di.ResourceScope
@@ -27,6 +28,9 @@ import com.tradingtool.core.stock.dao.StockIndicatorsReadDao
 import com.tradingtool.core.stock.dao.StockIndicatorsWriteDao
 import com.tradingtool.core.stock.dao.StockReadDao
 import com.tradingtool.core.stock.dao.StockWriteDao
+import com.tradingtool.core.strategy.remora.RemoraService
+import com.tradingtool.core.strategy.remora.RemoraSignalReadDao
+import com.tradingtool.core.strategy.remora.RemoraSignalWriteDao
 import com.tradingtool.core.stock.service.StockDetailService
 import com.tradingtool.core.stock.service.StockService
 import com.tradingtool.core.telegram.TelegramApiClient
@@ -37,19 +41,16 @@ import com.tradingtool.core.trade.service.TradeService
 import com.tradingtool.core.watchlist.IndicatorService
 import com.tradingtool.core.watchlist.WatchlistService
 import com.tradingtool.eventservice.KiteTickerService
-import com.tradingtool.resources.health.HealthResource
-import com.tradingtool.resources.instruments.InstrumentResource
-import com.tradingtool.resources.kite.KiteResource
-import com.tradingtool.resources.live.LiveStreamResource
-import com.tradingtool.resources.stock.StockDetailResource
-import com.tradingtool.resources.stock.StockResource
-import com.tradingtool.resources.telegram.TelegramResource
-import com.tradingtool.resources.trade.TradeResource
-import com.tradingtool.resources.watchlist.WatchlistResource
+import com.tradingtool.resources.ALL_RESOURCE_CLASSES
 
 class ServiceModule(
     private val appConfig: AppConfig,
 ) : AbstractModule() {
+
+    /** Single-line factory for any JdbiHandler — eliminates the repeated constructor call. */
+    private inline fun <reified R, reified W> handler(config: DatabaseConfig): JdbiHandler<R, W> =
+        JdbiHandler(config, R::class.java, W::class.java)
+
     override fun configure() {
         install(CoreHttpModule())
 
@@ -59,15 +60,7 @@ class ServiceModule(
         bind(TradeService::class.java).`in`(Singleton::class.java)
         bind(HttpRequestExecutor::class.java).to(JdkHttpRequestExecutor::class.java).`in`(Singleton::class.java)
 
-        bind(HealthResource::class.java).`in`(Singleton::class.java)
-        bind(KiteResource::class.java).`in`(Singleton::class.java)
-        bind(TelegramResource::class.java).`in`(Singleton::class.java)
-        bind(StockResource::class.java).`in`(Singleton::class.java)
-        bind(StockDetailResource::class.java).`in`(Singleton::class.java)
-        bind(InstrumentResource::class.java).`in`(Singleton::class.java)
-        bind(TradeResource::class.java).`in`(Singleton::class.java)
-        bind(WatchlistResource::class.java).`in`(Singleton::class.java)
-        bind(LiveStreamResource::class.java).`in`(Singleton::class.java)
+        ALL_RESOURCE_CLASSES.forEach { bind(it).`in`(Singleton::class.java) }
     }
 
     @Provides
@@ -84,30 +77,26 @@ class ServiceModule(
     fun provideDatabaseConfig(config: AppConfig): DatabaseConfig =
         DatabaseConfig(jdbcUrl = config.supabase.dbUrl)
 
-    @Provides
-    @Singleton
+    @Provides @Singleton
     fun provideKiteTokenJdbiHandler(config: DatabaseConfig): KiteTokenJdbiHandler =
-        JdbiHandler(config = config, readDaoClass = KiteTokenReadDao::class.java, writeDaoClass = KiteTokenWriteDao::class.java)
+        handler<KiteTokenReadDao, KiteTokenWriteDao>(config)
 
-    @Provides
-    @Singleton
+    @Provides @Singleton
     fun provideStockJdbiHandler(config: DatabaseConfig): StockJdbiHandler =
-        JdbiHandler(config = config, readDaoClass = StockReadDao::class.java, writeDaoClass = StockWriteDao::class.java)
+        handler<StockReadDao, StockWriteDao>(config)
 
-    @Provides
-    @Singleton
+    @Provides @Singleton
     fun provideTradeJdbiHandler(config: DatabaseConfig): JdbiHandler<TradeReadDao, TradeWriteDao> =
-        JdbiHandler(config = config, readDaoClass = TradeReadDao::class.java, writeDaoClass = TradeWriteDao::class.java)
+        handler<TradeReadDao, TradeWriteDao>(config)
 
     @Provides
     @Singleton
     fun provideRedisHandler(config: AppConfig): RedisHandler =
         RedisHandler(config.redis.url) // Replaced the hardcoded .fromEnv() with AppConfig
 
-    @Provides
-    @Singleton
+    @Provides @Singleton
     fun provideStockIndicatorsJdbiHandler(config: DatabaseConfig): StockIndicatorsJdbiHandler =
-        JdbiHandler(config = config, readDaoClass = StockIndicatorsReadDao::class.java, writeDaoClass = StockIndicatorsWriteDao::class.java)
+        handler<StockIndicatorsReadDao, StockIndicatorsWriteDao>(config)
 
     @Provides
     @Singleton
@@ -190,4 +179,20 @@ class ServiceModule(
     @Singleton
     @Named("telegramChatId")
     fun provideChatId(config: AppConfig): String = config.telegram.chatId
+
+    @Provides @Singleton
+    fun provideRemoraJdbiHandler(config: DatabaseConfig): RemoraJdbiHandler =
+        handler<RemoraSignalReadDao, RemoraSignalWriteDao>(config)
+
+    @Provides
+    @Singleton
+    fun provideRemoraService(
+        stockHandler: StockJdbiHandler,
+        remoraHandler: RemoraJdbiHandler,
+        telegramSender: TelegramSender,
+    ): RemoraService = RemoraService(
+        stockHandler = stockHandler,
+        remoraHandler = remoraHandler,
+        telegramSender = telegramSender,
+    )
 }

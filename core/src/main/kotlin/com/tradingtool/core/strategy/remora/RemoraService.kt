@@ -7,17 +7,18 @@ import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.model.remora.RemoraSignal
 import com.tradingtool.core.telegram.TelegramSender
 import com.tradingtool.core.model.telegram.TelegramSendTextRequest
+import com.tradingtool.core.strategy.SignalScanner
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import org.slf4j.LoggerFactory
 import org.ta4j.core.BaseBarSeriesBuilder
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.Date
-import java.util.logging.Logger
 
 /**
  * Computes and persists Remora (institutional volume) signals for all tracked stocks.
@@ -31,9 +32,13 @@ class RemoraService(
     private val remoraHandler: RemoraJdbiHandler,
     private val telegramSender: TelegramSender,
     private val config: IndicatorConfig = IndicatorConfig.DEFAULT,
-) {
-    private val log = Logger.getLogger(RemoraService::class.java.name)
+) : SignalScanner {
+    private val log = LoggerFactory.getLogger(RemoraService::class.java)
     private val ist = ZoneId.of("Asia/Kolkata")
+
+    override val name = "Remora"
+
+    override suspend fun scan(kiteClient: KiteConnectClient) = computeAll(kiteClient)
 
     suspend fun computeAll(kiteClient: KiteConnectClient) {
         val stocks = stockHandler.read { it.listAll() }
@@ -79,13 +84,13 @@ class RemoraService(
                     log.info("Remora signal: ${stock.symbol} — ${result.signalType} (${result.volumeRatio}x vol, ${result.consecutiveDays}d)")
                     sendTelegram(stock.symbol, stock.exchange, result)
                 } else {
-                    log.fine("Remora signal for ${stock.symbol} already recorded today — skipping Telegram")
+                    log.debug("Remora signal for ${stock.symbol} already recorded today — skipping Telegram")
                 }
 
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                log.warning("Remora scan failed for ${stock.symbol}: ${e.message}")
+                log.warn("Remora scan failed for ${stock.symbol}: ${e.message}")
             }
         }
 
@@ -113,7 +118,7 @@ class RemoraService(
         runCatching {
             telegramSender.sendText(TelegramSendTextRequest(text = message))
         }.onFailure {
-            log.warning("Failed to send Telegram for $symbol: ${it.message}")
+            log.warn("Failed to send Telegram for $symbol: ${it.message}")
         }
     }
 

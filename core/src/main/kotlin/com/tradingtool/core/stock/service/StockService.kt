@@ -10,6 +10,9 @@ import com.tradingtool.core.model.stock.Stock
 import com.tradingtool.core.model.stock.StockTag
 import com.tradingtool.core.model.stock.TableAccessStatus
 import com.tradingtool.core.model.stock.UpdateStockPayload
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 
 @Singleton
 class StockService @Inject constructor(
@@ -56,15 +59,18 @@ class StockService @Inject constructor(
         writeDao.delete(id) > 0
     }
 
-    suspend fun checkTablesAccess(): List<TableAccessStatus> =
+    suspend fun checkTablesAccess(): List<TableAccessStatus> = coroutineScope {
         listOf(Tables.STOCKS, Tables.TRADES, Tables.KITE_TOKENS).map { tableName ->
-            val accessible = db.checkTableAccess(tableName)
-            TableAccessStatus(
-                tableName = tableName,
-                accessible = accessible,
-                error = if (accessible) null else "Table is not accessible",
-            )
-        }
+            async {
+                val accessible = db.checkTableAccess(tableName)
+                TableAccessStatus(
+                    tableName = tableName,
+                    accessible = accessible,
+                    error = if (accessible) null else "Table is not accessible",
+                )
+            }
+        }.awaitAll()
+    }
 
     private fun toJson(tags: List<StockTag>): String = jackson.writeValueAsString(tags)
 }

@@ -102,6 +102,22 @@ export interface StockDetailResponse {
   days: DayDetail[];
 }
 
+// ==================== Remora Strategy ====================
+
+export interface RemoraSignal {
+  id: number;
+  stock_id: number;
+  symbol: string;
+  company_name: string;
+  exchange: string;
+  signal_type: "ACCUMULATION" | "DISTRIBUTION";
+  volume_ratio: number;
+  price_change_pct: number;
+  consecutive_days: number;
+  signal_date: string;
+  computed_at: string;
+}
+
 // ==================== Watchlist Dashboard ====================
 
 export interface WatchlistRow {

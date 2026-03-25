@@ -10,17 +10,9 @@ import com.tradingtool.di.ServiceModule
 import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.kite.KiteTokenReadDao
 import com.tradingtool.core.kite.KiteTokenWriteDao
-import com.tradingtool.resources.health.HealthResource
-import com.tradingtool.resources.instruments.InstrumentResource
-import com.tradingtool.resources.kite.KiteResource
-import com.tradingtool.resources.stock.StockDetailResource
-import com.tradingtool.resources.stock.StockResource
-import com.tradingtool.resources.telegram.TelegramResource
-import com.tradingtool.resources.trade.TradeResource
 import com.tradingtool.core.stock.dao.StockReadDao
 import com.tradingtool.core.stock.dao.StockWriteDao
-import com.tradingtool.resources.live.LiveStreamResource
-import com.tradingtool.resources.watchlist.WatchlistResource
+import com.tradingtool.resources.ALL_RESOURCE_CLASSES
 import com.tradingtool.eventservice.KiteTickerService
 import io.dropwizard.core.Application
 import io.dropwizard.configuration.EnvironmentVariableSubstitutor
@@ -36,6 +28,9 @@ import kotlinx.coroutines.runBlocking
 import org.eclipse.jetty.servlets.CrossOriginFilter
 import org.glassfish.jersey.media.multipart.MultiPartFeature
 import org.glassfish.jersey.server.filter.RolesAllowedDynamicFeature
+import org.slf4j.LoggerFactory
+
+private val log = LoggerFactory.getLogger(DropwizardApplication::class.java)
 
 fun main(args: Array<String>) {
     val effectiveArgs: Array<String> = resolveDropwizardArgs(args)
@@ -164,9 +159,9 @@ class DropwizardApplication : Application<DropwizardConfig>() {
             try {
                 val instruments = kiteClient.client().getInstruments("NSE")
                 instrumentCache.refresh(instruments)
-                println("[InstrumentCache] Loaded ${instrumentCache.size()} NSE instruments at startup")
+                log.info("[InstrumentCache] Loaded {} NSE instruments at startup", instrumentCache.size())
             } catch (e: Exception) {
-                println("[InstrumentCache] Failed to load at startup: ${e.message}")
+                log.error("[InstrumentCache] Failed to load at startup: {}", e.message)
             }
 
             // Task 4: start ticker with market-hours schedule (start 9:14 AM IST, stop 3:31 PM IST).
@@ -175,39 +170,23 @@ class DropwizardApplication : Application<DropwizardConfig>() {
                     stockHandler.read { dao -> dao.listAll() }
                 }.map { it.instrumentToken }.filter { it > 0 }
                 kiteTickerService.startWithMarketSchedule(tokens)
-                println("[KiteTicker] Market schedule registered — ${tokens.size} instruments queued")
+                log.info("[KiteTicker] Market schedule registered — {} instruments queued", tokens.size)
             } catch (e: Exception) {
-                println("[KiteTicker] Failed to register market schedule: ${e.message}")
+                log.error("[KiteTicker] Failed to register market schedule: {}", e.message)
             }
         }.also { it.isDaemon = true }.start()
 
-        // Get resource instances from Guice
-        val healthResource = injector.getInstance(HealthResource::class.java)
-        val kiteResource = injector.getInstance(KiteResource::class.java)
-        val telegramResource = injector.getInstance(TelegramResource::class.java)
-        val stockResource = injector.getInstance(StockResource::class.java)
-        val instrumentResource = injector.getInstance(InstrumentResource::class.java)
-        val tradeResource = injector.getInstance(TradeResource::class.java)
-        val watchlistResource = injector.getInstance(WatchlistResource::class.java)
-        val liveStreamResource = injector.getInstance(LiveStreamResource::class.java)
-        val stockDetailResource = injector.getInstance(StockDetailResource::class.java)
-
-        // Register resources with Jersey
-        environment.jersey().register(healthResource)
-        environment.jersey().register(kiteResource)
-        environment.jersey().register(telegramResource)
-        environment.jersey().register(stockResource)
-        environment.jersey().register(stockDetailResource)
-        environment.jersey().register(instrumentResource)
-        environment.jersey().register(tradeResource)
-        environment.jersey().register(watchlistResource)
-        environment.jersey().register(liveStreamResource)
+        // Register all resources with Jersey (source of truth: ResourceRegistry)
+        ALL_RESOURCE_CLASSES.forEach { clazz ->
+            environment.jersey().register(injector.getInstance(clazz))
+        }
         environment.jersey().register(MultiPartFeature::class.java)
 
-        // Manage Redis connection pool lifecycle
+        // Manage coroutine scope + Redis lifecycle — shut down in order on server stop.
         environment.lifecycle().manage(object : io.dropwizard.lifecycle.Managed {
             override fun start() {}
             override fun stop() {
+                injector.getInstance(com.tradingtool.core.di.ResourceScope::class.java).shutdown()
                 injector.getInstance(com.tradingtool.core.database.RedisHandler::class.java).close()
             }
         })
@@ -228,7 +207,7 @@ private fun requireLatestKiteTokenFromDb(
 
         if (latestToken != null) {
             kiteClient.applyAccessToken(latestToken)
-            println("[KiteToken] Applied latest token from kite_tokens table at startup.")
+            log.info("[KiteToken] Applied latest token from kite_tokens table at startup.")
         } else {
             throw IllegalStateException(
                 "Kite authentication required to start. No token found in kite_tokens table."

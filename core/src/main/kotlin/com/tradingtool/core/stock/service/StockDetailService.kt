@@ -16,8 +16,8 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import org.slf4j.LoggerFactory
 import java.util.Date
-import java.util.logging.Logger
 
 /**
  * Fetches 7 trading days of enriched OHLCV data for a stock from Kite.
@@ -29,7 +29,7 @@ import java.util.logging.Logger
 class StockDetailService(
     private val stockHandler: StockJdbiHandler,
 ) {
-    private val log = Logger.getLogger(StockDetailService::class.java.name)
+    private val log = LoggerFactory.getLogger(StockDetailService::class.java)
     private val ist = ZoneId.of("Asia/Kolkata")
 
     suspend fun getDetail(symbol: String, kiteClient: KiteConnectClient): StockDetailResponse? {
@@ -47,7 +47,7 @@ class StockDetailService(
 
         val series = buildBarSeries(history.dataArrayList, symbol)
         if (series.barCount < 2) {
-            log.warning("Not enough bars for $symbol (${series.barCount} bars)")
+            log.warn("Not enough bars for {} ({} bars)", symbol, series.barCount)
             return StockDetailResponse(symbol = symbol, avgVolume20d = null, days = emptyList())
         }
 

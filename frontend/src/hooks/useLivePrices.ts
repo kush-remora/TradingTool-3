@@ -3,7 +3,7 @@ import type { TickSnapshot } from "../types";
 import { apiBaseUrl } from "../utils/api";
 
 /**
- * Opens a single SSE connection to /api/live/stream and maintains a map
+ * Opens a single SSE connection to /api/watchlist/stream and maintains a map
  * of the latest tick per instrument token.
  *
  * Usage:
@@ -17,7 +17,7 @@ export function useLivePrices() {
   const [ticks, setTicks] = useState<Map<number, TickSnapshot>>(new Map());
 
   useEffect(() => {
-    const es = new EventSource(`${apiBaseUrl}/api/live/stream`);
+    const es = new EventSource(`${apiBaseUrl}/api/watchlist/stream`);
 
     es.onmessage = (event: MessageEvent) => {
       try {

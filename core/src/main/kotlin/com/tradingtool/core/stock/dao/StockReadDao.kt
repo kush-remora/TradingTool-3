@@ -11,8 +11,11 @@ import org.jdbi.v3.core.statement.StatementContext
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper
 import org.jdbi.v3.sqlobject.customizer.Bind
 import org.jdbi.v3.sqlobject.statement.SqlQuery
+import org.slf4j.LoggerFactory
 import java.sql.ResultSet
 import java.time.OffsetDateTime
+
+private val log = LoggerFactory.getLogger("StockRowMapper")
 
 @RegisterRowMapper(StockMapper::class)
 @RegisterRowMapper(StockTagMapper::class)
@@ -66,7 +69,7 @@ class StockMapper : RowMapper<Stock> {
                 jacksonMapper.readValue(tagsJson, tagListType)
             }
         } catch (e: Exception) {
-            println("⚠️ Failed to deserialize tags from JSON: $tagsJson — Error: ${e.message}")
+            log.warn("Failed to deserialize tags from JSON: {} — Error: {}", tagsJson, e.message)
             emptyList()
         }
         return Stock(

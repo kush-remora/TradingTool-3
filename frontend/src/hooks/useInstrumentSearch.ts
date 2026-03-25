@@ -39,7 +39,7 @@ export function useInstrumentSearch() {
     }
 
     // Start a new fetch
-    fetchPromise = getJson<InstrumentSearchResult[]>("/api/instruments/all");
+    fetchPromise = getJson<InstrumentSearchResult[]>("/api/stocks/instruments");
     fetchPromise
       .then((data) => {
         cachedInstruments = data;

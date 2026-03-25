@@ -1,10 +1,16 @@
 package com.tradingtool.cron
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.tradingtool.core.config.ConfigLoader
 import com.tradingtool.core.config.IndicatorConfig
+import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.database.RedisHandler
+import com.tradingtool.core.database.RemoraJdbiHandler
 import com.tradingtool.core.database.StockIndicatorsJdbiHandler
 import com.tradingtool.core.database.StockJdbiHandler
+import com.tradingtool.core.http.HttpClientConfig
+import com.tradingtool.core.http.JdkHttpClientImpl
 import com.tradingtool.core.kite.KiteConfig
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.kite.KiteTokenReadDao
@@ -14,9 +20,18 @@ import com.tradingtool.core.stock.dao.StockIndicatorsReadDao
 import com.tradingtool.core.stock.dao.StockIndicatorsWriteDao
 import com.tradingtool.core.stock.dao.StockReadDao
 import com.tradingtool.core.stock.dao.StockWriteDao
-import com.tradingtool.core.database.JdbiHandler
+import com.tradingtool.core.strategy.SignalScanner
+import com.tradingtool.core.strategy.remora.RemoraSignalReadDao
+import com.tradingtool.core.strategy.remora.RemoraSignalWriteDao
+import com.tradingtool.core.strategy.remora.RemoraService
+import com.tradingtool.core.telegram.TelegramApiClient
+import com.tradingtool.core.telegram.TelegramSender
 import com.tradingtool.core.watchlist.IndicatorService
 import kotlinx.coroutines.runBlocking
+import org.slf4j.LoggerFactory
+import java.net.http.HttpClient as JdkHttpClient
+
+private val log = LoggerFactory.getLogger("IndicatorsSyncJob")
 
 /**
  * Daily indicator sync — runs at 9:15 AM IST after market open.
@@ -31,14 +46,15 @@ import kotlinx.coroutines.runBlocking
  */
 fun main() {
     val env = ConfigLoader.detect()
-    println("IndicatorsSyncJob starting in environment: $env")
+    log.info("IndicatorsSyncJob starting in environment: {}", env)
 
     val dbConfig = DatabaseConfig(ConfigLoader.get("DATABASE_URL", "database.url"))
     val redis = RedisHandler.fromEnv()
 
     val kiteTokenHandler = JdbiHandler(dbConfig, KiteTokenReadDao::class.java, KiteTokenWriteDao::class.java)
-    val stockHandler = JdbiHandler(dbConfig, StockReadDao::class.java, StockWriteDao::class.java)
-    val stockIndicatorsHandler = JdbiHandler(dbConfig, StockIndicatorsReadDao::class.java, StockIndicatorsWriteDao::class.java)
+    val stockHandler: StockJdbiHandler = JdbiHandler(dbConfig, StockReadDao::class.java, StockWriteDao::class.java)
+    val stockIndicatorsHandler: StockIndicatorsJdbiHandler = JdbiHandler(dbConfig, StockIndicatorsReadDao::class.java, StockIndicatorsWriteDao::class.java)
+    val remoraHandler: RemoraJdbiHandler = JdbiHandler(dbConfig, RemoraSignalReadDao::class.java, RemoraSignalWriteDao::class.java)
 
     val indicatorService = IndicatorService(
         stockIndicatorsHandler = stockIndicatorsHandler,
@@ -47,13 +63,29 @@ fun main() {
         config = IndicatorConfig.DEFAULT,
     )
 
+    val telegramSender = buildTelegramSender()
+
+    val remoraService = RemoraService(
+        stockHandler = stockHandler,
+        remoraHandler = remoraHandler,
+        telegramSender = telegramSender,
+        config = IndicatorConfig.DEFAULT,
+    )
+
+    // All signal scanners — add new strategies here to include them in the daily run.
+    val scanners: List<SignalScanner> = listOf(remoraService)
+
     runBlocking {
         val kiteClient = buildAuthenticatedKiteClient(kiteTokenHandler)
         indicatorService.refreshAll(kiteClient, onlyNeedsRefresh = false)
+        scanners.forEach { scanner ->
+            log.info("Running scanner: {}", scanner.name)
+            scanner.scan(kiteClient)
+        }
     }
 
     redis.close()
-    println("IndicatorsSyncJob finished.")
+    log.info("IndicatorsSyncJob finished.")
 }
 
 /**
@@ -76,6 +108,36 @@ private suspend fun buildAuthenticatedKiteClient(
         ?: error("No Kite access token found in kite_tokens table. Complete the Kite login flow first.")
 
     kiteClient.applyAccessToken(accessToken)
-    println("Kite client authenticated (token from DB).")
+    log.info("Kite client authenticated (token from DB).")
     return kiteClient
+}
+
+/**
+ * Constructs a [TelegramSender] from env vars / localconfig.yaml.
+ * If TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID are absent, returns a no-op sender
+ * that silently skips notifications rather than crashing the cron job.
+ */
+private fun buildTelegramSender(): TelegramSender {
+    return try {
+        val botToken = ConfigLoader.get("TELEGRAM_BOT_TOKEN", "telegram.botToken")
+        val chatId = ConfigLoader.get("TELEGRAM_CHAT_ID", "telegram.chatId")
+        val httpClient = JdkHttpClientImpl(JdkHttpClient.newBuilder().build(), HttpClientConfig())
+        val objectMapper = ObjectMapper().registerKotlinModule()
+        val apiClient = TelegramApiClient(
+            botToken = botToken,
+            chatId = chatId,
+            httpClient = httpClient,
+            objectMapper = objectMapper,
+        )
+        TelegramSender(apiClient)
+    } catch (e: Exception) {
+        log.warn("Telegram not configured ({}) — signals will not be sent.", e.message)
+        val apiClient = TelegramApiClient(
+            botToken = "",
+            chatId = "",
+            httpClient = JdkHttpClientImpl(JdkHttpClient.newBuilder().build(), HttpClientConfig()),
+            objectMapper = ObjectMapper().registerKotlinModule(),
+        )
+        TelegramSender(apiClient)
+    }
 }

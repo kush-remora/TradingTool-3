@@ -30,7 +30,7 @@ class TradeService @Inject constructor(
      * Fetch all trades with calculated GTT targets.
      */
     suspend fun getTradesWithTargets(): List<TradeWithTargets> {
-        val trades = runRead { dao -> dao.getAllTrades() }
+        val trades = db.read { dao -> dao.getAllTrades() }
         return trades.map { trade ->
             val targets = calculateGttTargets(trade)
             val totalInvested = calculateTotalInvested(trade)
@@ -46,14 +46,14 @@ class TradeService @Inject constructor(
      * Fetch trade by stock ID (at most one — unique constraint on stock_id).
      */
     suspend fun getTradeByStockId(stockId: Long): com.tradingtool.core.model.trade.Trade? {
-        return runRead { dao -> dao.getTradeByStockId(stockId) }
+        return db.read { dao -> dao.getTradeByStockId(stockId) }
     }
 
     /**
      * Fetch single trade with GTT targets.
      */
     suspend fun getTradeWithTargets(tradeId: Long): TradeWithTargets? {
-        val trade = runRead { dao -> dao.getTradeById(tradeId) } ?: return null
+        val trade = db.read { dao -> dao.getTradeById(tradeId) } ?: return null
         val targets = calculateGttTargets(trade)
         val totalInvested = calculateTotalInvested(trade)
         return TradeWithTargets(
@@ -82,7 +82,7 @@ class TradeService @Inject constructor(
         )
 
         // Upsert to DB (handles consolidation automatically)
-        val trade = runWrite { dao ->
+        val trade = db.write { dao ->
             dao.upsertTrade(
                 stockId = input.stockId,
                 nseSymbol = input.nseSymbol,
@@ -110,7 +110,7 @@ class TradeService @Inject constructor(
      * Delete trade by ID.
      */
     suspend fun deleteTrade(tradeId: Long): Boolean {
-        return runWrite { dao -> dao.deleteTrade(tradeId) } > 0
+        return db.write { dao -> dao.deleteTrade(tradeId) } > 0
     }
 
     // ==================== Calculation Helpers ====================
@@ -167,13 +167,4 @@ class TradeService @Inject constructor(
         return total.setScale(2, RoundingMode.HALF_UP).toPlainString()
     }
 
-    // ==================== Helper Methods for DB Access ====================
-
-    private suspend fun <T> runRead(operation: (TradeReadDao) -> T): T {
-        return db.read(operation)
-    }
-
-    private suspend fun <T> runWrite(operation: (TradeWriteDao) -> T): T {
-        return db.write(operation)
-    }
 }

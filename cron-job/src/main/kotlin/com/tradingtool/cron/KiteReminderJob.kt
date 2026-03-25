@@ -10,8 +10,11 @@ import com.tradingtool.core.model.telegram.TelegramSendTextRequest
 import com.tradingtool.core.telegram.TelegramApiClient
 import com.tradingtool.core.telegram.TelegramSender
 import kotlinx.coroutines.runBlocking
+import org.slf4j.LoggerFactory
 import java.net.http.HttpClient as JdkHttpClient
 import kotlin.system.exitProcess
+
+private val log = LoggerFactory.getLogger("KiteReminderJob")
 
 /**
  * Standalone job: sends the daily Kite login URL to Telegram and wakes Render.
@@ -22,19 +25,18 @@ import kotlin.system.exitProcess
  * Config is resolved by [ConfigLoader]: env vars in CI/prod, localconfig.yaml locally.
  */
 fun main() {
-    println("Environment: ${ConfigLoader.detect()}")
+    log.info("Environment: {}", ConfigLoader.detect())
 
     val config = loadKiteReminderConfig()
     val result = runBlocking { executeKiteReminder(config) }
 
     when (result) {
         is ReminderResult.Success -> {
-            println("✓ Kite reminder job completed successfully")
+            log.info("Kite reminder job completed successfully")
             exitProcess(0)
         }
         is ReminderResult.Failure -> {
-            System.err.println("✗ Kite reminder job failed: ${result.error.message}")
-            result.error.printStackTrace()
+            log.error("Kite reminder job failed: {}", result.error.message, result.error)
             exitProcess(1)
         }
     }
@@ -85,10 +87,10 @@ private suspend fun executeKiteReminder(config: KiteReminderConfig): ReminderRes
         val telegramSender = buildTelegramSender(config.botToken, config.chatId, httpClient)
 
         wakeRenderService(config.renderUrl, httpClient)
-        println("Render wake-up ping sent.")
+        log.info("Render wake-up ping sent.")
 
         sendReminderMessage(telegramSender, config)
-        println("Telegram reminder sent.")
+        log.info("Telegram reminder sent.")
 
         ReminderResult.Success
     } catch (e: Exception) {
@@ -103,10 +105,10 @@ private suspend fun wakeRenderService(renderUrl: String, httpClient: SuspendHttp
     val wakeUrl = renderUrl.toRenderWakeUrl()
     httpClient.get(wakeUrl)
         .onSuccess { _ ->
-            println("Render responded successfully")
+            log.info("Render responded successfully")
         }
         .onFailure { error ->
-            println("Render wake-up failed: ${error.describe()}")
+            log.warn("Render wake-up failed: {}", error.describe())
         }
 }
 
