@@ -1,5 +1,5 @@
 import { DeleteOutlined } from "@ant-design/icons";
-import { Badge, Button, Modal, Space, Table, Tooltip, message } from "antd";
+import { Button, Modal, Space, Table, Tag, Tooltip, message } from "antd";
 import type { ColumnType } from "antd/es/table";
 import { useState } from "react";
 import type { TradeWithTargets } from "../types";
@@ -39,23 +39,18 @@ export function TradeJournalTable({
       title: "Date",
       dataIndex: ["trade", "trade_date"],
       key: "trade_date",
-      width: 100,
+      width: 90,
       sorter: (a, b) => a.trade.trade_date.localeCompare(b.trade.trade_date),
     },
     {
       title: "Symbol",
       dataIndex: ["trade", "nse_symbol"],
       key: "nse_symbol",
-      width: 80,
+      width: 140,
       render: (symbol, record) => (
-        <div>
-          <strong>{symbol}</strong>
-          <div style={{ fontSize: "12px", color: "#999" }}>
-            ₹{(parseFloat(record.total_invested) / record.trade.quantity).toFixed(2)}
-            <br />
-            invested: ₹{record.total_invested}
-          </div>
-        </div>
+        <span style={{ whiteSpace: "nowrap" }}>
+          <strong>{symbol}</strong> <span style={{ color: "#999", fontSize: "11px" }}>• ₹{record.total_invested}</span>
+        </span>
       ),
     },
     {
@@ -69,14 +64,14 @@ export function TradeJournalTable({
       title: "Avg Price",
       dataIndex: ["trade", "avg_buy_price"],
       key: "avg_buy_price",
-      width: 90,
+      width: 80,
       render: (price) => `₹${price}`,
     },
     {
       title: "Today's Low",
       dataIndex: ["trade", "today_low"],
       key: "today_low",
-      width: 90,
+      width: 80,
       render: (low) => (low ? `₹${low}` : "—"),
     },
     {
@@ -85,38 +80,27 @@ export function TradeJournalTable({
       key: "stop_loss_price",
       width: 110,
       render: (price, record) => (
-        <div style={{ fontSize: "12px" }}>
-          <strong style={{ color: "#ff4d4f" }}>₹{price}</strong>
-          <br />
-          ({record.trade.stop_loss_percent}%)
-        </div>
+        <span className="danger-text" style={{ whiteSpace: "nowrap" }}>
+          ₹{price} (-{record.trade.stop_loss_percent}%)
+        </span>
       ),
     },
     {
       title: "GTT Targets",
       dataIndex: "gtt_targets",
       key: "gtt_targets",
-      width: 280,
+      width: 250,
       render: (targets: any[]) => (
-        <Space direction="vertical" size={4}>
+        <Space wrap size={4}>
           {targets.map((target: any) => (
-            <Badge
+            <Tag
               key={target.percent}
-              count={
-                <span
-                  style={{
-                    padding: "2px 6px",
-                    background: "#52c41a",
-                    color: "white",
-                    borderRadius: "2px",
-                    fontSize: "11px",
-                  }}
-                >
-                  +{target.percent}%: ₹{target.price}
-                </span>
-              }
-              style={{ backgroundColor: "transparent" }}
-            />
+              bordered={false}
+              color="success"
+              style={{ margin: 0, fontSize: "11px", padding: "0 4px" }}
+            >
+              +{target.percent}% ₹{target.price}
+            </Tag>
           ))}
         </Space>
       ),
@@ -154,7 +138,7 @@ export function TradeJournalTable({
     {
       title: "Action",
       key: "action",
-      width: 70,
+      width: 60,
       render: (_, record) => (
         <Button
           type="text"
@@ -170,12 +154,13 @@ export function TradeJournalTable({
 
   return (
     <Table<TradeWithTargets>
+      className="trade-book-table"
       columns={columns}
       dataSource={trades}
       rowKey={(record) => record.trade.id}
       size="small"
-      style={{ background: "white", marginTop: "16px", borderRadius: "4px" }}
-      scroll={{ x: 1200 }}
+      style={{ background: "white", borderRadius: "4px" }}
+      scroll={{ x: 1000 }}
       pagination={{ pageSize: 20, showSizeChanger: true }}
     />
   );

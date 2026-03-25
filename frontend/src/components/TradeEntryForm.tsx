@@ -1,4 +1,4 @@
-import { AutoComplete, Button, DatePicker, Input, InputNumber, Spin, message } from "antd";
+import { AutoComplete, Button, DatePicker, Form, Input, InputNumber, Spin, message } from "antd";
 import dayjs from "dayjs";
 import { useState } from "react";
 import { useInstrumentSearch } from "../hooks/useInstrumentSearch";
@@ -13,7 +13,9 @@ export function TradeEntryForm({ onSubmit, loading = false }: TradeEntryFormProp
   const { allInstruments, loading: instrumentsLoading } = useInstrumentSearch();
 
   const emptyForm = {
-    stock_id: 0,
+    instrument_token: 0,
+    company_name: "",
+    exchange: "",
     nse_symbol: "",
     symbolInput: "",
     quantity: null as number | null,
@@ -38,14 +40,16 @@ export function TradeEntryForm({ onSubmit, loading = false }: TradeEntryFormProp
   const handleInstrumentSelect = (_: string, option: (typeof instrumentOptions)[0]) => {
     setFormData((prev) => ({
       ...prev,
-      stock_id: option.instrument.instrument_token,
+      instrument_token: option.instrument.instrument_token,
+      company_name: option.instrument.company_name,
+      exchange: option.instrument.exchange,
       nse_symbol: option.instrument.trading_symbol,
       symbolInput: option.instrument.trading_symbol,
     }));
   };
 
   const handleSubmit = async () => {
-    if (!formData.nse_symbol || formData.stock_id === 0) {
+    if (!formData.nse_symbol || formData.instrument_token === 0) {
       message.error("Select a stock");
       return;
     }
@@ -63,7 +67,9 @@ export function TradeEntryForm({ onSubmit, loading = false }: TradeEntryFormProp
     }
 
     await onSubmit({
-      stock_id: formData.stock_id,
+      instrument_token: formData.instrument_token,
+      company_name: formData.company_name,
+      exchange: formData.exchange,
       nse_symbol: formData.nse_symbol,
       quantity: formData.quantity,
       avg_buy_price: formData.avg_buy_price,
@@ -78,103 +84,96 @@ export function TradeEntryForm({ onSubmit, loading = false }: TradeEntryFormProp
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: "8px",
-        alignItems: "center",
-        padding: "10px 12px",
-        background: "#fafafa",
-        borderRadius: "6px",
-        border: "1px solid #e8e8e8",
-        marginBottom: "12px",
-        flexWrap: "wrap",
-      }}
-    >
-      {/* Stock autocomplete */}
-      {instrumentsLoading ? (
-        <Spin size="small" />
-      ) : (
-        <AutoComplete
-          style={{ width: 180 }}
-          size="small"
-          options={instrumentOptions}
-          value={formData.symbolInput}
-          onChange={(val) => setFormData((prev) => ({ ...prev, symbolInput: val }))}
-          onSelect={handleInstrumentSelect}
-          onClear={() => setFormData((prev) => ({ ...prev, stock_id: 0, nse_symbol: "", symbolInput: "" }))}
-          allowClear
-          placeholder="Stock (e.g. INFY)"
-          filterOption={(inputValue, option) =>
-            (option as any)?.searchText?.includes(inputValue.toLowerCase()) ?? false
+    <Form layout="vertical" size="small">
+      <Form.Item label="Stock">
+        {instrumentsLoading ? (
+          <Spin size="small" />
+        ) : (
+          <AutoComplete
+            style={{ width: "100%" }}
+            options={instrumentOptions}
+            value={formData.symbolInput}
+            onChange={(val) => setFormData((prev) => ({ ...prev, symbolInput: val }))}
+            onSelect={handleInstrumentSelect}
+            onClear={() => setFormData((prev) => ({ ...prev, instrument_token: 0, company_name: "", exchange: "", nse_symbol: "", symbolInput: "" }))}
+            allowClear
+            placeholder="Search stock..."
+            filterOption={(inputValue, option) =>
+              (option as any)?.searchText?.includes(inputValue.toLowerCase()) ?? false
+            }
+          />
+        )}
+      </Form.Item>
+
+      <Form.Item label="Quantity">
+        <InputNumber
+          style={{ width: "100%" }}
+          min={1}
+          placeholder="Qty"
+          value={formData.quantity}
+          onChange={(val) => setFormData((prev) => ({ ...prev, quantity: val }))}
+        />
+      </Form.Item>
+
+      <Form.Item label="Avg Buy Price (₹)">
+        <Input
+          type="number"
+          step="0.01"
+          placeholder="0.00"
+          value={formData.avg_buy_price}
+          onChange={(e) => setFormData((prev) => ({ ...prev, avg_buy_price: e.target.value }))}
+        />
+      </Form.Item>
+
+      <Form.Item label="Today's Low (₹)">
+        <Input
+          type="number"
+          step="0.01"
+          placeholder="0.00"
+          value={formData.today_low}
+          onChange={(e) => setFormData((prev) => ({ ...prev, today_low: e.target.value }))}
+        />
+      </Form.Item>
+
+      <Form.Item label="Stop Loss (%)">
+        <Input
+          type="number"
+          step="0.1"
+          placeholder="e.g., 5.0"
+          value={formData.stop_loss_percent}
+          onChange={(e) => setFormData((prev) => ({ ...prev, stop_loss_percent: e.target.value }))}
+        />
+      </Form.Item>
+
+      <Form.Item label="Trade Date">
+        <DatePicker
+          style={{ width: "100%" }}
+          value={dayjs(formData.trade_date)}
+          onChange={(date) =>
+            setFormData((prev) => ({ ...prev, trade_date: date?.format("YYYY-MM-DD") || prev.trade_date }))
           }
         />
-      )}
+      </Form.Item>
 
-      <InputNumber
-        size="small"
-        min={1}
-        placeholder="Qty"
-        value={formData.quantity}
-        onChange={(val) => setFormData((prev) => ({ ...prev, quantity: val }))}
-        style={{ width: 80 }}
-      />
-
-      <Input
-        size="small"
-        type="number"
-        step="0.01"
-        placeholder="Avg Price ₹"
-        value={formData.avg_buy_price}
-        onChange={(e) => setFormData((prev) => ({ ...prev, avg_buy_price: e.target.value }))}
-        style={{ width: 110 }}
-      />
-
-      <Input
-        size="small"
-        type="number"
-        step="0.01"
-        placeholder="Today's Low ₹"
-        value={formData.today_low}
-        onChange={(e) => setFormData((prev) => ({ ...prev, today_low: e.target.value }))}
-        style={{ width: 120 }}
-      />
-
-      <Input
-        size="small"
-        type="number"
-        step="0.1"
-        placeholder="SL %"
-        value={formData.stop_loss_percent}
-        onChange={(e) => setFormData((prev) => ({ ...prev, stop_loss_percent: e.target.value }))}
-        style={{ width: 70 }}
-      />
-
-      <DatePicker
-        size="small"
-        value={dayjs(formData.trade_date)}
-        onChange={(date) =>
-          setFormData((prev) => ({ ...prev, trade_date: date?.format("YYYY-MM-DD") || prev.trade_date }))
-        }
-        style={{ width: 120 }}
-      />
-
-      <Input
-        size="small"
-        placeholder="Notes (optional)"
-        value={formData.notes}
-        onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
-        style={{ flex: 1, minWidth: 140 }}
-      />
+      <Form.Item label="Notes">
+        <Input.TextArea
+          rows={3}
+          placeholder="Optional notes..."
+          value={formData.notes}
+          onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
+        />
+      </Form.Item>
 
       <Button
         type="primary"
-        size="small"
+        block
+        size="middle"
         loading={loading}
         onClick={handleSubmit}
+        style={{ marginTop: 12 }}
       >
-        Add
+        Save Trade
       </Button>
-    </div>
+    </Form>
   );
 }

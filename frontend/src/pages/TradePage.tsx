@@ -1,4 +1,5 @@
-import { Alert, Spin, Tabs } from "antd";
+import { PlusOutlined } from "@ant-design/icons";
+import { Alert, Button, Drawer, Spin, Tabs } from "antd";
 import { useState } from "react";
 import { QuickCalculatorTab } from "../components/QuickCalculatorTab";
 import { TelegramChatWidget } from "../components/TelegramChatWidget";
@@ -9,11 +10,13 @@ import { useTradeData } from "../hooks/useTradeData";
 export function TradePage() {
   const { trades, loading, error, createTrade, deleteTrade } = useTradeData();
   const [submitting, setSubmitting] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const handleCreateTrade = async (payload) => {
+  const handleCreateTrade = async (payload: any) => {
     setSubmitting(true);
     try {
       await createTrade(payload);
+      setDrawerOpen(false);
     } finally {
       setSubmitting(false);
     }
@@ -42,10 +45,25 @@ export function TradePage() {
             items={[
               {
                 key: "journal",
-                label: "Trade Journal",
+                label: "Trade Book",
                 children: (
                   <div style={{ marginTop: "16px" }}>
-                    <TradeEntryForm onSubmit={handleCreateTrade} loading={submitting} />
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, alignItems: "center" }}>
+                      <h3 style={{ margin: 0 }}>Active Trades</h3>
+                      <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => setDrawerOpen(true)}>
+                        Add Trade
+                      </Button>
+                    </div>
+                    <Drawer
+                      title="Add New Trade"
+                      placement="right"
+                      onClose={() => setDrawerOpen(false)}
+                      open={drawerOpen}
+                      width={380}
+                      styles={{ body: { paddingBottom: 80 } }}
+                    >
+                      <TradeEntryForm onSubmit={handleCreateTrade} loading={submitting} />
+                    </Drawer>
                     <TradeJournalTable trades={trades} onDelete={deleteTrade} />
                   </div>
                 ),

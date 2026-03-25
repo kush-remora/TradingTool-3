@@ -72,7 +72,9 @@ export interface TradeWithTargets {
 }
 
 export interface CreateTradeInput {
-  stock_id: number;
+  instrument_token: number;
+  company_name: string;
+  exchange: string;
   nse_symbol: string;
   quantity: number;
   avg_buy_price: string;

@@ -32,8 +32,12 @@ data class Trade(
 // ==================== Input Models for Create/Consolidate Operations ====================
 
 data class CreateTradeInput(
-    @JsonProperty("stock_id")
-    val stockId: Long,
+    @JsonProperty("instrument_token")
+    val instrumentToken: Long,
+    @JsonProperty("company_name")
+    val companyName: String,
+    @JsonProperty("exchange")
+    val exchange: String,
     @JsonProperty("nse_symbol")
     val nseSymbol: String,
     val quantity: Int,

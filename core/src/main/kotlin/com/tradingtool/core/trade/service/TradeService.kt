@@ -9,6 +9,8 @@ import com.tradingtool.core.trade.dao.TradeWriteDao
 import java.math.BigDecimal
 import java.math.RoundingMode
 
+import com.tradingtool.core.stock.service.StockService
+
 /**
  * Service layer for trade journal operations.
  * Handles GTT target calculation and consolidation logic.
@@ -17,11 +19,12 @@ import java.math.RoundingMode
 @Singleton
 class TradeService @Inject constructor(
     private val db: JdbiHandler<TradeReadDao, TradeWriteDao>,
+    private val stockService: StockService,
 ) {
 
     companion object {
         // Standard GTT target percentages (% above base price)
-        private val GTT_TARGET_PERCENTS = listOf(2.0, 3.0, 5.0, 7.0, 10.0)
+        private val GTT_TARGET_PERCENTS = listOf(2.0, 3.0, 5.0, 7.0, 8.0, 9.0, 10.0)
     }
 
     // ==================== Read Operations ====================
@@ -75,6 +78,17 @@ class TradeService @Inject constructor(
      * All consolidation is handled at the DB level via UPSERT.
      */
     suspend fun createOrConsolidateTrade(input: CreateTradeInput): TradeWithTargets {
+        // Resolve stock _id_, creating the stock if it doesn't already exist
+        val stock = stockService.getBySymbol(input.nseSymbol, input.exchange)
+            ?: stockService.create(
+                com.tradingtool.core.model.stock.CreateStockInput(
+                    symbol = input.nseSymbol,
+                    instrumentToken = input.instrumentToken,
+                    companyName = input.companyName,
+                    exchange = input.exchange
+                )
+            )
+
         // Calculate stop loss price from avg price and stop loss %
         val stopLossPrice = calculateStopLossPrice(
             avgBuyPrice = input.avgBuyPrice,
@@ -84,7 +98,7 @@ class TradeService @Inject constructor(
         // Upsert to DB (handles consolidation automatically)
         val trade = db.write { dao ->
             dao.upsertTrade(
-                stockId = input.stockId,
+                stockId = stock.id,
                 nseSymbol = input.nseSymbol,
                 quantity = input.quantity,
                 avgBuyPrice = input.avgBuyPrice,

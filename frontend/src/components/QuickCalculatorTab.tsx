@@ -20,7 +20,7 @@ export function QuickCalculatorTab() {
     const base = parseFloat(avgPrice);
     if (isNaN(base) || base <= 0) return [];
 
-    const percents = [2, 3, 5, 7, 10];
+    const percents = [2, 3, 5, 7, 8, 9, 10];
     return percents.map((p) => {
       const price = base * (1 + p / 100);
       const perUnit = price - base;
