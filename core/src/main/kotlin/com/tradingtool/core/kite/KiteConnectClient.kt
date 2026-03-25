@@ -41,6 +41,9 @@ class KiteConnectClient(private val config: KiteConfig) {
 
     val apiKey: String get() = config.apiKey
 
+    /** Returns the length of the configured api_secret — safe to log, never exposes the value. */
+    fun apiSecretLength(): Int = config.apiSecret.length
+
     @Volatile
     private var onTokenRefreshed: ((String) -> Unit)? = null
 

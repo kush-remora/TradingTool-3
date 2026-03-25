@@ -89,7 +89,12 @@ class IntegrationResource @Inject constructor(
         }
         if (requestToken.isNullOrBlank()) return@endpoint badRequest("Missing request_token parameter")
 
-        log.info("[KiteCallback] Received callback with request token prefix={}", requestToken.prefix())
+        log.info(
+            "[KiteCallback] Received callback with request token prefix={} | apiKey prefix={} | apiSecret length={}",
+            requestToken.prefix(),
+            kiteClient.apiKey.take(8),
+            kiteClient.apiSecretLength(),
+        )
 
         val sessionResult = kiteClient.generateSession(requestToken)
         when (sessionResult) {
