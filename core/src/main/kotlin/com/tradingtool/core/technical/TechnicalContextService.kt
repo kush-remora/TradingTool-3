@@ -1,6 +1,6 @@
 package com.tradingtool.core.technical
 
-import com.tradingtool.core.database.CandleJdbiHandler
+import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.database.StockJdbiHandler
 import java.time.LocalDate
 import java.time.ZoneId
@@ -9,7 +9,7 @@ import java.util.Locale
 
 class TechnicalContextService(
     private val stockHandler: StockJdbiHandler,
-    private val candleHandler: CandleJdbiHandler,
+    private val candleCache: CandleCacheService,
 ) {
     private val ist = ZoneId.of("Asia/Kolkata")
 
@@ -18,7 +18,7 @@ class TechnicalContextService(
         val today = LocalDate.now(ist)
         val from = today.minusYears(5)
 
-        val candles = candleHandler.read { it.getDailyCandles(stock.instrumentToken, from, today) }
+        val candles = candleCache.getDailyCandles(stock.instrumentToken, symbol, from, today)
         if (candles.isEmpty()) {
             return null
         }

@@ -29,6 +29,7 @@ import com.tradingtool.core.stock.dao.StockIndicatorsReadDao
 import com.tradingtool.core.stock.dao.StockIndicatorsWriteDao
 import com.tradingtool.core.stock.dao.StockReadDao
 import com.tradingtool.core.stock.dao.StockWriteDao
+import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.candle.dao.CandleReadDao
 import com.tradingtool.core.candle.dao.CandleWriteDao
 import com.tradingtool.core.screener.CandleDataService
@@ -214,6 +215,13 @@ class ServiceModule(
     @Provides @Singleton
     fun provideCandleJdbiHandler(config: DatabaseConfig): CandleJdbiHandler =
         handler<CandleReadDao, CandleWriteDao>(config)
+    
+    @Provides @Singleton
+    fun provideCandleCacheService(
+        candleHandler: CandleJdbiHandler,
+        redis: RedisHandler,
+        objectMapper: com.fasterxml.jackson.databind.ObjectMapper,
+    ): CandleCacheService = CandleCacheService(candleHandler, redis, objectMapper)
 
     @Provides @Singleton
     fun provideCandleDataService(
@@ -224,13 +232,13 @@ class ServiceModule(
     @Provides @Singleton
     fun provideWeeklyPatternService(
         stockHandler: StockJdbiHandler,
-        candleHandler: CandleJdbiHandler,
-    ): WeeklyPatternService = WeeklyPatternService(stockHandler, candleHandler)
+        candleCache: CandleCacheService,
+    ): WeeklyPatternService = WeeklyPatternService(stockHandler, candleCache)
 
     @Provides @Singleton
     fun provideTechnicalContextService(
         stockHandler: StockJdbiHandler,
-        candleHandler: CandleJdbiHandler,
+        candleCache: CandleCacheService,
     ): com.tradingtool.core.technical.TechnicalContextService =
-        com.tradingtool.core.technical.TechnicalContextService(stockHandler, candleHandler)
+        com.tradingtool.core.technical.TechnicalContextService(stockHandler, candleCache)
 }

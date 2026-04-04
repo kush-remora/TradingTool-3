@@ -3,6 +3,7 @@ import { Table, Tag, Typography, Button, Space, message, Segmented } from "antd"
 import { ReloadOutlined } from "@ant-design/icons";
 import { WeeklyPatternListResponse, WeeklyPatternResult } from "../types";
 import { StockBadge } from "./StockBadge";
+import { getJson, postJson, clearCache } from "../utils/api";
 
 const { Text, Title } = Typography;
 
@@ -16,19 +17,17 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
   const [syncing, setSyncing] = useState(false);
   const [filter, setFilter] = useState("All stocks");
 
-  const fetchData = async () => {
+  const fetchData = async (forceRefresh = false) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/screener/weekly-pattern");
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-      } else {
-        message.warning("Failed to fetch pattern data - might need sync");
-      }
+      const path = "/api/screener/weekly-pattern";
+      if (forceRefresh) clearCache(path);
+      
+      const json = await getJson<WeeklyPatternListResponse>(path);
+      setData(json);
     } catch (err) {
       console.error(err);
-      message.error("Failed to connect to API");
+      message.error("Failed to fetch pattern data");
     } finally {
       setLoading(false);
     }
@@ -37,13 +36,11 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const res = await fetch("/api/screener/sync", { method: "POST" });
-      if (res.ok) {
-        message.success("Sync complete");
-        fetchData();
-      } else {
-        message.error("Sync failed");
-      }
+      await postJson("/api/screener/sync", {});
+      message.success("Sync complete");
+      fetchData(true);
+    } catch (err) {
+      message.error("Sync failed");
     } finally {
       setSyncing(false);
     }

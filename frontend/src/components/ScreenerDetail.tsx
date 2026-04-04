@@ -3,6 +3,7 @@ import { Button, Typography, message, Row, Col, Progress, Table, Card, Statistic
 import { ArrowLeftOutlined, ArrowRightOutlined } from "@ant-design/icons";
 import { WeeklyPatternDetail, WeekHeatmapRow, TechnicalContext } from "../types";
 import { StockBadge } from "./StockBadge";
+import { getJson } from "../utils/api";
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -20,12 +21,8 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/screener/weekly-pattern/${symbol}`);
-        if (res.ok) {
-          setData(await res.json());
-        } else {
-          message.error("Failed to load details for " + symbol);
-        }
+        const json = await getJson<WeeklyPatternDetail>(`/api/screener/weekly-pattern/${symbol}`);
+        setData(json);
       } catch (err) {
         console.error(err);
         message.error("API connection error");
@@ -36,8 +33,8 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
     
     const fetchTech = async () => {
       try {
-        const res = await fetch(`/api/stock/${symbol}/technical-context`);
-        if (res.ok) setTechContext(await res.json());
+        const json = await getJson<TechnicalContext>(`/api/stock/${symbol}/technical-context`);
+        setTechContext(json);
       } catch (err) {
         console.error("Failed to load technical context");
       }

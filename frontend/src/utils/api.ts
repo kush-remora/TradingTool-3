@@ -81,10 +81,59 @@ export async function sendRequest<T = Record<string, unknown>>(
   return payload as T;
 }
 
-export async function getJson<T>(path: string): Promise<T> {
-  return sendRequest<T>(path, {
+// ==================== Memory Cache ====================
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+const MEMORY_CACHE: Record<string, CacheEntry<any>> = {};
+const IN_FLIGHT_REQUESTS: Record<string, Promise<any>> = {};
+const DEFAULT_TTL = 1000 * 60 * 5; // 5 minutes
+
+export async function getJson<T>(path: string, options: { useCache?: boolean, ttl?: number } = {}): Promise<T> {
+  const { useCache = true, ttl = DEFAULT_TTL } = options;
+
+  if (useCache) {
+    const cached = MEMORY_CACHE[path];
+    const now = Date.now();
+    if (cached && (now - cached.timestamp < ttl)) {
+      return cached.data as T;
+    }
+
+    // Deduplicate in-flight requests
+    if (IN_FLIGHT_REQUESTS[path]) {
+      return IN_FLIGHT_REQUESTS[path] as Promise<T>;
+    }
+  }
+
+  const requestPromise = sendRequest<T>(path, {
     headers: { Accept: "application/json" },
+  }).then(data => {
+    if (useCache) {
+      MEMORY_CACHE[path] = { data, timestamp: Date.now() };
+      delete IN_FLIGHT_REQUESTS[path];
+    }
+    return data;
+  }).catch(err => {
+    if (useCache) delete IN_FLIGHT_REQUESTS[path];
+    throw err;
   });
+
+  if (useCache) {
+    IN_FLIGHT_REQUESTS[path] = requestPromise;
+  }
+
+  return requestPromise;
+}
+
+export function clearCache(path?: string) {
+  if (path) {
+    delete MEMORY_CACHE[path];
+  } else {
+    Object.keys(MEMORY_CACHE).forEach(key => delete MEMORY_CACHE[key]);
+  }
 }
 
 export async function postJson<T>(path: string, body: unknown): Promise<T> {

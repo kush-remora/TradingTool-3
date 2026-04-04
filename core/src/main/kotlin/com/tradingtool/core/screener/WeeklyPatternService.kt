@@ -1,7 +1,7 @@
 package com.tradingtool.core.screener
 
+import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.candle.DailyCandle
-import com.tradingtool.core.database.CandleJdbiHandler
 import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.technical.calculateRsiValues
 import com.tradingtool.core.technical.roundTo2
@@ -16,7 +16,7 @@ import java.time.temporal.WeekFields
  */
 class WeeklyPatternService(
     private val stockHandler: StockJdbiHandler,
-    private val candleHandler: CandleJdbiHandler,
+    private val candleCache: CandleCacheService,
 ) {
     private val ist = ZoneId.of("Asia/Kolkata")
     private val df = DateTimeFormatter.ofPattern("MMM dd")
@@ -64,8 +64,7 @@ class WeeklyPatternService(
         val today = LocalDate.now(ist)
         val from = today.minusYears(5)
         
-        val allYearCandles = candleHandler.read { it.getDailyCandles(token, from, today) }
-
+        val allYearCandles = candleCache.getDailyCandles(token, symbol, from, today)
         if (allYearCandles.isEmpty()) {
             return noData(symbol, stock.companyName, "no_candle_data")
         }
@@ -249,7 +248,7 @@ class WeeklyPatternService(
         val today = LocalDate.now(ist)
         val from = today.minusYears(5)
 
-        val allYearCandles = candleHandler.read { it.getDailyCandles(token, from, today) }
+        val allYearCandles = candleCache.getDailyCandles(token, symbol, from, today)
         if (allYearCandles.isEmpty()) return null
 
         val rsiMap = buildRsiBoundsMap(allYearCandles)
