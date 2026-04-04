@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS public.trades (
     today_low         NUMERIC(10, 2),
     stop_loss_percent NUMERIC(5, 2)  NOT NULL,
     stop_loss_price   NUMERIC(10, 2) NOT NULL,
+    close_price       NUMERIC(12, 2) NULL,
+    close_date        DATE          NULL,
     notes             TEXT,
     trade_date        DATE        NOT NULL,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -66,3 +68,75 @@ CREATE TABLE IF NOT EXISTS public.stock_indicators_snapshot (
 );
 
 CREATE INDEX IF NOT EXISTS idx_stock_indicators_computed ON public.stock_indicators_snapshot(computed_at DESC);
+
+-- Remora Strategy: stores one row per stock per day a signal fires.
+-- Only inserted when consecutiveDays >= 2, so this is a sparse audit log.
+CREATE TABLE IF NOT EXISTS public.remora_signals (
+    id               SERIAL PRIMARY KEY,
+    stock_id         INTEGER      NOT NULL,
+    symbol           TEXT         NOT NULL,
+    company_name     TEXT         NOT NULL,
+    exchange         TEXT         NOT NULL,
+    signal_type      TEXT         NOT NULL CHECK (signal_type IN ('ACCUMULATION', 'DISTRIBUTION')),
+    volume_ratio     NUMERIC(6,3) NOT NULL,
+    price_change_pct NUMERIC(8,4) NOT NULL,
+    consecutive_days INTEGER      NOT NULL,
+    signal_date      DATE         NOT NULL,
+    delivery_pct     DECIMAL(10, 2),
+    delivery_ratio   DECIMAL(10, 2),
+    computed_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_remora_signals_stock_date ON public.remora_signals (stock_id, signal_date);
+CREATE INDEX IF NOT EXISTS idx_remora_signals_signal_date ON public.remora_signals (signal_date DESC);
+CREATE INDEX IF NOT EXISTS idx_remora_signals_signal_type ON public.remora_signals (signal_type);
+
+-- Daily candles: one row per (instrument, date) for long-term metrics
+CREATE TABLE IF NOT EXISTS public.daily_candles (
+    instrument_token  BIGINT         NOT NULL,
+    symbol            TEXT           NOT NULL,
+    candle_date       DATE           NOT NULL,
+    open              NUMERIC(12, 4) NOT NULL,
+    high              NUMERIC(12, 4) NOT NULL,
+    low               NUMERIC(12, 4) NOT NULL,
+    close             NUMERIC(12, 4) NOT NULL,
+    volume            BIGINT         NOT NULL,
+    created_at        TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (instrument_token, candle_date)
+);
+
+-- Intraday candles: one row per (instrument, interval, timestamp) for intraday patterns
+CREATE TABLE IF NOT EXISTS public.intraday_candles (
+    instrument_token  BIGINT         NOT NULL,
+    symbol            TEXT           NOT NULL,
+    interval          TEXT           NOT NULL,
+    candle_timestamp  TIMESTAMP      NOT NULL, -- always IST, no timezone (Kite always returns IST)
+    open              NUMERIC(12, 4) NOT NULL,
+    high              NUMERIC(12, 4) NOT NULL,
+    low               NUMERIC(12, 4) NOT NULL,
+    close             NUMERIC(12, 4) NOT NULL,
+    volume            BIGINT         NOT NULL,
+    created_at        TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (instrument_token, interval, candle_timestamp)
+);
+
+-- Stock delivery data: daily delivery metrics for each stock
+CREATE TABLE IF NOT EXISTS public.stock_delivery_daily (
+    stock_id INTEGER NOT NULL REFERENCES public.stocks(id),
+    symbol TEXT NOT NULL,
+    exchange TEXT NOT NULL,
+    trading_date DATE NOT NULL,
+    series TEXT,
+    ttl_trd_qnty BIGINT,
+    deliv_qty BIGINT,
+    deliv_per DECIMAL(10, 2),
+    source_file_name TEXT,
+    source_url TEXT,
+    fetched_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (stock_id, trading_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_daily_candles_symbol      ON public.daily_candles (symbol, candle_date);
+CREATE INDEX IF NOT EXISTS idx_intraday_candles_symbol   ON public.intraday_candles (symbol, interval, candle_timestamp);
+CREATE INDEX IF NOT EXISTS idx_stock_delivery_daily_trading_date ON public.stock_delivery_daily (trading_date DESC);
+CREATE INDEX IF NOT EXISTS idx_stock_delivery_daily_symbol_date ON public.stock_delivery_daily (symbol, trading_date DESC);
