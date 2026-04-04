@@ -96,7 +96,7 @@ class WeeklyPatternService(
             avgPotentialPct = avgPotential,
             swingConsistency = bestPair.swingConsistency,
             compositeScore = bestPair.compositeScore,
-            patternConfirmed = bestPair.reboundConsistency >= 5 && bestPair.swingConsistency >= 5 && bestPair.avgSwingPct >= 4.0,
+            patternConfirmed = bestPair.reboundConsistency >= 5 && bestPair.swingConsistency >= 3 && bestPair.avgSwingPct > 0.0,
             cycleType = "Weekly",
             buyDayLowMin = minLow.roundTo2(),
             buyDayLowMax = maxLow.roundTo2(),
@@ -295,7 +295,7 @@ class WeeklyPatternService(
             lag21 = pearsonCorrel(dailyReturns, 21).roundTo2()
         )
 
-        val confirmed = bestPair.reboundConsistency >= 5 && bestPair.swingConsistency >= 5 && bestPair.avgSwingPct >= 4.0
+        val confirmed = bestPair.reboundConsistency >= 5 && bestPair.swingConsistency >= 3 && bestPair.avgSwingPct > 0.0
         val summary = if (confirmed) {
             "Strong weekly rhythm detected. Entry triggered on ${dayNames[bestPair.buyDay]} via 1% rebound. Strategy: GTT Sell at +5% Target / -3% SL, or hard-exit by Thursday 2:00 PM."
         } else {

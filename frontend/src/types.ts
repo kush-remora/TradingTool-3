@@ -12,6 +12,19 @@ export interface TickSnapshot {
   updatedAt: number;
 }
 
+export interface LiveMarketUpdate {
+  symbol: string;
+  instrumentToken: number;
+  ltp: number;
+  changePercent: number;
+  high: number;
+  low: number;
+  volume: number;
+  avgVol20d: number | null;
+  volumeHeat: number | null;
+  updatedAt: number;
+}
+
 // ==================== Stock (Master Record) ====================
 
 export interface StockTag {

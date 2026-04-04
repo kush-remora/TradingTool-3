@@ -274,6 +274,20 @@ class IndicatorService(
         )
     }
 
+    suspend fun loadIndicatorsForTokens(tokens: List<Long>): List<ComputedIndicators> {
+        return coroutineScope {
+            tokens.map { token ->
+                async {
+                    val jsonStr = stockIndicatorsHandler.read { it.getIndicatorsJson(token) }
+                        ?: return@async null
+                    deserializeOrLog(jsonStr, "stock:$token") {
+                        json.decodeFromString<ComputedIndicators>(it).copy(instrumentToken = token)
+                    }
+                }
+            }.awaitAll().filterNotNull()
+        }
+    }
+
     private suspend fun loadTagIndicatorsFromDb(tag: String): List<ComputedIndicators> {
         val stocks = stockHandler.read { it.listByTagName(tag) }
         // Each stock is an independent DB read — fetch all in parallel.
