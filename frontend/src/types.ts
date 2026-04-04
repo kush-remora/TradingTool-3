@@ -120,6 +120,7 @@ export interface DayDetail {
 
 export interface StockDetailResponse {
   symbol: string;
+  exchange: string;
   avg_volume_20d: number | null;
   days: DayDetail[];
 }
@@ -176,6 +177,7 @@ export interface WatchlistRow {
 
 export interface WeeklyPatternResult {
   symbol: string;
+  exchange: string;
   instrumentToken: number;
   companyName: string;
   weeksAnalyzed: number;

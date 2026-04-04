@@ -85,6 +85,7 @@ class WeeklyPatternService(
 
         return WeeklyPatternResult(
             symbol = symbol,
+            exchange = stock.exchange,
             instrumentToken = token,
             companyName = stock.companyName,
             weeksAnalyzed = bestPair.weeksCount,
@@ -333,6 +334,7 @@ class WeeklyPatternService(
 
         return WeeklyPatternDetail(
             symbol = symbol,
+            exchange = stock.exchange,
             instrumentToken = token,
             companyName = stock.companyName,
             weeksAnalyzed = bestPair.weeksCount,
@@ -358,6 +360,7 @@ class WeeklyPatternService(
 
     private fun noData(symbol: String, companyName: String, reason: String) = WeeklyPatternResult(
         symbol = symbol,
+        exchange = "NSE",
         instrumentToken = 0L,
         companyName = companyName,
         weeksAnalyzed = 0,

@@ -3,6 +3,7 @@ import { Button, Typography, message, Row, Col, Progress, Table, Card, Statistic
 import { ArrowLeftOutlined, ArrowRightOutlined } from "@ant-design/icons";
 import { WeeklyPatternDetail, WeekHeatmapRow, TechnicalContext } from "../types";
 import { StockBadge } from "./StockBadge";
+import { LiveMarketContext } from "./LiveMarketContext";
 import { getJson } from "../utils/api";
 
 const { Text, Title, Paragraph } = Typography;
@@ -189,7 +190,7 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
         
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
-          <div>
+          <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
               <StockBadge symbol={data.symbol} instrumentToken={data.instrumentToken} companyName={data.companyName} fontSize={24} />
               <span style={{ 
@@ -203,8 +204,12 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
             <Text type="secondary">
               {data.companyName} • {data.weeksAnalyzed}-week lookback • Score: {data.compositeScore}/100
             </Text>
+            
+            <div style={{ marginTop: 24 }}>
+              <LiveMarketContext symbol={`${data.exchange}:${data.symbol}`} />
+            </div>
           </div>
-          <Col span={9}>
+          <div style={{ width: 300, marginLeft: 24 }}>
             <Card size="small" bordered={false}>
               <Statistic 
                 title="Win Rate (Swing Efficiency)" 
@@ -218,7 +223,7 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
                 <div><span style={{ color: '#faad14' }}>⚠</span> {data.weeksAnalyzed - data.reboundConsistency} Skipped (Overbought/No dip)</div>
               </div>
             </Card>
-          </Col>
+          </div>
           <Button icon={<ArrowLeftOutlined />} onClick={onBack}>Back</Button>
         </div>
 

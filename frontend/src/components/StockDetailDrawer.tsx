@@ -1,6 +1,7 @@
-import { Alert, Drawer, Spin, Table, Tag, Typography } from "antd";
+import { Alert, Drawer, Spin, Table, Tag, Typography, Divider } from "antd";
 import type { DayDetail } from "../types";
 import { useStockDetail } from "../hooks/useStockDetail";
+import { LiveMarketContext } from "./LiveMarketContext";
 
 const { Text } = Typography;
 
@@ -175,6 +176,11 @@ export function StockDetailDrawer({ symbol, onClose }: Props) {
 
       {data && !loading && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          
+          {/* Live Market Context (Real-time SSE) */}
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+            <LiveMarketContext symbol={`${data.exchange}:${data.symbol}`} />
+          </div>
 
           {/* Trend strip */}
           <div>

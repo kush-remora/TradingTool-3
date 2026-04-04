@@ -16,6 +16,7 @@ data class DayDetail(
 
 data class StockDetailResponse(
     val symbol: String,
+    val exchange: String,
     @get:JsonProperty("avg_volume_20d") val avgVolume20d: Double?,
     val days: List<DayDetail>,
 )

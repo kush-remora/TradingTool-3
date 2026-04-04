@@ -44,7 +44,7 @@ class StockDetailService(
         val series = history.dataArrayList.toTa4jSeriesFromKite(symbol)
         if (series.barCount < 2) {
             log.warn("Not enough bars for {} ({} bars)", symbol, series.barCount)
-            return StockDetailResponse(symbol = symbol, avgVolume20d = null, days = emptyList())
+            return StockDetailResponse(symbol = symbol, exchange = stock.exchange, avgVolume20d = null, days = emptyList())
         }
 
         val lastIndex = series.endIndex
@@ -78,6 +78,7 @@ class StockDetailService(
 
         return StockDetailResponse(
             symbol = symbol,
+            exchange = stock.exchange,
             avgVolume20d = sma20Indicator?.getNullableDouble(endIdx),
             days = enrichedDays,
         )

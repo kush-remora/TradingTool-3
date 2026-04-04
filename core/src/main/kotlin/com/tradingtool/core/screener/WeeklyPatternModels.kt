@@ -4,6 +4,7 @@ package com.tradingtool.core.screener
 
 data class WeeklyPatternResult(
     val symbol: String,
+    val exchange: String,
     val instrumentToken: Long,
     val companyName: String,
     val weeksAnalyzed: Int,
@@ -65,6 +66,7 @@ data class WeekHeatmapRow(
 /** Full detail response for GET /api/screener/weekly-pattern/{symbol} (Screens 2 + 3). */
 data class WeeklyPatternDetail(
     val symbol: String,
+    val exchange: String,
     val instrumentToken: Long,
     val companyName: String,
     val weeksAnalyzed: Int,
