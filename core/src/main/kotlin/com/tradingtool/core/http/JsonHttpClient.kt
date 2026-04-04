@@ -106,11 +106,11 @@ class JsonHttpClient @Inject constructor(
     }
 
     @PublishedApi
-    internal fun <T> parseResult(httpResult: Result<String>): Result<T> {
+    internal inline fun <reified T> parseResult(httpResult: Result<String>): Result<T> {
         return when (httpResult) {
             is Result.Success -> {
                 try {
-                    val parsed = objectMapper.readValue(httpResult.data, Any::class.java) as T
+                    val parsed = objectMapper.readValue(httpResult.data, T::class.java)
                     Result.Success(parsed)
                 } catch (e: Exception) {
                     Result.Failure(HttpError.SerializationError(e))

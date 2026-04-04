@@ -12,7 +12,8 @@ data class TechnicalContext(
     val highestRsi200d: Double,
     val sma200: Double,
     val ltp: Double,
-    val recentSessions: List<SessionCandle>
+    val recentSessions: List<SessionCandle>,
+    val adaptiveRsi: AdaptiveRsiStatus? = null
 )
 
 data class SessionCandle(

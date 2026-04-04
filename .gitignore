@@ -40,6 +40,10 @@ docs/kiteconnectKey
 *.iml
 .idea/
 
+# Gemini CLI & Everything Claude Code (ECC) harness
+.gemini/tmp/
+.gemini/ecc-install-state.json
+
 # Output directories
 out/
 target/

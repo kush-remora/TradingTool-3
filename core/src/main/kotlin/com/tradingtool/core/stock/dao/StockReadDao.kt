@@ -10,6 +10,7 @@ import org.jdbi.v3.core.mapper.RowMapper
 import org.jdbi.v3.core.statement.StatementContext
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper
 import org.jdbi.v3.sqlobject.customizer.Bind
+import org.jdbi.v3.sqlobject.customizer.BindList
 import org.jdbi.v3.sqlobject.statement.SqlQuery
 import org.slf4j.LoggerFactory
 import java.sql.ResultSet
@@ -26,6 +27,9 @@ interface StockReadDao {
 
     @SqlQuery("SELECT ${StockColumns.ALL_WITH_TAGS} FROM public.${Tables.STOCKS} WHERE ${StockColumns.SYMBOL} = :symbol AND ${StockColumns.EXCHANGE} = :exchange LIMIT 1")
     fun getBySymbol(@Bind("symbol") symbol: String, @Bind("exchange") exchange: String): Stock?
+
+    @SqlQuery("SELECT ${StockColumns.ALL_WITH_TAGS} FROM public.${Tables.STOCKS} WHERE ${StockColumns.SYMBOL} IN (<symbols>) AND ${StockColumns.EXCHANGE} = :exchange")
+    fun listBySymbols(@BindList("symbols") symbols: List<String>, @Bind("exchange") exchange: String): List<Stock>
 
     @SqlQuery("SELECT ${StockColumns.ALL_WITH_TAGS} FROM public.${Tables.STOCKS} WHERE ${StockColumns.INSTRUMENT_TOKEN} = :instrumentToken LIMIT 1")
     fun getByInstrumentToken(@Bind("instrumentToken") instrumentToken: Long): Stock?

@@ -58,6 +58,28 @@ const columns: ColumnsType<RemoraSignal> = [
     ),
   },
   {
+    title: "Deliv %",
+    dataIndex: "delivery_pct",
+    key: "delivery_pct",
+    sorter: (a, b) => a.delivery_pct - b.delivery_pct,
+    render: (v: number) => (
+      <Typography.Text strong style={{ color: v >= 35 ? "#52c41a" : undefined }}>
+        {v.toFixed(1)}%
+      </Typography.Text>
+    ),
+  },
+  {
+    title: "Deliv Ratio",
+    dataIndex: "delivery_ratio",
+    key: "delivery_ratio",
+    sorter: (a, b) => a.delivery_ratio - b.delivery_ratio,
+    render: (v: number) => (
+      <Typography.Text strong style={{ color: v >= 1.2 ? "#52c41a" : undefined }}>
+        {v.toFixed(2)}x
+      </Typography.Text>
+    ),
+  },
+  {
     title: "Consecutive Days",
     dataIndex: "consecutive_days",
     key: "consecutive_days",
@@ -75,7 +97,7 @@ const columns: ColumnsType<RemoraSignal> = [
 
 export function RemoraPage() {
   const [filter, setFilter] = useState<FilterType>("ALL");
-  const { signals, loading, error } = useRemoraSignals(
+  const { signals, asOfDate, isStale, staleReason, loading, error } = useRemoraSignals(
     filter === "ALL" ? undefined : filter
   );
 
@@ -90,6 +112,15 @@ export function RemoraPage() {
             Stocks showing institutional-level volume with muted price movement
           </Typography.Text>
         </Space>
+
+        {isStale && (
+          <Alert
+            type="warning"
+            showIcon
+            message={`Delivery data is stale (As of: ${asOfDate || "Unknown"}). ${staleReason || "Source fetch may have failed."}`}
+            style={{ marginBottom: 0 }}
+          />
+        )}
 
         {error && <Alert type="error" message={error} showIcon />}
 

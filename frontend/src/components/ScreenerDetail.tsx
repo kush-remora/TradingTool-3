@@ -102,7 +102,7 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
       key: 'execution',
       render: (_: any, record: WeekHeatmapRow) => {
         if (!record.entryTriggered || !record.buyPriceActual) return <Text type="secondary">No entry</Text>;
-        const rsiColor = record.buyRsi && record.buyRsi > 70 ? '#cf1322' : '#8c8c8c';
+        const rsiColor = record.reasoning === "Overbought (100d Peak)" ? '#cf1322' : '#8c8c8c';
         return (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <Text strong style={{ fontSize: 13 }}>₹{record.buyPriceActual} <ArrowRightOutlined style={{ fontSize: 10, color: '#bfbfbf', margin: '0 4px' }}/> {record.sellPriceActual ? `₹${record.sellPriceActual}` : 'Hold'}</Text>
@@ -308,10 +308,14 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
               </div>
               <div style={statCardStyle}>
                 <Text type="secondary" style={{ fontSize: 13 }}>Current RSI (14d)</Text>
-                <div style={{ fontSize: 18, fontWeight: 700, margin: '4px 0', color: techContext.rsi14 < 40 ? '#389e0d' : (techContext.rsi14 > 70 ? '#cf1322' : '#8c8c8c') }}>
+                <div style={{ fontSize: 18, fontWeight: 700, margin: '4px 0', color: techContext.adaptiveRsi?.isOversold ? '#389e0d' : (techContext.adaptiveRsi?.isOverbought ? '#cf1322' : '#8c8c8c') }}>
                   {techContext.rsi14}
                 </div>
-                <Text type="secondary" style={{ fontSize: 12 }}>Oversold vs Overbought</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {techContext.adaptiveRsi?.isOverbought ? 'Overbought (100d Peak)' : 
+                   techContext.adaptiveRsi?.isOversold ? 'Oversold (100d Low)' : 
+                   `Percentile: ${techContext.adaptiveRsi?.percentile}%`}
+                </Text>
               </div>
               <div style={statCardStyle}>
                 <Text type="secondary" style={{ fontSize: 13 }}>Historic RSI bounds</Text>

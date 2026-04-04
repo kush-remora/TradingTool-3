@@ -3,8 +3,16 @@ package com.tradingtool.core.screener
 import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.database.StockJdbiHandler
+import com.tradingtool.core.model.stock.Stock
+import com.tradingtool.core.technical.AdaptiveRsi
 import com.tradingtool.core.technical.calculateRsiValues
 import com.tradingtool.core.technical.roundTo2
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import org.slf4j.LoggerFactory
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -18,10 +26,14 @@ class WeeklyPatternService(
     private val stockHandler: StockJdbiHandler,
     private val candleCache: CandleCacheService,
 ) {
+    private val log = LoggerFactory.getLogger(WeeklyPatternService::class.java)
     private val ist = ZoneId.of("Asia/Kolkata")
     private val df = DateTimeFormatter.ofPattern("MMM dd")
 
     private val dayNames = listOf("", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+    // Limit peak concurrency to protect database and Redis connection pools
+    private val analysisSemaphore = Semaphore(15)
 
     data class DayPairEval(
         val buyDay: Int,
@@ -53,13 +65,36 @@ class WeeklyPatternService(
         var reasoning: String? = null
     )
 
-    suspend fun analyze(symbols: List<String>): List<WeeklyPatternResult> =
-        symbols.map { analyzeSymbol(it) }
+    suspend fun analyze(symbols: List<String>): List<WeeklyPatternResult> = coroutineScope {
+        val startTime = System.currentTimeMillis()
+        log.info("Starting weekly pattern analysis for {} symbols", symbols.size)
 
-    private suspend fun analyzeSymbol(symbol: String): WeeklyPatternResult {
-        val stock = stockHandler.read { it.getBySymbol(symbol, "NSE") }
-            ?: return noData(symbol, "Unknown", "symbol_not_in_watchlist")
+        // 1. Bulk fetch all stocks in one JDBI call
+        val allStocks = stockHandler.read { dao ->
+            dao.listBySymbols(symbols, "NSE")
+        }.associateBy { it.symbol }
 
+        // 2. Parallelize analysis using coroutines with a semaphore to limit peak load
+        val results = symbols.map { symbol ->
+            async {
+                analysisSemaphore.withPermit {
+                    val stock = allStocks[symbol]
+                    if (stock == null) {
+                        noData(symbol, "Unknown", "symbol_not_in_watchlist")
+                    } else {
+                        analyzeSymbol(stock)
+                    }
+                }
+            }
+        }.awaitAll()
+
+        log.info("Completed weekly pattern analysis for {} symbols in {}ms", 
+            symbols.size, System.currentTimeMillis() - startTime)
+        results
+    }
+
+    private suspend fun analyzeSymbol(stock: Stock): WeeklyPatternResult {
+        val symbol = stock.symbol
         val token = stock.instrumentToken
         val today = LocalDate.now(ist)
         val from = today.minusYears(5)
@@ -83,6 +118,11 @@ class WeeklyPatternService(
         val maxLow = bestPair.allWeeks.mapNotNull { it.buyDayLow }.maxOrNull() ?: 0.0
         val avgPotential = bestPair.allWeeks.mapNotNull { it.maxPotentialPct }.average().roundTo2()
 
+        val latestRsi = rsiMap[today] ?: rsiMap.values.lastOrNull()
+        val currentRsiStatus = if (latestRsi != null) {
+            AdaptiveRsi.getStatus(latestRsi.current, latestRsi.min100, latestRsi.max100)
+        } else null
+
         return WeeklyPatternResult(
             symbol = symbol,
             exchange = stock.exchange,
@@ -101,7 +141,14 @@ class WeeklyPatternService(
             cycleType = "Weekly",
             buyDayLowMin = minLow.roundTo2(),
             buyDayLowMax = maxLow.roundTo2(),
+            currentRsiStatus = currentRsiStatus
         )
+    }
+
+    private suspend fun analyzeSymbol(symbol: String): WeeklyPatternResult {
+        val stock = stockHandler.read { it.getBySymbol(symbol, "NSE") }
+            ?: return noData(symbol, "Unknown", "symbol_not_in_watchlist")
+        return analyzeSymbol(stock)
     }
 
     private fun findBestDayPair(candles: List<DailyCandle>, rsiMap: Map<LocalDate, RsiBounds>): DayPairEval? {
@@ -148,7 +195,8 @@ class WeeklyPatternService(
                     val prevCandleDate = parsedWeeks.getOrNull(parsedWeeks.indexOf(w) - 1)?.endDate
                     val rsiBounds = rsiMap[prevCandleDate ?: bCandle.candleDate]
                     val entryRsi = rsiBounds?.current ?: 50.0
-                    val max200Rsi = rsiBounds?.max200 ?: 70.0
+                    val min100Rsi = rsiBounds?.min100 ?: 30.0
+                    val max100Rsi = rsiBounds?.max100 ?: 70.0
                     wCopy.buyRsi = entryRsi
 
                     // 1% Rebound Entry Trigger Logic
@@ -162,10 +210,12 @@ class WeeklyPatternService(
                     }
 
                     if (bCandle.high >= potentialEntryPrice) {
-                        // Tightened Overbought: > 65 or > 90% of 200-day high
-                        if (entryRsi >= 65.0 || (max200Rsi > 0 && entryRsi >= max200Rsi * 0.90)) {
+                        // Use Adaptive RSI Status
+                        val adaptiveRsi = AdaptiveRsi.getStatus(entryRsi, min100Rsi, max100Rsi)
+
+                        if (adaptiveRsi.isOverbought) {
                             wCopy.entryTriggered = false
-                            wCopy.reasoning = "Overbought (RSI: ${entryRsi.roundTo2()})"
+                            wCopy.reasoning = "Overbought (100d Peak)"
                         } else {
                             wCopy.entryTriggered = true
                             val entryPrice = potentialEntryPrice
@@ -381,25 +431,47 @@ class WeeklyPatternService(
 
     data class RsiBounds(
         val current: Double,
-        val min200: Double,
-        val max200: Double,
+        val min100: Double,
+        val max100: Double,
     )
 
     private fun buildRsiBoundsMap(candles: List<DailyCandle>): Map<LocalDate, RsiBounds> {
         val rsiValues = candles.calculateRsiValues(period = 14, fallback = 50.0)
+        val n = candles.size
+        val result = mutableMapOf<LocalDate, RsiBounds>()
+        val windowSize = 100
 
-        return candles.mapIndexed { index, candle ->
-            val currentRsi = rsiValues.getOrNull(index) ?: 50.0
-            val lookbackStart = maxOf(0, index - 200)
+        // Sliding window min/max using Deques for O(N) instead of O(N*W)
+        val maxDeque = java.util.ArrayDeque<Int>()
+        val minDeque = java.util.ArrayDeque<Int>()
 
-            // Ensure we have at least some values to calculate min/max
-            val window = if (index > 0) rsiValues.subList(lookbackStart, index) else listOf(currentRsi)
+        for (i in 0 until n) {
+            val currentRsi = rsiValues[i]
 
-            val max200Rsi = window.maxOrNull() ?: currentRsi
-            val min200Rsi = window.minOrNull() ?: currentRsi
+            val max100Rsi: Double
+            val min100Rsi: Double
 
-            candle.candleDate to RsiBounds(current = currentRsi, min200 = min200Rsi, max200 = max200Rsi)
-        }.toMap()
+            if (i == 0) {
+                max100Rsi = currentRsi
+                min100Rsi = currentRsi
+            } else {
+                max100Rsi = rsiValues[maxDeque.peekFirst()]
+                min100Rsi = rsiValues[minDeque.peekFirst()]
+            }
+
+            result[candles[i].candleDate] = RsiBounds(current = currentRsi, min100 = min100Rsi, max100 = max100Rsi)
+
+            // Update deques for the next iteration's window
+            while (maxDeque.isNotEmpty() && maxDeque.peekFirst() <= i - windowSize) maxDeque.removeFirst()
+            while (minDeque.isNotEmpty() && minDeque.peekFirst() <= i - windowSize) minDeque.removeFirst()
+
+            while (maxDeque.isNotEmpty() && rsiValues[maxDeque.peekLast()] <= currentRsi) maxDeque.removeLast()
+            maxDeque.addLast(i)
+
+            while (minDeque.isNotEmpty() && rsiValues[minDeque.peekLast()] >= currentRsi) minDeque.removeLast()
+            minDeque.addLast(i)
+        }
+        return result
     }
     private fun pearsonCorrel(series: List<Double>, lag: Int): Double {
         if (series.size <= lag + 1) return 0.0

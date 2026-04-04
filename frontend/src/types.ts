@@ -149,6 +149,15 @@ export interface RemoraSignal {
   consecutive_days: number;
   signal_date: string;
   computed_at: string;
+  delivery_pct: number;
+  delivery_ratio: number;
+}
+
+export interface RemoraEnvelope {
+  signals: RemoraSignal[];
+  as_of_date: string | null;
+  is_stale: boolean;
+  stale_reason: string | null;
 }
 
 // ==================== Watchlist Dashboard ====================
@@ -194,6 +203,7 @@ export interface WeeklyPatternResult {
   reason: string | null;
   buyDayLowMin: number;
   buyDayLowMax: number;
+  currentRsiStatus: AdaptiveRsiStatus | null;
 }
 
 export interface WeeklyPatternListResponse {
@@ -254,6 +264,15 @@ export interface SessionCandle {
   lowToHighPct: number;
 }
 
+export interface AdaptiveRsiStatus {
+  isOverbought: boolean;
+  isOversold: boolean;
+  percentile: number;
+  currentRsi: number;
+  highestRsi: number;
+  lowestRsi: number;
+}
+
 export interface TechnicalContext {
   symbol: string;
   atr14: number;
@@ -267,5 +286,6 @@ export interface TechnicalContext {
   sma200: number;
   ltp: number;
   recentSessions: SessionCandle[];
+  adaptiveRsi: AdaptiveRsiStatus | null;
 }
 

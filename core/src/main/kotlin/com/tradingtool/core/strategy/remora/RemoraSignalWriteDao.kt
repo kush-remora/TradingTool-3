@@ -14,14 +14,20 @@ interface RemoraSignalWriteDao {
         """
         INSERT INTO public.${Tables.REMORA_SIGNALS}
             (stock_id, symbol, company_name, exchange, signal_type, volume_ratio,
-             price_change_pct, consecutive_days, signal_date, computed_at)
+             price_change_pct, consecutive_days, signal_date, delivery_pct, delivery_ratio, computed_at)
         VALUES
             (:stockId, :symbol, :companyName, :exchange, :signalType, :volumeRatio,
-             :priceChangePct, :consecutiveDays, CURRENT_DATE, NOW())
-        ON CONFLICT (stock_id, signal_date) DO NOTHING
+             :priceChangePct, :consecutiveDays, :signalDate, :deliveryPct, :deliveryRatio, NOW())
+        ON CONFLICT (stock_id, signal_date) DO UPDATE SET
+            volume_ratio = EXCLUDED.volume_ratio,
+            price_change_pct = EXCLUDED.price_change_pct,
+            consecutive_days = EXCLUDED.consecutive_days,
+            delivery_pct = EXCLUDED.delivery_pct,
+            delivery_ratio = EXCLUDED.delivery_ratio,
+            computed_at = NOW()
         """
     )
-    fun insertIfAbsent(
+    fun upsert(
         @Bind("stockId") stockId: Int,
         @Bind("symbol") symbol: String,
         @Bind("companyName") companyName: String,
@@ -30,5 +36,8 @@ interface RemoraSignalWriteDao {
         @Bind("volumeRatio") volumeRatio: Double,
         @Bind("priceChangePct") priceChangePct: Double,
         @Bind("consecutiveDays") consecutiveDays: Int,
+        @Bind("signalDate") signalDate: java.time.LocalDate,
+        @Bind("deliveryPct") deliveryPct: Double,
+        @Bind("deliveryRatio") deliveryRatio: Double,
     ): Int
 }

@@ -40,6 +40,8 @@ class RemoraSignalMapper : RowMapper<RemoraSignal> {
             consecutiveDays = rs.getInt("consecutive_days"),
             signalDate = rs.getDate("signal_date").toLocalDate().toString(),
             computedAt = rs.getObject("computed_at", OffsetDateTime::class.java).toInstant().toString(),
+            deliveryPct = rs.getDouble("delivery_pct"),
+            deliveryRatio = rs.getDouble("delivery_ratio"),
         )
     }
 }

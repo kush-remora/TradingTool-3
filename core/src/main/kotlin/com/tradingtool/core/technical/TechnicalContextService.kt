@@ -38,6 +38,8 @@ class TechnicalContextService(
         val lowestRsi200d = rsiList.takeLast(200).minOrNull() ?: 50.0
         val highestRsi200d = rsiList.takeLast(200).maxOrNull() ?: 50.0
 
+        val adaptiveRsi = AdaptiveRsi.getStatus(currentRsi, lowestRsi100d, highestRsi100d)
+
         val recentSessions = candles.takeLast(10).map { candle ->
             val range = candle.high - candle.low
             val lowToHighPct = if (candle.low > 0.0) ((candle.high - candle.low) / candle.low) * 100.0 else 0.0
@@ -67,6 +69,7 @@ class TechnicalContextService(
             sma200 = sma200.roundTo2(),
             ltp = ltp.roundTo2(),
             recentSessions = recentSessions,
+            adaptiveRsi = adaptiveRsi
         )
     }
 }

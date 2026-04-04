@@ -11,6 +11,7 @@ import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.database.KiteTokenJdbiHandler
 import com.tradingtool.core.database.RedisHandler
 import com.tradingtool.core.database.RemoraJdbiHandler
+import com.tradingtool.core.database.StockDeliveryJdbiHandler
 import com.tradingtool.core.database.StockIndicatorsJdbiHandler
 import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.di.ResourceScope
@@ -32,6 +33,9 @@ import com.tradingtool.core.stock.dao.StockWriteDao
 import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.candle.dao.CandleReadDao
 import com.tradingtool.core.candle.dao.CandleWriteDao
+import com.tradingtool.core.delivery.dao.StockDeliveryReadDao
+import com.tradingtool.core.delivery.dao.StockDeliveryWriteDao
+import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
 import com.tradingtool.core.screener.CandleDataService
 import com.tradingtool.core.screener.WeeklyPatternService
 import com.tradingtool.core.strategy.remora.RemoraService
@@ -198,16 +202,28 @@ class ServiceModule(
     fun provideRemoraJdbiHandler(config: DatabaseConfig): RemoraJdbiHandler =
         handler<RemoraSignalReadDao, RemoraSignalWriteDao>(config)
 
+    @Provides @Singleton
+    fun provideStockDeliveryJdbiHandler(config: DatabaseConfig): StockDeliveryJdbiHandler =
+        handler<StockDeliveryReadDao, StockDeliveryWriteDao>(config)
+
+    @Provides @Singleton
+    fun provideNseDeliverySourceAdapter(jsonHttpClient: com.tradingtool.core.http.JsonHttpClient): NseDeliverySourceAdapter =
+        NseDeliverySourceAdapter(jsonHttpClient)
+
     @Provides
     @Singleton
     fun provideRemoraService(
         stockHandler: StockJdbiHandler,
         remoraHandler: RemoraJdbiHandler,
+        deliveryHandler: StockDeliveryJdbiHandler,
+        nseAdapter: NseDeliverySourceAdapter,
         telegramSender: TelegramSender,
         kiteClient: KiteConnectClient,
     ): RemoraService = RemoraService(
         stockHandler = stockHandler,
         remoraHandler = remoraHandler,
+        deliveryHandler = deliveryHandler,
+        nseAdapter = nseAdapter,
         telegramSender = telegramSender,
         kiteClient = kiteClient,
     )

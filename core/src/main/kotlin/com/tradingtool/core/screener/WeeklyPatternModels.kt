@@ -1,5 +1,7 @@
 package com.tradingtool.core.screener
 
+import com.tradingtool.core.technical.AdaptiveRsiStatus
+
 // ── Overview list (Screen 1) ──────────────────────────────────────────────────
 
 data class WeeklyPatternResult(
@@ -21,6 +23,7 @@ data class WeeklyPatternResult(
     val reason: String? = null,
     val buyDayLowMin: Double,
     val buyDayLowMax: Double,
+    val currentRsiStatus: AdaptiveRsiStatus? = null,
 )
 
 /** Response envelope for GET /api/screener/weekly-pattern — adds run metadata. */

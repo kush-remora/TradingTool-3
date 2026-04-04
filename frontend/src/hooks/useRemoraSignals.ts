@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import type { RemoraSignal } from "../types";
+import type { RemoraEnvelope, RemoraSignal } from "../types";
 
 export function useRemoraSignals(type?: "ACCUMULATION" | "DISTRIBUTION") {
-  const [signals, setSignals] = useState<RemoraSignal[]>([]);
+  const [data, setData] = useState<RemoraEnvelope | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,13 +16,20 @@ export function useRemoraSignals(type?: "ACCUMULATION" | "DISTRIBUTION") {
         if (!res.ok) throw new Error(`Failed to fetch Remora signals: ${res.statusText}`);
         return res.json();
       })
-      .then((data) => {
-        setSignals(data);
+      .then((data: RemoraEnvelope) => {
+        setData(data);
         setError(null);
       })
       .catch((err) => setError(err.message || "Failed to load Remora signals"))
       .finally(() => setLoading(false));
   }, [type]);
 
-  return { signals, loading, error };
+  return { 
+    signals: data?.signals || [], 
+    asOfDate: data?.as_of_date,
+    isStale: data?.is_stale,
+    staleReason: data?.stale_reason,
+    loading, 
+    error 
+  };
 }

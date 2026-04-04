@@ -3,6 +3,7 @@ import { Table, Tag, Typography, Button, Space, message, Segmented } from "antd"
 import { ReloadOutlined } from "@ant-design/icons";
 import { WeeklyPatternListResponse, WeeklyPatternResult } from "../types";
 import { StockBadge } from "./StockBadge";
+import { LiveMarketWidget } from "./LiveMarketWidget";
 import { getJson, postJson, clearCache } from "../utils/api";
 
 const { Text, Title } = Typography;
@@ -67,6 +68,14 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
           <StockBadge symbol={text} instrumentToken={record.instrumentToken} companyName={record.companyName} fontSize={15} />
           <Text type="secondary" style={{ fontSize: 12 }}>{record.companyName}</Text>
         </div>
+      )
+    },
+    {
+      title: "Live Market",
+      key: "live",
+      width: 160,
+      render: (_: any, record: WeeklyPatternResult) => (
+        <LiveMarketWidget symbol={`${record.exchange}:${record.symbol}`} />
       )
     },
     {
@@ -143,6 +152,24 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
         );
       },
       sorter: (a: WeeklyPatternResult, b: WeeklyPatternResult) => a.avgPotentialPct - b.avgPotentialPct,
+    },
+    {
+      title: "Market State",
+      key: "marketState",
+      render: (_: any, record: WeeklyPatternResult) => {
+        if (!record.currentRsiStatus) return <Text type="secondary">-</Text>;
+        const { isOverbought, isOversold, percentile, currentRsi } = record.currentRsiStatus;
+        
+        if (isOverbought) return <Tag color="error" style={{ fontWeight: 600 }}>Overbought</Tag>;
+        if (isOversold) return <Tag color="success" style={{ fontWeight: 600 }}>Oversold</Tag>;
+        
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <Text style={{ fontSize: 13, color: '#8c8c8c' }}>Neutral ({percentile}%)</Text>
+            <Text type="secondary" style={{ fontSize: 11 }}>RSI: {currentRsi}</Text>
+          </div>
+        );
+      }
     },
     {
       title: "Score",
