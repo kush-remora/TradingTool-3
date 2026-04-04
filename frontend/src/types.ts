@@ -171,6 +171,7 @@ export interface WeeklyPatternResult {
   reboundConsistency: number;
   sellDay: string;
   swingAvgPct: number;
+  avgPotentialPct: number;
   swingConsistency: number;
   compositeScore: number;
   patternConfirmed: boolean;
@@ -213,6 +214,7 @@ export interface WeekHeatmapRow {
   sellPriceActual: number | null;
   buyRsi: number | null;
   netSwingPct: number | null;
+  maxPotentialPct: number | null;
   reasoning: string | null;
 }
 

@@ -36,8 +36,8 @@ class CandleDataService(
      */
     suspend fun sync(symbols: List<String>, kiteClient: KiteConnectClient): Int {
         val today = LocalDate.now(ist)
-        val from = today.minusDays(70) // 10-week lookback
-        val fromDate = from.toJavaDate()
+        val fromDaily = today.minusDays(500) // Approx 2 years of trading days for SMA200 + RSI bounds
+        val fromIntraday = today.minusDays(70) // 10-week lookback for intraday patterns
         val toDate = today.toJavaDate()
 
         var synced = 0
@@ -52,9 +52,9 @@ class CandleDataService(
             log.info("Syncing candles for {} (token={})", symbol, tokenStr)
 
             try {
-                // Fetch + store daily candles
+                // Fetch + store daily candles (Longer lookback)
                 val dailyRaw = withContext(Dispatchers.IO) {
-                    kiteClient.client().getHistoricalData(fromDate, toDate, tokenStr, "day", false, false)
+                    kiteClient.client().getHistoricalData(fromDaily.toJavaDate(), toDate, tokenStr, "day", false, false)
                 }
                 val dailyCandles = dailyRaw.dataArrayList.mapNotNull { bar ->
                     parseDailyCandle(bar, stock.instrumentToken, symbol)
@@ -65,9 +65,9 @@ class CandleDataService(
                 }
                 delay(350)
 
-                // Fetch + store 15-minute intraday candles
+                // Fetch + store 15-minute intraday candles (Shorter lookback)
                 val intradayRaw = withContext(Dispatchers.IO) {
-                    kiteClient.client().getHistoricalData(fromDate, toDate, tokenStr, "15minute", false, false)
+                    kiteClient.client().getHistoricalData(fromIntraday.toJavaDate(), toDate, tokenStr, "15minute", false, false)
                 }
                 val intradayCandles = intradayRaw.dataArrayList.mapNotNull { bar ->
                     parseIntradayCandle(bar, stock.instrumentToken, symbol, "15minute")

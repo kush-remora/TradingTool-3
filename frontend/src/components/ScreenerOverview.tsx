@@ -119,10 +119,28 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
             <div style={{ fontSize: 12, color: '#8c8c8c' }}>
               {record.swingConsistency} W / {(record.reboundConsistency - record.swingConsistency)} L
             </div>
-            <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 2 }}>avg {record.swingAvgPct}%</div>
+            <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 2 }}>actual {record.swingAvgPct}%</div>
           </div>
         );
       },
+    },
+    {
+      title: 'Ideal Potential',
+      key: 'idealPotential',
+      render: (_: any, record: WeeklyPatternResult) => {
+        const captureRatio = record.avgPotentialPct > 0 
+          ? Math.round((record.swingAvgPct / record.avgPotentialPct) * 100)
+          : 0;
+        return (
+          <div>
+            <Text strong style={{ color: '#0958d9' }}>{record.avgPotentialPct}%</Text>
+            <div style={{ fontSize: 11, color: '#8c8c8c' }}>
+              Capturing {captureRatio}% of swing
+            </div>
+          </div>
+        );
+      },
+      sorter: (a: WeeklyPatternResult, b: WeeklyPatternResult) => a.avgPotentialPct - b.avgPotentialPct,
     },
     {
       title: "Score",

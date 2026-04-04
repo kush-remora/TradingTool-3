@@ -126,6 +126,16 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
           </div>
         );
       }
+    },
+    {
+      title: 'Max Potential',
+      key: 'potential',
+      render: (_: any, record: WeekHeatmapRow) => (
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <Text strong style={{ color: '#0958d9' }}>{record.maxPotentialPct ? `+${record.maxPotentialPct}%` : '-'}</Text>
+          <Text type="secondary" style={{ fontSize: 11 }}>Raw swing</Text>
+        </div>
+      )
     }
   ];
 
@@ -233,6 +243,11 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
             <Text type="secondary" style={{ fontSize: 12 }}>{data.buyDay} bounce → {data.sellDay} high</Text>
           </div>
           <div style={statCardStyle}>
+            <Text type="secondary" style={{ fontSize: 13 }}>Avg Ideal Potential</Text>
+            <div style={{ fontSize: 24, fontWeight: 700, margin: '4px 0', color: '#0958d9' }}>{data.avgPotentialPct}%</div>
+            <Text type="secondary" style={{ fontSize: 12 }}>{data.buyDay} low → Week High</Text>
+          </div>
+          <div style={statCardStyle}>
             <Text type="secondary" style={{ fontSize: 13 }}>Swing consistency</Text>
             <div style={{ fontSize: 24, fontWeight: 700, margin: '4px 0' }}>{data.swingConsistency}/{data.weeksAnalyzed}</div>
             <Text type="secondary" style={{ fontSize: 12 }}>Pairs ≥ 4% swing</Text>
@@ -290,9 +305,9 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
                 <Text type="secondary" style={{ fontSize: 12 }}>{(techContext.atr14 / techContext.ltp * 100).toFixed(2)}% normal daily swing</Text>
               </div>
               <div style={statCardStyle}>
-                <Text type="secondary" style={{ fontSize: 13 }}>Current RSI (15d)</Text>
-                <div style={{ fontSize: 18, fontWeight: 700, margin: '4px 0', color: techContext.rsi15 < 40 ? '#389e0d' : (techContext.rsi15 > 70 ? '#cf1322' : '#8c8c8c') }}>
-                  {techContext.rsi15}
+                <Text type="secondary" style={{ fontSize: 13 }}>Current RSI (14d)</Text>
+                <div style={{ fontSize: 18, fontWeight: 700, margin: '4px 0', color: techContext.rsi14 < 40 ? '#389e0d' : (techContext.rsi14 > 70 ? '#cf1322' : '#8c8c8c') }}>
+                  {techContext.rsi14}
                 </div>
                 <Text type="secondary" style={{ fontSize: 12 }}>Oversold vs Overbought</Text>
               </div>
