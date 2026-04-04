@@ -13,9 +13,9 @@ private val log = LoggerFactory.getLogger(TelegramNotifier::class.java)
  * Plug-and-play Telegram alert wrapper for cron job lifecycle notifications and critical errors.
  *
  * Usage:
- *   notifier.cronStarted("IndicatorsSyncJob")
- *   notifier.cronCompleted("IndicatorsSyncJob", "Synced 47 stocks")
- *   notifier.cronFailed("IndicatorsSyncJob", exception)
+ *   notifier.cronStarted("KiteReminderJob")
+ *   notifier.cronCompleted("KiteReminderJob", "Sent 15 reminders")
+ *   notifier.cronFailed("KiteReminderJob", exception)
  *   notifier.criticalError("KiteConnectClient", exception)
  *
  * Silently no-ops if Telegram is not configured. Never throws.

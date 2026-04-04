@@ -5,7 +5,7 @@ This document explains where and how Redis is configured in the TradingTool-3 ba
 ## 1. Environment Variable Override (Recommended)
 The application is designed specifically for modern cloud deployments (like Render or Oracle Cloud). The default and most secure way to configure Redis is by passing the `REDIS_URL` environment variable to the running process. 
 
-The application (and the `IndicatorsSyncJob` cron job) automatically checks for this environment variable first.
+The application automatically checks for this environment variable first.
 
 * **Upstash Redis:** `REDIS_URL=rediss://default:<password>@<endpoint>:<port>` (Note the `rediss://` for TLS/SSL).
 * **Oracle Cloud / Local:** `REDIS_URL=redis://<host>:<port>`

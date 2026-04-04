@@ -30,6 +30,6 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           RENDER_SERVICE_URL: ${{ secrets.RENDER_SERVICE_URL }}
-        # -pl cron-job -am: build cron-job + all modules it depends on (core)
-        # All logic lives in KiteReminderJob.kt — this workflow is just a trigger
-        run: mvn -pl cron-job -am compile exec:java --no-transfer-progress
+        # -pl cron-job -am compile: build cron-job and core dependency
+        # mvn -pl cron-job exec:java: run ONLY the cron-job module's main class
+        run: mvn -pl cron-job -am compile && mvn -pl cron-job exec:java --no-transfer-progress

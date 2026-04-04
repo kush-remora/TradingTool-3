@@ -45,14 +45,13 @@ Returned result is anchored to **today’s bar**:
 
 ## 3) End-to-end backend flow
 
-### 3.1 Daily execution
+### 3.1 On-demand & proactive execution
 
-Source: `IndicatorsSyncJob`, `.github/workflows/indicators-sync.yml`.
+Signals are computed on-demand when the API is called if the data is missing or stale (older than the last market open).
 
-- Scheduled on weekdays at **9:15 AM IST** (`45 3 * * 1-5` UTC cron).
-- Job authenticates Kite from DB token storage.
-- After indicator refresh, it runs registered scanners.
-- Current scanner list includes `RemoraService`.
+- API: `IndicatorService` and `RemoraService` handle the on-demand logic.
+- Logic: If it's after 9:15 AM IST and no signals exist for today, a scan is triggered automatically.
+- Authentication: Uses the Kite token stored in the database.
 
 ### 3.2 Per-stock scan in `RemoraService`
 

@@ -16,11 +16,11 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
+import java.time.Instant
 import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.util.Date
 
 /**
@@ -40,6 +40,7 @@ class IndicatorService(
     private val stockIndicatorsHandler: StockIndicatorsJdbiHandler,
     private val stockHandler: StockJdbiHandler,
     private val redis: RedisHandler,
+    private val kiteClient: KiteConnectClient,
     private val config: IndicatorConfig = IndicatorConfig.DEFAULT,
 ) {
     private val log = LoggerFactory.getLogger(IndicatorService::class.java)
@@ -57,7 +58,7 @@ class IndicatorService(
 
     /**
      * Returns computed indicators for all stocks under [tag], or ALL stocks if tag is null.
-     * L1: Redis → L2: Postgres (heals Redis on miss).
+     * L1: Redis → L2: Postgres (heals Redis on miss) → L3: Kite (on-demand compute if missing or stale).
      */
     suspend fun getIndicatorsForTag(tag: String?): List<ComputedIndicators> {
         val redisKey = if (tag == null) "watchlist:indicators:ALL" else config.tagIndicatorsKey(tag)
@@ -67,29 +68,61 @@ class IndicatorService(
             val cachedIndicators = deserializeOrLog(cached, "redis:$redisKey") {
                 json.decodeFromString<List<ComputedIndicators>>(it)
             }
-            if (cachedIndicators != null) {
+            if (cachedIndicators != null && !isStale(cachedIndicators)) {
                 return cachedIndicators
             }
 
-            log.warn("Deleting unreadable Redis indicator cache for key={}", redisKey)
+            log.info("Redis indicator cache for key={} is stale or unreadable. Refreshing.", redisKey)
             redis.delete(redisKey)
+        }
+
+        val indicators = loadIndicatorsFromDbAndCache(tag, redisKey)
+        if (indicators.isNotEmpty() && !isStale(indicators)) {
+            return indicators
+        }
+
+        // No data or stale data — trigger an on-demand refresh.
+        log.info("Indicators for tag={} are missing or stale. Triggering on-demand refresh.", tag)
+        if (tag == null) {
+            refreshAll(kiteClient)
+        } else {
+            refreshTag(kiteClient, tag)
         }
 
         return loadIndicatorsFromDbAndCache(tag, redisKey)
     }
 
+    private fun isStale(indicators: List<ComputedIndicators>): Boolean {
+        if (indicators.isEmpty()) return true
+        // If the latest compute was before today's 9:15 AM (market open), and it's now after 9:15 AM, it's stale.
+        val now = ZonedDateTime.now(ist)
+        val todayMarketOpen = now.withHour(9).withMinute(15).withSecond(0).withNano(0)
+        
+        val lastComputed = indicators.maxOf { it.computedAt }
+        val lastComputedDt = ZonedDateTime.ofInstant(Instant.ofEpochMilli(lastComputed), ist)
+
+        // If it's after 9:15 AM today, we want data computed after today's 9:15 AM.
+        if (now.isAfter(todayMarketOpen)) {
+            return lastComputedDt.isBefore(todayMarketOpen)
+        }
+        
+        // If it's before 9:15 AM today, we are fine with yesterday's data (computed after yesterday 9:15 AM).
+        val yesterdayMarketOpen = todayMarketOpen.minusDays(1)
+        return lastComputedDt.isBefore(yesterdayMarketOpen)
+    }
+
     /**
      * Returns raw OHLCV JSON for a stock from Redis (L1 only).
-     * On cache miss, flags the stock for the next cron run and returns null.
-     * The caller should handle null gracefully (show stale/empty state to user).
+     * On cache miss, fetches it directly from Kite, caches it, and returns.
      */
     suspend fun getHistoricalOhlcv(instrumentToken: Long): String? {
         val cached = redis.get(config.ohlcvKey(instrumentToken))
         if (cached != null) return cached
 
-        // No DB fallback for OHLCV — schedule cron to re-fetch from Kite.
-        stockHandler.write { it.setNeedsRefresh(instrumentToken, true) }
-        return null
+        log.info("Cache miss for OHLCV token=$instrumentToken. Fetching from Kite on-demand.")
+        refreshStock(kiteClient, instrumentToken)
+        
+        return redis.get(config.ohlcvKey(instrumentToken))
     }
 
     /**

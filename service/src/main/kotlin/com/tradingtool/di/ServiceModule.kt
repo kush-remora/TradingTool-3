@@ -110,10 +110,12 @@ class ServiceModule(
         stockIndicatorsHandler: StockIndicatorsJdbiHandler,
         stockHandler: StockJdbiHandler,
         redis: RedisHandler,
+        kiteClient: KiteConnectClient,
     ): IndicatorService = IndicatorService(
         stockIndicatorsHandler = stockIndicatorsHandler,
         stockHandler = stockHandler,
         redis = redis,
+        kiteClient = kiteClient,
         config = IndicatorConfig.DEFAULT,
     )
 
@@ -201,10 +203,12 @@ class ServiceModule(
         stockHandler: StockJdbiHandler,
         remoraHandler: RemoraJdbiHandler,
         telegramSender: TelegramSender,
+        kiteClient: KiteConnectClient,
     ): RemoraService = RemoraService(
         stockHandler = stockHandler,
         remoraHandler = remoraHandler,
         telegramSender = telegramSender,
+        kiteClient = kiteClient,
     )
 
     @Provides @Singleton

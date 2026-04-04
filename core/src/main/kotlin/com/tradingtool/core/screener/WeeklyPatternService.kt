@@ -126,103 +126,103 @@ class WeeklyPatternService(
 
         var bestEval: DayPairEval? = null
 
-        // Loop through all day pairs (e.g. Mon->Tue... Thu->Fri)
-        for (buy in 1..4) {
-            for (sell in (buy + 1)..5) {
+        // Loop through potential buy days (Mon to Wed)
+        for (buy in 1..3) {
+            val sell = 4 // Fixed Thursday Exit logic
                 
-                val evaluatedWeeks = parsedWeeks.map { w ->
-                    val wCopy = w.copy()
-                    val bCandle = wCopy.dailyCandles[buy]
-                    
-                    if (bCandle != null) {
-                        if (bCandle.open > 0) {
-                            wCopy.buyDayDipPct = ((bCandle.open - bCandle.low) / bCandle.open * 100.0).roundTo2()
-                        }
-                        wCopy.buyDayLow = bCandle.low
-                        
-                        val rsiBounds = rsiMap[bCandle.candleDate]
-                        val currentRsi = rsiBounds?.current ?: 50.0
-                        val max200Rsi = rsiBounds?.max200 ?: 70.0
-                        wCopy.buyRsi = currentRsi
-
-                        // 1% Rebound Entry Trigger Logic
-                        if (bCandle.high >= bCandle.low * 1.01) {
-                            if (currentRsi >= 70.0 || currentRsi >= max200Rsi * 0.90) {
-                            wCopy.entryTriggered = false
-                            wCopy.reasoning = "Overbought"
-                            } else {
-                            wCopy.entryTriggered = true
-                            val entryPrice = bCandle.low * 1.01
-                            wCopy.buyPriceActual = entryPrice
-
-                            val targetPrice = entryPrice * 1.05
-                            val stopLossPrice = entryPrice * 0.97
-
-                            // Simulate day-by-day progression from Tue to Thu
-                            var exitFound = false
-                            for (dayIdx in (buy + 1)..4) { // Tue to Thu
-                                val dCandle = wCopy.dailyCandles[dayIdx]
-                                if (dCandle != null) {
-                                    // 1. Check Stop Loss First (Conservative)
-                                    if (dCandle.low <= stopLossPrice) {
-                                        wCopy.sellPriceActual = stopLossPrice
-                                        wCopy.swingPct = -3.0
-                                        wCopy.reasoning = "Stop Loss Hit"
-                                        exitFound = true
-                                        break
-                                    }
-                                    // 2. Check Target
-                                    if (dCandle.high >= targetPrice) {
-                                        wCopy.sellPriceActual = targetPrice
-                                        wCopy.swingPct = 5.0
-                                        wCopy.swingTargetHit = true
-                                        wCopy.reasoning = "Target Hit (+5%)"
-                                        exitFound = true
-                                        break
-                                    }
-                                }
-                            }
-
-                            // 3. Thursday Hard Exit if still open
-                            if (!exitFound) {
-                                val thuCandle = wCopy.dailyCandles[4] ?: wCopy.dailyCandles[3] ?: wCopy.dailyCandles[2]
-                                if (thuCandle != null) {
-                                    val exitPrice = thuCandle.close
-                                    wCopy.sellPriceActual = exitPrice
-                                    wCopy.swingPct = ((exitPrice - entryPrice) / entryPrice * 100.0).roundTo2()
-                                    wCopy.reasoning = "Thursday Hard Exit"
-                                    if (wCopy.swingPct!! >= 4.0) {
-                                        wCopy.swingTargetHit = true
-                                    }
-                                }
-                            }
-                            }                        }
+            val evaluatedWeeks = parsedWeeks.map { w ->
+                val wCopy = w.copy()
+                val bCandle = wCopy.dailyCandles[buy]
+                
+                if (bCandle != null) {
+                    if (bCandle.open > 0) {
+                        wCopy.buyDayDipPct = ((bCandle.open - bCandle.low) / bCandle.open * 100.0).roundTo2()
                     }
-                    wCopy
+                    wCopy.buyDayLow = bCandle.low
+                    
+                    val rsiBounds = rsiMap[bCandle.candleDate]
+                    val currentRsi = rsiBounds?.current ?: 50.0
+                    val max200Rsi = rsiBounds?.max200 ?: 70.0
+                    wCopy.buyRsi = currentRsi
+
+                    // 1% Rebound Entry Trigger Logic
+                    if (bCandle.high >= bCandle.low * 1.01) {
+                        if (currentRsi >= 70.0 || currentRsi >= max200Rsi * 0.90) {
+                        wCopy.entryTriggered = false
+                        wCopy.reasoning = "Overbought"
+                        } else {
+                        wCopy.entryTriggered = true
+                        val entryPrice = bCandle.low * 1.01
+                        wCopy.buyPriceActual = entryPrice
+
+                        val targetPrice = entryPrice * 1.05
+                        val stopLossPrice = entryPrice * 0.97
+
+                        // Simulate day-by-day progression from (BuyDay + 1) to Thursday
+                        var exitFound = false
+                        for (dayIdx in (buy + 1)..4) { 
+                            val dCandle = wCopy.dailyCandles[dayIdx]
+                            if (dCandle != null) {
+                                // 1. Check Stop Loss First (Conservative)
+                                if (dCandle.low <= stopLossPrice) {
+                                    wCopy.sellPriceActual = stopLossPrice
+                                    wCopy.swingPct = -3.0
+                                    wCopy.reasoning = "Stop Loss Hit"
+                                    exitFound = true
+                                    break
+                                }
+                                // 2. Check Target
+                                if (dCandle.high >= targetPrice) {
+                                    wCopy.sellPriceActual = targetPrice
+                                    wCopy.swingPct = 5.0
+                                    wCopy.swingTargetHit = true
+                                    wCopy.reasoning = "Target Hit (+5%)"
+                                    exitFound = true
+                                    break
+                                }
+                            }
+                        }
+
+                        // 3. Thursday Hard Exit if still open
+                        if (!exitFound) {
+                            val thuCandle = wCopy.dailyCandles[4] ?: wCopy.dailyCandles[3] ?: wCopy.dailyCandles[2]
+                            if (thuCandle != null) {
+                                val exitPrice = thuCandle.close
+                                wCopy.sellPriceActual = exitPrice
+                                wCopy.swingPct = ((exitPrice - entryPrice) / entryPrice * 100.0).roundTo2()
+                                wCopy.reasoning = "Thursday Hard Exit"
+                                if (wCopy.swingPct!! >= 4.0) {
+                                    wCopy.swingTargetHit = true
+                                }
+                            }
+                        }
+                        }
+                    }
                 }
+                wCopy
+            }
 
-                val entryWeeks = evaluatedWeeks.filter { it.entryTriggered }
-                val swingWeeks = evaluatedWeeks.filter { it.swingPct != null }
+            val entryWeeks = evaluatedWeeks.filter { it.entryTriggered }
+            val swingWeeks = evaluatedWeeks.filter { it.swingPct != null }
 
-                val avgDip = if (evaluatedWeeks.isNotEmpty()) evaluatedWeeks.mapNotNull { it.buyDayDipPct }.average() else 0.0
-                val avgSwing = if (swingWeeks.isNotEmpty()) swingWeeks.mapNotNull { it.swingPct }.average() else 0.0
+            val avgDip = if (evaluatedWeeks.isNotEmpty()) evaluatedWeeks.mapNotNull { it.buyDayDipPct }.average() else 0.0
+            val avgSwing = if (swingWeeks.isNotEmpty()) swingWeeks.mapNotNull { it.swingPct }.average() else 0.0
 
-                val reboundCons = entryWeeks.size
-                val swingCons = evaluatedWeeks.count { it.swingTargetHit }
+            val reboundCons = entryWeeks.size
+            val swingCons = evaluatedWeeks.count { it.swingTargetHit }
 
-                val dipScore = (reboundCons.toDouble() / totalWeeks * 30).toInt()
-                val swingScore = (swingCons.toDouble() / totalWeeks * 40).toInt()
-                val magnitudeScore = (avgSwing.coerceIn(0.0, 10.0) / 10.0 * 30).toInt()
-                val composite = dipScore + swingScore + magnitudeScore
+            val dipScore = (reboundCons.toDouble() / totalWeeks * 30).toInt()
+            val swingScore = (swingCons.toDouble() / totalWeeks * 40).toInt()
+            val magnitudeScore = (avgSwing.coerceIn(0.0, 10.0) / 10.0 * 30).toInt()
+            val composite = dipScore + swingScore + magnitudeScore
 
-                val eval = DayPairEval(
-                    buy, sell, avgDip.roundTo2(), reboundCons, avgSwing.roundTo2(), swingCons, 
-                    composite, totalWeeks, evaluatedWeeks
-                )
-                
-                if (bestEval == null || eval.compositeScore > bestEval.compositeScore) {
-                    bestEval = eval
-                }
+            val eval = DayPairEval(
+                buy, sell, avgDip.roundTo2(), reboundCons, avgSwing.roundTo2(), swingCons, 
+                composite, totalWeeks, evaluatedWeeks
+            )
+            
+            if (bestEval == null || eval.compositeScore > bestEval.compositeScore) {
+                bestEval = eval
             }
         }
         return bestEval
@@ -283,9 +283,9 @@ class WeeklyPatternService(
 
         val confirmed = bestPair.reboundConsistency >= 5 && bestPair.swingConsistency >= 5 && bestPair.avgSwingPct >= 4.0
         val summary = if (confirmed) {
-            "Strong weekly rhythm detected. Price historically prints a daily bottom and 1% bounce entry on ${dayNames[bestPair.buyDay]}, then sweeps to a peak near ${dayNames[bestPair.sellDay]}."
+            "Strong weekly rhythm detected. Entry triggered on ${dayNames[bestPair.buyDay]} via 1% rebound. Strategy: GTT Sell at +5% Target / -3% SL, or hard-exit by Thursday 2:00 PM."
         } else {
-            "No consistent safe swing rhythm detected. Ensure you do not force a trade. Watch for clearer daily structures."
+            "No consistent safe swing rhythm detected. Entry criteria (rebound/consistency) not met for a reliable 5% GTT target."
         }
 
         val heatmap = bestPair.allWeeks.mapIndexed { idx, w ->
@@ -309,9 +309,7 @@ class WeeklyPatternService(
                 reasoning = when {
                     w.reasoning != null -> w.reasoning
                     !w.entryTriggered -> "No 1% rebound"
-                    w.swingTargetHit -> "Hit >= 4% target"
-                    w.swingPct != null -> "Failed to hit target"
-                    else -> "No sell day data"
+                    else -> "No data"
                 }
             )
         }

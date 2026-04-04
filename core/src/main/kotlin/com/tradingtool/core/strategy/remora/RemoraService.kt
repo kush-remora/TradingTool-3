@@ -31,6 +31,7 @@ class RemoraService(
     private val stockHandler: StockJdbiHandler,
     private val remoraHandler: RemoraJdbiHandler,
     private val telegramSender: TelegramSender,
+    private val kiteClient: KiteConnectClient,
     private val config: IndicatorConfig = IndicatorConfig.DEFAULT,
 ) : SignalScanner {
     private val log = LoggerFactory.getLogger(RemoraService::class.java)
@@ -104,10 +105,40 @@ class RemoraService(
         }
     }
 
-    suspend fun getSignals(type: String? = null): List<RemoraSignal> {
-        return remoraHandler.read { dao ->
+    suspend fun getSignals(type: String? = null, onDemand: Boolean = true): List<RemoraSignal> {
+        val signals = remoraHandler.read { dao ->
             if (type.isNullOrBlank()) dao.findAll() else dao.findByType(type.uppercase())
         }
+
+        if (onDemand && (signals.isEmpty() || isStale(signals))) {
+            log.info("Remora signals missing or stale (type=$type). Triggering on-demand scan.")
+            computeAll(kiteClient)
+            return remoraHandler.read { dao ->
+                if (type.isNullOrBlank()) dao.findAll() else dao.findByType(type.uppercase())
+            }
+        }
+
+        return signals
+    }
+
+    private fun isStale(signals: List<RemoraSignal>): Boolean {
+        if (signals.isEmpty()) return true
+        
+        val now = ZonedDateTime.now(ist)
+        val todayMarketOpen = now.withHour(9).withMinute(15).withSecond(0).withNano(0)
+        
+        // Remora signals are date-based (signal_date). 
+        // We want signals for "today" if it's after market open.
+        val latestSignalDate = signals.maxOf { LocalDate.parse(it.signalDate) }
+        val today = now.toLocalDate()
+        
+        if (now.isAfter(todayMarketOpen)) {
+            return latestSignalDate.isBefore(today)
+        }
+        
+        // If it's before 9:15 AM, yesterday's signals are fine.
+        val yesterday = today.minusDays(1)
+        return latestSignalDate.isBefore(yesterday)
     }
 
     private suspend fun sendTelegram(symbol: String, exchange: String, result: RemoraSignalCalculator.Result) {

@@ -92,13 +92,13 @@ class WatchlistResource @Inject constructor(
 
     /**
      * Returns raw OHLCV JSON for a stock (1 year, daily bars) from Redis L1.
-     * Returns 404 if cold — the next cron run will repopulate it.
+     * Fetches from Kite on-demand if missing.
      */
     @GET
     @Path("/ohlcv/{instrumentToken}")
     fun getOhlcv(@PathParam("instrumentToken") instrumentToken: Long): CompletableFuture<Response> = ioScope.endpoint {
         val raw = indicatorService.getHistoricalOhlcv(instrumentToken)
-            ?: return@endpoint notFound("OHLCV data not yet available for token $instrumentToken. It will be populated on the next cron run.")
+            ?: return@endpoint notFound("OHLCV data not available for token $instrumentToken and could not be fetched.")
         // Return the pre-serialized JSON string directly — do not wrap it.
         Response.ok(raw, MediaType.APPLICATION_JSON).build()
     }

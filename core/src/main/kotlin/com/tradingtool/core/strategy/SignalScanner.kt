@@ -11,8 +11,8 @@ import com.tradingtool.core.kite.KiteConnectClient
  * - Persisting new signals to the database (idempotent)
  * - Sending Telegram notifications for new signals
  *
- * The cron job (IndicatorsSyncJob) iterates all registered scanners.
- * Adding a new strategy = implement this interface + register in the cron job.
+ * Scanners can be run manually or by proactive background services.
+ * Adding a new strategy = implement this interface.
  */
 interface SignalScanner {
     val name: String
