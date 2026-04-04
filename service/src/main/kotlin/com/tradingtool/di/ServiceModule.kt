@@ -6,6 +6,7 @@ import com.google.inject.Singleton
 import com.google.inject.name.Named
 import com.tradingtool.config.AppConfig
 import com.tradingtool.core.config.IndicatorConfig
+import com.tradingtool.core.database.CandleJdbiHandler
 import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.database.KiteTokenJdbiHandler
 import com.tradingtool.core.database.RedisHandler
@@ -28,6 +29,10 @@ import com.tradingtool.core.stock.dao.StockIndicatorsReadDao
 import com.tradingtool.core.stock.dao.StockIndicatorsWriteDao
 import com.tradingtool.core.stock.dao.StockReadDao
 import com.tradingtool.core.stock.dao.StockWriteDao
+import com.tradingtool.core.candle.dao.CandleReadDao
+import com.tradingtool.core.candle.dao.CandleWriteDao
+import com.tradingtool.core.screener.CandleDataService
+import com.tradingtool.core.screener.WeeklyPatternService
 import com.tradingtool.core.strategy.remora.RemoraService
 import com.tradingtool.core.strategy.remora.RemoraSignalReadDao
 import com.tradingtool.core.strategy.remora.RemoraSignalWriteDao
@@ -201,4 +206,27 @@ class ServiceModule(
         remoraHandler = remoraHandler,
         telegramSender = telegramSender,
     )
+
+    @Provides @Singleton
+    fun provideCandleJdbiHandler(config: DatabaseConfig): CandleJdbiHandler =
+        handler<CandleReadDao, CandleWriteDao>(config)
+
+    @Provides @Singleton
+    fun provideCandleDataService(
+        stockHandler: StockJdbiHandler,
+        candleHandler: CandleJdbiHandler,
+    ): CandleDataService = CandleDataService(stockHandler, candleHandler)
+
+    @Provides @Singleton
+    fun provideWeeklyPatternService(
+        stockHandler: StockJdbiHandler,
+        candleHandler: CandleJdbiHandler,
+    ): WeeklyPatternService = WeeklyPatternService(stockHandler, candleHandler)
+
+    @Provides @Singleton
+    fun provideTechnicalContextService(
+        stockHandler: StockJdbiHandler,
+        candleHandler: CandleJdbiHandler,
+    ): com.tradingtool.core.technical.TechnicalContextService =
+        com.tradingtool.core.technical.TechnicalContextService(stockHandler, candleHandler)
 }

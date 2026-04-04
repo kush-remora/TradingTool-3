@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useWatchlist } from "../hooks/useWatchlist";
 import { StockDetailDrawer } from "./StockDetailDrawer";
 import type { WatchlistRow } from "../types";
+import { StockBadge } from "./StockBadge";
 
 const { Text } = Typography;
 
@@ -40,9 +41,7 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
       fixed: "left" as const,
       render: (v: string, record: WatchlistRow) => (
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <Space>
-            <Text strong style={{ fontSize: 14 }}>{v}</Text>
-          </Space>
+          <StockBadge symbol={v} instrumentToken={record.instrumentToken} companyName={record.companyName} fontSize={14} />
           <Text type="secondary" style={{ fontSize: 11 }}>{record.exchange}</Text>
         </div>
       )

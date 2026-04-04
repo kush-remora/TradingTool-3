@@ -60,6 +60,8 @@ class WatchlistService(
 
             WatchlistRow(
                 symbol = stock.symbol,
+                instrumentToken = stock.instrumentToken,
+                companyName = stock.companyName,
                 exchange = stock.exchange,
                 sector = null, // not in Stock model yet
                 ltp = ltp,

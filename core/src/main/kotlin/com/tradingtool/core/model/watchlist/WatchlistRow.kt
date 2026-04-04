@@ -5,6 +5,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class WatchlistRow(
     val symbol: String,
+    val instrumentToken: Long,
+    val companyName: String,
     val exchange: String,
     val sector: String? = null,
 

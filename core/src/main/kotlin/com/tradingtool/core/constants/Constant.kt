@@ -8,6 +8,8 @@ object DatabaseConstants {
         const val TRADES = "trades"
         const val STOCK_INDICATORS_SNAPSHOT = "stock_indicators_snapshot"
         const val REMORA_SIGNALS = "remora_signals"
+        const val DAILY_CANDLES = "daily_candles"
+        const val INTRADAY_CANDLES = "intraday_candles"
     }
 
     object KiteTokenColumns {

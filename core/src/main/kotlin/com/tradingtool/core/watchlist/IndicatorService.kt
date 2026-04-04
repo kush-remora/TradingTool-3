@@ -8,6 +8,7 @@ import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.model.stock.Stock
 import com.tradingtool.core.model.watchlist.ComputedIndicators
+import com.tradingtool.core.technical.toTa4jSeriesFromKite
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -19,11 +20,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
-import org.ta4j.core.BarSeries
-import org.ta4j.core.BaseBarSeriesBuilder
-import java.time.LocalDateTime
 import java.time.ZoneId
-import java.time.ZonedDateTime
 import java.util.Date
 
 /**
@@ -54,6 +51,7 @@ class IndicatorService(
     private val mapper = ObjectMapper()
 
     private val ist = ZoneId.of("Asia/Kolkata")
+    private val indicatorWarmupYears: Long = 5
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -95,7 +93,7 @@ class IndicatorService(
     }
 
     /**
-     * Daily cron entry point: fetches 1-year Kite history for all stocks,
+     * Daily cron entry point: fetches warmup-aware Kite history for all stocks,
      * computes indicators, persists to Postgres, and rebuilds Redis caches.
      *
      * Rate-limited to [IndicatorConfig.kiteRateLimitDelayMs] between API calls.
@@ -183,7 +181,7 @@ class IndicatorService(
         stock: Stock,
         dateRange: Pair<Date, Date>,
     ): ComputedIndicators? {
-        log.info("Fetching 1yr history for ${stock.symbol} (token=${stock.instrumentToken})")
+        log.info("Fetching indicator warmup history for ${stock.symbol} (token=${stock.instrumentToken})")
 
         val (fromDate, toDate) = dateRange
 
@@ -196,7 +194,7 @@ class IndicatorService(
         // Cache raw OHLCV in Redis — 48h TTL bridges Fri close → Mon open.
         redis.set(config.ohlcvKey(stock.instrumentToken), mapper.writeValueAsString(history.dataArrayList), config.ohlcvTtlSeconds)
 
-        val series = buildBarSeries(history.dataArrayList, stock.symbol)
+        val series = history.dataArrayList.toTa4jSeriesFromKite(stock.symbol)
         if (series.barCount == 0) {
             log.warn("No bars returned for ${stock.symbol} — skipping indicator calculation")
             return null
@@ -207,29 +205,6 @@ class IndicatorService(
             it.upsertIndicators(stock.instrumentToken, json.encodeToString(indicators))
         }
         return indicators
-    }
-
-    /**
-     * Converts Kite's historical data list into a ta4j [BarSeries].
-     *
-     * Kite timestamps are always IST (e.g. "2023-01-02T09:15:00+0530").
-     * We parse only the local-datetime part (first 19 chars) and attach the IST
-     * zone explicitly — this avoids the offset-format ambiguity in DateTimeFormatter
-     * (+0530 vs +05:30) and makes the IST assumption visible in the code.
-     */
-    private fun buildBarSeries(historicalData: List<*>, symbol: String): BarSeries {
-        val series = BaseBarSeriesBuilder().withName(symbol).build()
-
-        for (bar in historicalData) {
-            if (bar == null) continue
-            // Reflection-free access via the Kite SDK's HistoricalData fields.
-            val hk = bar as com.zerodhatech.models.HistoricalData
-            val localDt: LocalDateTime = LocalDateTime.parse(hk.timeStamp.substring(0, 19))
-            val zdt: ZonedDateTime = localDt.atZone(ist)
-            series.addBar(zdt, hk.open, hk.high, hk.low, hk.close, hk.volume)
-        }
-
-        return series
     }
 
     private suspend fun pushTagIndicatorsToRedis(
@@ -297,12 +272,12 @@ class IndicatorService(
         }
     }
 
-    /** Returns 1-year date range as a [Pair] of [Date] for the Kite SDK (requires java.util.Date). */
+    /** Returns warmup-aware date range as a [Pair] of [Date] for the Kite SDK. */
     private fun buildDateRange(): Pair<Date, Date> {
         val today = java.time.LocalDate.now(ist)
-        val oneYearAgo = today.minusYears(1)
+        val warmupStart = today.minusYears(indicatorWarmupYears)
         return Pair(
-            Date.from(oneYearAgo.atStartOfDay(ist).toInstant()),
+            Date.from(warmupStart.atStartOfDay(ist).toInstant()),
             Date.from(today.atStartOfDay(ist).toInstant()),
         )
     }

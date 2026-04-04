@@ -1,6 +1,9 @@
 package com.tradingtool.core.strategy.remora
 
+import com.tradingtool.core.technical.getNullableDouble
 import org.ta4j.core.BarSeries
+import org.ta4j.core.indicators.SMAIndicator
+import org.ta4j.core.indicators.helpers.VolumeIndicator
 
 /**
  * Detects Remora (institutional accumulation/distribution) signals from a daily BarSeries.
@@ -33,12 +36,14 @@ object RemoraSignalCalculator {
         if (series.barCount < MIN_BARS_REQUIRED) return null
 
         val endIdx = series.endIndex
+        
+        // Use ta4j SMAIndicator for 20-day avg volume.
+        // Evaluation at endIdx - 1 ensures today's spike is excluded from the baseline.
+        val volumeIndicator = VolumeIndicator(series)
+        val sma20Volume = SMAIndicator(volumeIndicator, 20)
+        val avgVol20d = sma20Volume.getNullableDouble(endIdx - 1) ?: return null
 
-        // 20-day avg volume: use bars before today to keep today's spike out of the baseline.
-        val avgVol20d = (endIdx - 20 until endIdx)
-            .sumOf { series.getBar(it).volume.doubleValue() } / 20.0
-
-        if (avgVol20d <= 0) return null
+        if (avgVol20d <= 0.0) return null
 
         var consecutiveDays = 0
         var signalType: String? = null

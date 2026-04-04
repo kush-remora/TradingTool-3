@@ -6,14 +6,17 @@ import { GraphPage } from "./pages/GraphPage";
 import { RemoraPage } from "./pages/RemoraPage";
 import { TradePage } from "./pages/TradePage";
 import { WatchlistPage } from "./pages/WatchlistPage";
+import { ScreenerPage } from "./pages/ScreenerPage";
+import { BarChartOutlined } from "@ant-design/icons";
 
-type PageKey = "watchlist" | "graph" | "trade" | "remora";
+type PageKey = "watchlist" | "graph" | "trade" | "remora" | "screener";
 
 const menuItems: MenuProps["items"] = [
   { key: "watchlist", label: "Watchlist", icon: <UnorderedListOutlined /> },
   { key: "graph", label: "Graph", icon: <ApartmentOutlined /> },
   { key: "trade", label: "Trade Journal", icon: <BookOutlined /> },
   { key: "remora", label: "Remora", icon: <FundOutlined /> },
+  { key: "screener", label: "Weekly Screener", icon: <BarChartOutlined /> },
 ];
 
 export default function App() {
@@ -58,8 +61,9 @@ export default function App() {
         <Layout.Content>
           {page === "watchlist" && <WatchlistPage />}
           {page === "graph" && <GraphPage />}
-          {page === "trade" && <TradePage />}
-          {page === "remora" && <RemoraPage />}
+          { page === "trade" && <TradePage /> }
+          { page === "remora" && <RemoraPage /> }
+          { page === "screener" && <ScreenerPage /> }
         </Layout.Content>
       </Layout>
     </ConfigProvider>

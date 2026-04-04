@@ -141,6 +141,8 @@ export interface RemoraSignal {
 
 export interface WatchlistRow {
   symbol: string;
+  instrumentToken: number;
+  companyName: string;
   exchange: string;
   sector: string | null;
   ltp: number | null;
@@ -156,3 +158,97 @@ export interface WatchlistRow {
   maxDd1y: number | null;
   volumeVsAvg: number | null;
 }
+
+// ==================== Weekly Screener ====================
+
+export interface WeeklyPatternResult {
+  symbol: string;
+  instrumentToken: number;
+  companyName: string;
+  weeksAnalyzed: number;
+  buyDay: string;
+  buyDayAvgDipPct: number;
+  reboundConsistency: number;
+  sellDay: string;
+  swingAvgPct: number;
+  swingConsistency: number;
+  compositeScore: number;
+  patternConfirmed: boolean;
+  cycleType: string;
+  reason: string | null;
+  buyDayLowMin: number;
+  buyDayLowMax: number;
+}
+
+export interface WeeklyPatternListResponse {
+  runAt: string;
+  lookbackWeeks: number;
+  results: WeeklyPatternResult[];
+}
+
+export interface DayProfile {
+  day: string;
+  action: string;
+  avgChangePct: number;
+}
+
+export interface AutocorrelationResult {
+  lag5: number;
+  lag10: number;
+  lag21: number;
+}
+
+export interface WeekHeatmapRow {
+  weekLabel: string;
+  startDate: string;
+  endDate: string;
+  mondayChangePct: number | null;
+  tuesdayChangePct: number | null;
+  wednesdayChangePct: number | null;
+  thursdayChangePct: number | null;
+  fridayChangePct: number | null;
+  entryTriggered: boolean;
+  swingTargetHit: boolean;
+  buyPriceActual: number | null;
+  sellPriceActual: number | null;
+  buyRsi: number | null;
+  netSwingPct: number | null;
+  reasoning: string | null;
+}
+
+export interface WeeklyPatternDetail extends WeeklyPatternResult {
+  dayOfWeekProfile: DayProfile[];
+  autocorrelation: AutocorrelationResult;
+  patternSummary: string;
+  weeklyHeatmap: WeekHeatmapRow[];
+}
+
+// ==================== Technical Context API ====================
+
+export interface SessionCandle {
+  date: string;
+  dayOfWeek: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  range: number;
+  lowToHighPct: number;
+}
+
+export interface TechnicalContext {
+  symbol: string;
+  atr14: number;
+  rsi14: number;
+  lowestRsi50d: number;
+  highestRsi50d: number;
+  lowestRsi100d: number;
+  highestRsi100d: number;
+  lowestRsi200d: number;
+  highestRsi200d: number;
+  sma200: number;
+  ltp: number;
+  recentSessions: SessionCandle[];
+}
+
