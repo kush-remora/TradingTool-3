@@ -2,6 +2,7 @@ package com.tradingtool.core.watchlist
 
 import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.kite.LiveMarketService
+import com.tradingtool.core.model.stock.Stock
 import com.tradingtool.core.model.watchlist.ComputedIndicators
 import com.tradingtool.core.model.watchlist.WatchlistRow
 import kotlinx.coroutines.Dispatchers

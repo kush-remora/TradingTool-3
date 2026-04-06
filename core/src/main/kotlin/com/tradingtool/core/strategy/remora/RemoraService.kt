@@ -13,6 +13,9 @@ import com.tradingtool.core.model.telegram.TelegramSendTextRequest
 import com.tradingtool.core.strategy.SignalScanner
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -56,7 +59,7 @@ class RemoraService(
     override suspend fun scan(kiteClient: KiteConnectClient) = computeAll(kiteClient)
 
     suspend fun computeAll(kiteClient: KiteConnectClient) {
-        val stocks = stockHandler.read { it.listAll() }
+        val stocks = stockHandler.read { it.listByTagName("Remora") }
         log.info("Remora scan starting for ${stocks.size} stocks")
 
         ensureDeliveryFresh()

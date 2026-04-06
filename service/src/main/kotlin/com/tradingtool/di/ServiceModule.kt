@@ -12,7 +12,6 @@ import com.tradingtool.core.database.KiteTokenJdbiHandler
 import com.tradingtool.core.database.RedisHandler
 import com.tradingtool.core.database.RemoraJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
-import com.tradingtool.core.database.StockIndicatorsJdbiHandler
 import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.http.CoreHttpModule
@@ -26,8 +25,6 @@ import com.tradingtool.core.kite.LiveMarketService
 import com.tradingtool.core.kite.TickStore
 import com.tradingtool.core.kite.TickerSubscriptions
 import com.tradingtool.core.model.DatabaseConfig
-import com.tradingtool.core.stock.dao.StockIndicatorsReadDao
-import com.tradingtool.core.stock.dao.StockIndicatorsWriteDao
 import com.tradingtool.core.stock.dao.StockReadDao
 import com.tradingtool.core.stock.dao.StockWriteDao
 import com.tradingtool.core.candle.CandleCacheService
@@ -50,6 +47,7 @@ import com.tradingtool.core.trade.dao.TradeReadDao
 import com.tradingtool.core.trade.dao.TradeWriteDao
 import com.tradingtool.core.trade.service.TradeService
 import com.tradingtool.core.watchlist.IndicatorService
+import com.tradingtool.core.watchlist.WatchlistConfigService
 import com.tradingtool.core.watchlist.WatchlistService
 import com.tradingtool.eventservice.KiteTickerService
 import com.tradingtool.resources.ALL_RESOURCE_CLASSES
@@ -67,6 +65,7 @@ class ServiceModule(
 
         bind(AppConfig::class.java).toInstance(appConfig)
         bind(ResourceScope::class.java).`in`(Singleton::class.java)
+        bind(WatchlistConfigService::class.java).`in`(Singleton::class.java)
         bind(StockService::class.java).`in`(Singleton::class.java)
         bind(TradeService::class.java).`in`(Singleton::class.java)
         bind(HttpRequestExecutor::class.java).to(JdkHttpRequestExecutor::class.java).`in`(Singleton::class.java)
@@ -105,19 +104,15 @@ class ServiceModule(
     fun provideRedisHandler(config: AppConfig): RedisHandler =
         RedisHandler(config.redis.url) // Replaced the hardcoded .fromEnv() with AppConfig
 
-    @Provides @Singleton
-    fun provideStockIndicatorsJdbiHandler(config: DatabaseConfig): StockIndicatorsJdbiHandler =
-        handler<StockIndicatorsReadDao, StockIndicatorsWriteDao>(config)
-
     @Provides
     @Singleton
     fun provideIndicatorService(
-        stockIndicatorsHandler: StockIndicatorsJdbiHandler,
+        candleHandler: CandleJdbiHandler,
         stockHandler: StockJdbiHandler,
         redis: RedisHandler,
         kiteClient: KiteConnectClient,
     ): IndicatorService = IndicatorService(
-        stockIndicatorsHandler = stockIndicatorsHandler,
+        candleHandler = candleHandler,
         stockHandler = stockHandler,
         redis = redis,
         kiteClient = kiteClient,

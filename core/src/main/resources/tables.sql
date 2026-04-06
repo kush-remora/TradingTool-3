@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.stocks (
     exchange         TEXT        NOT NULL,
     notes            TEXT,
     priority         INTEGER,
-    tags             JSONB       NOT NULL DEFAULT '[]',
+    tags                          JSONB       NOT NULL DEFAULT '[]',
     needs_refresh    BOOLEAN     NOT NULL DEFAULT false,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),

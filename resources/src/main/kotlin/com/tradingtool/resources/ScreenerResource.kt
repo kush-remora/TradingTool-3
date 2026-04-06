@@ -1,7 +1,7 @@
 package com.tradingtool.resources
 
 import com.google.inject.Inject
-import com.tradingtool.core.database.StockJdbiHandler
+import com.tradingtool.core.stock.service.StockService
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.screener.CandleDataService
@@ -26,7 +26,7 @@ import com.tradingtool.core.screener.WeeklyPatternListResponse
 class ScreenerResource @Inject constructor(
     private val candleDataService: CandleDataService,
     private val weeklyPatternService: WeeklyPatternService,
-    private val stockHandler: StockJdbiHandler,
+    private val stockService: StockService,
     private val kiteClient: KiteConnectClient,
     private val resourceScope: ResourceScope,
 ) {
@@ -84,6 +84,6 @@ class ScreenerResource @Inject constructor(
         if (!param.isNullOrBlank()) {
             return param.split(",").map { it.trim() }.filter { it.isNotEmpty() }
         }
-        return stockHandler.read { it.listAll() }.map { it.symbol }
+        return stockService.listByTag("weekly").map { it.symbol }
     }
 }

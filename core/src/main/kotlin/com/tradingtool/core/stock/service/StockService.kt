@@ -10,6 +10,7 @@ import com.tradingtool.core.model.stock.Stock
 import com.tradingtool.core.model.stock.StockTag
 import com.tradingtool.core.model.stock.TableAccessStatus
 import com.tradingtool.core.model.stock.UpdateStockPayload
+import com.tradingtool.core.watchlist.WatchlistConfigService
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -17,6 +18,7 @@ import kotlinx.coroutines.coroutineScope
 @Singleton
 class StockService @Inject constructor(
     private val db: StockJdbiHandler,
+    private val watchlistConfigService: WatchlistConfigService,
 ) {
     private val jackson = ObjectMapper()
 
@@ -29,9 +31,16 @@ class StockService @Inject constructor(
     suspend fun getBySymbol(symbol: String, exchange: String): Stock? =
         db.read { dao -> dao.getBySymbol(symbol, exchange) }
 
-    suspend fun listAllTags(): List<StockTag> = db.read { dao -> dao.listAllTags() }
+    suspend fun listAllTags(): List<StockTag> {
+        return watchlistConfigService.listAllTags().map { StockTag(it.name, it.color) }
+    }
 
     suspend fun create(input: CreateStockInput): Stock = db.transaction { _, writeDao ->
+        val enrichedTags = input.tags.map { tag ->
+            val def = watchlistConfigService.getTagDefinition(tag.name)
+            StockTag(tag.name, def?.color ?: tag.color)
+        }
+
         writeDao.create(
             symbol = input.symbol.trim().uppercase(),
             instrumentToken = input.instrumentToken,
@@ -39,11 +48,16 @@ class StockService @Inject constructor(
             exchange = input.exchange.trim().uppercase(),
             notes = input.notes?.trim(),
             priority = input.priority,
-            tagsJson = toJson(input.tags),
+            tagsJson = toJson(enrichedTags),
         )
     }
 
     suspend fun update(id: Long, payload: UpdateStockPayload): Stock? = db.transaction { _, writeDao ->
+        val enrichedTags = payload.tags?.map { tag ->
+            val def = watchlistConfigService.getTagDefinition(tag.name)
+            StockTag(tag.name, def?.color ?: tag.color)
+        }
+
         writeDao.update(
             id = id,
             setNotes = payload.notes != null,
@@ -51,13 +65,15 @@ class StockService @Inject constructor(
             setPriority = payload.priority != null,
             priority = payload.priority,
             setTags = payload.tags != null,
-            tagsJson = payload.tags?.let { toJson(it) },
+            tagsJson = enrichedTags?.let { toJson(it) },
         )
     }
 
     suspend fun delete(id: Long): Boolean = db.transaction { _, writeDao ->
         writeDao.delete(id) > 0
     }
+
+    private fun toJson(tags: List<StockTag>): String = jackson.writeValueAsString(tags)
 
     suspend fun checkTablesAccess(): List<TableAccessStatus> = coroutineScope {
         listOf(Tables.STOCKS, Tables.TRADES, Tables.KITE_TOKENS).map { tableName ->
@@ -72,5 +88,4 @@ class StockService @Inject constructor(
         }.awaitAll()
     }
 
-    private fun toJson(tags: List<StockTag>): String = jackson.writeValueAsString(tags)
 }
