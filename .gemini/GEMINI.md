@@ -8,6 +8,12 @@ Everything Claude Code (ECC) is a cross-harness coding system with 36 specialize
 
 Gemini support is currently focused on a strong project-local instruction layer via `.gemini/GEMINI.md`, plus the shared MCP catalog and package-manager setup assets shipped by the installer.
 
+## Documentation and Tracking
+
+1. **Continuous Documentation:** Every time we discuss a new task, a new requirement, or any architectural decision, it MUST be documented immediately. 
+2. **Task Tracker:** Maintain a single file (e.g., `TRACKER.md`) that acts as the source of truth for all active, pending, and completed work. This document should be updated at the end of every significant turn or decision to ensure continuity.
+3. **Traceability:** Documentation should be structured so that a return to the project after several days allows for immediate context recovery.
+
 ## Core Workflow
 
 1. Plan before editing large features.
