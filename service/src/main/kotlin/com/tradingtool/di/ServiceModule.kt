@@ -34,6 +34,7 @@ import com.tradingtool.core.delivery.dao.StockDeliveryReadDao
 import com.tradingtool.core.delivery.dao.StockDeliveryWriteDao
 import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
 import com.tradingtool.core.screener.CandleDataService
+import com.tradingtool.core.screener.WeeklyPatternConfigService
 import com.tradingtool.core.screener.WeeklyPatternService
 import com.tradingtool.core.strategy.remora.RemoraService
 import com.tradingtool.core.strategy.remora.RemoraSignalReadDao
@@ -244,7 +245,8 @@ class ServiceModule(
     fun provideWeeklyPatternService(
         stockHandler: StockJdbiHandler,
         candleCache: CandleCacheService,
-    ): WeeklyPatternService = WeeklyPatternService(stockHandler, candleCache)
+        patternConfigService: WeeklyPatternConfigService,
+    ): WeeklyPatternService = WeeklyPatternService(stockHandler, candleCache, patternConfigService)
 
     @Provides @Singleton
     fun provideTechnicalContextService(

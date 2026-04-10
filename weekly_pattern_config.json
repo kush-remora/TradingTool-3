@@ -1,0 +1,13 @@
+{
+  "lookbackWeeks": 8,
+  "minTradingDaysPerWeek": 3,
+  "minWeeksRequired": 10,
+  "entryReboundPct": 1.0,
+  "swingTargetPct": 5.0,
+  "stopLossPct": 3.0,
+  "patternConfirmed": {
+    "minEntryRatePct": 50.0,
+    "minWinRatePct": 50.0,
+    "minAvgSwingPct": 0.5
+  }
+}

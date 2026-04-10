@@ -61,7 +61,7 @@ class ScreenerResource @Inject constructor(
         val results = weeklyPatternService.analyze(symbols)
         ok(WeeklyPatternListResponse(
             runAt = Instant.now().toString(),
-            lookbackWeeks = 10,
+            lookbackWeeks = weeklyPatternService.lookbackWeeks(),
             results = results
         ))
     }

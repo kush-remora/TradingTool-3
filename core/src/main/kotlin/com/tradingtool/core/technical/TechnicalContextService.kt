@@ -27,7 +27,7 @@ class TechnicalContextService(
         val rsiList = series.calculateRsiValues(period = 14, fallback = 50.0)
 
         val ltp = candles.last().close
-        val atr14 = if (series.barCount >= 14) series.calculateAtr(14).getDoubleValue(series.endIndex) else 0.0
+        val atr14 = StrategyTechnicalSignals.latestAtr14(candles)
         val sma200 = if (series.barCount >= 200) series.calculateSma(200).getDoubleValue(series.endIndex) else 0.0
 
         val currentRsi = rsiList.lastOrNull() ?: 50.0
@@ -38,7 +38,14 @@ class TechnicalContextService(
         val lowestRsi200d = rsiList.takeLast(200).minOrNull() ?: 50.0
         val highestRsi200d = rsiList.takeLast(200).maxOrNull() ?: 50.0
 
-        val adaptiveRsi = AdaptiveRsi.getStatus(currentRsi, lowestRsi100d, highestRsi100d)
+        val threeMonthBounds = StrategyTechnicalSignals
+            .buildRollingRsiBoundsMap(candles)
+            .let { boundsByDate -> boundsByDate[candles.last().candleDate] }
+        val adaptiveRsi = AdaptiveRsi.getStatus(
+            currentRsi = currentRsi,
+            lowestRsi = threeMonthBounds?.lowest ?: lowestRsi100d,
+            highestRsi = threeMonthBounds?.highest ?: highestRsi100d,
+        )
 
         val recentSessions = candles.takeLast(10).map { candle ->
             val range = candle.high - candle.low

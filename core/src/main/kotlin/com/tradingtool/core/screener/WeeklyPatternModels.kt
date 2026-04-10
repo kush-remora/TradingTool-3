@@ -15,7 +15,7 @@ data class WeeklyPatternResult(
     val reboundConsistency: Int,
     val sellDay: String,
     val swingAvgPct: Double,
-    val avgPotentialPct: Double,       // Monday Low to Week High
+    val avgPotentialPct: Double,       // Week Low to Week High (absolute weekly swing)
     val swingConsistency: Int,
     val compositeScore: Int,
     val patternConfirmed: Boolean,
@@ -62,7 +62,7 @@ data class WeekHeatmapRow(
     val sellPriceActual: Double?,
     val buyRsi: Double?,
     val netSwingPct: Double?,
-    val maxPotentialPct: Double?,      // Monday Low to Week High
+    val maxPotentialPct: Double?,      // Week Low to Week High (absolute weekly swing)
     val reasoning: String?
 )
 
