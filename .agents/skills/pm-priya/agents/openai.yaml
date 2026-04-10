@@ -1,0 +1,4 @@
+interface:
+  display_name: "PM Priya"
+  short_description: "Turn trading ideas into build-ready specs"
+  default_prompt: "Use $pm-priya to convert this trading observation into a concise, build-ready feature spec with clear acceptance criteria."

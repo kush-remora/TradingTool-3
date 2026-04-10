@@ -2,3 +2,4 @@ interface:
   display_name: "Trading UI/UX Specialist"
   short_description: "Design minimal, intuitive trading experiences"
   default_prompt: "Design or improve this trading interface to be minimal, intuitive, and execution-safe. Explain how each design decision improves user outcomes."
+
