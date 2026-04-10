@@ -94,3 +94,14 @@ Since Codex lacks hooks, security enforcement is instruction-based:
 3. Run `npm audit` / `pip audit` before committing
 4. Review `git diff` before every push
 5. Use `sandbox_mode = "workspace-write"` in config
+
+## Backend Runtime Verification
+
+After backend Kotlin changes, run the actual service entrypoint (`Application.kt`) before closing the task to confirm the server can boot.
+
+Recommended commands:
+1. `mvn -pl service -am -DskipTests install`
+2. `mvn -pl service -DskipTests exec:java`
+
+Pass condition:
+- Dropwizard starts successfully (`Starting TradingTool-3`, Jetty bound on `0.0.0.0:8080`, resources listed) with no startup exceptions.

@@ -17,8 +17,12 @@ class ComputedIndicatorsSerializationTest {
             instrumentToken = 123456,
             sma50 = 100.0,
             sma200 = 105.5,
-            high40d = 112.75,
-            low40d = 92.15,
+            high60d = 112.75,
+            low60d = 92.15,
+            rsiAtHigh60d = 78.4,
+            rsiAtLow60d = 28.2,
+            volumeAtHigh60d = 1_250_000.0,
+            volumeAtLow60d = 975_000.0,
             rsi14 = 45.0,
             computedAt = System.currentTimeMillis()
         )
@@ -30,8 +34,12 @@ class ComputedIndicatorsSerializationTest {
         assertEquals(original.instrumentToken, deserialized.instrumentToken)
         assertEquals(original.sma50, deserialized.sma50)
         assertEquals(original.sma200, deserialized.sma200)
-        assertEquals(original.high40d, deserialized.high40d)
-        assertEquals(original.low40d, deserialized.low40d)
+        assertEquals(original.high60d, deserialized.high60d)
+        assertEquals(original.low60d, deserialized.low60d)
+        assertEquals(original.rsiAtHigh60d, deserialized.rsiAtHigh60d)
+        assertEquals(original.rsiAtLow60d, deserialized.rsiAtLow60d)
+        assertEquals(original.volumeAtHigh60d, deserialized.volumeAtHigh60d)
+        assertEquals(original.volumeAtLow60d, deserialized.volumeAtLow60d)
         assertEquals(original.rsi14, deserialized.rsi14)
         assertEquals(original.computedAt, deserialized.computedAt)
     }

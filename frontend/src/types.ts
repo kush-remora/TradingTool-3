@@ -172,9 +172,13 @@ export interface WatchlistRow {
   changePercent: number | null;
   sma50: number | null;
   sma200: number | null;
-  high40d: number | null;
-  low40d: number | null;
-  rangePosition40dPct: number | null;
+  high60d: number | null;
+  low60d: number | null;
+  rangePosition60dPct: number | null;
+  rsiAtHigh60d: number | null;
+  rsiAtLow60d: number | null;
+  volumeAtHigh60d: number | null;
+  volumeAtLow60d: number | null;
   priceVs200maPct: number | null;
   rsi14: number | null;
   roc1w: number | null;

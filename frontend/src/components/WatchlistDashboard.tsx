@@ -24,6 +24,17 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
   const formatMoney = (val: number | null) => 
     val !== null ? `₹${val.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "-";
 
+  const formatRsi = (val: number | null): string => (val !== null ? val.toFixed(2) : "-");
+
+  const formatVolume = (val: number | null): string => {
+    if (val === null) return "-";
+    const abs = Math.abs(val);
+    if (abs >= 1_000_000_000) return `${(val / 1_000_000_000).toFixed(2)}B`;
+    if (abs >= 1_000_000) return `${(val / 1_000_000).toFixed(2)}M`;
+    if (abs >= 1_000) return `${(val / 1_000).toFixed(2)}K`;
+    return val.toFixed(0);
+  };
+
   const compareNullableNumbers = (a: number | null, b: number | null): number => {
     if (a === null && b === null) return 0;
     if (a === null) return 1;
@@ -86,35 +97,50 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
       render: (v: number | null) => <Text>{formatMoney(v)}</Text>
     },
     {
-      title: "2M HIGH",
-      dataIndex: "high40d",
-      key: "high40d",
-      width: 110,
-      sorter: (a: WatchlistRow, b: WatchlistRow) => compareNullableNumbers(a.high40d, b.high40d),
-      render: (v: number | null) => <Text>{formatMoney(v)}</Text>
-    },
-    {
-      title: "2M LOW",
-      dataIndex: "low40d",
-      key: "low40d",
-      width: 110,
-      sorter: (a: WatchlistRow, b: WatchlistRow) => compareNullableNumbers(a.low40d, b.low40d),
-      render: (v: number | null) => <Text>{formatMoney(v)}</Text>
-    },
-    {
-      title: "RANGE POS",
-      dataIndex: "rangePosition40dPct",
-      key: "rangePosition40dPct",
-      width: 130,
-      sorter: (a: WatchlistRow, b: WatchlistRow) => compareNullableNumbers(a.rangePosition40dPct, b.rangePosition40dPct),
-      render: (v: number | null) => {
+      title: "2M RANGE",
+      dataIndex: "rangePosition60dPct",
+      key: "rangePosition60dPct",
+      width: 160,
+      sorter: (a: WatchlistRow, b: WatchlistRow) => compareNullableNumbers(a.rangePosition60dPct, b.rangePosition60dPct),
+      render: (v: number | null, record: WatchlistRow) => {
         if (v === null) return <Text type="secondary">-</Text>;
         const clamped = Math.max(0, Math.min(100, v));
-        return (
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <Text style={{ fontSize: 11, fontWeight: 500 }}>{clamped.toFixed(0)}%</Text>
-            <Progress percent={clamped} showInfo={false} size="small" />
+        const tooltip = (
+          <div style={{ minWidth: 220, color: "#ffffff", fontSize: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+              <span>2M High</span>
+              <span>{formatMoney(record.high60d)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+              <span>RSI at High</span>
+              <span>{formatRsi(record.rsiAtHigh60d)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span>Volume at High</span>
+              <span>{formatVolume(record.volumeAtHigh60d)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+              <span>2M Low</span>
+              <span>{formatMoney(record.low60d)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+              <span>RSI at Low</span>
+              <span>{formatRsi(record.rsiAtLow60d)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span>Volume at Low</span>
+              <span>{formatVolume(record.volumeAtLow60d)}</span>
+            </div>
           </div>
+        );
+
+        return (
+          <Tooltip title={tooltip} placement="right">
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <Text style={{ fontSize: 11, fontWeight: 500 }}>{clamped.toFixed(0)}%</Text>
+              <Progress percent={clamped} showInfo={false} size="small" />
+            </div>
+          </Tooltip>
         );
       }
     },

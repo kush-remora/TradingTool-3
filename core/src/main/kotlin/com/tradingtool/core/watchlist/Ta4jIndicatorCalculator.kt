@@ -15,6 +15,8 @@ import com.tradingtool.core.technical.calculateSma
 import com.tradingtool.core.technical.getNullableDouble
 
 object Ta4jIndicatorCalculator {
+    private const val RANGE_WINDOW_60D = 60
+    private const val PRICE_EPSILON = 1e-8
 
     /**
      * Calculates the required technical indicators from a ta4j BarSeries.
@@ -33,12 +35,9 @@ object Ta4jIndicatorCalculator {
         val sma50 = if (series.barCount >= 50) series.calculateSma(50).getNullableDouble(lastIndex) else null
         val sma200 = if (series.barCount >= 200) series.calculateSma(200).getNullableDouble(lastIndex) else null
 
-        // 2-month range based on last 40 closes
-        val high40d = if (series.barCount >= 40) HighestValueIndicator(closePrice, 40).getNullableDouble(lastIndex) else null
-        val low40d = if (series.barCount >= 40) LowestValueIndicator(closePrice, 40).getNullableDouble(lastIndex) else null
-
         // RSI 14
-        val rsi14 = if (series.barCount >= 14) series.calculateRsi(14).getNullableDouble(lastIndex) else null
+        val rsi14Indicator = if (series.barCount >= 14) series.calculateRsi(14) else null
+        val rsi14 = rsi14Indicator?.getNullableDouble(lastIndex)
 
         // ROC 1W (5 days) & 3M (60 days)
         val roc1w = if (series.barCount >= 5) ROCIndicator(closePrice, 5).getNullableDouble(lastIndex) else null
@@ -70,15 +69,72 @@ object Ta4jIndicatorCalculator {
             0.0
         }
 
-        // Average Volume (20 days)
         val volume = VolumeIndicator(series)
+
+        // 2-month context range (60 bars): high/low and RSI/volume at those extremes.
+        val high60d = if (series.barCount >= RANGE_WINDOW_60D) {
+            HighestValueIndicator(closePrice, RANGE_WINDOW_60D).getNullableDouble(lastIndex)
+        } else {
+            null
+        }
+        val low60d = if (series.barCount >= RANGE_WINDOW_60D) {
+            LowestValueIndicator(closePrice, RANGE_WINDOW_60D).getNullableDouble(lastIndex)
+        } else {
+            null
+        }
+
+        var bestHighIndex: Int? = null
+        var bestLowIndex: Int? = null
+        var rsiAtHigh60d: Double? = null
+        var rsiAtLow60d: Double? = null
+
+        if (series.barCount >= RANGE_WINDOW_60D && high60d != null && low60d != null && rsi14Indicator != null) {
+            val startIndex = lastIndex - (RANGE_WINDOW_60D - 1)
+            for (index in startIndex..lastIndex) {
+                val close = closePrice.getNullableDouble(index) ?: continue
+                val rsi = rsi14Indicator.getNullableDouble(index) ?: continue
+
+                if (kotlin.math.abs(close - high60d) <= PRICE_EPSILON) {
+                    val currentBestRsi = rsiAtHigh60d
+                    val currentBestIndex = bestHighIndex
+                    val shouldReplace = currentBestRsi == null ||
+                        rsi > currentBestRsi ||
+                        (rsi == currentBestRsi && (currentBestIndex == null || index > currentBestIndex))
+                    if (shouldReplace) {
+                        rsiAtHigh60d = rsi
+                        bestHighIndex = index
+                    }
+                }
+
+                if (kotlin.math.abs(close - low60d) <= PRICE_EPSILON) {
+                    val currentBestRsi = rsiAtLow60d
+                    val currentBestIndex = bestLowIndex
+                    val shouldReplace = currentBestRsi == null ||
+                        rsi < currentBestRsi ||
+                        (rsi == currentBestRsi && (currentBestIndex == null || index > currentBestIndex))
+                    if (shouldReplace) {
+                        rsiAtLow60d = rsi
+                        bestLowIndex = index
+                    }
+                }
+            }
+        }
+
+        val volumeAtHigh60d = bestHighIndex?.let { volume.getNullableDouble(it) }
+        val volumeAtLow60d = bestLowIndex?.let { volume.getNullableDouble(it) }
+
+        // Average Volume (20 days)
         val avgVol20d = if (series.barCount >= 20) SMAIndicator(volume, 20).getNullableDouble(lastIndex) else null
 
         return ComputedIndicators(
             sma50 = sma50,
             sma200 = sma200,
-            high40d = high40d,
-            low40d = low40d,
+            high60d = high60d,
+            low60d = low60d,
+            rsiAtHigh60d = rsiAtHigh60d,
+            rsiAtLow60d = rsiAtLow60d,
+            volumeAtHigh60d = volumeAtHigh60d,
+            volumeAtLow60d = volumeAtLow60d,
             rsi14 = rsi14,
             roc1w = roc1w,
             roc3m = roc3m,

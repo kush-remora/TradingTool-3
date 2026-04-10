@@ -17,7 +17,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.time.Instant
@@ -53,7 +52,6 @@ class IndicatorService(
 
     private val ist = ZoneId.of("Asia/Kolkata")
     private val indicatorWarmupYears: Long = 2 // 2 years is enough for SMA200 + RSI bounds
-    private val computedIndicatorsListSerializer = ListSerializer(ComputedIndicators.serializer())
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -67,7 +65,7 @@ class IndicatorService(
         val cached = redis.get(redisKey)
         if (cached != null) {
             val cachedIndicators = deserializeOrLog<List<ComputedIndicators>>(cached, "redis:$redisKey") {
-                json.decodeFromString(computedIndicatorsListSerializer, it)
+                json.decodeFromString<List<ComputedIndicators>>(it)
             }
             if (cachedIndicators != null && !isStale(cachedIndicators)) {
                 return cachedIndicators
@@ -81,7 +79,7 @@ class IndicatorService(
         val indicators = loadAndComputeIndicators(stocks)
         
         if (indicators.isNotEmpty()) {
-            redis.set(redisKey, json.encodeToString(computedIndicatorsListSerializer, indicators), config.indicatorsTtlSeconds)
+            redis.set(redisKey, json.encodeToString(indicators), config.indicatorsTtlSeconds)
         }
         
         return indicators
@@ -274,7 +272,7 @@ class IndicatorService(
                     if (tagIndicators.isNotEmpty()) {
                         redis.set(
                             config.tagIndicatorsKey(tag),
-                            json.encodeToString(computedIndicatorsListSerializer, tagIndicators),
+                            json.encodeToString(tagIndicators),
                             config.indicatorsTtlSeconds,
                         )
                     }
@@ -287,7 +285,7 @@ class IndicatorService(
         if (computedResults.isEmpty()) return
         redis.set(
             "watchlist:indicators:ALL",
-            json.encodeToString(computedIndicatorsListSerializer, computedResults),
+            json.encodeToString(computedResults),
             config.indicatorsTtlSeconds,
         )
     }
