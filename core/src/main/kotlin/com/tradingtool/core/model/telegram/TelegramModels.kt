@@ -1,6 +1,7 @@
 package com.tradingtool.core.model.telegram
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
 data class TelegramSendTextRequest(
     val text: String,
@@ -31,6 +32,7 @@ data class TelegramSendResult(
     val response: TelegramSendResponse,
 )
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 internal data class TelegramApiResponse(
     @JsonProperty("ok")
     val ok: Boolean,
