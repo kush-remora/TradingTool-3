@@ -1,12 +1,15 @@
 import { Table, Typography, Tag, Space, Progress, Button, Tooltip, message } from "antd";
 import { SyncOutlined } from "@ant-design/icons";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useStocks } from "../hooks/useStocks";
 import { useWatchlist } from "../hooks/useWatchlist";
 import { StockDetailDrawer } from "./StockDetailDrawer";
-import type { WatchlistRow } from "../types";
+import type { WeeklyPatternListResponse, WeeklyPatternResult, WatchlistRow } from "../types";
 import { StockBadge } from "./StockBadge";
 import { LiveMarketWidget } from "./LiveMarketWidget";
 import { TradeMarketHistoryPanel } from "./TradeMarketHistoryPanel";
+import { getJson } from "../utils/api";
+import { compareByNearestBuyZone, computeBuyZoneMetrics } from "../utils/screenerBuyZone";
 
 const { Text } = Typography;
 
@@ -18,8 +21,11 @@ interface WatchlistDashboardProps {
 
 export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: WatchlistDashboardProps) {
   const { rows, loading, refreshing, refreshIndicators } = useWatchlist(tag);
+  const { stocks } = useStocks();
   const [detailSymbol, setDetailSymbol] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<string[]>([]);
+  const [weeklyBySymbol, setWeeklyBySymbol] = useState<Record<string, WeeklyPatternResult>>({});
+  const [buyZoneLookbackWeeks, setBuyZoneLookbackWeeks] = useState<number>(8);
   const [messageApi, contextHolder] = message.useMessage();
 
   const formatMoney = (val: number | null) => 
@@ -44,6 +50,74 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
     return a - b;
   };
 
+  const tagsBySymbol = useMemo(() => {
+    return stocks.reduce<Record<string, { name: string; color: string }[]>>((acc, stock) => {
+      acc[stock.symbol.toUpperCase()] = stock.tags;
+      return acc;
+    }, {});
+  }, [stocks]);
+
+  useEffect(() => {
+    let active = true;
+    const symbols = Array.from(
+      new Set(
+        rows
+          .map((row) => row.symbol.trim().toUpperCase())
+          .filter((symbol) => symbol.length > 0),
+      ),
+    );
+
+    if (symbols.length === 0) {
+      setWeeklyBySymbol({});
+      return () => {
+        active = false;
+      };
+    }
+
+    const fetchWeeklyInsights = async () => {
+      try {
+        const query = encodeURIComponent(symbols.join(","));
+        const payload = await getJson<WeeklyPatternListResponse>(
+          `/api/screener/weekly-pattern?symbols=${query}`,
+          { useCache: false },
+        );
+        if (!active) return;
+
+        const mapped = payload.results.reduce<Record<string, WeeklyPatternResult>>((acc, item) => {
+          acc[item.symbol.toUpperCase()] = item;
+          return acc;
+        }, {});
+
+        setWeeklyBySymbol(mapped);
+        setBuyZoneLookbackWeeks(payload.buyZoneLookbackWeeks ?? payload.lookbackWeeks ?? 8);
+      } catch {
+        if (!active) return;
+        setWeeklyBySymbol({});
+      }
+    };
+
+    void fetchWeeklyInsights();
+
+    return () => {
+      active = false;
+    };
+  }, [rows]);
+
+  const getWeeklyPattern = (symbol: string): WeeklyPatternResult | null => {
+    return weeklyBySymbol[symbol.toUpperCase()] ?? null;
+  };
+
+  const getBuyZoneMetrics = (record: WatchlistRow) => {
+    const weekly = getWeeklyPattern(record.symbol);
+    if (!weekly) return null;
+
+    return computeBuyZoneMetrics({
+      ltp: record.ltp,
+      buyDayLowMin: weekly.buyDayLowMin,
+      buyDayLowMax: weekly.buyDayLowMax,
+    });
+  };
+
   const renderColorValue = (val: number | null, prefix = "", suffix = "") => {
     if (val === null) return <Text type="secondary">-</Text>;
     const color = val > 0 ? "#52c41a" : val < 0 ? "#ff4d4f" : "#bfbfbf";
@@ -52,6 +126,21 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
       <Text style={{ color, fontWeight: 500 }}>
         {sign}{prefix}{val.toFixed(2)}{suffix}
       </Text>
+    );
+  };
+
+  const renderWeeklyMarketState = (weekly: WeeklyPatternResult | null) => {
+    if (!weekly?.currentRsiStatus) return <Text type="secondary">-</Text>;
+    const { isOverbought, isOversold, percentile, currentRsi } = weekly.currentRsiStatus;
+
+    if (isOverbought) return <Tag color="error" style={{ margin: 0 }}>Overbought</Tag>;
+    if (isOversold) return <Tag color="success" style={{ margin: 0 }}>Oversold</Tag>;
+
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <Text style={{ fontSize: 12, color: "#8c8c8c" }}>Within range ({percentile}%)</Text>
+        <Text type="secondary" style={{ fontSize: 11 }}>RSI: {currentRsi}</Text>
+      </div>
     );
   };
 
@@ -72,7 +161,19 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
       render: (v: string, record: WatchlistRow) => (
         <div style={{ display: "flex", flexDirection: "column" }}>
           <StockBadge symbol={v} instrumentToken={record.instrumentToken} companyName={record.companyName} fontSize={14} />
-          <Text type="secondary" style={{ fontSize: 11 }}>{record.exchange}</Text>
+          <Text type="secondary" style={{ fontSize: 11 }}>{record.exchange} · {record.companyName}</Text>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+            {(tagsBySymbol[v.toUpperCase()] ?? []).slice(0, 3).map((stockTag) => (
+              <Tag key={stockTag.name} color={stockTag.color} style={{ margin: 0, fontSize: 10, lineHeight: "16px" }}>
+                {stockTag.name}
+              </Tag>
+            ))}
+            {(tagsBySymbol[v.toUpperCase()] ?? []).length > 3 && (
+              <Tag style={{ margin: 0, fontSize: 10, lineHeight: "16px" }}>
+                +{(tagsBySymbol[v.toUpperCase()] ?? []).length - 3}
+              </Tag>
+            )}
+          </div>
         </div>
       )
     },
@@ -90,6 +191,89 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
           />
         );
       }
+    },
+    {
+      title: "BUY ZONE INSIGHTS",
+      children: [
+        {
+          title: `Buy Zone (${buyZoneLookbackWeeks}w)`,
+          key: "buyZoneRange",
+          width: 150,
+          render: (_: unknown, record: WatchlistRow) => {
+            const weekly = getWeeklyPattern(record.symbol);
+            if (!weekly) return <Text type="secondary">-</Text>;
+            return (
+              <Text>
+                {formatMoney(weekly.buyDayLowMin)} - {formatMoney(weekly.buyDayLowMax)}
+              </Text>
+            );
+          },
+        },
+        {
+          title: "LTP vs Min Low %",
+          key: "ltpVsMinLow",
+          width: 130,
+          defaultSortOrder: "ascend" as const,
+          sorter: (a: WatchlistRow, b: WatchlistRow) => {
+            const left = getBuyZoneMetrics(a);
+            const right = getBuyZoneMetrics(b);
+            if (!left || !right) return compareNullableNumbers(left?.ltpVsMinLowPct ?? null, right?.ltpVsMinLowPct ?? null);
+            return compareByNearestBuyZone(left, right);
+          },
+          render: (_: unknown, record: WatchlistRow) => {
+            const metrics = getBuyZoneMetrics(record);
+            if (!metrics || metrics.ltpVsMinLowPct === null) return <Text type="secondary">-</Text>;
+            const pct = metrics.ltpVsMinLowPct;
+            const color = pct <= 5 ? "#52c41a" : pct <= 15 ? "#faad14" : "#8c8c8c";
+            const sign = pct > 0 ? "+" : "";
+            return <Text style={{ color, fontWeight: 600 }}>{sign}{pct.toFixed(2)}%</Text>;
+          },
+        },
+        {
+          title: "Distance ₹",
+          key: "distanceFromMin",
+          width: 120,
+          render: (_: unknown, record: WatchlistRow) => {
+            const metrics = getBuyZoneMetrics(record);
+            if (!metrics || metrics.distanceFromMin === null) return <Text type="secondary">-</Text>;
+            const distance = metrics.distanceFromMin;
+            const color = distance <= 0 ? "#52c41a" : "#8c8c8c";
+            const sign = distance > 0 ? "+" : "";
+            return <Text style={{ color, fontWeight: 500 }}>₹{sign}{distance.toFixed(2)}</Text>;
+          },
+        },
+      ],
+    },
+    {
+      title: "CYCLE",
+      key: "cycle",
+      width: 100,
+      render: (_: unknown, record: WatchlistRow) => {
+        const weekly = getWeeklyPattern(record.symbol);
+        if (!weekly) return <Text type="secondary">-</Text>;
+        let color = "default";
+        if (weekly.cycleType === "Weekly") color = "success";
+        if (weekly.cycleType === "Biweekly") color = "warning";
+        return <Tag color={color} style={{ margin: 0 }}>{weekly.cycleType}</Tag>;
+      },
+    },
+    {
+      title: "MARKET STATE",
+      key: "weeklyMarketState",
+      width: 150,
+      render: (_: unknown, record: WatchlistRow) => renderWeeklyMarketState(getWeeklyPattern(record.symbol)),
+    },
+    {
+      title: "SCORE",
+      key: "weeklyScore",
+      width: 90,
+      render: (_: unknown, record: WatchlistRow) => {
+        const weekly = getWeeklyPattern(record.symbol);
+        if (!weekly) return <Text type="secondary">-</Text>;
+        const score = weekly.compositeScore;
+        const color = score > 70 ? "#52c41a" : score > 40 ? "#faad14" : "#8c8c8c";
+        return <Text style={{ color, fontWeight: 700 }}>{score}</Text>;
+      },
     },
     {
       title: "SMA 50",
