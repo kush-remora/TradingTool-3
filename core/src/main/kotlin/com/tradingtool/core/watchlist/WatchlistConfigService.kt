@@ -42,19 +42,20 @@ class WatchlistConfigService @Inject constructor() {
         }
     }
 
+    fun getTagNames(): List<String> = loadConfig().tagDefinitions.map { it.name }
+
+    fun isValidTag(tagName: String): Boolean = getTagNames().contains(tagName)
+
+    fun getTagDefinition(name: String): WatchlistTagDefinition? = 
+        loadConfig().tagDefinitions.find { it.name.equals(name, ignoreCase = true) }
+
+    fun listAllTags(): List<WatchlistTagDefinition> = loadConfig().tagDefinitions
+
     private fun saveConfig(config: WatchlistConfig) {
         try {
             mapper.writerWithDefaultPrettyPrinter().writeValue(configFile, config)
         } catch (e: Exception) {
             log.error("Failed to save watchlist_config.json: ${e.message}")
         }
-    }
-
-    fun listAllTags(): List<WatchlistTagDefinition> {
-        return loadConfig().tagDefinitions
-    }
-
-    fun getTagDefinition(name: String): WatchlistTagDefinition? {
-        return loadConfig().tagDefinitions.find { it.name.equals(name, ignoreCase = true) }
     }
 }

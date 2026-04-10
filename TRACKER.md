@@ -23,7 +23,8 @@ This file tracks active, pending, and completed features.
 ---
 
 ## ✅ Completed Features
-*No completed features tracked yet.*
+* **Watchlist Refactoring** (2026-04-06): Transitioned to pre-defined tagging system from `watchlist_config.json`.
+
 
 ---
 

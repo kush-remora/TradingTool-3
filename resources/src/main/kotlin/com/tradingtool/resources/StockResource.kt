@@ -51,6 +51,7 @@ class StockResource @Inject constructor(
     private val kiteClient: KiteConnectClient,
     private val liveMarketService: LiveMarketService,
     private val instrumentCache: InstrumentCache,
+    private val watchlistConfigService: com.tradingtool.core.watchlist.WatchlistConfigService,
 ) {
     private val ioScope = resourceScope.ioScope
     private val instrumentMutex = Mutex()
@@ -63,6 +64,20 @@ class StockResource @Inject constructor(
     @Path("/health")
     fun health(): CompletableFuture<Response> = ioScope.endpoint {
         ok(stockService.checkTablesAccess())
+    }
+
+    /** List all unique tags (name + color) currently assigned to stocks. */
+    @GET
+    @Path("/tags")
+    fun listTags(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(stockService.listAllTags())
+    }
+
+    /** List all pre-defined tags from watchlist_config.json. */
+    @GET
+    @Path("/config/tags")
+    fun listConfigTags(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(watchlistConfigService.loadConfig().tagDefinitions)
     }
 
     /** List all stocks. Optional ?tag=Momentum filter. */
@@ -89,13 +104,6 @@ class StockResource @Inject constructor(
         if (sym.isEmpty()) return@endpoint badRequest("Path parameter 'symbol' is required")
         val stock = stockService.getBySymbol(sym, "NSE") ?: return@endpoint notFound("Stock '$sym' not found")
         ok(stock)
-    }
-
-    /** List all unique tags (name + color). Used to populate tag dropdown. */
-    @GET
-    @Path("/tags")
-    fun listTags(): CompletableFuture<Response> = ioScope.endpoint {
-        ok(stockService.listAllTags())
     }
 
     /** Get consolidated trade for a stock (at most one — unique constraint on stock_id). */

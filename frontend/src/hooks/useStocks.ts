@@ -20,7 +20,8 @@ export interface UpdateStockInput {
 
 interface UseStocksResult {
   stocks: Stock[];
-  allTags: StockTag[];           // unique tags derived from all stocks — for dropdown
+  allTags: StockTag[];           // unique tags derived from all stocks — for legacy/scanners
+  configTags: StockTag[];        // pre-defined tags from watchlist_config.json
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
@@ -32,71 +33,73 @@ interface UseStocksResult {
 
 // Module-level cache: shared across all component instances
 let cachedStocks: Stock[] | null = null;
+let cachedConfigTags: StockTag[] | null = null;
 let fetchPromise: Promise<Stock[]> | null = null;
+let configTagsFetchPromise: Promise<StockTag[]> | null = null;
 let stocksChangeListeners: ((stocks: Stock[]) => void)[] = [];
+let configTagsChangeListeners: ((tags: StockTag[]) => void)[] = [];
 
 function notifyStocksChange(stocks: Stock[]) {
   cachedStocks = stocks;
   stocksChangeListeners.forEach((listener) => listener(stocks));
 }
 
+function notifyConfigTagsChange(tags: StockTag[]) {
+  cachedConfigTags = tags;
+  configTagsChangeListeners.forEach((listener) => listener(tags));
+}
+
 export function useStocks(): UseStocksResult {
   const [stocks, setStocks] = useState<Stock[]>(cachedStocks ?? []);
-  const [loading, setLoading] = useState(cachedStocks === null);
+  const [configTags, setConfigTags] = useState<StockTag[]>(cachedConfigTags ?? []);
+  const [loading, setLoading] = useState(cachedStocks === null || cachedConfigTags === null);
   const [error, setError] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
-    // If already cached, use it
-    if (cachedStocks !== null) {
-      setStocks(cachedStocks);
-      setLoading(false);
-      return;
-    }
-
-    // If a fetch is already in progress, wait for it
-    if (fetchPromise !== null) {
+    // 1. Fetch Stocks
+    if (cachedStocks === null && fetchPromise === null) {
+      setLoading(true);
+      setError(null);
+      fetchPromise = getJson<Stock[]>("/api/stocks");
       try {
         const data = await fetchPromise;
+        notifyStocksChange(data);
         setStocks(data);
-        setLoading(false);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to fetch stocks");
-        setLoading(false);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to fetch stocks");
+      } finally {
+        fetchPromise = null;
       }
-      return;
     }
 
-    // Start a new fetch
-    setLoading(true);
-    setError(null);
-    fetchPromise = getJson<Stock[]>("/api/stocks");
-    try {
-      const data = await fetchPromise;
-      notifyStocksChange(data);
-      setStocks(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to fetch stocks");
-    } finally {
-      setLoading(false);
-      fetchPromise = null;
+    // 2. Fetch Config Tags
+    if (cachedConfigTags === null && configTagsFetchPromise === null) {
+      setLoading(true);
+      setError(null);
+      configTagsFetchPromise = getJson<StockTag[]>("/api/stocks/config/tags");
+      try {
+        const data = await configTagsFetchPromise;
+        notifyConfigTagsChange(data);
+        setConfigTags(data);
+      } catch (e) {
+        console.error("Failed to fetch config tags", e);
+      } finally {
+        configTagsFetchPromise = null;
+      }
     }
+
+    setLoading(false);
   }, []);
 
   useEffect(() => {
-    // Register listener for cache updates from other components
     stocksChangeListeners.push(setStocks);
+    configTagsChangeListeners.push(setConfigTags);
 
-    // Initial fetch if not cached
-    if (cachedStocks === null && fetchPromise === null) {
-      void fetchAll();
-    } else if (cachedStocks !== null) {
-      setStocks(cachedStocks);
-      setLoading(false);
-    }
+    void fetchAll();
 
     return () => {
-      // Cleanup listener
-      stocksChangeListeners = stocksChangeListeners.filter((listener) => listener !== setStocks);
+      stocksChangeListeners = stocksChangeListeners.filter((l) => l !== setStocks);
+      configTagsChangeListeners = configTagsChangeListeners.filter((l) => l !== setConfigTags);
     };
   }, [fetchAll]);
 
@@ -160,6 +163,7 @@ export function useStocks(): UseStocksResult {
   return {
     stocks,
     allTags,
+    configTags,
     loading,
     error,
     refetch: fetchAll,

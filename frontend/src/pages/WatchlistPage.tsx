@@ -7,7 +7,7 @@ import { useStocks, type CreateStockInput } from "../hooks/useStocks";
 import type { Stock } from "../types";
 
 export function WatchlistPage() {
-  const { stocks, allTags, loading, error, createStock, updateStock } = useStocks();
+  const { stocks, configTags, loading, error, createStock, updateStock } = useStocks();
 
   // Drawer state
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null);
@@ -93,7 +93,7 @@ export function WatchlistPage() {
           open={drawerMode !== null}
           mode={drawerMode || "create"}
           stock={selectedStock}
-          allTags={allTags}
+          allTags={configTags}
           existingStockTokens={new Set(stocks.map((s) => s.instrument_token))}
           onCreate={async (payload) => {
             await handleCreate(payload);

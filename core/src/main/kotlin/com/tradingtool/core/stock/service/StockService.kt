@@ -36,10 +36,13 @@ class StockService @Inject constructor(
     }
 
     suspend fun create(input: CreateStockInput): Stock = db.transaction { _, writeDao ->
-        val enrichedTags = input.tags.map { tag ->
-            val def = watchlistConfigService.getTagDefinition(tag.name)
-            StockTag(tag.name, def?.color ?: tag.color)
-        }
+        val validTags = input.tags
+            .mapNotNull { tag ->
+                watchlistConfigService.getTagDefinition(tag.name)?.let { def ->
+                    StockTag(def.name, def.color)
+                }
+            }
+            .distinctBy { it.name }
 
         writeDao.create(
             symbol = input.symbol.trim().uppercase(),
@@ -48,15 +51,16 @@ class StockService @Inject constructor(
             exchange = input.exchange.trim().uppercase(),
             notes = input.notes?.trim(),
             priority = input.priority,
-            tagsJson = toJson(enrichedTags),
+            tagsJson = toJson(validTags),
         )
     }
 
     suspend fun update(id: Long, payload: UpdateStockPayload): Stock? = db.transaction { _, writeDao ->
-        val enrichedTags = payload.tags?.map { tag ->
-            val def = watchlistConfigService.getTagDefinition(tag.name)
-            StockTag(tag.name, def?.color ?: tag.color)
-        }
+        val validTags = payload.tags?.mapNotNull { tag ->
+            watchlistConfigService.getTagDefinition(tag.name)?.let { def ->
+                StockTag(def.name, def.color)
+            }
+        }?.distinctBy { it.name }
 
         writeDao.update(
             id = id,
@@ -65,7 +69,7 @@ class StockService @Inject constructor(
             setPriority = payload.priority != null,
             priority = payload.priority,
             setTags = payload.tags != null,
-            tagsJson = enrichedTags?.let { toJson(it) },
+            tagsJson = validTags?.let { toJson(it) },
         )
     }
 

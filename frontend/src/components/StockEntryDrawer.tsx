@@ -62,18 +62,22 @@ export function StockEntryDrawer({
     }
   }, [stock, mode, open]);
 
-  const handleAddTag = () => {
-    if (!newTagName.trim()) return;
-    const newTag: StockTag = { name: newTagName.trim(), color: newTagColor };
-    if (!tagsDraft.some((t) => t.name === newTag.name)) {
-      setTagsDraft([...tagsDraft, newTag]);
-      setNewTagName("");
-      setNewTagColor("blue");
-    }
-  };
+  const tagOptions = (allTags || []).map(tag => ({
+    label: (
+      <Space>
+        <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: tag.color }} />
+        {tag.name}
+      </Space>
+    ),
+    value: tag.name,
+  }));
 
-  const handleRemoveTag = (tagName: string) => {
-    setTagsDraft(tagsDraft.filter((t) => t.name !== tagName));
+  const handleTagsChange = (values: string[]) => {
+    const newTags = values.map(val => {
+      const def = (allTags || []).find(t => t.name === val);
+      return { name: val, color: def?.color || 'blue' };
+    });
+    setTagsDraft(newTags);
   };
 
   const handleSave = async () => {
@@ -168,6 +172,15 @@ export function StockEntryDrawer({
 
         <Form.Item label="Tags">
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <Select
+              mode="multiple"
+              placeholder="Select from pre-defined tags"
+              value={tagsDraft.map(t => t.name)}
+              onChange={handleTagsChange}
+              options={tagOptions}
+              style={{ width: '100%' }}
+              size="small"
+            />
             {tagsDraft.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                 {tagsDraft.map((tag) => (
@@ -175,7 +188,7 @@ export function StockEntryDrawer({
                     key={tag.name}
                     color={tag.color}
                     closable
-                    onClose={() => handleRemoveTag(tag.name)}
+                    onClose={() => handleTagsChange(tagsDraft.filter(t => t.name !== tag.name).map(t => t.name))}
                     style={{ margin: 0, padding: "2px 8px", fontSize: 11 }}
                   >
                     {tag.name}
@@ -183,23 +196,6 @@ export function StockEntryDrawer({
                 ))}
               </div>
             )}
-            <Space.Compact style={{ width: "100%" }}>
-              <Input
-                size="small"
-                placeholder="New tag..."
-                value={newTagName}
-                onChange={(e) => setNewTagName(e.target.value)}
-                onPressEnter={handleAddTag}
-              />
-              <Select
-                value={newTagColor}
-                onChange={setNewTagColor}
-                options={TAG_COLORS.map((c) => ({ label: c, value: c }))}
-                size="small"
-                style={{ width: 80 }}
-              />
-              <Button type="primary" size="small" onClick={handleAddTag}>Add</Button>
-            </Space.Compact>
           </div>
         </Form.Item>
 

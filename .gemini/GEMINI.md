@@ -13,6 +13,10 @@ Gemini support is currently focused on a strong project-local instruction layer 
 1. **Continuous Documentation:** Every time we discuss a new task, a new requirement, or any architectural decision, it MUST be documented immediately. 
 2. **Task Tracker:** Maintain a single file (e.g., `TRACKER.md`) that acts as the source of truth for all active, pending, and completed work. This document should be updated at the end of every significant turn or decision to ensure continuity.
 3. **Traceability:** Documentation should be structured so that a return to the project after several days allows for immediate context recovery.
+4. **Sanity Checks:** After every task, the following must be performed:
+    - Build the backend to ensure no compilation errors.
+    - Build the frontend to ensure no compilation errors.
+    - Confirm that the application starts as expected.
 
 ## Core Workflow
 
