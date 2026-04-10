@@ -24,6 +24,7 @@ data class WeeklyPatternResult(
     val buyDayLowMin: Double,
     val buyDayLowMax: Double,
     val currentRsiStatus: AdaptiveRsiStatus? = null,
+    val targetRecommendation: TargetRecommendation? = null,
 )
 
 /** Response envelope for GET /api/screener/weekly-pattern — adds run metadata. */
@@ -66,6 +67,27 @@ data class WeekHeatmapRow(
     val reasoning: String?
 )
 
+data class TargetScenario(
+    val targetPct: Double,
+    val entries: Int,
+    val winRatePct: Double,
+    val stopLossRatePct: Double,
+    val avgSwingPct: Double,
+    val captureRatioPct: Double,
+    val feasible: Boolean,
+)
+
+data class TargetRecommendation(
+    val recommendedTargetPct: Double,
+    val safeTargetPct: Double,
+    val aggressiveTargetPct: Double,
+    val confidence: String,
+    val expectedSwingPct: Double,
+    val expectedWinRatePct: Double,
+    val expectedStopLossRatePct: Double,
+    val captureRatioPct: Double,
+)
+
 /** Full detail response for GET /api/screener/weekly-pattern/{symbol} (Screens 2 + 3). */
 data class WeeklyPatternDetail(
     val symbol: String,
@@ -90,4 +112,6 @@ data class WeeklyPatternDetail(
     val autocorrelation: AutocorrelationResult,
     val patternSummary: String,
     val weeklyHeatmap: List<WeekHeatmapRow>,
+    val targetRecommendation: TargetRecommendation? = null,
+    val targetScenarios: List<TargetScenario> = emptyList(),
 )

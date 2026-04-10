@@ -1,7 +1,7 @@
 {
   "lookbackWeeks": 8,
   "minTradingDaysPerWeek": 3,
-  "minWeeksRequired": 10,
+  "minWeeksRequired": 8,
   "entryReboundPct": 1.0,
   "swingTargetPct": 5.0,
   "stopLossPct": 3.0,
@@ -9,5 +9,12 @@
     "minEntryRatePct": 50.0,
     "minWinRatePct": 50.0,
     "minAvgSwingPct": 0.5
+  },
+  "targetRecommendation": {
+    "candidateTargetsPct": [5.0, 6.0, 7.0, 8.0],
+    "minSamples": 4,
+    "minWinRatePct": 50.0,
+    "maxStopLossRatePct": 45.0,
+    "fallbackTargetPct": 5.0
   }
 }

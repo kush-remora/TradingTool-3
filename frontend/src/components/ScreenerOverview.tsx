@@ -127,6 +127,11 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
           <div>
             <Text strong>{record.sellDay} </Text>
             <Tag color={winPercent >= 70 ? 'green' : winPercent > 50 ? 'orange' : 'red'}>{winPercent}% Win</Tag>
+            {record.targetRecommendation && (
+              <Tag color="blue" style={{ marginLeft: 4 }}>
+                Target {record.targetRecommendation.recommendedTargetPct}%
+              </Tag>
+            )}
             <div style={{ fontSize: 12, color: '#8c8c8c' }}>
               {record.swingConsistency} W / {(record.reboundConsistency - record.swingConsistency)} L
             </div>

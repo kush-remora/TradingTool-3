@@ -216,6 +216,7 @@ export interface WeeklyPatternResult {
   buyDayLowMin: number;
   buyDayLowMax: number;
   currentRsiStatus: AdaptiveRsiStatus | null;
+  targetRecommendation: TargetRecommendation | null;
 }
 
 export interface WeeklyPatternListResponse {
@@ -255,11 +256,33 @@ export interface WeekHeatmapRow {
   reasoning: string | null;
 }
 
+export interface TargetScenario {
+  targetPct: number;
+  entries: number;
+  winRatePct: number;
+  stopLossRatePct: number;
+  avgSwingPct: number;
+  captureRatioPct: number;
+  feasible: boolean;
+}
+
+export interface TargetRecommendation {
+  recommendedTargetPct: number;
+  safeTargetPct: number;
+  aggressiveTargetPct: number;
+  confidence: "HIGH" | "MEDIUM" | "LOW" | string;
+  expectedSwingPct: number;
+  expectedWinRatePct: number;
+  expectedStopLossRatePct: number;
+  captureRatioPct: number;
+}
+
 export interface WeeklyPatternDetail extends WeeklyPatternResult {
   dayOfWeekProfile: DayProfile[];
   autocorrelation: AutocorrelationResult;
   patternSummary: string;
   weeklyHeatmap: WeekHeatmapRow[];
+  targetScenarios: TargetScenario[];
 }
 
 // ==================== Technical Context API ====================

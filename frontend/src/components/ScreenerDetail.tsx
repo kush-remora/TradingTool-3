@@ -256,6 +256,65 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
           </div>
         </div>
 
+        {data.targetRecommendation && (
+          <div style={{ marginBottom: 32 }}>
+            <Text strong style={{ display: 'block', marginBottom: 12, fontSize: 15 }}>Target recommendation</Text>
+            <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
+              <div style={statCardStyle}>
+                <Text type="secondary" style={{ fontSize: 13 }}>Recommended Target</Text>
+                <div style={{ fontSize: 24, fontWeight: 700, margin: '4px 0', color: '#0958d9' }}>
+                  {data.targetRecommendation.recommendedTargetPct}%
+                </div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Confidence: {data.targetRecommendation.confidence}
+                </Text>
+              </div>
+              <div style={statCardStyle}>
+                <Text type="secondary" style={{ fontSize: 13 }}>Safe / Aggressive</Text>
+                <div style={{ fontSize: 20, fontWeight: 700, margin: '4px 0' }}>
+                  {data.targetRecommendation.safeTargetPct}% / {data.targetRecommendation.aggressiveTargetPct}%
+                </div>
+                <Text type="secondary" style={{ fontSize: 12 }}>Conservative vs stretch exits</Text>
+              </div>
+              <div style={statCardStyle}>
+                <Text type="secondary" style={{ fontSize: 13 }}>Expected Outcome</Text>
+                <div style={{ fontSize: 16, fontWeight: 700, margin: '4px 0', color: '#389e0d' }}>
+                  +{data.targetRecommendation.expectedSwingPct}% avg
+                </div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Win {data.targetRecommendation.expectedWinRatePct}% · SL {data.targetRecommendation.expectedStopLossRatePct}%
+                </Text>
+              </div>
+            </div>
+            {data.targetScenarios && data.targetScenarios.length > 0 && (
+              <Table
+                size="small"
+                pagination={false}
+                rowKey="targetPct"
+                dataSource={data.targetScenarios}
+                columns={[
+                  { title: "Target", dataIndex: "targetPct", key: "targetPct", render: (v: number) => `${v}%` },
+                  { title: "Entries", dataIndex: "entries", key: "entries" },
+                  { title: "Win Rate", dataIndex: "winRatePct", key: "winRatePct", render: (v: number) => `${v}%` },
+                  { title: "SL Rate", dataIndex: "stopLossRatePct", key: "stopLossRatePct", render: (v: number) => `${v}%` },
+                  { title: "Avg Swing", dataIndex: "avgSwingPct", key: "avgSwingPct", render: (v: number) => `${v}%` },
+                  { title: "Capture", dataIndex: "captureRatioPct", key: "captureRatioPct", render: (v: number) => `${v}%` },
+                  {
+                    title: "Status",
+                    dataIndex: "feasible",
+                    key: "feasible",
+                    render: (v: boolean) => (
+                      <Text style={{ color: v ? '#389e0d' : '#8c8c8c', fontWeight: 600 }}>
+                        {v ? "Eligible" : "Filtered"}
+                      </Text>
+                    )
+                  },
+                ]}
+              />
+            )}
+          </div>
+        )}
+
         {/* Day of Week Profile */}
         <div style={{ marginBottom: 32 }}>
           <Text strong style={{ display: 'block', marginBottom: 12, fontSize: 15 }}>Day-of-week profile</Text>

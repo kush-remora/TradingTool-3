@@ -5,6 +5,7 @@ import type { WatchlistRow } from "../types";
 export function useWatchlist(tag: string = "") {
   const [rows, setRows] = useState<WatchlistRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchRows = async (showLoading = false) => {
@@ -30,18 +31,26 @@ export function useWatchlist(tag: string = "") {
     return undefined;
   }, [tag]);
 
-  const refreshIndicators = async () => {
+  const refreshIndicators = async (): Promise<string> => {
+    setRefreshing(true);
     try {
-      await fetch(`${import.meta.env.VITE_API_URL || ""}/api/watchlist/refresh`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/watchlist/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tags: tag ? [tag] : [] })
       });
-      // the refresh endpoint returns 202 Accepted. Indicators will be generated in background.
-    } catch (err) {
-      console.error("Failed to trigger refresh", err);
+
+      if (!response.ok) {
+        throw new Error(`Refresh failed: ${response.statusText}`);
+      }
+
+      const payload = await response.json().catch(() => ({} as { message?: string }));
+      await fetchRows(false);
+      return payload.message ?? "All stocks refreshed successfully.";
+    } finally {
+      setRefreshing(false);
     }
   };
 
-  return { rows, loading, error, refreshIndicators };
+  return { rows, loading, refreshing, error, refreshIndicators };
 }

@@ -25,20 +25,44 @@ export function WatchlistPage() {
   const handleCreate = async (payload: CreateStockInput) => {
     try {
       await createStock(payload);
-      
-      // Feature request: Trigger background job automatically when a new stock is added.
-      // The backend returns 202 Accepted immediately and generates historical data in the background.
-      fetch(`${import.meta.env.VITE_API_URL || ""}/api/watchlist/refresh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tags: [] })
-      }).catch(err => console.error("Auto-refresh failed", err));
-      
-      messageApi.success({ content: "Data sync triggered in background.", duration: 3 });
-      
     } catch (e) {
       messageApi.error(e instanceof Error ? e.message : "Failed to create stock");
       throw e; // re-throw so the Drawer handles the error layout/spinner
+    }
+
+    const key = "watchlist-auto-refresh";
+    messageApi.open({
+      key,
+      type: "loading",
+      content: "Refreshing all stocks...",
+      duration: 0,
+    });
+
+    try {
+      const refreshResponse = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/watchlist/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags: [] })
+      });
+
+      if (!refreshResponse.ok) {
+        throw new Error(`Refresh failed: ${refreshResponse.statusText}`);
+      }
+
+      const refreshPayload = await refreshResponse.json().catch(() => ({} as { message?: string }));
+      messageApi.open({
+        key,
+        type: "success",
+        content: refreshPayload.message ?? "All stocks refreshed successfully.",
+        duration: 3,
+      });
+    } catch (e) {
+      messageApi.open({
+        key,
+        type: "error",
+        content: e instanceof Error ? e.message : "Refresh failed after stock creation",
+        duration: 4,
+      });
     }
   };
 

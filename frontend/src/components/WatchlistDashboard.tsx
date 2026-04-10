@@ -1,4 +1,4 @@
-import { Table, Typography, Tag, Space, Progress, Button, Tooltip } from "antd";
+import { Table, Typography, Tag, Space, Progress, Button, Tooltip, message } from "antd";
 import { SyncOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useWatchlist } from "../hooks/useWatchlist";
@@ -17,9 +17,10 @@ interface WatchlistDashboardProps {
 }
 
 export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: WatchlistDashboardProps) {
-  const { rows, loading, refreshIndicators } = useWatchlist(tag);
+  const { rows, loading, refreshing, refreshIndicators } = useWatchlist(tag);
   const [detailSymbol, setDetailSymbol] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<string[]>([]);
+  const [messageApi, contextHolder] = message.useMessage();
 
   const formatMoney = (val: number | null) => 
     val !== null ? `₹${val.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "-";
@@ -261,15 +262,43 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
     }
   ];
 
+  const handleRefreshIndicators = async () => {
+    const key = "watchlist-refresh";
+    messageApi.open({
+      key,
+      type: "loading",
+      content: "Refreshing stocks...",
+      duration: 0,
+    });
+    try {
+      const completionMessage = await refreshIndicators();
+      messageApi.open({
+        key,
+        type: "success",
+        content: completionMessage,
+        duration: 3,
+      });
+    } catch (err) {
+      const content = err instanceof Error ? err.message : "Refresh failed";
+      messageApi.open({
+        key,
+        type: "error",
+        content,
+        duration: 4,
+      });
+    }
+  };
+
   return (
     <div style={{ padding: "16px 24px", height: "100%", display: "flex", flexDirection: "column" }}>
+      {contextHolder}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div>
           <Text strong style={{ fontSize: 18, letterSpacing: 0.5 }}>WATCHLIST {tag ? `: ${tag.toUpperCase()}` : ""}</Text>
         </div>
         <Space>
-          <Tooltip title="Trigger Cache Refresh (Background Job)">
-            <Button type="text" icon={<SyncOutlined />} onClick={refreshIndicators}>
+          <Tooltip title="Refresh all stock indicators and wait for completion">
+            <Button type="text" icon={<SyncOutlined />} onClick={handleRefreshIndicators} loading={refreshing}>
               Refresh Engine
             </Button>
           </Tooltip>

@@ -9,7 +9,6 @@ import com.tradingtool.core.kite.TickStore
 import com.tradingtool.core.strategy.remora.RemoraService
 import com.tradingtool.core.watchlist.IndicatorService
 import com.tradingtool.core.watchlist.WatchlistService
-import com.tradingtool.resources.common.accepted
 import com.tradingtool.resources.common.badRequest
 import com.tradingtool.resources.common.endpoint
 import com.tradingtool.resources.common.notFound
@@ -26,7 +25,6 @@ import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import jakarta.ws.rs.sse.Sse
 import jakarta.ws.rs.sse.SseEventSink
-import kotlinx.coroutines.launch
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
@@ -104,26 +102,39 @@ class WatchlistResource @Inject constructor(
     }
 
     /**
-     * Triggers a background indicator refresh and returns 202 immediately.
+     * Runs indicator refresh sequentially and returns only after completion.
      * Empty/missing [tags] refreshes all stocks. Non-empty [tags] refreshes only those tags.
      */
     @POST
     @Path("/refresh")
     @Consumes(MediaType.APPLICATION_JSON)
     fun refresh(request: RefreshRequest?): CompletableFuture<Response> = ioScope.endpoint {
-        val tags = request?.tags?.filter { it.isNotBlank() } ?: emptyList()
+        val tags = request?.tags
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
+            ?.distinct()
+            ?: emptyList()
 
-        // Fire-and-forget: sibling coroutine so this handler returns 202 immediately.
-        ioScope.launch {
-            if (tags.isEmpty()) {
-                indicatorService.refreshAll(kiteClient)
-            } else {
-                tags.distinct().forEach { tag -> indicatorService.refreshTag(kiteClient, tag) }
-            }
+        if (tags.isEmpty()) {
+            indicatorService.refreshAll(kiteClient)
+        } else {
+            tags.forEach { tag -> indicatorService.refreshTag(kiteClient, tag) }
         }
 
-        val message = if (tags.isEmpty()) "Refreshing all stocks" else "Refreshing tags: ${tags.joinToString()}"
-        accepted(mapOf("message" to message))
+        val message = if (tags.isEmpty()) {
+            "All stocks refreshed successfully."
+        } else {
+            "Stocks refreshed successfully for tags: ${tags.joinToString()}"
+        }
+
+        ok(
+            mapOf(
+                "message" to message,
+                "scope" to if (tags.isEmpty()) "all" else "tags",
+                "tags" to tags,
+                "completed" to true,
+            )
+        )
     }
 
     // ── Live Stream ───────────────────────────────────────────────────────────

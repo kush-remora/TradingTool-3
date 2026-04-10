@@ -18,12 +18,21 @@ data class WeeklyPatternConfig(
     val swingTargetPct: Double = 5.0,
     val stopLossPct: Double = 3.0,
     val patternConfirmed: PatternConfirmedConfig = PatternConfirmedConfig(),
+    val targetRecommendation: TargetRecommendationConfig = TargetRecommendationConfig(),
 )
 
 data class PatternConfirmedConfig(
     val minEntryRatePct: Double = 50.0,
     val minWinRatePct: Double = 50.0,
     val minAvgSwingPct: Double = 0.5,
+)
+
+data class TargetRecommendationConfig(
+    val candidateTargetsPct: List<Double> = listOf(5.0, 6.0, 7.0),
+    val minSamples: Int = 4,
+    val minWinRatePct: Double = 50.0,
+    val maxStopLossRatePct: Double = 45.0,
+    val fallbackTargetPct: Double = 5.0,
 )
 
 @Singleton

@@ -18,6 +18,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.WeekFields
+import kotlin.math.abs
 
 /**
  * Reads raw daily candle data from the database and dynamically computes
@@ -122,6 +123,14 @@ class WeeklyPatternService(
         val minLow = bestPair.allWeeks.mapNotNull { it.buyDayLow }.minOrNull() ?: 0.0
         val maxLow = bestPair.allWeeks.mapNotNull { it.buyDayLow }.maxOrNull() ?: 0.0
         val avgPotential = bestPair.allWeeks.mapNotNull { it.maxPotentialPct }.average().roundTo2()
+        val targetScenarios = evaluateTargetScenarios(
+            parsedWeeks = completedWeeks,
+            buyDay = bestPair.buyDay,
+            sellDay = bestPair.sellDay,
+            rsiMap = rsiMap,
+            config = config,
+        )
+        val targetRecommendation = buildTargetRecommendation(targetScenarios, config)
 
         val latestDate = allYearCandles.last().candleDate
         val latestRsi = rsiMap[latestDate] ?: rsiMap.values.lastOrNull()
@@ -150,6 +159,7 @@ class WeeklyPatternService(
             buyDayLowMin = minLow.roundTo2(),
             buyDayLowMax = maxLow.roundTo2(),
             currentRsiStatus = currentRsiStatus,
+            targetRecommendation = targetRecommendation,
         )
     }
 
@@ -198,7 +208,15 @@ class WeeklyPatternService(
             for (sell in (buy + 1)..5) {
                 val evaluatedWeeks = parsedWeeks.mapIndexed { idx, week ->
                     val prevWeekEnd = parsedWeeks.getOrNull(idx - 1)?.endDate
-                    evaluateWeekForPair(week, buy, sell, prevWeekEnd, rsiMap, config)
+                    evaluateWeekForPair(
+                        week = week,
+                        buyDay = buy,
+                        sellDay = sell,
+                        prevWeekEnd = prevWeekEnd,
+                        rsiMap = rsiMap,
+                        config = config,
+                        targetPct = config.swingTargetPct,
+                    )
                 }
 
                 val eligibleWeeks = evaluatedWeeks.count {
@@ -270,6 +288,7 @@ class WeeklyPatternService(
         prevWeekEnd: LocalDate?,
         rsiMap: Map<LocalDate, com.tradingtool.core.technical.RollingRsiBounds>,
         config: WeeklyPatternConfig,
+        targetPct: Double,
     ): WeekInstance {
         val wCopy = week.copy()
         wCopy.maxPotentialPct = calculateWeekPotentialPct(wCopy)
@@ -310,7 +329,7 @@ class WeeklyPatternService(
         }
 
         wCopy.entryTriggered = true
-        val targetPrice = potentialEntryPrice * (1 + (config.swingTargetPct / 100.0))
+        val targetPrice = potentialEntryPrice * (1 + (targetPct / 100.0))
         val stopLossPrice = potentialEntryPrice * (1 - (config.stopLossPct / 100.0))
 
         var exitFound = false
@@ -328,9 +347,9 @@ class WeeklyPatternService(
 
             if (dayCandle.high >= targetPrice) {
                 wCopy.sellPriceActual = targetPrice.roundTo2()
-                wCopy.swingPct = config.swingTargetPct.roundTo2()
+                wCopy.swingPct = targetPct.roundTo2()
                 wCopy.swingTargetHit = true
-                wCopy.reasoning = "Target Hit (+${config.swingTargetPct.roundTo2()}%)"
+                wCopy.reasoning = "Target Hit (+${targetPct.roundTo2()}%)"
                 exitFound = true
                 break
             }
@@ -341,7 +360,7 @@ class WeeklyPatternService(
             wCopy.sellPriceActual = exitPrice.roundTo2()
             wCopy.swingPct = ((exitPrice - potentialEntryPrice) / potentialEntryPrice * 100.0).roundTo2()
             wCopy.reasoning = "${dayNames[sellDay]} Hard Exit"
-            if ((wCopy.swingPct ?: 0.0) >= config.swingTargetPct) {
+            if ((wCopy.swingPct ?: 0.0) >= targetPct) {
                 wCopy.swingTargetHit = true
             }
         }
@@ -376,6 +395,128 @@ class WeeklyPatternService(
             eval.avgSwingPct >= config.patternConfirmed.minAvgSwingPct
     }
 
+    private fun evaluateTargetScenarios(
+        parsedWeeks: List<WeekInstance>,
+        buyDay: Int,
+        sellDay: Int,
+        rsiMap: Map<LocalDate, com.tradingtool.core.technical.RollingRsiBounds>,
+        config: WeeklyPatternConfig,
+    ): List<TargetScenario> {
+        val targetConfig = config.targetRecommendation
+        val candidateTargets = targetConfig.candidateTargetsPct
+            .map { it.roundTo2() }
+            .filter { it > 0.0 }
+            .distinct()
+            .sorted()
+        if (candidateTargets.isEmpty()) return emptyList()
+
+        return candidateTargets.map { targetPct ->
+            val simulatedWeeks = parsedWeeks.mapIndexed { idx, week ->
+                val prevWeekEnd = parsedWeeks.getOrNull(idx - 1)?.endDate
+                evaluateWeekForPair(
+                    week = week,
+                    buyDay = buyDay,
+                    sellDay = sellDay,
+                    prevWeekEnd = prevWeekEnd,
+                    rsiMap = rsiMap,
+                    config = config,
+                    targetPct = targetPct,
+                )
+            }
+
+            val entryWeeks = simulatedWeeks.filter { it.entryTriggered }
+            val entries = entryWeeks.size
+            val wins = entryWeeks.count { it.swingTargetHit }
+            val stopLossHits = entryWeeks.count { it.reasoning == "Stop Loss Hit" }
+            val winRatePct = if (entries > 0) (wins.toDouble() / entries * 100.0).roundTo2() else 0.0
+            val stopLossRatePct = if (entries > 0) (stopLossHits.toDouble() / entries * 100.0).roundTo2() else 0.0
+            val avgSwingPct = if (entryWeeks.isNotEmpty()) {
+                entryWeeks.mapNotNull { it.swingPct }.average().roundTo2()
+            } else {
+                0.0
+            }
+            val avgPotentialPct = if (entryWeeks.isNotEmpty()) {
+                entryWeeks.mapNotNull { it.maxPotentialPct }.average()
+            } else {
+                0.0
+            }
+            val captureRatioPct = if (avgPotentialPct > 0.0) {
+                (avgSwingPct / avgPotentialPct * 100.0).roundTo2()
+            } else {
+                0.0
+            }
+            val feasible = entries >= targetConfig.minSamples &&
+                winRatePct >= targetConfig.minWinRatePct &&
+                stopLossRatePct <= targetConfig.maxStopLossRatePct
+
+            TargetScenario(
+                targetPct = targetPct,
+                entries = entries,
+                winRatePct = winRatePct,
+                stopLossRatePct = stopLossRatePct,
+                avgSwingPct = avgSwingPct,
+                captureRatioPct = captureRatioPct,
+                feasible = feasible,
+            )
+        }
+    }
+
+    private fun buildTargetRecommendation(
+        scenarios: List<TargetScenario>,
+        config: WeeklyPatternConfig,
+    ): TargetRecommendation? {
+        if (scenarios.isEmpty()) return null
+        val targetConfig = config.targetRecommendation
+        val feasibleScenarios = scenarios.filter { it.feasible }
+        val fallback = scenarios.minByOrNull { abs(it.targetPct - targetConfig.fallbackTargetPct) } ?: scenarios.first()
+
+        val recommended = if (feasibleScenarios.isNotEmpty()) {
+            feasibleScenarios.maxByOrNull { recommendationScore(it) } ?: fallback
+        } else {
+            fallback
+        }
+
+        val safeTarget = (if (feasibleScenarios.isNotEmpty()) feasibleScenarios else scenarios)
+            .maxWithOrNull(compareBy<TargetScenario> { it.winRatePct }.thenBy { it.avgSwingPct })
+            ?: recommended
+        val aggressiveTarget = (if (feasibleScenarios.isNotEmpty()) feasibleScenarios else scenarios)
+            .maxByOrNull { it.targetPct }
+            ?: recommended
+
+        return TargetRecommendation(
+            recommendedTargetPct = recommended.targetPct.roundTo2(),
+            safeTargetPct = safeTarget.targetPct.roundTo2(),
+            aggressiveTargetPct = aggressiveTarget.targetPct.roundTo2(),
+            confidence = recommendationConfidence(recommended, targetConfig),
+            expectedSwingPct = recommended.avgSwingPct.roundTo2(),
+            expectedWinRatePct = recommended.winRatePct.roundTo2(),
+            expectedStopLossRatePct = recommended.stopLossRatePct.roundTo2(),
+            captureRatioPct = recommended.captureRatioPct.roundTo2(),
+        )
+    }
+
+    private fun recommendationScore(scenario: TargetScenario): Double {
+        return (scenario.avgSwingPct * 0.60) +
+            (scenario.winRatePct * 0.03) -
+            (scenario.stopLossRatePct * 0.02) +
+            (scenario.captureRatioPct * 0.01)
+    }
+
+    private fun recommendationConfidence(
+        scenario: TargetScenario,
+        config: TargetRecommendationConfig,
+    ): String {
+        return when {
+            scenario.entries >= (config.minSamples + 2) &&
+                scenario.winRatePct >= (config.minWinRatePct + 15.0) &&
+                scenario.stopLossRatePct <= (config.maxStopLossRatePct - 15.0) -> "HIGH"
+            scenario.entries >= config.minSamples &&
+                scenario.winRatePct >= config.minWinRatePct &&
+                scenario.stopLossRatePct <= config.maxStopLossRatePct -> "MEDIUM"
+            else -> "LOW"
+        }
+    }
+
     suspend fun analyzeDetail(symbol: String): WeeklyPatternDetail? {
         val config = patternConfigService.loadConfig()
         val stock = stockHandler.read { it.getBySymbol(symbol, "NSE") } ?: return null
@@ -390,6 +531,14 @@ class WeeklyPatternService(
         val completedWeeks = selectCompletedWeeks(allYearCandles, today, config)
 
         val bestPair = findBestDayPair(completedWeeks, rsiMap, config) ?: return null
+        val targetScenarios = evaluateTargetScenarios(
+            parsedWeeks = completedWeeks,
+            buyDay = bestPair.buyDay,
+            sellDay = bestPair.sellDay,
+            rsiMap = rsiMap,
+            config = config,
+        )
+        val targetRecommendation = buildTargetRecommendation(targetScenarios, config)
 
         val minLow = bestPair.allWeeks.mapNotNull { it.buyDayLow }.minOrNull() ?: 0.0
         val maxLow = bestPair.allWeeks.mapNotNull { it.buyDayLow }.maxOrNull() ?: 0.0
@@ -433,10 +582,13 @@ class WeeklyPatternService(
         )
 
         val confirmed = isPatternConfirmed(bestPair, config)
+        val recommendedTargetPct = targetRecommendation?.recommendedTargetPct ?: config.swingTargetPct
         val summary = if (confirmed) {
             "Weekly cycle detected. Entry on ${dayNames[bestPair.buyDay]} via ${config.entryReboundPct.roundTo2()}% rebound. " +
-                "Exit rule: +${config.swingTargetPct.roundTo2()}% target / -${config.stopLossPct.roundTo2()}% SL, " +
-                "or hard-exit on ${dayNames[bestPair.sellDay]} close."
+                "Recommended target: +${recommendedTargetPct.roundTo2()}% " +
+                "(safe ${targetRecommendation?.safeTargetPct?.roundTo2() ?: config.swingTargetPct.roundTo2()}% / " +
+                "aggressive ${targetRecommendation?.aggressiveTargetPct?.roundTo2() ?: config.swingTargetPct.roundTo2()}%). " +
+                "SL: -${config.stopLossPct.roundTo2()}%, hard-exit on ${dayNames[bestPair.sellDay]} close."
         } else {
             "No reliable weekly cycle found for current thresholds."
         }
@@ -497,6 +649,8 @@ class WeeklyPatternService(
             autocorrelation = autocorrel,
             patternSummary = summary,
             weeklyHeatmap = heatmap.reversed(),
+            targetRecommendation = targetRecommendation,
+            targetScenarios = targetScenarios,
         )
     }
 
