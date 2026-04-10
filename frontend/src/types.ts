@@ -172,6 +172,9 @@ export interface WatchlistRow {
   changePercent: number | null;
   sma50: number | null;
   sma200: number | null;
+  high40d: number | null;
+  low40d: number | null;
+  rangePosition40dPct: number | null;
   priceVs200maPct: number | null;
   rsi14: number | null;
   roc1w: number | null;
@@ -288,4 +291,3 @@ export interface TechnicalContext {
   recentSessions: SessionCandle[];
   adaptiveRsi: AdaptiveRsiStatus | null;
 }
-

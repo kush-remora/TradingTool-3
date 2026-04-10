@@ -9,6 +9,7 @@ import org.ta4j.core.indicators.ROCIndicator
 import org.ta4j.core.indicators.SMAIndicator
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator
 import org.ta4j.core.indicators.helpers.HighestValueIndicator
+import org.ta4j.core.indicators.helpers.LowestValueIndicator
 import org.ta4j.core.indicators.helpers.VolumeIndicator
 import com.tradingtool.core.technical.calculateSma
 import com.tradingtool.core.technical.getNullableDouble
@@ -31,6 +32,10 @@ object Ta4jIndicatorCalculator {
         // SMA 50 & 200
         val sma50 = if (series.barCount >= 50) series.calculateSma(50).getNullableDouble(lastIndex) else null
         val sma200 = if (series.barCount >= 200) series.calculateSma(200).getNullableDouble(lastIndex) else null
+
+        // 2-month range based on last 40 closes
+        val high40d = if (series.barCount >= 40) HighestValueIndicator(closePrice, 40).getNullableDouble(lastIndex) else null
+        val low40d = if (series.barCount >= 40) LowestValueIndicator(closePrice, 40).getNullableDouble(lastIndex) else null
 
         // RSI 14
         val rsi14 = if (series.barCount >= 14) series.calculateRsi(14).getNullableDouble(lastIndex) else null
@@ -72,6 +77,8 @@ object Ta4jIndicatorCalculator {
         return ComputedIndicators(
             sma50 = sma50,
             sma200 = sma200,
+            high40d = high40d,
+            low40d = low40d,
             rsi14 = rsi14,
             roc1w = roc1w,
             roc3m = roc3m,

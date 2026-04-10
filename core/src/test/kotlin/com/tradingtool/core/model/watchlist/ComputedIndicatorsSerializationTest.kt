@@ -17,6 +17,8 @@ class ComputedIndicatorsSerializationTest {
             instrumentToken = 123456,
             sma50 = 100.0,
             sma200 = 105.5,
+            high40d = 112.75,
+            low40d = 92.15,
             rsi14 = 45.0,
             computedAt = System.currentTimeMillis()
         )
@@ -28,6 +30,8 @@ class ComputedIndicatorsSerializationTest {
         assertEquals(original.instrumentToken, deserialized.instrumentToken)
         assertEquals(original.sma50, deserialized.sma50)
         assertEquals(original.sma200, deserialized.sma200)
+        assertEquals(original.high40d, deserialized.high40d)
+        assertEquals(original.low40d, deserialized.low40d)
         assertEquals(original.rsi14, deserialized.rsi14)
         assertEquals(original.computedAt, deserialized.computedAt)
     }

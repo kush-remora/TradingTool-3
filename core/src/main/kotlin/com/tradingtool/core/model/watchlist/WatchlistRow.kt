@@ -17,6 +17,9 @@ data class WatchlistRow(
     // Computed indicators
     val sma50: Double? = null,
     val sma200: Double? = null,
+    val high40d: Double? = null,
+    val low40d: Double? = null,
+    val rangePosition40dPct: Double? = null,
     val priceVs200maPct: Double? = null,
     val rsi14: Double? = null,
     val roc1w: Double? = null,

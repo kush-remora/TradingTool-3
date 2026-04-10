@@ -6,25 +6,9 @@ import { StockDetailDrawer } from "./StockDetailDrawer";
 import type { WatchlistRow } from "../types";
 import { StockBadge } from "./StockBadge";
 import { LiveMarketWidget } from "./LiveMarketWidget";
-import { useLiveMarketData } from "../hooks/useLiveMarketData";
+import { TradeMarketHistoryPanel } from "./TradeMarketHistoryPanel";
 
 const { Text } = Typography;
-
-interface LiveChangePercentCellProps {
-  symbol: string;
-  fallback: number | null;
-}
-
-function LiveChangePercentCell({ symbol, fallback }: LiveChangePercentCellProps) {
-  const data = useLiveMarketData(symbol);
-  const value = data?.changePercent ?? fallback;
-
-  if (value === null) return <Text type="secondary">-</Text>;
-
-  const color = value > 0 ? "#52c41a" : value < 0 ? "#ff4d4f" : "#bfbfbf";
-  const sign = value > 0 ? "+" : "";
-  return <Text style={{ color, fontWeight: 500 }}>{sign}{value.toFixed(2)}%</Text>;
-}
 
 interface WatchlistDashboardProps {
   tag?: string;
@@ -35,9 +19,17 @@ interface WatchlistDashboardProps {
 export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: WatchlistDashboardProps) {
   const { rows, loading, refreshIndicators } = useWatchlist(tag);
   const [detailSymbol, setDetailSymbol] = useState<string | null>(null);
+  const [expandedRows, setExpandedRows] = useState<string[]>([]);
 
   const formatMoney = (val: number | null) => 
     val !== null ? `₹${val.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "-";
+
+  const compareNullableNumbers = (a: number | null, b: number | null): number => {
+    if (a === null && b === null) return 0;
+    if (a === null) return 1;
+    if (b === null) return -1;
+    return a - b;
+  };
 
   const renderColorValue = (val: number | null, prefix = "", suffix = "") => {
     if (val === null) return <Text type="secondary">-</Text>;
@@ -65,33 +57,19 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
       )
     },
     {
-      title: "PRICE (LTP)",
+      title: "LIVE MARKET",
       dataIndex: "ltp",
       key: "ltp",
-      width: 120,
+      width: 170,
       render: (v: number | null, record: WatchlistRow) => {
         return (
           <LiveMarketWidget
             symbol={`${record.exchange}:${record.symbol}`}
-            showDetails={false}
-            showChange={false}
             fallbackLtp={v}
             fallbackChangePercent={record.changePercent}
           />
         );
       }
-    },
-    {
-      title: "CHANGE %",
-      dataIndex: "changePercent",
-      key: "changePercent",
-      width: 100,
-      render: (v: number | null, record: WatchlistRow) => (
-        <LiveChangePercentCell
-          symbol={`${record.exchange}:${record.symbol}`}
-          fallback={v}
-        />
-      )
     },
     {
       title: "SMA 50",
@@ -106,6 +84,39 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
       key: "sma200",
       width: 100,
       render: (v: number | null) => <Text>{formatMoney(v)}</Text>
+    },
+    {
+      title: "2M HIGH",
+      dataIndex: "high40d",
+      key: "high40d",
+      width: 110,
+      sorter: (a: WatchlistRow, b: WatchlistRow) => compareNullableNumbers(a.high40d, b.high40d),
+      render: (v: number | null) => <Text>{formatMoney(v)}</Text>
+    },
+    {
+      title: "2M LOW",
+      dataIndex: "low40d",
+      key: "low40d",
+      width: 110,
+      sorter: (a: WatchlistRow, b: WatchlistRow) => compareNullableNumbers(a.low40d, b.low40d),
+      render: (v: number | null) => <Text>{formatMoney(v)}</Text>
+    },
+    {
+      title: "RANGE POS",
+      dataIndex: "rangePosition40dPct",
+      key: "rangePosition40dPct",
+      width: 130,
+      sorter: (a: WatchlistRow, b: WatchlistRow) => compareNullableNumbers(a.rangePosition40dPct, b.rangePosition40dPct),
+      render: (v: number | null) => {
+        if (v === null) return <Text type="secondary">-</Text>;
+        const clamped = Math.max(0, Math.min(100, v));
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <Text style={{ fontSize: 11, fontWeight: 500 }}>{clamped.toFixed(0)}%</Text>
+            <Progress percent={clamped} showInfo={false} size="small" />
+          </div>
+        );
+      }
     },
     {
       title: "RSI (14)",
@@ -138,7 +149,6 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
       render: (v: string | null) => {
         if (!v) return <Text type="secondary">-</Text>;
         const isBull = v.toUpperCase() === "BULLISH";
-        const color = isBull ? "#52c41a" : "#ff4d4f";
         return (
           <Tag color={isBull ? "success" : "error"} style={{ width: "100%", textAlign: "center", margin: 0 }}>
             <span style={{ fontWeight: 600 }}>{v.toUpperCase()}</span>
@@ -164,6 +174,28 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
         const ratioColor = v > 2.0 ? "#faad14" : v > 1.25 ? "#52c41a" : "#8c8c8c";
         return <Text style={{ color: ratioColor, fontWeight: 500 }}>{v.toFixed(2)}x</Text>;
       }
+    },
+    {
+      title: "",
+      key: "action",
+      width: 120,
+      fixed: "right" as const,
+      render: (_: unknown, record: WatchlistRow) => (
+        <Button
+          size="small"
+          type={expandedRows.includes(record.symbol) ? "default" : "text"}
+          onClick={(event) => {
+            event.stopPropagation();
+            setExpandedRows((prev) =>
+              prev.includes(record.symbol)
+                ? prev.filter((symbol) => symbol !== record.symbol)
+                : [...prev, record.symbol],
+            );
+          }}
+        >
+          10D Context
+        </Button>
+      ),
     }
   ];
 
@@ -206,6 +238,19 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
           },
           style: { cursor: "pointer" },
         })}
+        expandable={{
+          expandedRowKeys: expandedRows,
+          showExpandColumn: false,
+          expandedRowRender: (record) => (
+            <TradeMarketHistoryPanel
+              symbol={record.symbol}
+              days={10}
+              defaultExpanded
+              showToggle={false}
+              title="10D Context"
+            />
+          ),
+        }}
       />
 
       <StockDetailDrawer

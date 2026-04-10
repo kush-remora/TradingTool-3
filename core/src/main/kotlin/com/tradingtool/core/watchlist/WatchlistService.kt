@@ -50,6 +50,19 @@ class WatchlistService(
                 tick.volume.toDouble() / ind.avgVol20d
             } else null
 
+            val high40d = ind?.high40d
+            val low40d = ind?.low40d
+            val rangePosition40dPct = if (
+                ltp != null &&
+                high40d != null &&
+                low40d != null &&
+                high40d > low40d
+            ) {
+                ((ltp - low40d) / (high40d - low40d)) * 100.0
+            } else {
+                null
+            }
+
             WatchlistRow(
                 symbol = stock.symbol,
                 instrumentToken = stock.instrumentToken,
@@ -60,6 +73,9 @@ class WatchlistService(
                 changePercent = tick?.changePercent,
                 sma50 = ind?.sma50,
                 sma200 = ind?.sma200,
+                high40d = high40d,
+                low40d = low40d,
+                rangePosition40dPct = rangePosition40dPct,
                 priceVs200maPct = priceVs200maPct,
                 rsi14 = ind?.rsi14,
                 roc1w = ind?.roc1w,

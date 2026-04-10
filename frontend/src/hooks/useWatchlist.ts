@@ -27,23 +27,7 @@ export function useWatchlist(tag: string = "") {
 
   useEffect(() => {
     fetchRows(true);
-
-    // Indicators are slow-moving (daily), so avoid interval polling.
-    // Refresh once when the tab/app becomes active again.
-    const onFocus = () => {
-      fetchRows(false);
-    };
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") fetchRows(false);
-    };
-
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibility);
-
-    return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
+    return undefined;
   }, [tag]);
 
   const refreshIndicators = async () => {

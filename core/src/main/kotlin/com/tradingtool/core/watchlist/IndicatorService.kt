@@ -10,7 +10,6 @@ import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.model.stock.Stock
 import com.tradingtool.core.model.watchlist.ComputedIndicators
 import com.tradingtool.core.technical.toTa4jSeries
-import com.tradingtool.core.technical.toTa4jSeriesFromKite
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -19,9 +18,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.serializer
 import org.slf4j.LoggerFactory
 import java.time.Instant
 import java.time.LocalDate
@@ -56,7 +53,7 @@ class IndicatorService(
 
     private val ist = ZoneId.of("Asia/Kolkata")
     private val indicatorWarmupYears: Long = 2 // 2 years is enough for SMA200 + RSI bounds
-    private val computedIndicatorsListSerializer = ListSerializer(serializer<ComputedIndicators>())
+    private val computedIndicatorsListSerializer = ListSerializer(ComputedIndicators.serializer())
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -125,7 +122,7 @@ class IndicatorService(
     }
 
     /** Refreshes indicators for all stocks. Ensures daily_candles are fresh. */
-    suspend fun refreshAll(kiteClient: KiteConnectClient, onlyNeedsRefresh: Boolean = false) {
+    suspend fun refreshAll(kiteClient: KiteConnectClient) {
         val stocks = stockHandler.read { it.listAll() }
         log.info("Starting indicator sync for ${stocks.size} stocks")
 
@@ -238,7 +235,7 @@ class IndicatorService(
         val candles = history.dataArrayList.mapNotNull { bar ->
             if (bar == null) return@mapNotNull null
             try {
-                val hk = bar as com.zerodhatech.models.HistoricalData
+                val hk = bar
                 val date = LocalDateTime.parse(hk.timeStamp.substring(0, 19)).toLocalDate()
                 DailyCandle(
                     instrumentToken = stock.instrumentToken,
@@ -248,7 +245,7 @@ class IndicatorService(
                     high = hk.high,
                     low = hk.low,
                     close = hk.close,
-                    volume = hk.volume.toLong(),
+                    volume = hk.volume,
                 )
             } catch (e: Exception) {
                 null
@@ -301,16 +298,6 @@ class IndicatorService(
                 async { stockHandler.read { it.getByInstrumentToken(token) } }
             }.awaitAll().filterNotNull()
         }
-        return loadAndComputeIndicators(stocks)
-    }
-
-    private suspend fun loadTagIndicatorsFromDb(tag: String): List<ComputedIndicators> {
-        val stocks = stockHandler.read { it.listByTagName(tag) }
-        return loadAndComputeIndicators(stocks)
-    }
-
-    private suspend fun loadAllIndicatorsFromDb(): List<ComputedIndicators> {
-        val stocks = stockHandler.read { it.listAll() }
         return loadAndComputeIndicators(stocks)
     }
 
