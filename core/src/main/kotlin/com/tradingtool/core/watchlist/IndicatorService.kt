@@ -18,6 +18,10 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import java.time.Instant
@@ -50,6 +54,9 @@ class IndicatorService(
 
     private val ist = ZoneId.of("Asia/Kolkata")
     private val indicatorWarmupYears: Long = 2 // 2 years is enough for SMA200 + RSI bounds
+    private val stockWorkSemaphore = Semaphore(config.stockParallelism.coerceAtLeast(1))
+    private val kiteRequestMutex = Mutex()
+    private var nextKiteRequestAtMs: Long = 0L
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -126,7 +133,7 @@ class IndicatorService(
         val stocks = stockHandler.read { it.listAll() }
         log.info("Starting indicator sync for ${stocks.size} stocks")
 
-        syncStocksSequentially(kiteClient, stocks)
+        syncStocksInParallel(kiteClient, stocks)
         
         val results = loadAndComputeIndicators(stocks)
         pushAllIndicatorsToRedis(results)
@@ -140,7 +147,7 @@ class IndicatorService(
         val stocks = stockHandler.read { it.listByTagName(tag) }
         log.info("Starting indicator sync for tag=$tag (${stocks.size} stocks)")
 
-        syncStocksSequentially(kiteClient, stocks)
+        syncStocksInParallel(kiteClient, stocks)
         
         val results = loadAndComputeIndicators(stocks)
         pushTagIndicatorsToRedis(stocks, results)
@@ -171,19 +178,21 @@ class IndicatorService(
         
         stocks.map { stock ->
             async {
-                var candles = candleHandler.read { it.getDailyCandles(stock.instrumentToken, from, today) }
-                
-                // If missing or potentially stale (last candle not today/yesterday depending on time)
-                if (candles.isEmpty() || isCandleDataStale(candles)) {
-                    log.info("Candles for ${stock.symbol} are missing or stale. Fetching from Kite.")
-                    syncStockCandles(kiteClient, stock)
-                    candles = candleHandler.read { it.getDailyCandles(stock.instrumentToken, from, today) }
+                stockWorkSemaphore.withPermit {
+                    var candles = candleHandler.read { it.getDailyCandles(stock.instrumentToken, from, today) }
+
+                    // If missing or potentially stale (last candle not today/yesterday depending on time)
+                    if (candles.isEmpty() || isCandleDataStale(candles)) {
+                        log.info("Candles for ${stock.symbol} are missing or stale. Fetching from Kite.")
+                        syncStockCandles(kiteClient, stock)
+                        candles = candleHandler.read { it.getDailyCandles(stock.instrumentToken, from, today) }
+                    }
+
+                    if (candles.isEmpty()) return@withPermit null
+
+                    val series = candles.toTa4jSeries(stock.symbol)
+                    Ta4jIndicatorCalculator.calculate(series).copy(instrumentToken = stock.instrumentToken)
                 }
-
-                if (candles.isEmpty()) return@async null
-
-                val series = candles.toTa4jSeries(stock.symbol)
-                Ta4jIndicatorCalculator.calculate(series).copy(instrumentToken = stock.instrumentToken)
             }
         }.awaitAll().filterNotNull()
     }
@@ -198,21 +207,24 @@ class IndicatorService(
         return lastDate.isBefore(today.minusDays(1))
     }
 
-    private suspend fun syncStocksSequentially(
+    private suspend fun syncStocksInParallel(
         kiteClient: KiteConnectClient,
         stocks: List<Stock>,
-    ) {
-        for (stock in stocks) {
-            delay(config.kiteRateLimitDelayMs)
-            try {
-                syncStockCandles(kiteClient, stock)
-                stockHandler.write { it.setNeedsRefresh(stock.instrumentToken, false) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                log.warn("Failed to sync ${stock.symbol}: ${e.message}")
+    ) = coroutineScope {
+        stocks.map { stock ->
+            async {
+                stockWorkSemaphore.withPermit {
+                    try {
+                        syncStockCandles(kiteClient, stock)
+                        stockHandler.write { it.setNeedsRefresh(stock.instrumentToken, false) }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        log.warn("Failed to sync ${stock.symbol}: ${e.message}")
+                    }
+                }
             }
-        }
+        }.awaitAll()
     }
 
     private suspend fun syncStockCandles(
@@ -222,6 +234,7 @@ class IndicatorService(
         log.info("Fetching history for ${stock.symbol} (token=${stock.instrumentToken})")
 
         val (fromDate, toDate) = buildDateRange()
+        awaitKiteRequestSlot()
 
         // Kite SDK uses a blocking HTTP client — dispatch on IO
         val history = withContext(Dispatchers.IO) {
@@ -299,6 +312,19 @@ class IndicatorService(
             }.awaitAll().filterNotNull()
         }
         return loadAndComputeIndicators(stocks)
+    }
+
+    private suspend fun awaitKiteRequestSlot() {
+        kiteRequestMutex.withLock {
+            val now = System.currentTimeMillis()
+            val waitMs = (nextKiteRequestAtMs - now).coerceAtLeast(0)
+
+            if (waitMs > 0) {
+                delay(waitMs)
+            }
+
+            nextKiteRequestAtMs = System.currentTimeMillis() + config.kiteRateLimitDelayMs
+        }
     }
 
     /** Returns warmup-aware date range as a [Pair] of [Date] for the Kite SDK. */

@@ -30,6 +30,12 @@ data class IndicatorConfig(
     val kiteRateLimitDelayMs: Long = 350,
 
     /**
+     * Maximum number of stocks processed in parallel while refreshing history or
+     * recomputing indicators. Keep this small to avoid overloading Kite or Postgres.
+     */
+    val stockParallelism: Int = 3,
+
+    /**
      * Redis key prefix for per-stock OHLCV data.
      * Key pattern: "{ohlcvKeyPrefix}:{instrumentToken}:ohlcv"
      */
