@@ -1,6 +1,8 @@
 package com.tradingtool.core.watchlist
 
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.config.IndicatorConfig
 import com.tradingtool.core.database.CandleJdbiHandler
@@ -17,7 +19,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.time.Instant
 import java.time.LocalDate
@@ -44,11 +45,8 @@ class IndicatorService(
 ) {
     private val log = LoggerFactory.getLogger(IndicatorService::class.java)
 
-    // kotlinx.Json for our own @Serializable models (ComputedIndicators)
-    private val json = Json { ignoreUnknownKeys = true }
-
-    // Jackson ObjectMapper for Kite SDK POJOs (HistoricalData — not @Serializable)
-    private val mapper = ObjectMapper()
+    // Jackson mapper used for Redis cache payloads and Kite SDK POJOs.
+    private val mapper = ObjectMapper().registerKotlinModule()
 
     private val ist = ZoneId.of("Asia/Kolkata")
     private val indicatorWarmupYears: Long = 2 // 2 years is enough for SMA200 + RSI bounds
@@ -65,13 +63,17 @@ class IndicatorService(
         val cached = redis.get(redisKey)
         if (cached != null) {
             val cachedIndicators = deserializeOrLog<List<ComputedIndicators>>(cached, "redis:$redisKey") {
-                json.decodeFromString<List<ComputedIndicators>>(it)
+                mapper.readValue(it, object : TypeReference<List<ComputedIndicators>>() {})
             }
-            if (cachedIndicators != null && !isStale(cachedIndicators)) {
+            val hasFallbackPrices = cachedIndicators?.any { it.lastClose != null } == true
+            if (cachedIndicators != null && !isStale(cachedIndicators) && hasFallbackPrices) {
                 return cachedIndicators
             }
 
-            log.info("Redis indicator cache for key={} is stale or unreadable. Refreshing.", redisKey)
+            log.info(
+                "Redis indicator cache for key={} is stale, unreadable, or missing fallback prices. Refreshing.",
+                redisKey
+            )
             redis.delete(redisKey)
         }
 
@@ -79,7 +81,7 @@ class IndicatorService(
         val indicators = loadAndComputeIndicators(stocks)
         
         if (indicators.isNotEmpty()) {
-            redis.set(redisKey, json.encodeToString(indicators), config.indicatorsTtlSeconds)
+            redis.set(redisKey, mapper.writeValueAsString(indicators), config.indicatorsTtlSeconds)
         }
         
         return indicators
@@ -272,7 +274,7 @@ class IndicatorService(
                     if (tagIndicators.isNotEmpty()) {
                         redis.set(
                             config.tagIndicatorsKey(tag),
-                            json.encodeToString(tagIndicators),
+                            mapper.writeValueAsString(tagIndicators),
                             config.indicatorsTtlSeconds,
                         )
                     }
@@ -285,7 +287,7 @@ class IndicatorService(
         if (computedResults.isEmpty()) return
         redis.set(
             "watchlist:indicators:ALL",
-            json.encodeToString(computedResults),
+            mapper.writeValueAsString(computedResults),
             config.indicatorsTtlSeconds,
         )
     }

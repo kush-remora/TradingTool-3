@@ -6,7 +6,6 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 
 class ComputedIndicatorsSerializationTest {
     private val json = Json { ignoreUnknownKeys = true }
@@ -19,11 +18,14 @@ class ComputedIndicatorsSerializationTest {
             sma200 = 105.5,
             high60d = 112.75,
             low60d = 92.15,
+            high3m = 118.35,
+            low3m = 89.40,
             rsiAtHigh60d = 78.4,
             rsiAtLow60d = 28.2,
             volumeAtHigh60d = 1_250_000.0,
             volumeAtLow60d = 975_000.0,
             rsi14 = 45.0,
+            atr14 = 42.5,
             computedAt = System.currentTimeMillis()
         )
 
@@ -36,11 +38,14 @@ class ComputedIndicatorsSerializationTest {
         assertEquals(original.sma200, deserialized.sma200)
         assertEquals(original.high60d, deserialized.high60d)
         assertEquals(original.low60d, deserialized.low60d)
+        assertEquals(original.high3m, deserialized.high3m)
+        assertEquals(original.low3m, deserialized.low3m)
         assertEquals(original.rsiAtHigh60d, deserialized.rsiAtHigh60d)
         assertEquals(original.rsiAtLow60d, deserialized.rsiAtLow60d)
         assertEquals(original.volumeAtHigh60d, deserialized.volumeAtHigh60d)
         assertEquals(original.volumeAtLow60d, deserialized.volumeAtLow60d)
         assertEquals(original.rsi14, deserialized.rsi14)
+        assertEquals(original.atr14, deserialized.atr14)
         assertEquals(original.computedAt, deserialized.computedAt)
     }
 

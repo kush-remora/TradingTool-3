@@ -21,10 +21,6 @@ export function LiveMarketWidget({
 }: LiveMarketWidgetProps) {
   const data = useLiveMarketData(symbol);
 
-  if (!data && showDetails) {
-    return <Text type="secondary" style={{ fontSize: 12 }}>Loading...</Text>;
-  }
-
   const ltp = data?.ltp ?? fallbackLtp;
   const changePercent = data?.changePercent ?? fallbackChangePercent;
 

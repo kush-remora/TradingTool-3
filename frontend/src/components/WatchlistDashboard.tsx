@@ -25,6 +25,7 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
     val !== null ? `₹${val.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "-";
 
   const formatRsi = (val: number | null): string => (val !== null ? val.toFixed(2) : "-");
+  const formatPercent = (val: number | null): string => (val !== null ? `${val.toFixed(2)}%` : "-");
 
   const formatVolume = (val: number | null): string => {
     if (val === null) return "-";
@@ -51,6 +52,13 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
         {sign}{prefix}{val.toFixed(2)}{suffix}
       </Text>
     );
+  };
+
+  const trendStateMeta: Record<string, { label: string; color: string }> = {
+    ABOVE_BOTH: { label: "Above Both", color: "success" },
+    ABOVE_50_ONLY: { label: "Above 50 Only", color: "processing" },
+    ABOVE_200_ONLY: { label: "Above 200 Only", color: "warning" },
+    BELOW_BOTH: { label: "Below Both", color: "error" },
   };
 
   const columns = [
@@ -97,7 +105,22 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
       render: (v: number | null) => <Text>{formatMoney(v)}</Text>
     },
     {
-      title: "2M RANGE",
+      title: "TREND STATE",
+      dataIndex: "trendState",
+      key: "trendState",
+      width: 130,
+      render: (v: string | null) => {
+        if (!v) return <Text type="secondary">-</Text>;
+        const meta = trendStateMeta[v] ?? { label: v, color: "default" };
+        return (
+          <Tag color={meta.color} style={{ width: "100%", textAlign: "center", margin: 0 }}>
+            <span style={{ fontWeight: 600 }}>{meta.label}</span>
+          </Tag>
+        );
+      }
+    },
+    {
+      title: "RANGE POSITION (60D)",
       dataIndex: "rangePosition60dPct",
       key: "rangePosition60dPct",
       width: 160,
@@ -108,7 +131,7 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
         const tooltip = (
           <div style={{ minWidth: 220, color: "#ffffff", fontSize: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-              <span>2M High</span>
+              <span>60D High</span>
               <span>{formatMoney(record.high60d)}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
@@ -120,7 +143,7 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
               <span>{formatVolume(record.volumeAtHigh60d)}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-              <span>2M Low</span>
+              <span>60D Low</span>
               <span>{formatMoney(record.low60d)}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
@@ -148,37 +171,30 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
       title: "RSI (14)",
       dataIndex: "rsi14",
       key: "rsi14",
-      width: 160,
+      width: 130,
       render: (v: number | null) => {
         if (v === null) return <Text type="secondary">-</Text>;
-        let strokeColor = "#bfbfbf";
-        let statusText = "Neutral";
-        if (v < 30) { strokeColor = "#52c41a"; statusText = "Oversold"; }
-        else if (v > 70) { strokeColor = "#ff4d4f"; statusText = "Overbought"; }
-        
+
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Text style={{ fontSize: 12, fontWeight: 500 }}>{v.toFixed(1)}</Text>
-              <Text style={{ fontSize: 10, color: strokeColor }}>{statusText}</Text>
-            </div>
-            <Progress percent={v} showInfo={false} strokeColor={strokeColor} size="small" style={{ margin: 0 }} />
+            <Text style={{ fontSize: 12, fontWeight: 500 }}>{v.toFixed(1)}</Text>
+            <Progress percent={v} showInfo={false} size="small" style={{ margin: 0 }} />
           </div>
         );
       }
     },
     {
-      title: "MACD",
-      dataIndex: "macdSignal",
-      key: "macdSignal",
-      width: 110,
-      render: (v: string | null) => {
-        if (!v) return <Text type="secondary">-</Text>;
-        const isBull = v.toUpperCase() === "BULLISH";
+      title: "ATR (14)",
+      dataIndex: "atr14Pct",
+      key: "atr14Pct",
+      width: 130,
+      render: (_: number | null, record: WatchlistRow) => {
+        if (record.atr14Pct === null || record.atr14 === null) return <Text type="secondary">-</Text>;
+        const atrColor = record.atr14Pct >= 4 ? "#faad14" : record.atr14Pct >= 2 ? "#1677ff" : "#8c8c8c";
         return (
-          <Tag color={isBull ? "success" : "error"} style={{ width: "100%", textAlign: "center", margin: 0 }}>
-            <span style={{ fontWeight: 600 }}>{v.toUpperCase()}</span>
-          </Tag>
+          <Text style={{ color: atrColor, fontWeight: 500 }}>
+            {record.atr14Pct.toFixed(2)}% ({formatMoney(record.atr14)})
+          </Text>
         );
       }
     },
@@ -188,6 +204,26 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
       key: "drawdownPct",
       width: 130,
       render: (v: number | null) => renderColorValue(v, "", "%")
+    },
+    {
+      title: "GAP TO 3M LOW %",
+      dataIndex: "gapTo3mLowPct",
+      key: "gapTo3mLowPct",
+      width: 140,
+      sorter: (a: WatchlistRow, b: WatchlistRow) => compareNullableNumbers(a.gapTo3mLowPct, b.gapTo3mLowPct),
+      render: (v: number | null) => renderColorValue(v, "", "%")
+    },
+    {
+      title: "GAP TO 3M HIGH %",
+      dataIndex: "gapTo3mHighPct",
+      key: "gapTo3mHighPct",
+      width: 145,
+      sorter: (a: WatchlistRow, b: WatchlistRow) => compareNullableNumbers(a.gapTo3mHighPct, b.gapTo3mHighPct),
+      render: (v: number | null) => {
+        if (v === null) return <Text type="secondary">-</Text>;
+        const color = v > 0 ? "#8c8c8c" : "#52c41a";
+        return <Text style={{ color, fontWeight: 500 }}>{formatPercent(v)}</Text>;
+      }
     },
     {
       title: "VOL VS AVG (20D)",
