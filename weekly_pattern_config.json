@@ -1,5 +1,6 @@
 {
   "lookbackWeeks": 15,
+  "buyZoneLookbackWeeks": 10,
   "recentSessionsLookbackDays": 30,
   "minTradingDaysPerWeek": 3,
   "minWeeksRequired": 8,

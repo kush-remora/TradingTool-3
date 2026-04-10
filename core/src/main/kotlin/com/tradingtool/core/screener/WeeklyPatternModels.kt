@@ -35,6 +35,7 @@ data class WeeklyPatternResult(
 data class WeeklyPatternListResponse(
     val runAt: String,
     val lookbackWeeks: Int,
+    val buyZoneLookbackWeeks: Int,
     val results: List<WeeklyPatternResult>,
 )
 

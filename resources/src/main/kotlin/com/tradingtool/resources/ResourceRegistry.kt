@@ -13,6 +13,7 @@ val ALL_RESOURCE_CLASSES: List<Class<*>> = listOf(
     StockResource::class.java,
     TradeResource::class.java,
     WatchlistResource::class.java,
+    StrategyResource::class.java,
     IntegrationResource::class.java,
     ScreenerResource::class.java,
     TechnicalContextResource::class.java,

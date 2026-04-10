@@ -9,5 +9,7 @@ data class TickSnapshot(
     val high: Double,
     val low: Double,
     val close: Double,
+    val buyQuantity: Long,
+    val sellQuantity: Long,
     val updatedAt: Long = System.currentTimeMillis()
 )

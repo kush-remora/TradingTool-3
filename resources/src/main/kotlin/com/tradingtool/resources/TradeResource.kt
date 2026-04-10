@@ -3,6 +3,7 @@ package com.tradingtool.resources
 import com.google.inject.Inject
 import com.tradingtool.core.model.trade.CloseTradeInput
 import com.tradingtool.core.model.trade.CreateTradeInput
+import com.tradingtool.core.trade.service.TradeReadinessService
 import com.tradingtool.core.trade.service.TradeService
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.resources.common.badRequest
@@ -17,14 +18,17 @@ import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
+import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import java.util.concurrent.CompletableFuture
+import java.util.Locale
 
 @Path("/api/trades")
 @Produces(MediaType.APPLICATION_JSON)
 class TradeResource @Inject constructor(
     private val tradeService: TradeService,
+    private val tradeReadinessService: TradeReadinessService,
     private val resourceScope: ResourceScope,
 ) {
     private val ioScope = resourceScope.ioScope
@@ -33,6 +37,22 @@ class TradeResource @Inject constructor(
     @GET
     fun getAllTrades(): CompletableFuture<Response> = ioScope.endpoint {
         ok(tradeService.getTradesWithTargets())
+    }
+
+    /** GET /api/trades/readiness?symbols=INFY,TCS — compact trade-readiness snapshot (max 3 symbols). */
+    @GET
+    @Path("/readiness")
+    fun getReadiness(@QueryParam("symbols") symbols: String?): CompletableFuture<Response> = ioScope.endpoint {
+        val requestedSymbols = symbols
+            ?.split(",")
+            ?.map { it.trim().uppercase(Locale.ROOT) }
+            ?.filter { it.isNotBlank() }
+            ?.distinct()
+            ?.take(3)
+            ?: emptyList()
+        if (requestedSymbols.isEmpty()) return@endpoint badRequest("Query parameter 'symbols' is required")
+
+        ok(tradeReadinessService.getReadiness(requestedSymbols))
     }
 
     /** GET /api/trades/{tradeId} — single trade with GTT targets. */

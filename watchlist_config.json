@@ -8,5 +8,11 @@
   }, {
     "name" : "Momentum",
     "color" : "#ff3d5a"
+  }, {
+    "name" : "nuclear power plant",
+    "color" : "#42f554"
+  }, {
+    "name" : "AI data center and chips",
+    "color" : "#9b42f5"
   } ]
 }

@@ -39,6 +39,8 @@ import com.tradingtool.core.screener.WeeklyPatternService
 import com.tradingtool.core.strategy.remora.RemoraService
 import com.tradingtool.core.strategy.remora.RemoraSignalReadDao
 import com.tradingtool.core.strategy.remora.RemoraSignalWriteDao
+import com.tradingtool.core.strategy.rsimomentum.RsiMomentumConfigService
+import com.tradingtool.core.strategy.rsimomentum.RsiMomentumService
 import com.tradingtool.core.stock.service.StockDetailService
 import com.tradingtool.core.stock.service.StockService
 import com.tradingtool.core.telegram.TelegramApiClient
@@ -47,6 +49,7 @@ import com.tradingtool.core.telegram.TelegramSender
 import com.tradingtool.core.trade.dao.TradeReadDao
 import com.tradingtool.core.trade.dao.TradeWriteDao
 import com.tradingtool.core.trade.service.TradeService
+import com.tradingtool.core.trade.service.TradeReadinessService
 import com.tradingtool.core.watchlist.IndicatorService
 import com.tradingtool.core.watchlist.WatchlistConfigService
 import com.tradingtool.core.watchlist.WatchlistService
@@ -69,6 +72,7 @@ class ServiceModule(
         bind(WatchlistConfigService::class.java).`in`(Singleton::class.java)
         bind(StockService::class.java).`in`(Singleton::class.java)
         bind(TradeService::class.java).`in`(Singleton::class.java)
+        bind(TradeReadinessService::class.java).`in`(Singleton::class.java)
         bind(HttpRequestExecutor::class.java).to(JdkHttpRequestExecutor::class.java).`in`(Singleton::class.java)
 
         ALL_RESOURCE_CLASSES.forEach { bind(it).`in`(Singleton::class.java) }
@@ -118,6 +122,29 @@ class ServiceModule(
         redis = redis,
         kiteClient = kiteClient,
         config = IndicatorConfig.DEFAULT,
+    )
+
+    @Provides
+    @Singleton
+    fun provideRsiMomentumConfigService(): RsiMomentumConfigService = RsiMomentumConfigService()
+
+    @Provides
+    @Singleton
+    fun provideRsiMomentumService(
+        configService: RsiMomentumConfigService,
+        candleHandler: CandleJdbiHandler,
+        stockHandler: StockJdbiHandler,
+        redis: RedisHandler,
+        kiteClient: KiteConnectClient,
+        instrumentCache: InstrumentCache,
+    ): RsiMomentumService = RsiMomentumService(
+        configService = configService,
+        candleHandler = candleHandler,
+        stockHandler = stockHandler,
+        redis = redis,
+        kiteClient = kiteClient,
+        instrumentCache = instrumentCache,
+        indicatorConfig = IndicatorConfig.DEFAULT,
     )
 
     @Provides

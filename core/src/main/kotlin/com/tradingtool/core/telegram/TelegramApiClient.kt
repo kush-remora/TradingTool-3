@@ -1,10 +1,11 @@
 package com.tradingtool.core.telegram
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.tradingtool.core.http.HttpError
+import com.fasterxml.jackson.databind.node.ArrayNode
 import com.tradingtool.core.http.Result
 import com.tradingtool.core.http.SuspendHttpClient
 import com.tradingtool.core.model.telegram.TelegramApiResponse
+import com.tradingtool.core.model.telegram.TelegramIncomingMessage
 import com.tradingtool.core.model.telegram.TelegramSendFileRequest
 import com.google.inject.Inject
 import com.google.inject.Singleton
@@ -90,6 +91,57 @@ class TelegramApiClient @Inject constructor(
             statusCode = 200,
             response = parseResponseJson(response),
         )
+    }
+
+    internal suspend fun getRecentMessages(limit: Int = 30): Result<List<TelegramIncomingMessage>> {
+        if (!isConfigured()) return Result.Success(emptyList())
+
+        val response = httpClient.get(
+            url = "$baseUrl/getUpdates?limit=$limit&allowed_updates=%5B%22message%22,%22channel_post%22%5D",
+            headers = mapOf("Accept" to "application/json"),
+        )
+
+        return when (response) {
+            is Result.Success -> {
+                val root = objectMapper.readTree(response.data)
+                val ok = root.path("ok").asBoolean(false)
+                if (!ok) return Result.Success(emptyList())
+
+                val resultNode = root.path("result")
+                if (resultNode !is ArrayNode) return Result.Success(emptyList())
+
+                val messages = resultNode.mapNotNull { updateNode ->
+                    val messageNode = if (!updateNode.path("message").isMissingNode) {
+                        updateNode.path("message")
+                    } else {
+                        updateNode.path("channel_post")
+                    }
+                    if (messageNode.isMissingNode) return@mapNotNull null
+
+                    val messageChatId = messageNode.path("chat").path("id").asText("")
+                    if (messageChatId != chatId) return@mapNotNull null
+
+                    val text = messageNode.path("text").asText("").trim()
+                    if (text.isEmpty()) return@mapNotNull null
+
+                    val messageId = messageNode.path("message_id").asLong(0L)
+                    val epochSeconds = messageNode.path("date").asLong(0L)
+                    if (messageId == 0L || epochSeconds <= 0L) return@mapNotNull null
+
+                    TelegramIncomingMessage(
+                        messageId = messageId,
+                        text = text,
+                        receivedAt = java.time.Instant.ofEpochSecond(epochSeconds).toString(),
+                    )
+                }.sortedByDescending { it.receivedAt }
+
+                Result.Success(messages)
+            }
+            is Result.Failure -> {
+                // Keep UI usable when Telegram API is temporarily unavailable.
+                Result.Success(emptyList())
+            }
+        }
     }
 
     private fun parseResponseJson(responseResult: Result<String>): Result<TelegramApiResponse> {

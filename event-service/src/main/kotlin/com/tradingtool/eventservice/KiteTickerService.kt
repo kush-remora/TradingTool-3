@@ -87,7 +87,7 @@ class KiteTickerService(
         if (subscribedTokens.contains(token)) return
         subscribedTokens.add(token)
         ticker?.subscribe(arrayListOf(token))
-        ticker?.setMode(arrayListOf(token), KiteTicker.modeQuote)
+        ticker?.setMode(arrayListOf(token), KiteTicker.modeFull)
         log.info("[KiteTicker] Subscribed to instrument $token")
     }
 
@@ -128,7 +128,7 @@ class KiteTickerService(
         t.setOnConnectedListener {
             val tokenList = ArrayList(tokens)
             t.subscribe(tokenList)
-            t.setMode(tokenList, KiteTicker.modeQuote)  // LTP + volume + OHLC (44 bytes/tick)
+            t.setMode(tokenList, KiteTicker.modeFull)  // Includes depth + buy/sell quantities.
             log.info("[KiteTicker] Connected — subscribed to ${tokens.size} instruments")
         }
 
@@ -144,6 +144,8 @@ class KiteTickerService(
                         high            = tick.highPrice,
                         low             = tick.lowPrice,
                         close           = tick.closePrice,
+                        buyQuantity     = tick.totalBuyQuantity.toLong(),
+                        sellQuantity    = tick.totalSellQuantity.toLong(),
                     )
                 )
             }

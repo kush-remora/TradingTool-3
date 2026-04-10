@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "baseUniversePreset": "NIFTY_LARGEMIDCAP_250",
+  "candidateCount": 20,
+  "holdingCount": 10,
+  "rsiPeriods": [
+    22,
+    44,
+    66
+  ],
+  "minAverageTradedValue": 10.0,
+  "rebalanceDay": "FRIDAY",
+  "rebalanceTime": "15:40"
+}

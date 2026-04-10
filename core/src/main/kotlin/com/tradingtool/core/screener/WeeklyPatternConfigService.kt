@@ -11,7 +11,8 @@ import kotlin.concurrent.read
 import kotlin.concurrent.write
 
 data class WeeklyPatternConfig(
-    val lookbackWeeks: Int = 8,
+    val lookbackWeeks: Int = 15,
+    val buyZoneLookbackWeeks: Int = 15,
     val recentSessionsLookbackDays: Int = 10,
     val minTradingDaysPerWeek: Int = 3,
     val minWeeksRequired: Int = 6,
@@ -48,6 +49,8 @@ class WeeklyPatternConfigService @Inject constructor() {
     private val mapper = ObjectMapper().registerKotlinModule()
     private val configFile = File("weekly_pattern_config.json")
     private val lock = ReentrantReadWriteLock()
+    private val minLookbackWeeks = 7
+    private val maxLookbackWeeks = 20
 
     init {
         if (!configFile.exists()) {
@@ -57,13 +60,29 @@ class WeeklyPatternConfigService @Inject constructor() {
     }
 
     fun loadConfig(): WeeklyPatternConfig = lock.read {
-        if (!configFile.exists()) return WeeklyPatternConfig()
-        return try {
-            mapper.readValue(configFile, WeeklyPatternConfig::class.java)
-        } catch (e: Exception) {
-            log.error("Failed to read weekly_pattern_config.json, using defaults: {}", e.message)
+        val loaded = if (!configFile.exists()) {
             WeeklyPatternConfig()
+        } else {
+            try {
+                mapper.readValue(configFile, WeeklyPatternConfig::class.java)
+            } catch (e: Exception) {
+                log.error("Failed to read weekly_pattern_config.json, using defaults: {}", e.message)
+                WeeklyPatternConfig()
+            }
         }
+        sanitizeConfig(loaded)
+    }
+
+    private fun sanitizeConfig(config: WeeklyPatternConfig): WeeklyPatternConfig {
+        val effectiveLookback = config.lookbackWeeks.coerceIn(minLookbackWeeks, maxLookbackWeeks)
+        val effectiveBuyZoneLookback = config.buyZoneLookbackWeeks.coerceIn(minLookbackWeeks, maxLookbackWeeks)
+        val effectiveMinWeeks = config.minWeeksRequired.coerceAtMost(effectiveLookback).coerceAtLeast(1)
+
+        return config.copy(
+            lookbackWeeks = effectiveLookback,
+            buyZoneLookbackWeeks = effectiveBuyZoneLookback,
+            minWeeksRequired = effectiveMinWeeks,
+        )
     }
 
     private fun saveConfig(config: WeeklyPatternConfig) = lock.write {

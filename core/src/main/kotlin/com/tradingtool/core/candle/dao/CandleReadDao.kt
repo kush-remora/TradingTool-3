@@ -72,6 +72,35 @@ interface CandleReadDao {
         @Bind("from") from: LocalDate,
         @Bind("to") to: LocalDate,
     ): List<DailyCandle>
+
+    @SqlQuery(
+        """
+        SELECT * FROM public.${Tables.DAILY_CANDLES}
+        WHERE instrument_token = :token
+        ORDER BY candle_date DESC
+        LIMIT :limit
+        """
+    )
+    fun getRecentDailyCandles(
+        @Bind("token") token: Long,
+        @Bind("limit") limit: Int,
+    ): List<DailyCandle>
+
+    @SqlQuery(
+        """
+        SELECT * FROM public.${Tables.INTRADAY_CANDLES}
+        WHERE instrument_token = :token
+          AND interval = :interval
+          AND candle_timestamp BETWEEN :from AND :to
+        ORDER BY candle_timestamp
+        """
+    )
+    fun getIntradayCandles(
+        @Bind("token") token: Long,
+        @Bind("interval") interval: String,
+        @Bind("from") from: LocalDateTime,
+        @Bind("to") to: LocalDateTime,
+    ): List<IntradayCandle>
 }
 
 class DailyCandleMapper : RowMapper<DailyCandle> {

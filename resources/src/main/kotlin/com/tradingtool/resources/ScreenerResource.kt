@@ -62,6 +62,7 @@ class ScreenerResource @Inject constructor(
         ok(WeeklyPatternListResponse(
             runAt = Instant.now().toString(),
             lookbackWeeks = weeklyPatternService.lookbackWeeks(),
+            buyZoneLookbackWeeks = weeklyPatternService.buyZoneLookbackWeeks(),
             results = results
         ))
     }

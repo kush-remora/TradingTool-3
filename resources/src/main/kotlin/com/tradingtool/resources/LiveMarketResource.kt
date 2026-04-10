@@ -143,6 +143,16 @@ class LiveMarketResource @Inject constructor(
         tick: TickSnapshot,
         avgVol20d: Double?
     ) {
+        val totalPressure = tick.buyQuantity + tick.sellQuantity
+        val buyPressurePct = if (totalPressure > 0L) tick.buyQuantity * 100.0 / totalPressure else null
+        val sellPressurePct = if (totalPressure > 0L) tick.sellQuantity * 100.0 / totalPressure else null
+        val pressureSide = when {
+            buyPressurePct == null || sellPressurePct == null -> "NEUTRAL"
+            kotlin.math.abs(buyPressurePct - sellPressurePct) < 4.0 -> "NEUTRAL"
+            buyPressurePct > sellPressurePct -> "BUYERS_AGGRESSIVE"
+            else -> "SELLERS_AGGRESSIVE"
+        }
+
         val volumeHeat = if (avgVol20d != null && avgVol20d > 0) {
             tick.volume.toDouble() / avgVol20d
         } else null
@@ -155,6 +165,11 @@ class LiveMarketResource @Inject constructor(
             high = tick.high,
             low = tick.low,
             volume = tick.volume,
+            buyQuantity = tick.buyQuantity,
+            sellQuantity = tick.sellQuantity,
+            buyPressurePct = buyPressurePct,
+            sellPressurePct = sellPressurePct,
+            pressureSide = pressureSide,
             avgVol20d = avgVol20d,
             volumeHeat = volumeHeat
         )

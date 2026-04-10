@@ -20,9 +20,34 @@ export interface LiveMarketUpdate {
   high: number;
   low: number;
   volume: number;
+  buyQuantity: number;
+  sellQuantity: number;
+  buyPressurePct: number | null;
+  sellPressurePct: number | null;
+  pressureSide: "BUYERS_AGGRESSIVE" | "SELLERS_AGGRESSIVE" | "NEUTRAL" | string;
   avgVol20d: number | null;
   volumeHeat: number | null;
   updatedAt: number;
+}
+
+export interface TradeReadinessAlert {
+  raw_text: string;
+  action: "BUY" | "SELL" | string | null;
+  limit_price: number | null;
+  target_price: number | null;
+  received_at: string;
+}
+
+export interface TradeReadinessSymbol {
+  symbol: string;
+  company_name: string;
+  rsi14: number | null;
+  rsi15m: number | null;
+  alerts: TradeReadinessAlert[];
+}
+
+export interface TradeReadinessResponse {
+  symbols: TradeReadinessSymbol[];
 }
 
 // ==================== Stock (Master Record) ====================
@@ -226,6 +251,7 @@ export interface WeeklyPatternResult {
 export interface WeeklyPatternListResponse {
   runAt: string;
   lookbackWeeks: number;
+  buyZoneLookbackWeeks: number;
   results: WeeklyPatternResult[];
 }
 

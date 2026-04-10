@@ -14,6 +14,11 @@ data class LiveMarketUpdate(
     val high: Double,
     val low: Double,
     val volume: Long,
+    val buyQuantity: Long,
+    val sellQuantity: Long,
+    val buyPressurePct: Double?,
+    val sellPressurePct: Double?,
+    val pressureSide: String,
     val avgVol20d: Double?,
     val volumeHeat: Double?,
     val updatedAt: Long = System.currentTimeMillis()

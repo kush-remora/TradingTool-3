@@ -79,6 +79,7 @@ class WeeklyPatternService(
     )
 
     fun lookbackWeeks(): Int = patternConfigService.loadConfig().lookbackWeeks
+    fun buyZoneLookbackWeeks(): Int = patternConfigService.loadConfig().buyZoneLookbackWeeks
 
     suspend fun analyze(symbols: List<String>): List<WeeklyPatternResult> = coroutineScope {
         val startTime = System.currentTimeMillis()
@@ -125,16 +126,24 @@ class WeeklyPatternService(
             candles = allYearCandles,
             windowSize = config.rsiEntry.lookbackDays,
         )
-        val completedWeeks = selectCompletedWeeks(allYearCandles, today, config)
+        val completedWeeks = selectCompletedWeeks(
+            candles = allYearCandles,
+            today = today,
+            minTradingDaysPerWeek = config.minTradingDaysPerWeek,
+        )
+        val analysisWeeks = completedWeeks.takeLast(config.lookbackWeeks)
 
-        val analysis = analyzeSeasonality(completedWeeks, rsiMap, config)
+        val analysis = analyzeSeasonality(analysisWeeks, rsiMap, config)
         val bestPair = analysis?.eval
         if (bestPair == null || bestPair.eligibleWeeksCount < config.minWeeksRequired) {
             return noData(symbol, stock.companyName, "insufficient_data")
         }
 
-        val minLow = bestPair.allWeeks.mapNotNull { it.buyDayLow }.minOrNull() ?: 0.0
-        val maxLow = bestPair.allWeeks.mapNotNull { it.buyDayLow }.maxOrNull() ?: 0.0
+        val (minLow, maxLow) = calculateBuyDayLowRange(
+            completedWeeks = completedWeeks,
+            buyDay = bestPair.buyDay,
+            buyZoneLookbackWeeks = config.buyZoneLookbackWeeks,
+        )
         val avgPotential = bestPair.allWeeks.mapNotNull { it.maxPotentialPct }.average().roundTo2()
         val targetRecommendation = analysis.targetRecommendation
 
@@ -181,7 +190,7 @@ class WeeklyPatternService(
     private fun selectCompletedWeeks(
         candles: List<DailyCandle>,
         today: LocalDate,
-        config: WeeklyPatternConfig,
+        minTradingDaysPerWeek: Int,
     ): List<WeekInstance> {
         val currentWeekStart = today.minusDays((today.dayOfWeek.value - DayOfWeek.MONDAY.value).toLong())
 
@@ -202,10 +211,22 @@ class WeeklyPatternService(
             .sortedWith(compareBy({ it.isoYear }, { it.isoWeek }))
             .filter { week ->
                 val weekEnd = week.endDate ?: return@filter false
-                weekEnd.isBefore(currentWeekStart) && week.dailyCandles.size >= config.minTradingDaysPerWeek
+                weekEnd.isBefore(currentWeekStart) && week.dailyCandles.size >= minTradingDaysPerWeek
             }
+        return parsedWeeks
+    }
 
-        return parsedWeeks.takeLast(config.lookbackWeeks)
+    private fun calculateBuyDayLowRange(
+        completedWeeks: List<WeekInstance>,
+        buyDay: Int,
+        buyZoneLookbackWeeks: Int,
+    ): Pair<Double, Double> {
+        val lowSamples = completedWeeks
+            .takeLast(buyZoneLookbackWeeks)
+            .mapNotNull { week -> week.dailyCandles[buyDay]?.low }
+
+        if (lowSamples.isEmpty()) return Pair(0.0, 0.0)
+        return Pair(lowSamples.minOrNull() ?: 0.0, lowSamples.maxOrNull() ?: 0.0)
     }
 
     private fun analyzeSeasonality(
@@ -268,14 +289,11 @@ class WeeklyPatternService(
         )
 
         val entryWeeks = simulatedWeeks.filter { it.entryTriggered }
-        val buyDayOccurrenceCount = parsedWeeks.count { resolveWeekLowDay(it) == buyDay }
         val swingConsistency = entryWeeks.count { it.swingTargetHit }
         val effectiveSellDay = resolveEffectiveSellDay(simulatedWeeks, fallbackSellDay)
         val avgObservedSwingPct = calculateAverageObservedSwing(parsedWeeks, buyDay, effectiveSellDay)
         val avgRealizedSwingPct = entryWeeks.mapNotNull { it.swingPct }.averageOrZero().roundTo2()
         val compositeScore = calculateCompositeScore(
-            totalWeeks = totalWeeks,
-            buyDayOccurrenceCount = buyDayOccurrenceCount,
             eligibleWeeks = eligibleWeeks,
             entries = entryWeeks.size,
             wins = swingConsistency,
@@ -465,25 +483,21 @@ class WeeklyPatternService(
     }
 
     private fun calculateCompositeScore(
-        totalWeeks: Int,
-        buyDayOccurrenceCount: Int,
         eligibleWeeks: Int,
         entries: Int,
         wins: Int,
         avgRealizedSwingPct: Double,
         referenceTargetPct: Double,
     ): Int {
-        val lowDayRate = if (totalWeeks > 0) buyDayOccurrenceCount.toDouble() / totalWeeks else 0.0
         val entryRate = if (eligibleWeeks > 0) entries.toDouble() / eligibleWeeks else 0.0
         val winRate = if (entries > 0) wins.toDouble() / entries else 0.0
         val magnitudeScale = (referenceTargetPct * 1.5).coerceAtLeast(1.0)
         val magnitudeRate = avgRealizedSwingPct.coerceIn(0.0, magnitudeScale) / magnitudeScale
 
-        val daySupportScore = (lowDayRate * 10).toInt()
         val entryScore = (entryRate * 35).toInt()
-        val winScore = (winRate * 35).toInt()
+        val winScore = (winRate * 45).toInt()
         val magnitudeScore = (magnitudeRate * 20).toInt()
-        return daySupportScore + entryScore + winScore + magnitudeScore
+        return entryScore + winScore + magnitudeScore
     }
 
     private fun simulateWeeksForTarget(
@@ -699,15 +713,23 @@ class WeeklyPatternService(
             candles = allYearCandles,
             windowSize = config.rsiEntry.lookbackDays,
         )
-        val completedWeeks = selectCompletedWeeks(allYearCandles, today, config)
+        val completedWeeks = selectCompletedWeeks(
+            candles = allYearCandles,
+            today = today,
+            minTradingDaysPerWeek = config.minTradingDaysPerWeek,
+        )
+        val analysisWeeks = completedWeeks.takeLast(config.lookbackWeeks)
 
-        val analysis = analyzeSeasonality(completedWeeks, rsiMap, config) ?: return null
+        val analysis = analyzeSeasonality(analysisWeeks, rsiMap, config) ?: return null
         val bestPair = analysis.eval
         val targetScenarios = analysis.targetScenarios
         val targetRecommendation = analysis.targetRecommendation
 
-        val minLow = bestPair.allWeeks.mapNotNull { it.buyDayLow }.minOrNull() ?: 0.0
-        val maxLow = bestPair.allWeeks.mapNotNull { it.buyDayLow }.maxOrNull() ?: 0.0
+        val (minLow, maxLow) = calculateBuyDayLowRange(
+            completedWeeks = completedWeeks,
+            buyDay = bestPair.buyDay,
+            buyZoneLookbackWeeks = config.buyZoneLookbackWeeks,
+        )
 
         val selectedCandles = bestPair.allWeeks
             .flatMap { it.dailyCandles.values }

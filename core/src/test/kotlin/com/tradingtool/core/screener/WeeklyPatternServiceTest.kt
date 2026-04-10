@@ -151,6 +151,20 @@ class WeeklyPatternServiceTest {
         assertEquals(0, scenarios.single().entries)
     }
 
+    @Test
+    fun `calculateCompositeScore prioritizes trade outcomes not low-day frequency`() {
+        val score = invokePrivate<Int>(
+            "calculateCompositeScore",
+            10,
+            6,
+            3,
+            2.0,
+            5.0,
+        )
+
+        assertEquals(48, score)
+    }
+
     private fun buildLtLikeWeeks(): List<WeeklyPatternService.WeekInstance> {
         val base = LocalDate.of(2026, 1, 5)
         val mondayLowWeeks = listOf(
