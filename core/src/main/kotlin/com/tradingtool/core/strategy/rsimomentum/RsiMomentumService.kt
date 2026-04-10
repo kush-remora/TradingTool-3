@@ -15,9 +15,16 @@ import com.tradingtool.core.technical.calculateRsi
 import com.tradingtool.core.technical.getDoubleValue
 import com.tradingtool.core.technical.roundTo2
 import com.tradingtool.core.technical.toTa4jSeries
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import java.time.Instant
@@ -40,6 +47,8 @@ class RsiMomentumService @Inject constructor(
     private val log = LoggerFactory.getLogger(RsiMomentumService::class.java)
     private val mapper = ObjectMapper().registerKotlinModule()
     private val ist = ZoneId.of("Asia/Kolkata")
+    private val historyFetchMutex = Mutex()
+    private val analysisSemaphore = Semaphore(MAX_ANALYSIS_CONCURRENCY)
 
     suspend fun getLatest(): RsiMomentumSnapshot {
         val config = configService.loadConfig()
@@ -90,51 +99,28 @@ class RsiMomentumService @Inject constructor(
         val previousSnapshot = readSnapshotOrNull()
         val previousHoldings = previousSnapshot?.holdings?.map { holding -> holding.symbol } ?: emptyList()
 
-        val backfilledSymbols = mutableListOf<String>()
-        val insufficientHistorySymbols = mutableListOf<String>()
-        val illiquidSymbols = mutableListOf<String>()
-        val failedSymbols = mutableListOf<String>()
-        val metrics = mutableListOf<SecurityMetrics>()
-
-        for (member in universe.members) {
-            try {
-                val candles = loadCandles(member, backfilledSymbols)
-                if (candles.size < requiredBarCount(config.rsiPeriods)) {
-                    insufficientHistorySymbols += member.symbol
-                    continue
+        val analysisResults = supervisorScope {
+            universe.members.map { member ->
+                async {
+                    analysisSemaphore.withPermit {
+                        analyzeMember(member, config)
+                    }
                 }
+            }.awaitAll()
+        }
 
-                val avgTradedValueCr = candles
-                    .takeLast(AVERAGE_TRADED_VALUE_LOOKBACK_DAYS)
-                    .map { candle -> (candle.close * candle.volume) / CRORE_DIVISOR }
-                    .average()
-                    .roundTo2()
-
-                if (avgTradedValueCr < config.minAverageTradedValue) {
-                    illiquidSymbols += member.symbol
-                    continue
-                }
-
-                val series = candles.toTa4jSeries(member.symbol)
-                val rsiValues = config.rsiPeriods.sorted().associateWith { period ->
-                    series.calculateRsi(period).getDoubleValue(series.endIndex, 50.0).roundTo2()
-                }
-
-                metrics += SecurityMetrics(
-                    member = member,
-                    asOfDate = candles.maxOf { candle -> candle.candleDate },
-                    avgRsi = rsiValues.values.average().roundTo2(),
-                    rsi22 = rsiValues[22] ?: 50.0,
-                    rsi44 = rsiValues[44] ?: 50.0,
-                    rsi66 = rsiValues[66] ?: 50.0,
-                    avgTradedValueCr = avgTradedValueCr,
-                )
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                log.warn("RSI momentum analysis failed for {}: {}", member.symbol, error.message)
-                failedSymbols += member.symbol
-            }
+        val backfilledSymbols = analysisResults.mapNotNull { result -> result.backfilledSymbol }.distinct().sorted()
+        val insufficientHistorySymbols = analysisResults.mapNotNull { result ->
+            (result as? MemberAnalysisResult.InsufficientHistory)?.symbol
+        }.sorted()
+        val illiquidSymbols = analysisResults.mapNotNull { result ->
+            (result as? MemberAnalysisResult.Illiquid)?.symbol
+        }.sorted()
+        val failedSymbols = analysisResults.mapNotNull { result ->
+            (result as? MemberAnalysisResult.Failed)?.symbol
+        }.sorted()
+        val metrics = analysisResults.mapNotNull { result ->
+            (result as? MemberAnalysisResult.Success)?.metrics
         }
 
         val rankedPortfolio = RsiMomentumRanker.rank(
@@ -180,41 +166,99 @@ class RsiMomentumService @Inject constructor(
         return snapshot
     }
 
-    private suspend fun loadCandles(
+    private suspend fun analyzeMember(
         member: UniverseMember,
-        backfilledSymbols: MutableList<String>,
-    ): List<DailyCandle> {
+        config: RsiMomentumConfig,
+    ): MemberAnalysisResult {
+        return try {
+            val candleLoadResult = loadCandles(member)
+            val candles = candleLoadResult.candles
+            if (candles.size < requiredBarCount(config.rsiPeriods)) {
+                return MemberAnalysisResult.InsufficientHistory(
+                    symbol = member.symbol,
+                    backfilledSymbol = candleLoadResult.backfilledSymbol,
+                )
+            }
+
+            val avgTradedValueCr = candles
+                .takeLast(AVERAGE_TRADED_VALUE_LOOKBACK_DAYS)
+                .map { candle -> (candle.close * candle.volume) / CRORE_DIVISOR }
+                .average()
+                .roundTo2()
+
+            if (avgTradedValueCr < config.minAverageTradedValue) {
+                return MemberAnalysisResult.Illiquid(
+                    symbol = member.symbol,
+                    backfilledSymbol = candleLoadResult.backfilledSymbol,
+                )
+            }
+
+            val series = candles.toTa4jSeries(member.symbol)
+            val rsiValues = config.rsiPeriods.sorted().associateWith { period ->
+                series.calculateRsi(period).getDoubleValue(series.endIndex, 50.0).roundTo2()
+            }
+
+            MemberAnalysisResult.Success(
+                metrics = SecurityMetrics(
+                    member = member,
+                    asOfDate = candles.maxOf { candle -> candle.candleDate },
+                    avgRsi = rsiValues.values.average().roundTo2(),
+                    rsi22 = rsiValues[22] ?: 50.0,
+                    rsi44 = rsiValues[44] ?: 50.0,
+                    rsi66 = rsiValues[66] ?: 50.0,
+                    avgTradedValueCr = avgTradedValueCr,
+                ),
+                backfilledSymbol = candleLoadResult.backfilledSymbol,
+            )
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            log.warn("RSI momentum analysis failed for {}: {}", member.symbol, error.message)
+            MemberAnalysisResult.Failed(
+                symbol = member.symbol,
+                backfilledSymbol = null,
+            )
+        }
+    }
+
+    private suspend fun loadCandles(member: UniverseMember): CandleLoadResult {
         val today = LocalDate.now(ist)
         val from = today.minusDays(HISTORY_LOOKBACK_DAYS)
 
         var candles = candleHandler.read { dao ->
             dao.getDailyCandles(member.instrumentToken, from, today)
         }.sortedBy { candle -> candle.candleDate }
+        var backfilledSymbol: String? = null
 
         if (candles.isEmpty() || isCandleDataStale(candles)) {
             syncDailyCandles(member)
-            backfilledSymbols += member.symbol
+            backfilledSymbol = member.symbol
             candles = candleHandler.read { dao ->
                 dao.getDailyCandles(member.instrumentToken, from, today)
             }.sortedBy { candle -> candle.candleDate }
         }
 
-        return candles
+        return CandleLoadResult(
+            candles = candles,
+            backfilledSymbol = backfilledSymbol,
+        )
     }
 
     private suspend fun syncDailyCandles(member: UniverseMember) {
-        delay(indicatorConfig.kiteRateLimitDelayMs)
+        val history = historyFetchMutex.withLock {
+            delay(indicatorConfig.kiteRateLimitDelayMs)
 
-        val (fromDate, toDate) = buildDateRange()
-        val history = withContext(Dispatchers.IO) {
-            kiteClient.client().getHistoricalData(
-                fromDate,
-                toDate,
-                member.instrumentToken.toString(),
-                "day",
-                false,
-                false,
-            )
+            val (fromDate, toDate) = buildDateRange()
+            withContext(Dispatchers.IO) {
+                kiteClient.client().getHistoricalData(
+                    fromDate,
+                    toDate,
+                    member.instrumentToken.toString(),
+                    "day",
+                    false,
+                    false,
+                )
+            }
         }
 
         val candles = history.dataArrayList.mapNotNull { bar ->
@@ -306,6 +350,33 @@ class RsiMomentumService @Inject constructor(
         private const val HISTORY_LOOKBACK_DAYS: Long = 400
         private const val AVERAGE_TRADED_VALUE_LOOKBACK_DAYS: Int = 20
         private const val CRORE_DIVISOR: Double = 10_000_000.0
+        private const val MAX_ANALYSIS_CONCURRENCY: Int = 8
+    }
+
+    private data class CandleLoadResult(
+        val candles: List<DailyCandle>,
+        val backfilledSymbol: String?,
+    )
+
+    private sealed class MemberAnalysisResult(open val backfilledSymbol: String?) {
+        data class Success(
+            val metrics: SecurityMetrics,
+            override val backfilledSymbol: String?,
+        ) : MemberAnalysisResult(backfilledSymbol)
+
+        data class InsufficientHistory(
+            val symbol: String,
+            override val backfilledSymbol: String?,
+        ) : MemberAnalysisResult(backfilledSymbol)
+
+        data class Illiquid(
+            val symbol: String,
+            override val backfilledSymbol: String?,
+        ) : MemberAnalysisResult(backfilledSymbol)
+
+        data class Failed(
+            val symbol: String,
+            override val backfilledSymbol: String?,
+        ) : MemberAnalysisResult(backfilledSymbol)
     }
 }
-

@@ -353,3 +353,63 @@ export interface TechnicalContext {
   recentSessions: SessionCandle[];
   adaptiveRsi: AdaptiveRsiStatus | null;
 }
+
+// ==================== RSI Momentum Strategy ====================
+
+export interface RsiMomentumConfigSummary {
+  enabled: boolean;
+  baseUniversePreset: string;
+  candidateCount: number;
+  holdingCount: number;
+  rsiPeriods: number[];
+  minAverageTradedValue: number;
+  rebalanceDay: string;
+  rebalanceTime: string;
+}
+
+export interface RsiMomentumRankedStock {
+  rank: number;
+  symbol: string;
+  companyName: string;
+  instrumentToken: number;
+  avgRsi: number;
+  rsi22: number;
+  rsi44: number;
+  rsi66: number;
+  avgTradedValueCr: number;
+  inBaseUniverse: boolean;
+  inWatchlist: boolean;
+  targetWeightPct: number | null;
+}
+
+export interface RsiMomentumRebalance {
+  entries: string[];
+  exits: string[];
+  holds: string[];
+}
+
+export interface RsiMomentumDiagnostics {
+  baseUniverseCount: number;
+  watchlistCount: number;
+  watchlistAdditionsCount: number;
+  unresolvedSymbols: string[];
+  insufficientHistorySymbols: string[];
+  illiquidSymbols: string[];
+  backfilledSymbols: string[];
+  failedSymbols: string[];
+}
+
+export interface RsiMomentumSnapshot {
+  available: boolean;
+  stale: boolean;
+  message: string | null;
+  config: RsiMomentumConfigSummary;
+  runAt: string | null;
+  asOfDate: string | null;
+  resolvedUniverseCount: number;
+  eligibleUniverseCount: number;
+  topCandidates: RsiMomentumRankedStock[];
+  holdings: RsiMomentumRankedStock[];
+  rebalance: RsiMomentumRebalance;
+  diagnostics: RsiMomentumDiagnostics;
+}

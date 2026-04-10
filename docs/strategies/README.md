@@ -3,6 +3,7 @@
 ## Working Reference
 
 - [strategy-map.md](strategy-map.md): normalized strategy map built from the Gemini chats plus the existing strategy docs. Start here.
+- [rsi-momentum-v1.md](rsi-momentum-v1.md): implementation summary for Strategy 1 weekly RSI momentum ranking.
 - [remora-backend.md](remora-backend.md): current Remora scanner behavior and backend flow.
 - [weekly-seasonality.md](weekly-seasonality.md): current weekly-pattern screener logic and scoring.
 - [pre-earnings-momentum.docx](pre-earnings-momentum.docx): long-form concept note for the earnings catalyst strategy.

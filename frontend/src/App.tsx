@@ -9,8 +9,9 @@ import { WatchlistPage } from "./pages/WatchlistPage";
 import { ScreenerPage } from "./pages/ScreenerPage";
 import { TradeReadyPage } from "./pages/TradeReadyPage";
 import { BarChartOutlined } from "@ant-design/icons";
+import { RsiMomentumPage } from "./pages/RsiMomentumPage";
 
-type PageKey = "watchlist" | "graph" | "trade" | "trade-ready" | "remora" | "screener";
+type PageKey = "watchlist" | "graph" | "trade" | "trade-ready" | "remora" | "screener" | "rsi-momentum";
 
 const menuItems: MenuProps["items"] = [
   { key: "watchlist", label: "Watchlist", icon: <UnorderedListOutlined /> },
@@ -18,6 +19,7 @@ const menuItems: MenuProps["items"] = [
   { key: "trade", label: "Trade Journal", icon: <BookOutlined /> },
   { key: "trade-ready", label: "Trade Ready", icon: <ThunderboltOutlined /> },
   { key: "remora", label: "Remora", icon: <FundOutlined /> },
+  { key: "rsi-momentum", label: "RSI Momentum", icon: <FundOutlined /> },
   { key: "screener", label: "Weekly Screener", icon: <BarChartOutlined /> },
 ];
 
@@ -66,6 +68,7 @@ export default function App() {
           { page === "trade" && <TradePage /> }
           { page === "trade-ready" && <TradeReadyPage /> }
           { page === "remora" && <RemoraPage /> }
+          { page === "rsi-momentum" && <RsiMomentumPage /> }
           { page === "screener" && <ScreenerPage /> }
         </Layout.Content>
       </Layout>
