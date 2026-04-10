@@ -25,4 +25,9 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: mvn -pl cron-job -am exec:java -Dexec.mainClass=com.tradingtool.cron.KiteCronSmokeTestJobKt --no-transfer-progress
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID secret."
+            exit 1
+          fi
+          mvn -pl cron-job -am exec:java -Dexec.mainClass=com.tradingtool.cron.KiteCronSmokeTestJobKt --no-transfer-progress

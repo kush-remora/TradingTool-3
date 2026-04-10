@@ -7,7 +7,9 @@ import com.google.inject.Singleton
 import com.google.inject.name.Named
 import com.tradingtool.core.config.ConfigLoader
 import com.tradingtool.core.http.CoreHttpModule
-import com.tradingtool.core.telegram.TelegramNotifier
+import com.tradingtool.core.model.telegram.TelegramSendStatus
+import com.tradingtool.core.model.telegram.TelegramSendTextRequest
+import com.tradingtool.core.telegram.TelegramSender
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import java.time.ZoneId
@@ -34,18 +36,25 @@ fun main() {
             chatId = ConfigLoader.get("TELEGRAM_CHAT_ID", "telegram.chatId"),
         ),
     )
-    val notifier: TelegramNotifier = injector.getInstance(TelegramNotifier::class.java)
+    val telegramSender: TelegramSender = injector.getInstance(TelegramSender::class.java)
 
     val nowIst: ZonedDateTime = ZonedDateTime.now(SmokeConstants.IST_ZONE)
     val nowUtc: ZonedDateTime = ZonedDateTime.now(SmokeConstants.UTC_ZONE)
     val messageSummary = buildSmokeSummary(nowIst, nowUtc, runEnvironment)
 
     runBlocking {
-        notifier.cronStarted("KiteCronSmokeTestJob")
-        notifier.cronCompleted("KiteCronSmokeTestJob", messageSummary)
+        val sendResult = telegramSender.sendText(TelegramSendTextRequest(messageSummary))
+        if (sendResult.status == TelegramSendStatus.SUCCESS) {
+            log.info("Kite cron smoke test completed successfully")
+            exitProcess(0)
+        }
+        log.error(
+            "Smoke test message failed. status={}, description={}",
+            sendResult.status,
+            sendResult.response.telegramDescription ?: sendResult.response.message,
+        )
+        exitProcess(1)
     }
-    log.info("Kite cron smoke test completed successfully")
-    exitProcess(0)
 }
 
 private fun buildSmokeSummary(
