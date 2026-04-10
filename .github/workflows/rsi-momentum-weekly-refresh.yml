@@ -25,5 +25,6 @@ jobs:
       - name: Run RSI Momentum Refresh Job
         env:
           RENDER_SERVICE_URL: ${{ secrets.RENDER_SERVICE_URL }}
-        run: mvn -pl cron-job -am compile && mvn -pl cron-job exec:java -Dexec.mainClass=com.tradingtool.cron.RsiMomentumRefreshJobKt --no-transfer-progress
-
+        run: |
+          mvn -pl cron-job -am install -DskipTests --no-transfer-progress
+          mvn -pl cron-job exec:java -Dexec.mainClass=com.tradingtool.cron.RsiMomentumRefreshJobKt --no-transfer-progress
