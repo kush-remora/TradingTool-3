@@ -26,6 +26,16 @@ Optimize for **clarity, maintainability, and speed of iteration** over scalabili
 - Use strict typing practices (Python type hints, avoid `Any` where possible).
 - Run relevant tests/checks after code changes and report what was run.
 
+## Local Service Runbook
+
+- If backend startup fails because port `8080` is in use, first find the process:
+  - `lsof -i tcp:8080`
+- Kill the PID that is listening on `*:http-alt` / `*:8080`:
+  - `kill <PID>`
+  - If it does not stop, force kill: `kill -9 <PID>`
+- Start the service only after confirming the port is free:
+  - `lsof -i tcp:8080`
+
 ## Role Activation Framework
 
 Use these roles based on task type. Default to one role; combine only when needed.

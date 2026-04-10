@@ -1,12 +1,21 @@
 import { useEffect, useState } from "react";
-import { Table, Tag, Typography, Button, Space, message, Segmented } from "antd";
+import { Table, Tag, Typography, Button, message, Segmented } from "antd";
 import { ReloadOutlined } from "@ant-design/icons";
 import { WeeklyPatternListResponse, WeeklyPatternResult } from "../types";
 import { StockBadge } from "./StockBadge";
-import { LiveMarketWidget } from "./LiveMarketWidget";
+import { useStockQuotes } from "../hooks/useStockQuotes";
 import { getJson, postJson, clearCache } from "../utils/api";
 
 const { Text, Title } = Typography;
+
+function roundPrice(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function formatPrice(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "-";
+  return `₹${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
 interface ScreenerOverviewProps {
   onSelectSymbol: (symbol: string) => void;
@@ -57,6 +66,29 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
     if (filter === "No pattern") return !row.patternConfirmed;
     return true;
   }) || [];
+  const { quotesBySymbol } = useStockQuotes(filteredResults.map((row) => row.symbol));
+  const todayIst = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "Asia/Kolkata" }).format(new Date());
+
+  const getTradeSignal = (record: WeeklyPatternResult) => {
+    const quote = quotesBySymbol[record.symbol.toUpperCase()];
+    const todayLow = quote?.day_low ?? null;
+    const todayHigh = quote?.day_high ?? null;
+    const entryPrice = todayLow !== null
+      ? roundPrice(todayLow * (1 + record.entryReboundPct / 100))
+      : null;
+    const reboundHit = entryPrice !== null && todayHigh !== null
+      ? todayHigh >= entryPrice
+      : null;
+
+    return {
+      isRecommendedToday: todayIst === record.buyDay,
+      todayLow,
+      todayHigh,
+      entryPrice,
+      reboundHit,
+      ltp: quote?.ltp ?? null,
+    };
+  };
 
   const columns = [
     {
@@ -71,12 +103,48 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
       )
     },
     {
+      title: "Today",
+      key: "today",
+      width: 170,
+      render: (_: any, record: WeeklyPatternResult) => {
+        const signal = getTradeSignal(record);
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <Tag color={signal.isRecommendedToday ? "success" : "default"} style={{ width: "fit-content", margin: 0, fontWeight: 600 }}>
+              {signal.isRecommendedToday ? "Recommended" : "Not today"}
+            </Tag>
+            <Text strong style={{ fontSize: 13 }}>Buy {record.buyDay}</Text>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {signal.isRecommendedToday
+                ? "Use live trigger below"
+                : "Override only if you want"}
+            </Text>
+          </div>
+        );
+      }
+    },
+    {
       title: "Live Market",
       key: "live",
-      width: 160,
-      render: (_: any, record: WeeklyPatternResult) => (
-        <LiveMarketWidget symbol={`${record.exchange}:${record.symbol}`} />
-      )
+      width: 170,
+      render: (_: any, record: WeeklyPatternResult) => {
+        const signal = getTradeSignal(record);
+        if (signal.ltp === null) {
+          return <Text type="secondary" style={{ fontSize: 12 }}>Loading...</Text>;
+        }
+
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <Text strong style={{ fontSize: 15 }}>{formatPrice(signal.ltp)}</Text>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              L: {formatPrice(signal.todayLow)}
+            </Text>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              H: {formatPrice(signal.todayHigh)}
+            </Text>
+          </div>
+        );
+      }
     },
     {
       title: "Cycle",
@@ -117,25 +185,26 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
       sorter: (a: WeeklyPatternResult, b: WeeklyPatternResult) => a.reboundConsistency - b.reboundConsistency,
     },
     {
-      title: 'Swing Logic',
-      key: 'swingLogic',
+      title: 'Today Setup',
+      key: 'todaySetup',
       render: (_: any, record: WeeklyPatternResult) => {
+        const signal = getTradeSignal(record);
         const winPercent = record.reboundConsistency > 0 
           ? Math.round((record.swingConsistency / record.reboundConsistency) * 100) 
           : 0;
         return (
           <div>
-            <Text strong>{record.sellDay} </Text>
-            <Tag color={winPercent >= 70 ? 'green' : winPercent > 50 ? 'orange' : 'red'}>{winPercent}% Win</Tag>
-            {record.targetRecommendation && (
-              <Tag color="blue" style={{ marginLeft: 4 }}>
-                Target {record.targetRecommendation.recommendedTargetPct}%
-              </Tag>
-            )}
+            <Text strong>{signal.isRecommendedToday ? "Today is buy day" : `Buy ${record.buyDay}`}</Text>
+            <Tag color="blue" style={{ marginLeft: 4 }}>+{record.entryReboundPct}% rebound</Tag>
             <div style={{ fontSize: 12, color: '#8c8c8c' }}>
-              {record.swingConsistency} W / {(record.reboundConsistency - record.swingConsistency)} L
+              Today low {formatPrice(signal.todayLow)} · Entry {formatPrice(signal.entryPrice)}
             </div>
-            <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 2 }}>actual {record.swingAvgPct}%</div>
+            <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 2 }}>
+              Rebound hit {signal.reboundHit === null ? "-" : signal.reboundHit ? "Yes" : "No"} · Hit chance {winPercent}%
+            </div>
+            <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 2 }}>
+              Target {record.targetRecommendation?.recommendedTargetPct ?? 5}% · Stop {record.stopLossPct}%
+            </div>
           </div>
         );
       },
@@ -170,7 +239,7 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
         
         return (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <Text style={{ fontSize: 13, color: '#8c8c8c' }}>Neutral ({percentile}%)</Text>
+            <Text style={{ fontSize: 13, color: '#8c8c8c' }}>Within range ({percentile}%)</Text>
             <Text type="secondary" style={{ fontSize: 11 }}>RSI: {currentRsi}</Text>
           </div>
         );
@@ -188,7 +257,7 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
   ];
 
   return (
-    <div style={{ padding: "24px 32px", maxWidth: 1200, margin: "0 auto" }}>
+    <div style={{ padding: "24px 32px", maxWidth: 1400, margin: "0 auto" }}>
       <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
         
         {/* Header Section */}
@@ -226,12 +295,13 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
           columns={columns}
           rowKey="symbol"
           pagination={false}
+          scroll={{ x: 1320 }}
           loading={loading}
           onRow={(record) => ({
             onClick: () => onSelectSymbol(record.symbol),
             style: { cursor: 'pointer' }
           })}
-          rowClassName={() => 'screener-row'}
+          rowClassName={(record) => todayIst === record.buyDay ? 'screener-row screener-row-recommended' : 'screener-row'}
           size="middle"
         />
       </div>
@@ -239,6 +309,10 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
       <style>{`
         .screener-row:hover > td {
           background-color: #fafafa !important;
+        }
+
+        .screener-row-recommended > td {
+          background-color: #fcfff5;
         }
       `}</style>
     </div>

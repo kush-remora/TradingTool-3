@@ -2,6 +2,7 @@ package com.tradingtool.core.technical
 
 import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.database.StockJdbiHandler
+import com.tradingtool.core.screener.WeeklyPatternConfigService
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.TextStyle
@@ -10,6 +11,7 @@ import java.util.Locale
 class TechnicalContextService(
     private val stockHandler: StockJdbiHandler,
     private val candleCache: CandleCacheService,
+    private val patternConfigService: WeeklyPatternConfigService,
 ) {
     private val ist = ZoneId.of("Asia/Kolkata")
 
@@ -38,16 +40,24 @@ class TechnicalContextService(
         val lowestRsi200d = rsiList.takeLast(200).minOrNull() ?: 50.0
         val highestRsi200d = rsiList.takeLast(200).maxOrNull() ?: 50.0
 
-        val threeMonthBounds = StrategyTechnicalSignals
-            .buildRollingRsiBoundsMap(candles)
+        val rsiConfig = patternConfigService.loadConfig().rsiEntry
+        val recentBounds = StrategyTechnicalSignals
+            .buildRollingRsiBoundsMap(
+                candles = candles,
+                windowSize = rsiConfig.lookbackDays,
+            )
             .let { boundsByDate -> boundsByDate[candles.last().candleDate] }
         val adaptiveRsi = AdaptiveRsi.getStatus(
             currentRsi = currentRsi,
-            lowestRsi = threeMonthBounds?.lowest ?: lowestRsi100d,
-            highestRsi = threeMonthBounds?.highest ?: highestRsi100d,
+            lowestRsi = recentBounds?.lowest ?: lowestRsi50d,
+            highestRsi = recentBounds?.highest ?: highestRsi50d,
+            overboughtPercentile = rsiConfig.overboughtPercentile,
         )
 
-        val recentSessions = candles.takeLast(10).map { candle ->
+        val recentSessionsLookbackDays = patternConfigService.loadConfig()
+            .recentSessionsLookbackDays
+            .coerceAtLeast(1)
+        val recentSessions = candles.takeLast(recentSessionsLookbackDays).map { candle ->
             val range = candle.high - candle.low
             val lowToHighPct = if (candle.low > 0.0) ((candle.high - candle.low) / candle.low) * 100.0 else 0.0
             SessionCandle(

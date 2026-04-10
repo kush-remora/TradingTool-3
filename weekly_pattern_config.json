@@ -1,10 +1,15 @@
 {
-  "lookbackWeeks": 8,
+  "lookbackWeeks": 15,
+  "recentSessionsLookbackDays": 30,
   "minTradingDaysPerWeek": 3,
   "minWeeksRequired": 8,
   "entryReboundPct": 1.0,
   "swingTargetPct": 5.0,
   "stopLossPct": 3.0,
+  "rsiEntry": {
+    "lookbackDays": 50,
+    "overboughtPercentile": 90.0
+  },
   "patternConfirmed": {
     "minEntryRatePct": 50.0,
     "minWinRatePct": 50.0,

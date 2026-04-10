@@ -252,6 +252,11 @@ class ServiceModule(
     fun provideTechnicalContextService(
         stockHandler: StockJdbiHandler,
         candleCache: CandleCacheService,
+        patternConfigService: WeeklyPatternConfigService,
     ): com.tradingtool.core.technical.TechnicalContextService =
-        com.tradingtool.core.technical.TechnicalContextService(stockHandler, candleCache)
+        com.tradingtool.core.technical.TechnicalContextService(
+            stockHandler,
+            candleCache,
+            patternConfigService,
+        )
 }

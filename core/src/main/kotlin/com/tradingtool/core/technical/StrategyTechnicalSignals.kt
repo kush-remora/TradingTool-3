@@ -10,6 +10,7 @@ data class RollingRsiBounds(
 )
 
 object StrategyTechnicalSignals {
+    const val FIFTY_DAY_RSI_WINDOW: Int = 50
     // 3 months ~ 63 trading sessions (fixed for now across strategies).
     const val THREE_MONTH_RSI_WINDOW: Int = 63
 

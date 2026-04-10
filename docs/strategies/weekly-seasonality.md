@@ -41,3 +41,99 @@ As a trader, I want to input a stock ticker and have the system tell me exactly 
 
 ### Complexity Estimate
 - **2 Days.** The math itself is simple, but writing the Kotlin logic to properly group weeks, handle market holidays, and calculate the frequency distribution will take some focused time. Perfect size for a weekend.
+
+---
+
+## 3. Implemented Algorithm (Current)
+
+This section documents the logic currently used by `/api/screener/weekly-pattern` in simple terms.
+
+### In Plain English
+
+For each stock:
+
+1. We pull daily candles and split them into completed weeks.
+2. We try every valid buy/sell weekday pair inside a week:
+   - Buy day candidates: Mon, Tue, Wed, Thu
+   - Sell horizon candidates: any later day in the same week
+3. For each week and each pair, we simulate trade rules:
+   - We do **not** buy at the exact low.
+   - Entry is only if buy-day low gets a **+1% rebound**.
+   - If RSI context says overbought, skip that entry.
+   - After entry:
+     - hit stop-loss -> exit immediately
+     - else hit target -> exit immediately
+     - else exit at configured sell horizon close (hard exit)
+4. We score each weekday pair by consistency + win rate + swing size.
+5. The best-scoring pair becomes that stock’s weekly pattern.
+
+### Why Monday->Friday Can Still Show "Target Hit"
+
+`sellDay` is the latest allowed hard-exit window, not necessarily the day the trade actually exits.
+If target/SL is hit earlier (for example Tuesday), that week is still counted as a Tuesday exit internally.
+
+### Detailed Rules
+
+#### Inputs
+
+- `lookbackWeeks`: number of completed weeks to evaluate
+- `minTradingDaysPerWeek`: skip sparse weeks
+- `entryReboundPct`: current entry trigger (default 1.0)
+- `swingTargetPct`: default target %
+- `stopLossPct`: stop-loss %
+- `patternConfirmed` thresholds:
+  - min entry rate
+  - min win rate
+  - min average swing
+
+#### Week Simulation (per candidate pair)
+
+Given buy day `B` and sell horizon day `S`:
+
+1. Get buy-day candle and sell-day candle.
+2. Compute potential entry:
+   - `entry = buyLow * (1 + entryReboundPct/100)`
+3. Entry is valid only if:
+   - buy-day high >= entry
+   - adaptive RSI is not overbought
+4. After entry, scan days `B+1 ... S`:
+   - if day low <= stop-loss level -> stop-loss exit
+   - else if day high >= target level -> target exit
+5. If neither hit by `S`, exit at `S` close (hard exit).
+
+### Pair Scoring
+
+For each candidate pair:
+
+- `entryRate = entries / eligibleWeeks`
+- `winRate = targetHits / entries`
+- `avgSwing = average realized swing on entered weeks`
+
+Composite score:
+
+- `entryScore = entryRate * 40`
+- `winScore = winRate * 40`
+- `magnitudeScore = scaled(avgSwing) * 20`
+- `composite = entryScore + winScore + magnitudeScore`
+
+Best pair selection:
+
+1. higher `composite`
+2. then higher `avgSwing`
+3. then higher entry consistency
+
+### Output Fields Meaning
+
+- `buyDay`: most probable entry day from best pair
+- `sellDay`: typical realized exit day (target/SL/hard-exit behavior)
+- `reboundConsistency`: count of weeks where entry was triggered
+- `swingConsistency`: count of entered weeks where target was hit
+- `avgPotentialPct`: weekly raw low->high swing (upper-bound context, not tradable as-is)
+- `weeklyHeatmap[].reasoning`: exact per-week exit reason
+  - `Target Hit ... on Tue (...)`
+  - `Stop Loss Hit ...`
+  - `Thu Hard Exit`
+
+### Important Limitation
+
+This is a daily-candle backtest. If both SL and target are touched in the same candle, we use conservative sequencing (SL first). It is robust for direction and consistency, but still an approximation of intraday path.

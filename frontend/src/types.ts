@@ -203,6 +203,10 @@ export interface WeeklyPatternResult {
   companyName: string;
   weeksAnalyzed: number;
   buyDay: string;
+  entryReboundPct: number;
+  rsiLookbackDays: number;
+  rsiOverboughtPercentile: number;
+  stopLossPct: number;
   buyDayAvgDipPct: number;
   reboundConsistency: number;
   sellDay: string;

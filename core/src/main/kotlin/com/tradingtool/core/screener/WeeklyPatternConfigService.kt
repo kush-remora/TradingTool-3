@@ -12,13 +12,20 @@ import kotlin.concurrent.write
 
 data class WeeklyPatternConfig(
     val lookbackWeeks: Int = 8,
+    val recentSessionsLookbackDays: Int = 10,
     val minTradingDaysPerWeek: Int = 3,
     val minWeeksRequired: Int = 6,
     val entryReboundPct: Double = 1.0,
     val swingTargetPct: Double = 5.0,
     val stopLossPct: Double = 3.0,
+    val rsiEntry: RsiEntryConfig = RsiEntryConfig(),
     val patternConfirmed: PatternConfirmedConfig = PatternConfirmedConfig(),
     val targetRecommendation: TargetRecommendationConfig = TargetRecommendationConfig(),
+)
+
+data class RsiEntryConfig(
+    val lookbackDays: Int = 50,
+    val overboughtPercentile: Double = 90.0,
 )
 
 data class PatternConfirmedConfig(

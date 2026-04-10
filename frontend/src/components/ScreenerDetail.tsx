@@ -4,9 +4,19 @@ import { ArrowLeftOutlined, ArrowRightOutlined } from "@ant-design/icons";
 import { WeeklyPatternDetail, WeekHeatmapRow, TechnicalContext } from "../types";
 import { StockBadge } from "./StockBadge";
 import { LiveMarketContext } from "./LiveMarketContext";
+import { useStockQuotes } from "../hooks/useStockQuotes";
 import { getJson } from "../utils/api";
 
 const { Text, Title, Paragraph } = Typography;
+
+function roundPrice(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function formatPrice(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "-";
+  return `₹${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
 interface ScreenerDetailProps {
   symbol: string;
@@ -17,6 +27,7 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
   const [data, setData] = useState<WeeklyPatternDetail | null>(null);
   const [techContext, setTechContext] = useState<TechnicalContext | null>(null);
   const [loading, setLoading] = useState(false);
+  const { quotesBySymbol, loading: quoteLoading } = useStockQuotes([symbol]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -48,6 +59,57 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
   if (loading || !data) {
     return <div style={{ padding: 48, textAlign: 'center' }}>Loading details...</div>;
   }
+
+  const todayIst = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "Asia/Kolkata" }).format(new Date());
+  const isBuyDayToday = todayIst === data.buyDay;
+  const quote = quotesBySymbol[symbol.toUpperCase()];
+  const todayLow = quote?.day_low ?? null;
+  const todayHigh = quote?.day_high ?? null;
+  const reboundLevel = todayLow !== null
+    ? roundPrice(todayLow * (1 + data.entryReboundPct / 100))
+    : null;
+  const reboundHit = reboundLevel !== null && todayHigh !== null
+    ? todayHigh >= reboundLevel
+    : null;
+  const selectedTargetPct = data.targetRecommendation?.recommendedTargetPct ?? 5;
+  const stopLossPrice = reboundLevel !== null
+    ? roundPrice(reboundLevel * (1 - data.stopLossPct / 100))
+    : null;
+  const targetPrice = reboundLevel !== null
+    ? roundPrice(reboundLevel * (1 + selectedTargetPct / 100))
+    : null;
+  const liveAdaptiveRsi = techContext?.adaptiveRsi ?? data.currentRsiStatus;
+  const isOverboughtNow = liveAdaptiveRsi?.isOverbought ?? false;
+  const todayActionColor = isBuyDayToday ? '#389e0d' : '#8c8c8c';
+  const todayActionTitle = isBuyDayToday ? 'Yes' : 'No';
+  const todayActionText = isBuyDayToday
+    ? `Today matches the historical ${data.buyDay} setup day. Use the live rebound levels below and take the final call yourself.`
+    : `Today is ${todayIst}. The system recommendation is to focus on ${data.buyDay}, but you can still use the live rebound levels if you want to override the setup.`;
+  const tradePlanTone = !isBuyDayToday
+    ? '#8c8c8c'
+    : reboundHit === true
+      ? '#389e0d'
+      : '#0958d9';
+  const tradePlanStatus = !isBuyDayToday
+    ? 'Not the recommended buy day'
+    : reboundHit === true
+      ? 'Rebound confirmed'
+      : reboundHit === false
+        ? 'Waiting for rebound'
+        : quoteLoading
+          ? 'Loading live price'
+          : 'Live data unavailable';
+  const tradePlanInstruction = reboundLevel === null
+    ? 'Live day low is unavailable right now, so the entry trigger cannot be calculated yet.'
+    : !isBuyDayToday
+      ? `This is not the model's buy day, but if you choose to override the setup, watch ${formatPrice(reboundLevel)} as the live entry trigger.`
+      : reboundHit === true
+        ? `The 1% rebound has already happened. Entry is valid at ${formatPrice(reboundLevel)} or better only if you still want to take the setup.`
+        : `Wait for price to trade at or above ${formatPrice(reboundLevel)}. If it never reaches that level today, skip this week's setup.`;
+  const setupRatePct = data.weeksAnalyzed > 0
+    ? Math.round((data.reboundConsistency / data.weeksAnalyzed) * 100)
+    : 0;
+  const displayedTargetScenarios = data.targetScenarios.filter((scenario) => [5, 6, 7].includes(scenario.targetPct));
 
   const heatmapCols = [
     { 
@@ -102,7 +164,7 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
       key: 'execution',
       render: (_: any, record: WeekHeatmapRow) => {
         if (!record.entryTriggered || !record.buyPriceActual) return <Text type="secondary">No entry</Text>;
-        const rsiColor = record.reasoning === "Overbought (100d Peak)" ? '#cf1322' : '#8c8c8c';
+        const rsiColor = record.reasoning?.startsWith("RSI") ? '#cf1322' : '#8c8c8c';
         return (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <Text strong style={{ fontSize: 13 }}>₹{record.buyPriceActual} <ArrowRightOutlined style={{ fontSize: 10, color: '#bfbfbf', margin: '0 4px' }}/> {record.sellPriceActual ? `₹${record.sellPriceActual}` : 'Hold'}</Text>
@@ -198,11 +260,11 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
                 color: data.patternConfirmed ? '#389e0d' : '#cf1322', 
                 padding: '4px 12px', borderRadius: 20, fontSize: 13, fontWeight: 600
               }}>
-                {data.patternConfirmed ? `Weekly pattern confirmed (Buy zone: ₹${data.buyDayLowMin} - ₹${data.buyDayLowMax})` : 'No strict pattern'}
+                {data.patternConfirmed ? `Buy day: ${data.buyDay}` : 'No strict pattern'}
               </span>
             </div>
             <Text type="secondary">
-              {data.companyName} • {data.weeksAnalyzed}-week lookback • Score: {data.compositeScore}/100
+              {data.companyName} • {data.weeksAnalyzed}-week lookback • Buy only on {data.buyDay} after a {data.entryReboundPct}% rebound
             </Text>
             
             <div style={{ marginTop: 24 }}>
@@ -212,53 +274,111 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
           <div style={{ width: 300, marginLeft: 24 }}>
             <Card size="small" bordered={false}>
               <Statistic 
-                title="Win Rate (Swing Efficiency)" 
-                value={data.reboundConsistency > 0 ? `${data.swingConsistency} / ${data.reboundConsistency}` : `0 / 0`} 
-                suffix="Successful entries" 
-                valueStyle={{ color: '#52c41a' }} 
+                title="Recommended Today"
+                value={todayActionTitle}
+                valueStyle={{ color: todayActionColor, fontSize: 24 }}
               />
               <div style={{ marginTop: 8, fontSize: 12, color: '#8c8c8c' }}>
-                <div style={{ marginBottom: 4 }}><span style={{ color: '#389e0d' }}>✓</span> {data.swingConsistency} Target Hits</div>
-                <div style={{ marginBottom: 4 }}><span style={{ color: '#cf1322' }}>✕</span> {data.reboundConsistency - data.swingConsistency} Failed to hit target</div>
-                <div><span style={{ color: '#faad14' }}>⚠</span> {data.weeksAnalyzed - data.reboundConsistency} Skipped (Overbought/No dip)</div>
+                <div style={{ marginBottom: 4 }}>{todayActionText}</div>
+                <div><span style={{ color: '#faad14' }}>Context</span> RSI is {isOverboughtNow ? 'near' : 'below'} the {data.rsiLookbackDays}D high zone and is advisory only.</div>
               </div>
             </Card>
           </div>
           <Button icon={<ArrowLeftOutlined />} onClick={onBack}>Back</Button>
         </div>
 
-        {/* 4 Key Stat Boxes */}
+        {/* Key Setup Boxes */}
         <div style={{ display: 'flex', gap: 16, marginBottom: 32 }}>
           <div style={statCardStyle}>
-            <Text type="secondary" style={{ fontSize: 13 }}>Avg {data.buyDay} dip</Text>
-            <div style={{ fontSize: 24, fontWeight: 700, margin: '4px 0' }}>{data.buyDayAvgDipPct}%</div>
-            <Text type="secondary" style={{ fontSize: 12 }}>Daily Open to Low</Text>
+            <Text type="secondary" style={{ fontSize: 13 }}>Fixed Buy Day</Text>
+            <div style={{ fontSize: 24, fontWeight: 700, margin: '4px 0' }}>{data.buyDay}</div>
+            <Text type="secondary" style={{ fontSize: 12 }}>This is the only day we check for entry</Text>
           </div>
           <div style={statCardStyle}>
-            <Text type="secondary" style={{ fontSize: 13 }}>1% Rebound consistency</Text>
-            <div style={{ fontSize: 24, fontWeight: 700, margin: '4px 0' }}>{data.reboundConsistency}/{data.weeksAnalyzed}</div>
-            <Text type="secondary" style={{ fontSize: 12 }}>{data.buyDay} 1% Low bounce</Text>
+            <Text type="secondary" style={{ fontSize: 13 }}>Entry Trigger</Text>
+            <div style={{ fontSize: 24, fontWeight: 700, margin: '4px 0' }}>+{data.entryReboundPct}%</div>
+            <Text type="secondary" style={{ fontSize: 12 }}>Buy only after rebound from {data.buyDay} low</Text>
           </div>
           <div style={statCardStyle}>
-            <Text type="secondary" style={{ fontSize: 13 }}>Avg {data.buyDay}→{data.sellDay} swing</Text>
-            <div style={{ fontSize: 24, fontWeight: 700, margin: '4px 0', color: '#389e0d' }}>+{data.swingAvgPct}%</div>
-            <Text type="secondary" style={{ fontSize: 12 }}>{data.buyDay} bounce → {data.sellDay} high</Text>
+            <Text type="secondary" style={{ fontSize: 13 }}>Valid Setup Rate</Text>
+            <div style={{ fontSize: 24, fontWeight: 700, margin: '4px 0' }}>{setupRatePct}%</div>
+            <Text type="secondary" style={{ fontSize: 12 }}>{data.reboundConsistency} of {data.weeksAnalyzed} weeks triggered entry</Text>
           </div>
           <div style={statCardStyle}>
-            <Text type="secondary" style={{ fontSize: 13 }}>Avg Ideal Potential</Text>
-            <div style={{ fontSize: 24, fontWeight: 700, margin: '4px 0', color: '#0958d9' }}>{data.avgPotentialPct}%</div>
-            <Text type="secondary" style={{ fontSize: 12 }}>{data.buyDay} low → Week High</Text>
+            <Text type="secondary" style={{ fontSize: 13 }}>Typical Hit Day</Text>
+            <div style={{ fontSize: 24, fontWeight: 700, margin: '4px 0', color: '#0958d9' }}>{data.sellDay}</div>
+            <Text type="secondary" style={{ fontSize: 12 }}>Most target hits happen by this day</Text>
           </div>
           <div style={statCardStyle}>
-            <Text type="secondary" style={{ fontSize: 13 }}>Swing consistency</Text>
-            <div style={{ fontSize: 24, fontWeight: 700, margin: '4px 0' }}>{data.swingConsistency}/{data.weeksAnalyzed}</div>
-            <Text type="secondary" style={{ fontSize: 12 }}>Pairs ≥ 4% swing</Text>
+            <Text type="secondary" style={{ fontSize: 13 }}>Hard Stop</Text>
+            <div style={{ fontSize: 24, fontWeight: 700, margin: '4px 0', color: '#cf1322' }}>-{data.stopLossPct}%</div>
+            <Text type="secondary" style={{ fontSize: 12 }}>After entry, no more decisions</Text>
+          </div>
+          <div style={statCardStyle}>
+            <Text type="secondary" style={{ fontSize: 13 }}>RSI Context</Text>
+            <div style={{ fontSize: 24, fontWeight: 700, margin: '4px 0' }}>{data.rsiOverboughtPercentile}%</div>
+            <Text type="secondary" style={{ fontSize: 12 }}>Shown for context near the {data.rsiLookbackDays}D RSI max</Text>
+          </div>
+        </div>
+
+        <div style={{ background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 12, padding: 20, marginBottom: 32 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', marginBottom: 16 }}>
+            <div>
+              <Text strong style={{ display: 'block', fontSize: 16, marginBottom: 4 }}>Today's Trade Plan</Text>
+              <Text type="secondary" style={{ fontSize: 13 }}>
+                Recommendation stays with the model. Final trade decision stays with you.
+              </Text>
+            </div>
+            <div style={{ color: tradePlanTone, fontWeight: 700, fontSize: 15 }}>
+              {tradePlanStatus}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
+            <div style={statCardStyle}>
+              <Text type="secondary" style={{ fontSize: 13 }}>Today's Low</Text>
+              <div style={{ fontSize: 22, fontWeight: 700, margin: '4px 0', color: '#cf1322' }}>{formatPrice(todayLow)}</div>
+              <Text type="secondary" style={{ fontSize: 12 }}>Live session low</Text>
+            </div>
+            <div style={statCardStyle}>
+              <Text type="secondary" style={{ fontSize: 13 }}>1% Rebound Hit</Text>
+              <div style={{ fontSize: 22, fontWeight: 700, margin: '4px 0', color: reboundHit === true ? '#389e0d' : '#595959' }}>
+                {reboundHit === null ? '-' : reboundHit ? 'Yes' : 'No'}
+              </div>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {todayHigh === null ? 'Waiting for live high' : `Day high ${formatPrice(todayHigh)}`}
+              </Text>
+            </div>
+            <div style={statCardStyle}>
+              <Text type="secondary" style={{ fontSize: 13 }}>Entry Price</Text>
+              <div style={{ fontSize: 22, fontWeight: 700, margin: '4px 0', color: '#0958d9' }}>{formatPrice(reboundLevel)}</div>
+              <Text type="secondary" style={{ fontSize: 12 }}>Today's low + {data.entryReboundPct}%</Text>
+            </div>
+            <div style={statCardStyle}>
+              <Text type="secondary" style={{ fontSize: 13 }}>Stop Loss Price</Text>
+              <div style={{ fontSize: 22, fontWeight: 700, margin: '4px 0', color: '#cf1322' }}>{formatPrice(stopLossPrice)}</div>
+              <Text type="secondary" style={{ fontSize: 12 }}>Using current screener stop of -{data.stopLossPct}%</Text>
+            </div>
+            <div style={statCardStyle}>
+              <Text type="secondary" style={{ fontSize: 13 }}>Target Price</Text>
+              <div style={{ fontSize: 22, fontWeight: 700, margin: '4px 0', color: '#389e0d' }}>{formatPrice(targetPrice)}</div>
+              <Text type="secondary" style={{ fontSize: 12 }}>Using recommended target of +{selectedTargetPct}%</Text>
+            </div>
+          </div>
+          <div style={{ fontSize: 13, color: '#595959', lineHeight: 1.6 }}>
+            <div><Text strong>Instructions:</Text> {tradePlanInstruction}</div>
+            <div style={{ marginTop: 6 }}>
+              <Text type="secondary">
+                Recommendation: {isBuyDayToday ? `Today is the model buy day (${data.buyDay}).` : `Today is not the model buy day (${data.buyDay} is the preferred day).`}
+              </Text>
+            </div>
           </div>
         </div>
 
         {data.targetRecommendation && (
           <div style={{ marginBottom: 32 }}>
-            <Text strong style={{ display: 'block', marginBottom: 12, fontSize: 15 }}>Target recommendation</Text>
+            <Text strong style={{ display: 'block', marginBottom: 12, fontSize: 15 }}>
+              If You Buy On {data.buyDay} At +{data.entryReboundPct}% Rebound
+            </Text>
             <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
               <div style={statCardStyle}>
                 <Text type="secondary" style={{ fontSize: 13 }}>Recommended Target</Text>
@@ -282,10 +402,28 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
                   +{data.targetRecommendation.expectedSwingPct}% avg
                 </div>
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  Win {data.targetRecommendation.expectedWinRatePct}% · SL {data.targetRecommendation.expectedStopLossRatePct}%
+                  Hit chance {data.targetRecommendation.expectedWinRatePct}% · SL {data.targetRecommendation.expectedStopLossRatePct}%
                 </Text>
               </div>
             </div>
+            {displayedTargetScenarios.length > 0 && (
+              <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+                {displayedTargetScenarios.map((scenario) => (
+                  <div key={scenario.targetPct} style={statCardStyle}>
+                    <Text type="secondary" style={{ fontSize: 13 }}>Target {scenario.targetPct}%</Text>
+                    <div style={{ fontSize: 26, fontWeight: 700, margin: '4px 0', color: scenario.feasible ? '#389e0d' : '#595959' }}>
+                      {scenario.winRatePct}%
+                    </div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Hit chance after valid {data.buyDay} entries
+                    </Text>
+                    <div style={{ marginTop: 8, fontSize: 12, color: '#8c8c8c' }}>
+                      Avg outcome +{scenario.avgSwingPct}% · SL {scenario.stopLossRatePct}%
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             {data.targetScenarios && data.targetScenarios.length > 0 && (
               <Table
                 size="small"
@@ -294,11 +432,11 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
                 dataSource={data.targetScenarios}
                 columns={[
                   { title: "Target", dataIndex: "targetPct", key: "targetPct", render: (v: number) => `${v}%` },
-                  { title: "Entries", dataIndex: "entries", key: "entries" },
-                  { title: "Win Rate", dataIndex: "winRatePct", key: "winRatePct", render: (v: number) => `${v}%` },
+                  { title: "Valid Entries", dataIndex: "entries", key: "entries" },
+                  { title: "Hit Chance", dataIndex: "winRatePct", key: "winRatePct", render: (v: number) => `${v}%` },
                   { title: "SL Rate", dataIndex: "stopLossRatePct", key: "stopLossRatePct", render: (v: number) => `${v}%` },
-                  { title: "Avg Swing", dataIndex: "avgSwingPct", key: "avgSwingPct", render: (v: number) => `${v}%` },
-                  { title: "Capture", dataIndex: "captureRatioPct", key: "captureRatioPct", render: (v: number) => `${v}%` },
+                  { title: "Avg Outcome", dataIndex: "avgSwingPct", key: "avgSwingPct", render: (v: number) => `${v}%` },
+                  { title: "Captured", dataIndex: "captureRatioPct", key: "captureRatioPct", render: (v: number) => `${v}%` },
                   {
                     title: "Status",
                     dataIndex: "feasible",
@@ -324,10 +462,10 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
               let borderColor = '#f0f0f0';
               let actionColor = '#8c8c8c';
               
-              if (p.action === 'Buy zone') { bg = '#f6ffed'; borderColor = '#b7eb8f'; actionColor = '#389e0d'; }
+              if (p.action === 'Buy day') { bg = '#f6ffed'; borderColor = '#b7eb8f'; actionColor = '#389e0d'; }
               if (p.action === 'Watch') { bg = '#fcffe6'; borderColor = '#eaff8f'; actionColor = '#7cb305'; }
-              if (p.action === 'Sell zone') { bg = '#fff1f0'; borderColor = '#ffa39e'; actionColor = '#cf1322'; }
-              if (p.action === 'Exit') { bg = '#fff2e8'; borderColor = '#ffbb96'; actionColor = '#d4380d'; }
+              if (p.action === 'Typical hit') { bg = '#fff1f0'; borderColor = '#ffa39e'; actionColor = '#cf1322'; }
+              if (p.action === 'Wait') { bg = '#fff2e8'; borderColor = '#ffbb96'; actionColor = '#d4380d'; }
 
               const isPos = p.avgChangePct > 0;
               const valColor = isPos ? '#389e0d' : (p.avgChangePct < 0 ? '#cf1322' : '#8c8c8c');
@@ -371,8 +509,8 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
                   {techContext.rsi14}
                 </div>
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  {techContext.adaptiveRsi?.isOverbought ? 'Overbought (100d Peak)' : 
-                   techContext.adaptiveRsi?.isOversold ? 'Oversold (100d Low)' : 
+                  {techContext.adaptiveRsi?.isOverbought ? `Overbought (${data.rsiLookbackDays}D high zone)` : 
+                   techContext.adaptiveRsi?.isOversold ? `Oversold (${data.rsiLookbackDays}D low zone)` : 
                    `Percentile: ${techContext.adaptiveRsi?.percentile}%`}
                 </Text>
               </div>

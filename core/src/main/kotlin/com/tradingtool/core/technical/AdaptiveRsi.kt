@@ -10,18 +10,30 @@ data class AdaptiveRsiStatus(
 )
 
 object AdaptiveRsi {
+    private const val OVERBOUGHT_PERCENTILE = 90.0
+    private const val OVERSOLD_PERCENTILE = 20.0
+
     /**
      * Calculates the adaptive status based on current RSI and historical bounds.
-     * Overbought: RSI >= highest_rsi * 0.95
-     * Oversold: RSI <= lowest_rsi * 1.05
+     * Overbought: RSI is near the top of the rolling range.
+     * Oversold: RSI is in the bottom 20% of the rolling range.
      */
-    fun getStatus(currentRsi: Double, lowestRsi: Double, highestRsi: Double): AdaptiveRsiStatus {
+    fun getStatus(
+        currentRsi: Double,
+        lowestRsi: Double,
+        highestRsi: Double,
+        overboughtPercentile: Double = OVERBOUGHT_PERCENTILE,
+    ): AdaptiveRsiStatus {
         val range = highestRsi - lowestRsi
-        val percentile = if (range > 0) ((currentRsi - lowestRsi) / range) * 100.0 else 50.0
+        val percentile = if (range > 0) {
+            (((currentRsi - lowestRsi) / range) * 100.0).coerceIn(0.0, 100.0)
+        } else {
+            50.0
+        }
 
         return AdaptiveRsiStatus(
-            isOverbought = currentRsi >= (highestRsi * 0.95),
-            isOversold = currentRsi <= (lowestRsi * 1.05),
+            isOverbought = percentile >= overboughtPercentile.coerceIn(0.0, 100.0),
+            isOversold = percentile <= OVERSOLD_PERCENTILE,
             percentile = percentile.roundTo2(),
             currentRsi = currentRsi.roundTo2(),
             highestRsi = highestRsi.roundTo2(),
