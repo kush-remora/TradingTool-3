@@ -30,4 +30,5 @@ jobs:
             echo "Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID secret."
             exit 1
           fi
-          mvn -pl cron-job -am exec:java -Dexec.mainClass=com.tradingtool.cron.KiteCronSmokeTestJobKt --no-transfer-progress
+          mvn -pl cron-job -am install -DskipTests --no-transfer-progress
+          mvn -pl cron-job exec:java -Dexec.mainClass=com.tradingtool.cron.KiteCronSmokeTestJobKt --no-transfer-progress

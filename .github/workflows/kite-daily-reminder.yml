@@ -30,6 +30,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           RENDER_SERVICE_URL: ${{ secrets.RENDER_SERVICE_URL }}
-        # -pl cron-job -am compile: build cron-job and core dependency
-        # mvn -pl cron-job exec:java: run ONLY the cron-job module's main class
-        run: mvn -pl cron-job -am compile && mvn -pl cron-job exec:java --no-transfer-progress
+        # Install local module dependencies first, then execute only in cron-job module.
+        run: |
+          mvn -pl cron-job -am install -DskipTests --no-transfer-progress
+          mvn -pl cron-job exec:java -Dexec.mainClass=com.tradingtool.cron.KiteReminderJobKt --no-transfer-progress
