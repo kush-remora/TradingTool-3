@@ -9,6 +9,7 @@ import com.tradingtool.core.config.ConfigLoader
 import com.tradingtool.core.http.CoreHttpModule
 import com.tradingtool.core.model.telegram.TelegramSendStatus
 import com.tradingtool.core.model.telegram.TelegramSendTextRequest
+import com.tradingtool.core.telegram.TelegramApiClient
 import com.tradingtool.core.telegram.TelegramSender
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
@@ -84,4 +85,9 @@ private class SmokeTelegramModule(
     @Singleton
     @Named("telegramChatId")
     fun provideTelegramChatId(): String = chatId
+
+    @Provides
+    @Singleton
+    fun provideTelegramSender(telegramApiClient: TelegramApiClient): TelegramSender =
+        TelegramSender(telegramApiClient)
 }
