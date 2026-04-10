@@ -5,8 +5,26 @@ import { useWatchlist } from "../hooks/useWatchlist";
 import { StockDetailDrawer } from "./StockDetailDrawer";
 import type { WatchlistRow } from "../types";
 import { StockBadge } from "./StockBadge";
+import { LiveMarketWidget } from "./LiveMarketWidget";
+import { useLiveMarketData } from "../hooks/useLiveMarketData";
 
 const { Text } = Typography;
+
+interface LiveChangePercentCellProps {
+  symbol: string;
+  fallback: number | null;
+}
+
+function LiveChangePercentCell({ symbol, fallback }: LiveChangePercentCellProps) {
+  const data = useLiveMarketData(symbol);
+  const value = data?.changePercent ?? fallback;
+
+  if (value === null) return <Text type="secondary">-</Text>;
+
+  const color = value > 0 ? "#52c41a" : value < 0 ? "#ff4d4f" : "#bfbfbf";
+  const sign = value > 0 ? "+" : "";
+  return <Text style={{ color, fontWeight: 500 }}>{sign}{value.toFixed(2)}%</Text>;
+}
 
 interface WatchlistDashboardProps {
   tag?: string;
@@ -51,14 +69,29 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
       dataIndex: "ltp",
       key: "ltp",
       width: 120,
-      render: (v: number | null) => <Text strong>{formatMoney(v)}</Text>
+      render: (v: number | null, record: WatchlistRow) => {
+        return (
+          <LiveMarketWidget
+            symbol={`${record.exchange}:${record.symbol}`}
+            showDetails={false}
+            showChange={false}
+            fallbackLtp={v}
+            fallbackChangePercent={record.changePercent}
+          />
+        );
+      }
     },
     {
       title: "CHANGE %",
       dataIndex: "changePercent",
       key: "changePercent",
       width: 100,
-      render: (v: number | null) => renderColorValue(v, "", "%")
+      render: (v: number | null, record: WatchlistRow) => (
+        <LiveChangePercentCell
+          symbol={`${record.exchange}:${record.symbol}`}
+          fallback={v}
+        />
+      )
     },
     {
       title: "SMA 50",

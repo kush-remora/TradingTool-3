@@ -7,16 +7,32 @@ const { Text } = Typography;
 interface LiveMarketWidgetProps {
   symbol: string;
   showDetails?: boolean;
+  showChange?: boolean;
+  fallbackLtp?: number | null;
+  fallbackChangePercent?: number | null;
 }
 
-export function LiveMarketWidget({ symbol, showDetails = true }: LiveMarketWidgetProps) {
+export function LiveMarketWidget({
+  symbol,
+  showDetails = true,
+  showChange = true,
+  fallbackLtp = null,
+  fallbackChangePercent = null,
+}: LiveMarketWidgetProps) {
   const data = useLiveMarketData(symbol);
 
-  if (!data) {
+  if (!data && showDetails) {
     return <Text type="secondary" style={{ fontSize: 12 }}>Loading...</Text>;
   }
 
-  const isPositive = data.changePercent >= 0;
+  const ltp = data?.ltp ?? fallbackLtp;
+  const changePercent = data?.changePercent ?? fallbackChangePercent;
+
+  if (ltp === null) {
+    return <Text type="secondary" style={{ fontSize: 12 }}>Loading...</Text>;
+  }
+
+  const isPositive = (changePercent ?? 0) >= 0;
   const color = isPositive ? "#52c41a" : "#ff4d4f";
   const Icon = isPositive ? ArrowUpOutlined : ArrowDownOutlined;
 
@@ -30,13 +46,15 @@ export function LiveMarketWidget({ symbol, showDetails = true }: LiveMarketWidge
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 120 }}>
       <Space size={4} align="baseline">
-        <Text strong style={{ fontSize: 16 }}>₹{data.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</Text>
-        <Text style={{ color, fontSize: 12, fontWeight: 500 }}>
-          <Icon style={{ fontSize: 10 }} /> {Math.abs(data.changePercent).toFixed(2)}%
-        </Text>
+        <Text strong style={{ fontSize: 16 }}>₹{ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</Text>
+        {showChange && changePercent !== null && (
+          <Text style={{ color, fontSize: 12, fontWeight: 500 }}>
+            <Icon style={{ fontSize: 10 }} /> {Math.abs(changePercent).toFixed(2)}%
+          </Text>
+        )}
       </Space>
 
-      {showDetails && (
+      {showDetails && data && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
             <Text type="secondary" style={{ fontSize: 11 }}>

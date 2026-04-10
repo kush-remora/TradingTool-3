@@ -63,6 +63,11 @@
             <artifactId>jersey-media-multipart</artifactId>
             <version>3.0.12</version>
         </dependency>
+        <dependency>
+            <groupId>org.glassfish.jersey.media</groupId>
+            <artifactId>jersey-media-sse</artifactId>
+            <version>3.0.12</version>
+        </dependency>
 
         <!-- Jackson Module for Kotlin -->
         <dependency>

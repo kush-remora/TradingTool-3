@@ -27,10 +27,23 @@ export function useWatchlist(tag: string = "") {
 
   useEffect(() => {
     fetchRows(true);
-    
-    // Poll every 10 seconds since L0 Caffeine Cache is 10s
-    const id = setInterval(() => fetchRows(false), 10000);
-    return () => clearInterval(id);
+
+    // Indicators are slow-moving (daily), so avoid interval polling.
+    // Refresh once when the tab/app becomes active again.
+    const onFocus = () => {
+      fetchRows(false);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") fetchRows(false);
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [tag]);
 
   const refreshIndicators = async () => {

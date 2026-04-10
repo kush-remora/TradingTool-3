@@ -152,11 +152,11 @@ class ServiceModule(
     fun provideWatchlistService(
         stockHandler: StockJdbiHandler,
         indicatorService: IndicatorService,
-        liveMarketService: LiveMarketService,
+        tickStore: TickStore,
     ): WatchlistService = WatchlistService(
         stockHandler = stockHandler,
         indicatorService = indicatorService,
-        liveMarketService = liveMarketService,
+        tickStore = tickStore,
     )
 
     @Provides

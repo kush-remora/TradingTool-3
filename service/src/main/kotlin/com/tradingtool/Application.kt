@@ -27,6 +27,7 @@ import java.util.EnumSet
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jetty.servlets.CrossOriginFilter
 import org.glassfish.jersey.media.multipart.MultiPartFeature
+import org.glassfish.jersey.media.sse.SseFeature
 import org.glassfish.jersey.server.filter.RolesAllowedDynamicFeature
 import org.slf4j.LoggerFactory
 
@@ -181,6 +182,7 @@ class DropwizardApplication : Application<DropwizardConfig>() {
             environment.jersey().register(injector.getInstance(clazz))
         }
         environment.jersey().register(MultiPartFeature::class.java)
+        environment.jersey().register(SseFeature::class.java)
 
         // Manage coroutine scope + Redis lifecycle — shut down in order on server stop.
         environment.lifecycle().manage(object : io.dropwizard.lifecycle.Managed {
