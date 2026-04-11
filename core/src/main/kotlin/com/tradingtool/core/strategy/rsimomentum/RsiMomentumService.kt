@@ -27,6 +27,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
+import kotlin.system.measureTimeMillis
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -87,44 +88,26 @@ class RsiMomentumService @Inject constructor(
 
         ensureInstrumentCacheLoaded()
 
-        val baseSymbols = configService.loadBaseUniverseSymbols(config.baseUniversePreset)
-        val watchlistStocks = stockHandler.read { dao -> dao.listAll() }
+        val refreshInputs = loadRefreshInputs(config)
         val universe = RsiMomentumUniverseBuilder.build(
-            baseSymbols = baseSymbols,
-            watchlistStocks = watchlistStocks,
+            baseSymbols = refreshInputs.baseSymbols,
+            watchlistStocks = refreshInputs.watchlistStocks,
             tokenLookup = { symbol -> instrumentCache.token("NSE", symbol) },
             companyNameLookup = { symbol -> instrumentCache.find("NSE", symbol)?.name?.takeIf { it.isNotBlank() } },
         )
-
-        val previousSnapshot = readSnapshotOrNull()
-        val previousHoldings = previousSnapshot?.holdings?.map { holding -> holding.symbol } ?: emptyList()
-
-        val analysisResults = supervisorScope {
-            universe.members.map { member ->
-                async {
-                    analysisSemaphore.withPermit {
-                        analyzeMember(member, config)
-                    }
-                }
-            }.awaitAll()
-        }
-
-        val backfilledSymbols = analysisResults.mapNotNull { result -> result.backfilledSymbol }.distinct().sorted()
-        val insufficientHistorySymbols = analysisResults.mapNotNull { result ->
-            (result as? MemberAnalysisResult.InsufficientHistory)?.symbol
-        }.sorted()
-        val illiquidSymbols = analysisResults.mapNotNull { result ->
-            (result as? MemberAnalysisResult.Illiquid)?.symbol
-        }.sorted()
-        val failedSymbols = analysisResults.mapNotNull { result ->
-            (result as? MemberAnalysisResult.Failed)?.symbol
-        }.sorted()
-        val metrics = analysisResults.mapNotNull { result ->
-            (result as? MemberAnalysisResult.Success)?.metrics
-        }
+        log.info(
+            "RSI momentum refresh started: totalStocks={}, baseUniverseCount={}, watchlistCount={}",
+            universe.members.size,
+            universe.baseUniverseCount,
+            universe.watchlistCount,
+        )
+        val previousHoldings = refreshInputs.previousSnapshot?.holdings
+            ?.map { holding -> holding.symbol }
+            ?: emptyList()
+        val analysis = analyzeUniverse(universe, config)
 
         val rankedPortfolio = RsiMomentumRanker.rank(
-            metrics = metrics,
+            metrics = analysis.metrics,
             previousHoldings = previousHoldings,
             candidateCount = config.candidateCount,
             holdingCount = config.holdingCount,
@@ -142,7 +125,7 @@ class RsiMomentumService @Inject constructor(
             runAt = Instant.now().toString(),
             asOfDate = rankedPortfolio.asOfDate?.toString(),
             resolvedUniverseCount = universe.members.size,
-            eligibleUniverseCount = metrics.size,
+            eligibleUniverseCount = analysis.metrics.size,
             topCandidates = rankedPortfolio.topCandidates,
             holdings = rankedPortfolio.holdings,
             rebalance = rankedPortfolio.rebalance,
@@ -151,10 +134,10 @@ class RsiMomentumService @Inject constructor(
                 watchlistCount = universe.watchlistCount,
                 watchlistAdditionsCount = universe.watchlistAdditionsCount,
                 unresolvedSymbols = universe.unresolvedSymbols,
-                insufficientHistorySymbols = insufficientHistorySymbols.sorted(),
-                illiquidSymbols = illiquidSymbols.sorted(),
-                backfilledSymbols = backfilledSymbols.distinct().sorted(),
-                failedSymbols = failedSymbols.sorted(),
+                insufficientHistorySymbols = analysis.insufficientHistorySymbols,
+                illiquidSymbols = analysis.illiquidSymbols,
+                backfilledSymbols = analysis.backfilledSymbols,
+                failedSymbols = analysis.failedSymbols,
             ),
         )
 
@@ -163,62 +146,153 @@ class RsiMomentumService @Inject constructor(
             mapper.writeValueAsString(snapshot),
             SNAPSHOT_TTL_SECONDS,
         )
+        log.info(
+            "RSI momentum refresh finished: totalStocks={}, eligibleStocks={}, backfilledStocks={}, failedStocks={}",
+            universe.members.size,
+            analysis.metrics.size,
+            analysis.backfilledSymbols.size,
+            analysis.failedSymbols.size,
+        )
         return snapshot
+    }
+
+    private suspend fun loadRefreshInputs(config: RsiMomentumConfig): RefreshInputs = supervisorScope {
+        val baseSymbolsDeferred = async {
+            configService.loadBaseUniverseSymbols(config.baseUniversePreset)
+        }
+        val watchlistStocksDeferred = async {
+            stockHandler.read { dao -> dao.listAll() }
+        }
+        val previousSnapshotDeferred = async {
+            readSnapshotOrNull()
+        }
+
+        RefreshInputs(
+            baseSymbols = baseSymbolsDeferred.await(),
+            watchlistStocks = watchlistStocksDeferred.await(),
+            previousSnapshot = previousSnapshotDeferred.await(),
+        )
+    }
+
+    private suspend fun analyzeUniverse(
+        universe: UniverseBuildResult,
+        config: RsiMomentumConfig,
+    ): AnalysisSummary {
+        log.info("RSI momentum batch started: totalStocks={}", universe.members.size)
+        val analysisResults = supervisorScope {
+            universe.members.mapIndexed { index, member ->
+                async {
+                    analysisSemaphore.withPermit {
+                        analyzeMember(
+                            member = member,
+                            config = config,
+                            stockIndex = index + 1,
+                            totalStocks = universe.members.size,
+                        )
+                    }
+                }
+            }.awaitAll()
+        }
+        log.info("RSI momentum batch finished: totalStocks={}", universe.members.size)
+
+        return AnalysisSummary(
+            metrics = analysisResults.mapNotNull { result ->
+                (result as? MemberAnalysisResult.Success)?.metrics
+            },
+            insufficientHistorySymbols = analysisResults.mapNotNull { result ->
+                (result as? MemberAnalysisResult.InsufficientHistory)?.symbol
+            }.sorted(),
+            illiquidSymbols = analysisResults.mapNotNull { result ->
+                (result as? MemberAnalysisResult.Illiquid)?.symbol
+            }.sorted(),
+            backfilledSymbols = analysisResults.mapNotNull { result ->
+                result.backfilledSymbol
+            }.distinct().sorted(),
+            failedSymbols = analysisResults.mapNotNull { result ->
+                (result as? MemberAnalysisResult.Failed)?.symbol
+            }.sorted(),
+        )
     }
 
     private suspend fun analyzeMember(
         member: UniverseMember,
         config: RsiMomentumConfig,
+        stockIndex: Int,
+        totalStocks: Int,
     ): MemberAnalysisResult {
-        return try {
-            val candleLoadResult = loadCandles(member)
-            val candles = candleLoadResult.candles
-            if (candles.size < requiredBarCount(config.rsiPeriods)) {
-                return MemberAnalysisResult.InsufficientHistory(
+        log.info(
+            "RSI momentum stock processing started: stock={}/{} symbol={}",
+            stockIndex,
+            totalStocks,
+            member.symbol,
+        )
+        var outcome: String = "UNKNOWN"
+        lateinit var result: MemberAnalysisResult
+        val durationMs = measureTimeMillis {
+            result = try {
+                val candleLoadResult = loadCandles(member)
+                val candles = candleLoadResult.candles
+                if (candles.size < requiredBarCount(config.rsiPeriods)) {
+                    outcome = "INSUFFICIENT_HISTORY"
+                    MemberAnalysisResult.InsufficientHistory(
+                        symbol = member.symbol,
+                        backfilledSymbol = candleLoadResult.backfilledSymbol,
+                    )
+                } else {
+                    val avgTradedValueCr = candles
+                        .takeLast(AVERAGE_TRADED_VALUE_LOOKBACK_DAYS)
+                        .map { candle -> (candle.close * candle.volume) / CRORE_DIVISOR }
+                        .average()
+                        .roundTo2()
+
+                    if (avgTradedValueCr < config.minAverageTradedValue) {
+                        outcome = "ILLIQUID"
+                        MemberAnalysisResult.Illiquid(
+                            symbol = member.symbol,
+                            backfilledSymbol = candleLoadResult.backfilledSymbol,
+                        )
+                    } else {
+                        val series = candles.toTa4jSeries(member.symbol)
+                        val rsiValues = config.rsiPeriods.sorted().associateWith { period ->
+                            series.calculateRsi(period).getDoubleValue(series.endIndex, 50.0).roundTo2()
+                        }
+
+                        outcome = "SUCCESS"
+                        MemberAnalysisResult.Success(
+                            metrics = SecurityMetrics(
+                                member = member,
+                                asOfDate = candles.maxOf { candle -> candle.candleDate },
+                                avgRsi = rsiValues.values.average().roundTo2(),
+                                rsi22 = rsiValues[22] ?: 50.0,
+                                rsi44 = rsiValues[44] ?: 50.0,
+                                rsi66 = rsiValues[66] ?: 50.0,
+                                avgTradedValueCr = avgTradedValueCr,
+                            ),
+                            backfilledSymbol = candleLoadResult.backfilledSymbol,
+                        )
+                    }
+                }
+            } catch (error: CancellationException) {
+                outcome = "CANCELLED"
+                throw error
+            } catch (error: Exception) {
+                log.warn("RSI momentum analysis failed for {}: {}", member.symbol, error.message)
+                outcome = "FAILED"
+                MemberAnalysisResult.Failed(
                     symbol = member.symbol,
-                    backfilledSymbol = candleLoadResult.backfilledSymbol,
+                    backfilledSymbol = null,
                 )
             }
-
-            val avgTradedValueCr = candles
-                .takeLast(AVERAGE_TRADED_VALUE_LOOKBACK_DAYS)
-                .map { candle -> (candle.close * candle.volume) / CRORE_DIVISOR }
-                .average()
-                .roundTo2()
-
-            if (avgTradedValueCr < config.minAverageTradedValue) {
-                return MemberAnalysisResult.Illiquid(
-                    symbol = member.symbol,
-                    backfilledSymbol = candleLoadResult.backfilledSymbol,
-                )
-            }
-
-            val series = candles.toTa4jSeries(member.symbol)
-            val rsiValues = config.rsiPeriods.sorted().associateWith { period ->
-                series.calculateRsi(period).getDoubleValue(series.endIndex, 50.0).roundTo2()
-            }
-
-            MemberAnalysisResult.Success(
-                metrics = SecurityMetrics(
-                    member = member,
-                    asOfDate = candles.maxOf { candle -> candle.candleDate },
-                    avgRsi = rsiValues.values.average().roundTo2(),
-                    rsi22 = rsiValues[22] ?: 50.0,
-                    rsi44 = rsiValues[44] ?: 50.0,
-                    rsi66 = rsiValues[66] ?: 50.0,
-                    avgTradedValueCr = avgTradedValueCr,
-                ),
-                backfilledSymbol = candleLoadResult.backfilledSymbol,
-            )
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            log.warn("RSI momentum analysis failed for {}: {}", member.symbol, error.message)
-            MemberAnalysisResult.Failed(
-                symbol = member.symbol,
-                backfilledSymbol = null,
-            )
         }
+        log.info(
+            "RSI momentum stock processing finished: stock={}/{} symbol={} outcome={} durationMs={}",
+            stockIndex,
+            totalStocks,
+            member.symbol,
+            outcome,
+            durationMs,
+        )
+        return result
     }
 
     private suspend fun loadCandles(member: UniverseMember): CandleLoadResult {
@@ -356,6 +430,20 @@ class RsiMomentumService @Inject constructor(
     private data class CandleLoadResult(
         val candles: List<DailyCandle>,
         val backfilledSymbol: String?,
+    )
+
+    private data class RefreshInputs(
+        val baseSymbols: List<String>,
+        val watchlistStocks: List<com.tradingtool.core.model.stock.Stock>,
+        val previousSnapshot: RsiMomentumSnapshot?,
+    )
+
+    private data class AnalysisSummary(
+        val metrics: List<SecurityMetrics>,
+        val insufficientHistorySymbols: List<String>,
+        val illiquidSymbols: List<String>,
+        val backfilledSymbols: List<String>,
+        val failedSymbols: List<String>,
     )
 
     private sealed class MemberAnalysisResult(open val backfilledSymbol: String?) {
