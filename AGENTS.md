@@ -10,9 +10,8 @@ Optimize for **clarity, maintainability, and speed of iteration** over scalabili
 - Typical scale: watchlist of around 20-30 stocks
 - Objective: stable, understandable system that is easy to evolve
 
-## Global Engineering Priorities
-
-1. Readability over cleverness
+## Global Engineering Prioritiesd
+1. Readability over cleeverness
 2. Simple implementations over abstractions
 3. Maintainability over premature optimization
 4. Minimal diffs that solve today’s problem

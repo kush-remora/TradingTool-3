@@ -46,6 +46,20 @@ object ConfigLoader {
         error("Required config '$envVarName' not found in env vars$hint. Environment: ${detect()}")
     }
 
+    /**
+     * Resolves an optional config value.
+     * Returns null when neither env var nor localconfig value is available.
+     */
+    fun getOptional(envVarName: String, yamlKey: String): String? {
+        val envValue = System.getenv(envVarName)?.takeIf { it.isNotBlank() }
+        if (envValue != null) return envValue
+
+        if (detect() == RunEnvironment.LOCAL) {
+            return loadLocalConfig()[yamlKey]?.takeIf { it.isNotBlank() }
+        }
+        return null
+    }
+
     private fun loadLocalConfig(): Map<String, String> {
         val path = findLocalConfigPath() ?: return emptyMap()
         return parseYaml(path)

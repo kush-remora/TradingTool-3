@@ -29,19 +29,20 @@ fun main() {
     log.info("Environment: {}", ConfigLoader.detect())
 
     val config = loadKiteReminderConfig()
-    val notifier = TelegramNotifier(buildTelegramSender(config.botToken, config.chatId, buildHttpClient()))
+    val httpClient = buildHttpClient()
+    val telegramNotifier = TelegramNotifier(buildTelegramSender(config.botToken, config.chatId, httpClient))
 
     runBlocking {
-        notifier.cronStarted("KiteReminderJob")
+        telegramNotifier.cronStarted("KiteReminderJob")
         val result = executeKiteReminder(config)
         when (result) {
             is ReminderResult.Success -> {
-                notifier.cronCompleted("KiteReminderJob")
+                telegramNotifier.cronCompleted("KiteReminderJob")
                 log.info("Kite reminder job completed successfully")
                 exitProcess(0)
             }
             is ReminderResult.Failure -> {
-                notifier.cronFailed("KiteReminderJob", result.error)
+                telegramNotifier.cronFailed("KiteReminderJob", result.error)
                 log.error("Kite reminder job failed: {}", result.error.message, result.error)
                 exitProcess(1)
             }
