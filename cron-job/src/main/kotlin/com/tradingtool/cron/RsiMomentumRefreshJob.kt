@@ -7,6 +7,7 @@ import com.tradingtool.core.http.Result
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import java.net.http.HttpClient as JdkHttpClient
+import java.time.Duration
 import kotlin.system.exitProcess
 
 private val log = LoggerFactory.getLogger("RsiMomentumRefreshJob")
@@ -18,13 +19,20 @@ private data class StrategyRefreshConfig(
 private object StrategyRefreshConstants {
     const val HEALTH_PATH = "/health"
     const val REFRESH_PATH = "/api/strategy/rsi-momentum/refresh"
+    const val REFRESH_TIMEOUT_SECONDS = 180L
 }
 
 fun main() {
     val config = StrategyRefreshConfig(
         renderUrl = ConfigLoader.get("RENDER_SERVICE_URL", "deployment.renderExternalUrl"),
     )
-    val httpClient = JdkHttpClientImpl(JdkHttpClient.newBuilder().build(), HttpClientConfig())
+    val httpClient = JdkHttpClientImpl(
+        JdkHttpClient.newBuilder().build(),
+        HttpClientConfig(
+            timeout = Duration.ofSeconds(StrategyRefreshConstants.REFRESH_TIMEOUT_SECONDS),
+            retryConfig = HttpClientConfig.RetryConfig(maxAttempts = 2, initialDelayMs = 500),
+        ),
+    )
 
     runBlocking {
         wakeService(config.renderUrl, httpClient)
@@ -55,4 +63,3 @@ private suspend fun wakeService(
 private fun String.toHealthUrl(): String = this.trimEnd('/') + StrategyRefreshConstants.HEALTH_PATH
 
 private fun String.toRefreshUrl(): String = this.trimEnd('/') + StrategyRefreshConstants.REFRESH_PATH
-
