@@ -67,6 +67,7 @@ object DatabaseConstants {
         const val INSTRUMENT_TOKEN = "instrument_token"
         const val SYMBOL = "symbol"
         const val EXCHANGE = "exchange"
+        const val UNIVERSE = "universe"
         const val TRADING_DATE = "trading_date"
         const val RECONCILIATION_STATUS = "reconciliation_status"
         const val SERIES = "series"

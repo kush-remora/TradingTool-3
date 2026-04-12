@@ -60,7 +60,7 @@ fun main(args: Array<String>) {
                 report.missingFromSourceCount,
                 outputDir.toAbsolutePath(),
             )
-            if (report.unresolvedIssues.isEmpty()) 0 else 1
+            if (report.blockingIssues.isEmpty()) 0 else 1
         }.getOrElse { error ->
             log.error("Delivery reconciliation failed: {}", error.message, error)
             runtime.telegramNotifier.cronFailed(

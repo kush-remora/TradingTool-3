@@ -14,6 +14,8 @@ fun DeliveryReconciliationRunReport.toMarkdown(): String {
         appendLine("- Non-watchlist rows: `${nonWatchlistCount}`")
         appendLine("- Fetched from source: `${fetchedFromSource}`")
         appendLine("- Already complete: `${alreadyComplete}`")
+        appendLine("- Blocking issues: `${blockingIssues.size}`")
+        appendLine("- Warnings: `${warningIssues.size}`")
         appendLine()
         appendLine("## Samples")
         appendLine()
@@ -28,11 +30,19 @@ fun DeliveryReconciliationRunReport.toMarkdown(): String {
         appendLine("### Nullable stock_id")
         appendLine()
         appendSampleTable(nullableStockIdSamples)
-        if (unresolvedIssues.isNotEmpty()) {
+        if (warningIssues.isNotEmpty()) {
             appendLine()
-            appendLine("## Unresolved Issues")
+            appendLine("## Warnings")
             appendLine()
-            unresolvedIssues.forEach { issue ->
+            warningIssues.forEach { issue ->
+                appendLine("- $issue")
+            }
+        }
+        if (blockingIssues.isNotEmpty()) {
+            appendLine()
+            appendLine("## Blocking Issues")
+            appendLine()
+            blockingIssues.forEach { issue ->
                 appendLine("- $issue")
             }
         }
@@ -49,9 +59,13 @@ fun DeliveryReconciliationRunReport.toTelegramSummary(): String {
         appendLine("watchlist-linked rows: `${watchlistLinkedCount}`")
         appendLine("non-watchlist rows: `${nonWatchlistCount}`")
         append("source fetch: `$fetchStatus`")
-        if (unresolvedIssues.isNotEmpty()) {
+        if (warningIssues.isNotEmpty()) {
             appendLine()
-            append("issues: `${unresolvedIssues.size}`")
+            append("warnings: `${warningIssues.size}`")
+        }
+        if (blockingIssues.isNotEmpty()) {
+            appendLine()
+            append("blocking issues: `${blockingIssues.size}`")
         }
     }
 }

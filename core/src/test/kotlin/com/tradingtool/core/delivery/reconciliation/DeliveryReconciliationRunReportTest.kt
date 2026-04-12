@@ -2,6 +2,7 @@ package com.tradingtool.core.delivery.reconciliation
 
 import com.tradingtool.core.delivery.model.DeliveryReconciliationStatus
 import com.tradingtool.core.delivery.model.StockDeliveryDaily
+import com.tradingtool.core.delivery.model.DeliveryUniverse
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -35,7 +36,8 @@ class DeliveryReconciliationRunReportTest {
         assertEquals(2, report.nullableStockIdCount)
         assertEquals(1, report.watchlistLinkedCount)
         assertEquals(2, report.nonWatchlistCount)
-        assertTrue(report.unresolvedIssues.isEmpty())
+        assertTrue(report.blockingIssues.isEmpty())
+        assertTrue(report.warningIssues.isEmpty())
     }
 
     @Test
@@ -72,7 +74,7 @@ class DeliveryReconciliationRunReportTest {
             requestedDate = null,
             result = DeliveryDateReconciliationResult(
                 tradingDate = tradingDate,
-                expectedCount = 3,
+                expectedCount = 200,
                 alreadyComplete = false,
                 fetchedFromSource = true,
                 presentCount = 2,
@@ -85,7 +87,8 @@ class DeliveryReconciliationRunReportTest {
             ),
         )
 
-        assertTrue(report.unresolvedIssues.any { issue -> issue.contains("SCHNEIDER") })
+        assertTrue(report.warningIssues.any { issue -> issue.contains("SCHNEIDER") && issue.contains("under 1%") })
+        assertTrue(report.blockingIssues.isEmpty())
     }
 
     private fun deliveryRow(
@@ -100,6 +103,7 @@ class DeliveryReconciliationRunReportTest {
             instrumentToken = instrumentToken,
             symbol = symbol,
             exchange = "NSE",
+            universe = DeliveryUniverse.LARGEMIDCAP_250,
             tradingDate = tradingDate,
             reconciliationStatus = status,
             series = "EQ",

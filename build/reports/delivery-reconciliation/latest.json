@@ -1,5 +1,5 @@
 {
-  "requestedDate" : "2026-04-10",
+  "requestedDate" : null,
   "resolvedDate" : "2026-04-10",
   "expectedSymbolCount" : 502,
   "presentCount" : 501,
@@ -7,9 +7,10 @@
   "nullableStockIdCount" : 482,
   "watchlistLinkedCount" : 19,
   "nonWatchlistCount" : 482,
-  "fetchedFromSource" : false,
-  "alreadyComplete" : true,
-  "unresolvedIssues" : [ "Instrument token could not be resolved for configured symbol SCHNEIDER.", "Expected 502 reconciled rows but found 501 rows in stock_delivery_daily." ],
+  "fetchedFromSource" : true,
+  "alreadyComplete" : false,
+  "blockingIssues" : [ ],
+  "warningIssues" : [ "Ignoring 1 unresolved symbol(s) because availability gap is under 1% of the configured universe: SCHNEIDER.", "Expected 502 reconciled rows but found 501 rows in stock_delivery_daily." ],
   "presentSamples" : [ {
     "instrumentToken" : 1793,
     "symbol" : "AARTIIND",

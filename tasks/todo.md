@@ -165,6 +165,13 @@ Ship a standalone cron job that performs the same delivery reconciliation flow u
 - Current blocking data-quality issue:
   - `SCHNEIDER` is in the configured universe but does not resolve to a Kite `instrument_token`, so the job exits non-zero with a report instead of silently pretending the date is fully complete.
 
+## Follow-up Schema Notes
+- Added a `universe` column to `stock_delivery_daily` so each stored delivery row now records its configured universe membership directly.
+- Stored values are:
+  - `largemidcap250`
+  - `smallcap250`
+  - `watchlist` for watchlist-only additions that are not part of either preset universe
+
 ---
 
 # Implementation Plan: Strategy Foundations - Delivery Data + Fundamental Health

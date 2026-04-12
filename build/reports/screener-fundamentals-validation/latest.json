@@ -1,0 +1,70 @@
+{
+  "requestedSymbols" : [ "RELIANCE", "TCS", "INFY" ],
+  "testedCount" : 3,
+  "reachableCount" : 3,
+  "parsedCount" : 3,
+  "marketCapCount" : 3,
+  "stockPeCount" : 3,
+  "roceCount" : 3,
+  "roeCount" : 3,
+  "promoterHoldingCount" : 3,
+  "broadIndustryCount" : 3,
+  "industryCount" : 3,
+  "debtToEquityCount" : 0,
+  "pledgedPercentCount" : 0,
+  "rows" : [ {
+    "symbol" : "RELIANCE",
+    "reachable" : true,
+    "parsed" : true,
+    "snapshot" : {
+      "symbol" : "RELIANCE",
+      "companyName" : "Reliance Industries Ltd",
+      "marketCapCr" : 1827154.0,
+      "stockPe" : 23.8,
+      "rocePercent" : 9.69,
+      "roePercent" : 8.4,
+      "promoterHoldingPercent" : 50.0,
+      "broadIndustry" : "Petroleum Products",
+      "industry" : "Refineries & Marketing",
+      "debtToEquity" : null,
+      "pledgedPercent" : null
+    },
+    "error" : null
+  }, {
+    "symbol" : "TCS",
+    "reachable" : true,
+    "parsed" : true,
+    "snapshot" : {
+      "symbol" : "TCS",
+      "companyName" : "Tata Consultancy Services Ltd",
+      "marketCapCr" : 913314.0,
+      "stockPe" : 17.4,
+      "rocePercent" : 63.4,
+      "roePercent" : 52.1,
+      "promoterHoldingPercent" : 71.77,
+      "broadIndustry" : "IT - Software",
+      "industry" : "Computers - Software & Consulting",
+      "debtToEquity" : null,
+      "pledgedPercent" : null
+    },
+    "error" : null
+  }, {
+    "symbol" : "INFY",
+    "reachable" : true,
+    "parsed" : true,
+    "snapshot" : {
+      "symbol" : "INFY",
+      "companyName" : "Infosys Ltd",
+      "marketCapCr" : 524189.0,
+      "stockPe" : 18.2,
+      "rocePercent" : 37.5,
+      "roePercent" : 28.8,
+      "promoterHoldingPercent" : 14.52,
+      "broadIndustry" : "IT - Software",
+      "industry" : "Computers - Software & Consulting",
+      "debtToEquity" : null,
+      "pledgedPercent" : null
+    },
+    "error" : null
+  } ]
+}

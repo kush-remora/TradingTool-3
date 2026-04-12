@@ -3,6 +3,7 @@ package com.tradingtool.core.delivery.dao
 import com.tradingtool.core.constants.DatabaseConstants.StockDeliveryColumns as Cols
 import com.tradingtool.core.constants.DatabaseConstants.Tables
 import com.tradingtool.core.delivery.model.DeliveryReconciliationStatus
+import com.tradingtool.core.delivery.model.DeliveryUniverse
 import com.tradingtool.core.delivery.model.StockDeliveryDaily
 import org.jdbi.v3.core.mapper.RowMapper
 import org.jdbi.v3.core.statement.StatementContext
@@ -67,6 +68,7 @@ class StockDeliveryMapper : RowMapper<StockDeliveryDaily> {
             instrumentToken = rs.getLong(Cols.INSTRUMENT_TOKEN),
             symbol = rs.getString(Cols.SYMBOL),
             exchange = rs.getString(Cols.EXCHANGE),
+            universe = DeliveryUniverse.fromStorageValue(rs.getString(Cols.UNIVERSE)),
             tradingDate = rs.getDate(Cols.TRADING_DATE).toLocalDate(),
             reconciliationStatus = DeliveryReconciliationStatus.valueOf(rs.getString(Cols.RECONCILIATION_STATUS)),
             series = rs.getString(Cols.SERIES),

@@ -1,6 +1,6 @@
 # Delivery Reconciliation Report
 
-- Requested date: `2026-04-10`
+- Requested date: `latest`
 - Resolved date: `2026-04-10`
 - Expected symbols: `502`
 - Present rows: `501`
@@ -8,8 +8,10 @@
 - Nullable stock_id rows: `482`
 - Watchlist-linked rows: `19`
 - Non-watchlist rows: `482`
-- Fetched from source: `false`
-- Already complete: `true`
+- Fetched from source: `true`
+- Already complete: `false`
+- Blocking issues: `0`
+- Warnings: `2`
 
 ## Samples
 
@@ -37,7 +39,7 @@ _None_
 | `ADANIENT` | `6401` | `-` | `PRESENT` | `33.04` |
 | `AEGISLOG` | `10241` | `-` | `PRESENT` | `14.73` |
 
-## Unresolved Issues
+## Warnings
 
-- Instrument token could not be resolved for configured symbol SCHNEIDER.
+- Ignoring 1 unresolved symbol(s) because availability gap is under 1% of the configured universe: SCHNEIDER.
 - Expected 502 reconciled rows but found 501 rows in stock_delivery_daily.

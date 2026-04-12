@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.google.inject.Inject
 import com.google.inject.Singleton
+import com.tradingtool.core.delivery.model.DeliveryUniverse
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.io.InputStream
@@ -63,9 +64,22 @@ class DeliveryConfigService @Inject constructor() {
     }
 
     fun resolveConfiguredUniverseSymbols(watchlistSymbols: List<String> = emptyList()): Set<String> {
+        return resolveConfiguredUniverseAssignments(watchlistSymbols).keys
+    }
+
+    fun resolveConfiguredUniverseAssignments(watchlistSymbols: List<String> = emptyList()): Map<String, DeliveryUniverse> {
         val config = loadConfig()
-        val presetSymbols = config.universe.presetNames
-            .flatMap(::loadPresetSymbols)
+        val assignments = linkedMapOf<String, DeliveryUniverse>()
+        config.universe.presetNames.forEach { presetName ->
+            val universe = PRESET_UNIVERSE_VALUES[presetName]
+            if (universe == null) {
+                log.warn("No delivery universe mapping configured for preset: {}", presetName)
+                return@forEach
+            }
+            loadPresetSymbols(presetName).forEach { symbol ->
+                assignments.putIfAbsent(symbol, universe)
+            }
+        }
         val normalizedWatchlistSymbols = if (config.universe.includeWatchlist) {
             watchlistSymbols.asSequence()
                 .map { symbol -> symbol.trim().uppercase() }
@@ -75,7 +89,11 @@ class DeliveryConfigService @Inject constructor() {
             emptyList()
         }
 
-        return (presetSymbols + normalizedWatchlistSymbols).toSortedSet()
+        normalizedWatchlistSymbols.forEach { symbol ->
+            assignments.putIfAbsent(symbol, DeliveryUniverse.WATCHLIST)
+        }
+
+        return assignments.toSortedMap()
     }
 
     private fun saveConfig(config: DeliveryConfig) {
@@ -113,6 +131,10 @@ class DeliveryConfigService @Inject constructor() {
         private val PRESET_RESOURCES: Map<String, String> = mapOf(
             PRESET_LARGE_MIDCAP_250 to "strategy-universes/nifty_largemidcap_250.csv",
             PRESET_SMALLCAP_250 to "strategy-universes/nifty_smallcap_250.csv",
+        )
+        private val PRESET_UNIVERSE_VALUES: Map<String, DeliveryUniverse> = mapOf(
+            PRESET_LARGE_MIDCAP_250 to DeliveryUniverse.LARGEMIDCAP_250,
+            PRESET_SMALLCAP_250 to DeliveryUniverse.SMALLCAP_250,
         )
     }
 }

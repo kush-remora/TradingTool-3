@@ -142,6 +142,7 @@ class DeliveryReconciliationService @Inject constructor(
                     instrumentToken = row.instrumentToken,
                     symbol = row.symbol,
                     exchange = row.exchange,
+                    universe = row.universe.storageValue,
                     tradingDate = row.tradingDate,
                     reconciliationStatus = row.reconciliationStatus.name,
                     series = row.series,
@@ -175,14 +176,17 @@ class DeliveryReconciliationService @Inject constructor(
 
     private suspend fun resolveExpectations(): DeliveryExpectationState {
         ensureInstrumentCacheLoaded()
-        val symbols = deliveryUniverseService.resolveTargetSymbols().toList()
-        if (symbols.isEmpty()) {
+        val universeAssignments = configService.resolveConfiguredUniverseAssignments(
+            watchlistSymbols = deliveryUniverseService.loadNseWatchlistSymbolsForDelivery(),
+        )
+        if (universeAssignments.isEmpty()) {
             return DeliveryExpectationState(
                 totalSymbolCount = 0,
                 expectations = emptyList(),
                 unresolvedSymbols = emptyList(),
             )
         }
+        val symbols = universeAssignments.keys.toList()
 
         val trackedStocks = stockHandler.read { dao ->
             dao.listBySymbols(symbols, NSE_EXCHANGE)
@@ -201,6 +205,9 @@ class DeliveryReconciliationService @Inject constructor(
                     instrumentToken = instrumentToken,
                     symbol = symbol,
                     exchange = NSE_EXCHANGE,
+                    universe = requireNotNull(universeAssignments[symbol]) {
+                        "Universe assignment missing for configured delivery symbol $symbol"
+                    },
                 )
             }
         }

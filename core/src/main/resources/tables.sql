@@ -126,6 +126,7 @@ CREATE TABLE IF NOT EXISTS public.stock_delivery_daily (
     instrument_token BIGINT NOT NULL,
     symbol TEXT NOT NULL,
     exchange TEXT NOT NULL,
+    universe TEXT NOT NULL CHECK (universe IN ('largemidcap250', 'smallcap250', 'watchlist')),
     trading_date DATE NOT NULL,
     reconciliation_status TEXT NOT NULL CHECK (reconciliation_status IN ('PRESENT', 'MISSING_FROM_SOURCE')),
     series TEXT,

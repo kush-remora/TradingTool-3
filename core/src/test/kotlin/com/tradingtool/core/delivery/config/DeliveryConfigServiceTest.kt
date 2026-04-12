@@ -3,6 +3,7 @@ package com.tradingtool.core.delivery.config
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import com.tradingtool.core.delivery.model.DeliveryUniverse
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
 import kotlin.io.path.deleteIfExists
@@ -73,6 +74,30 @@ class DeliveryConfigServiceTest {
                 service.loadPresetSymbols(DeliveryConfigService.PRESET_LARGE_MIDCAP_250).toSortedSet(),
                 resolved,
             )
+        }
+    }
+
+    @Test
+    fun `resolveConfiguredUniverseAssignments prefers preset label and falls back to watchlist`() {
+        withTempConfigService { service, _ ->
+            service.writeConfig(
+                DeliveryConfig(
+                    universe = DeliveryUniverseConfig(
+                        presetNames = listOf(
+                            DeliveryConfigService.PRESET_LARGE_MIDCAP_250,
+                            DeliveryConfigService.PRESET_SMALLCAP_250,
+                        ),
+                        includeWatchlist = true,
+                    ),
+                ),
+            )
+
+            val assignments = service.resolveConfiguredUniverseAssignments(
+                watchlistSymbols = listOf("CUSTOM", "RELIANCE"),
+            )
+
+            assertEquals(DeliveryUniverse.LARGEMIDCAP_250, assignments["RELIANCE"])
+            assertEquals(DeliveryUniverse.WATCHLIST, assignments["CUSTOM"])
         }
     }
 

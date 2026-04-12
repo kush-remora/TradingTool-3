@@ -14,6 +14,10 @@ class DeliveryUniverseService @Inject constructor(
         return configService.resolveConfiguredUniverseSymbols(loadNseWatchlistSymbols())
     }
 
+    suspend fun loadNseWatchlistSymbolsForDelivery(): List<String> {
+        return loadNseWatchlistSymbols()
+    }
+
     suspend fun resolveKnownNseTargetStocks(): List<Stock> {
         val targetSymbols = resolveTargetSymbols().toList()
         if (targetSymbols.isEmpty()) {
