@@ -4,42 +4,90 @@ import java.time.LocalDate
 
 data class RsiMomentumConfig(
     val enabled: Boolean = true,
-    val baseUniversePreset: String = DEFAULT_BASE_UNIVERSE_PRESET,
+    val profiles: List<RsiMomentumProfileConfig> = RsiMomentumProfileConfig.defaultProfiles(),
+)
+
+data class RsiMomentumConfigSummary(
+    val enabled: Boolean = true,
+    val profileId: String = "",
+    val profileLabel: String = "",
+    val baseUniversePreset: String = RsiMomentumProfileConfig.DEFAULT_BASE_UNIVERSE_PRESET,
     val candidateCount: Int = 20,
+    val boardDisplayCount: Int = RsiMomentumProfileConfig.DEFAULT_BOARD_DISPLAY_COUNT,
+    val replacementPoolCount: Int = RsiMomentumProfileConfig.DEFAULT_REPLACEMENT_POOL_COUNT,
+    val holdingCount: Int = 10,
+    val rsiPeriods: List<Int> = RsiMomentumProfileConfig.DEFAULT_RSI_PERIODS,
+    val minAverageTradedValue: Double = RsiMomentumProfileConfig.DEFAULT_MIN_AVERAGE_TRADED_VALUE_CR,
+    val maxExtensionAboveSma20ForNewEntry: Double = RsiMomentumProfileConfig.DEFAULT_MAX_EXTENSION_ABOVE_SMA20_FOR_NEW_ENTRY,
+    val maxExtensionAboveSma20ForNewEntryPct: Double = RsiMomentumProfileConfig.DEFAULT_MAX_EXTENSION_ABOVE_SMA20_FOR_NEW_ENTRY * 100.0,
+    val rebalanceDay: String = "FRIDAY",
+    val rebalanceTime: String = "15:40",
+    val rsiCalibrationRunAt: String? = null,
+    val rsiCalibrationMethod: String? = null,
+    val rsiCalibrationSampleRange: String? = null,
+)
+
+data class RsiMomentumProfileConfig(
+    val id: String,
+    val label: String,
+    val baseUniversePreset: String,
+    val candidateCount: Int = 20,
+    val boardDisplayCount: Int = DEFAULT_BOARD_DISPLAY_COUNT,
+    val replacementPoolCount: Int = DEFAULT_REPLACEMENT_POOL_COUNT,
     val holdingCount: Int = 10,
     val rsiPeriods: List<Int> = DEFAULT_RSI_PERIODS,
     val minAverageTradedValue: Double = DEFAULT_MIN_AVERAGE_TRADED_VALUE_CR,
+    val maxExtensionAboveSma20ForNewEntry: Double = DEFAULT_MAX_EXTENSION_ABOVE_SMA20_FOR_NEW_ENTRY,
+    val maxExtensionAboveSma20ForNewEntryPct: Double? = null,
     val rebalanceDay: String = "FRIDAY",
     val rebalanceTime: String = "15:40",
+    val rsiCalibrationRunAt: String? = null,
+    val rsiCalibrationMethod: String? = null,
+    val rsiCalibrationSampleRange: String? = null,
 ) {
-    fun toSummary(): RsiMomentumConfigSummary = RsiMomentumConfigSummary(
-        enabled = enabled,
+    fun toSummary(globalEnabled: Boolean): RsiMomentumConfigSummary = RsiMomentumConfigSummary(
+        enabled = globalEnabled,
+        profileId = id,
+        profileLabel = label,
         baseUniversePreset = baseUniversePreset,
         candidateCount = candidateCount,
+        boardDisplayCount = boardDisplayCount,
+        replacementPoolCount = replacementPoolCount,
         holdingCount = holdingCount,
         rsiPeriods = rsiPeriods,
         minAverageTradedValue = minAverageTradedValue,
+        maxExtensionAboveSma20ForNewEntry = maxExtensionAboveSma20ForNewEntry,
+        maxExtensionAboveSma20ForNewEntryPct = maxExtensionAboveSma20ForNewEntry * 100.0,
         rebalanceDay = rebalanceDay,
         rebalanceTime = rebalanceTime,
+        rsiCalibrationRunAt = rsiCalibrationRunAt,
+        rsiCalibrationMethod = rsiCalibrationMethod,
+        rsiCalibrationSampleRange = rsiCalibrationSampleRange,
     )
 
     companion object {
         const val DEFAULT_BASE_UNIVERSE_PRESET: String = "NIFTY_LARGEMIDCAP_250"
+        const val DEFAULT_SMALLCAP_UNIVERSE_PRESET: String = "NIFTY_SMALLCAP_250"
         const val DEFAULT_MIN_AVERAGE_TRADED_VALUE_CR: Double = 10.0
+        const val DEFAULT_BOARD_DISPLAY_COUNT: Int = 40
+        const val DEFAULT_REPLACEMENT_POOL_COUNT: Int = 40
+        const val DEFAULT_MAX_EXTENSION_ABOVE_SMA20_FOR_NEW_ENTRY: Double = 0.20
         val DEFAULT_RSI_PERIODS: List<Int> = listOf(22, 44, 66)
+
+        fun defaultProfiles(): List<RsiMomentumProfileConfig> = listOf(
+            RsiMomentumProfileConfig(
+                id = "largemidcap250",
+                label = "LargeMidcap250",
+                baseUniversePreset = DEFAULT_BASE_UNIVERSE_PRESET,
+            ),
+            RsiMomentumProfileConfig(
+                id = "smallcap250",
+                label = "Smallcap250",
+                baseUniversePreset = DEFAULT_SMALLCAP_UNIVERSE_PRESET,
+            ),
+        )
     }
 }
-
-data class RsiMomentumConfigSummary(
-    val enabled: Boolean,
-    val baseUniversePreset: String,
-    val candidateCount: Int,
-    val holdingCount: Int,
-    val rsiPeriods: List<Int>,
-    val minAverageTradedValue: Double,
-    val rebalanceDay: String,
-    val rebalanceTime: String,
-)
 
 data class RsiMomentumRankedStock(
     val rank: Int,
@@ -50,9 +98,19 @@ data class RsiMomentumRankedStock(
     val rsi22: Double,
     val rsi44: Double,
     val rsi66: Double,
+    val close: Double,
+    val sma20: Double,
+    val extensionAboveSma20Pct: Double,
+    val buyZoneLow10w: Double,
+    val buyZoneHigh10w: Double,
+    val lowestRsi50d: Double,
+    val highestRsi50d: Double,
     val avgTradedValueCr: Double,
     val inBaseUniverse: Boolean,
     val inWatchlist: Boolean,
+    val entryBlocked: Boolean = false,
+    val entryBlockReason: String? = null,
+    val entryAction: String = "WATCH",
     val targetWeightPct: Double? = null,
 )
 
@@ -74,6 +132,8 @@ data class RsiMomentumDiagnostics(
 )
 
 data class RsiMomentumSnapshot(
+    val profileId: String = "",
+    val profileLabel: String = "",
     val available: Boolean,
     val stale: Boolean,
     val message: String? = null,
@@ -86,6 +146,17 @@ data class RsiMomentumSnapshot(
     val holdings: List<RsiMomentumRankedStock> = emptyList(),
     val rebalance: RsiMomentumRebalance = RsiMomentumRebalance(),
     val diagnostics: RsiMomentumDiagnostics = RsiMomentumDiagnostics(),
+)
+
+data class RsiMomentumProfileError(
+    val profileId: String,
+    val message: String,
+)
+
+data class RsiMomentumMultiSnapshot(
+    val profiles: List<RsiMomentumSnapshot> = emptyList(),
+    val errors: List<RsiMomentumProfileError> = emptyList(),
+    val partialSuccess: Boolean = false,
 )
 
 data class UniverseMember(
@@ -111,6 +182,11 @@ data class SecurityMetrics(
     val rsi22: Double,
     val rsi44: Double,
     val rsi66: Double,
+    val close: Double,
+    val sma20: Double,
+    val buyZoneLow10w: Double,
+    val buyZoneHigh10w: Double,
+    val lowestRsi50d: Double,
+    val highestRsi50d: Double,
     val avgTradedValueCr: Double,
 )
-

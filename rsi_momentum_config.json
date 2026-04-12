@@ -1,14 +1,38 @@
 {
-  "enabled": true,
-  "baseUniversePreset": "NIFTY_LARGEMIDCAP_250",
-  "candidateCount": 20,
-  "holdingCount": 10,
-  "rsiPeriods": [
-    22,
-    44,
-    66
-  ],
-  "minAverageTradedValue": 10.0,
-  "rebalanceDay": "FRIDAY",
-  "rebalanceTime": "15:40"
+  "enabled" : true,
+  "profiles" : [ {
+    "id" : "largemidcap250",
+    "label" : "LargeMidcap250",
+    "baseUniversePreset" : "NIFTY_LARGEMIDCAP_250",
+    "candidateCount" : 20,
+    "boardDisplayCount" : 40,
+    "replacementPoolCount" : 40,
+    "holdingCount" : 10,
+    "rsiPeriods" : [ 22, 44, 66 ],
+    "minAverageTradedValue" : 10.0,
+    "maxExtensionAboveSma20ForNewEntry" : 0.2,
+    "maxExtensionAboveSma20ForNewEntryPct" : 20.0,
+    "rebalanceDay" : "FRIDAY",
+    "rebalanceTime" : "15:40",
+    "rsiCalibrationRunAt" : "2026-04-11T19:05:58.198927Z",
+    "rsiCalibrationMethod" : "RISK_ADJUSTED_SORTINO_WITH_GUARDRAILS_V1",
+    "rsiCalibrationSampleRange" : "2021-04-11..2026-04-11"
+  }, {
+    "id" : "smallcap250",
+    "label" : "Smallcap250",
+    "baseUniversePreset" : "NIFTY_SMALLCAP_250",
+    "candidateCount" : 20,
+    "boardDisplayCount" : 40,
+    "replacementPoolCount" : 40,
+    "holdingCount" : 10,
+    "rsiPeriods" : [ 63, 126, 252 ],
+    "minAverageTradedValue" : 10.0,
+    "maxExtensionAboveSma20ForNewEntry" : 0.2,
+    "maxExtensionAboveSma20ForNewEntryPct" : 20.0,
+    "rebalanceDay" : "FRIDAY",
+    "rebalanceTime" : "15:40",
+    "rsiCalibrationRunAt" : "2026-04-11T19:05:58.198927Z",
+    "rsiCalibrationMethod" : "RISK_ADJUSTED_SORTINO_WITH_GUARDRAILS_V1",
+    "rsiCalibrationSampleRange" : "2021-04-11..2026-04-11"
+  } ]
 }

@@ -11,6 +11,7 @@ import com.tradingtool.core.database.RedisHandler
 import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConnectClient
+import com.tradingtool.core.model.stock.Stock
 import com.tradingtool.core.technical.calculateRsi
 import com.tradingtool.core.technical.getDoubleValue
 import com.tradingtool.core.technical.roundTo2
@@ -48,72 +49,218 @@ class RsiMomentumService @Inject constructor(
     private val log = LoggerFactory.getLogger(RsiMomentumService::class.java)
     private val mapper = ObjectMapper().registerKotlinModule()
     private val ist = ZoneId.of("Asia/Kolkata")
+    private val calibrationEngine = RsiMomentumCalibrationEngine(
+        configService = configService,
+        candleHandler = candleHandler,
+        stockHandler = stockHandler,
+        instrumentCache = instrumentCache,
+        zoneId = ist,
+    )
     private val historyFetchMutex = Mutex()
     private val analysisSemaphore = Semaphore(MAX_ANALYSIS_CONCURRENCY)
 
-    suspend fun getLatest(): RsiMomentumSnapshot {
+    suspend fun getLatest(): RsiMomentumMultiSnapshot {
         val config = configService.loadConfig()
-        val cached = redis.get(LATEST_SNAPSHOT_KEY) ?: return emptySnapshot(
-            config = config,
-            stale = true,
-            message = "No RSI momentum snapshot available yet. Run refresh first.",
-        )
+        val cached = readAggregateSnapshotOrNull()
 
-        val snapshot = runCatching { mapper.readValue(cached, RsiMomentumSnapshot::class.java) }
-            .getOrElse { error ->
-                log.warn("Failed to deserialize RSI momentum snapshot: {}", error.message)
-                return emptySnapshot(
-                    config = config,
-                    stale = true,
-                    message = "Latest RSI momentum snapshot is unreadable. Run refresh again.",
-                )
-            }
-
-        return if (isSnapshotStale(snapshot.runAt)) {
-            snapshot.copy(stale = true, message = snapshot.message ?: "Latest RSI momentum snapshot is older than 7 days.")
-        } else {
-            snapshot
+        if (cached == null) {
+            return RsiMomentumMultiSnapshot(
+                profiles = config.profiles.map { profile ->
+                    emptySnapshot(
+                        globalConfig = config,
+                        profile = profile,
+                        stale = true,
+                        message = if (config.enabled) {
+                            "No RSI momentum snapshot available yet. Run refresh first."
+                        } else {
+                            "RSI momentum strategy is disabled in configuration."
+                        },
+                    )
+                },
+            )
         }
+
+        return alignProfilesWithConfig(
+            config = config,
+            snapshots = cached.profiles,
+            errors = cached.errors,
+            partialSuccess = cached.partialSuccess,
+            applyStaleCheck = true,
+        )
     }
 
-    suspend fun refreshLatest(): RsiMomentumSnapshot {
+    suspend fun refreshLatest(): RsiMomentumMultiSnapshot {
         val config = configService.loadConfig()
+        if (config.profiles.isEmpty()) {
+            return RsiMomentumMultiSnapshot(
+                profiles = emptyList(),
+                errors = listOf(RsiMomentumProfileError(profileId = "global", message = "No RSI momentum profiles configured.")),
+                partialSuccess = false,
+            )
+        }
+
         if (!config.enabled) {
-            return emptySnapshot(
-                config = config,
-                stale = true,
-                message = "RSI momentum strategy is disabled in configuration.",
+            return RsiMomentumMultiSnapshot(
+                profiles = config.profiles.map { profile ->
+                    emptySnapshot(
+                        globalConfig = config,
+                        profile = profile,
+                        stale = true,
+                        message = "RSI momentum strategy is disabled in configuration.",
+                    )
+                },
+                partialSuccess = false,
             )
         }
 
         ensureInstrumentCacheLoaded()
+        val watchlistStocks = stockHandler.read { dao -> dao.listAll() }
+        val previousAggregate = readAggregateSnapshotOrNull()
+        val previousSnapshots = previousAggregate?.let { aggregate ->
+            alignProfilesWithConfig(
+                config = config,
+                snapshots = aggregate.profiles,
+                errors = aggregate.errors,
+                partialSuccess = aggregate.partialSuccess,
+                applyStaleCheck = false,
+            ).profiles
+        } ?: emptyList()
+        val previousByProfileId = previousSnapshots.associateBy { snapshot -> snapshot.profileId }
 
-        val refreshInputs = loadRefreshInputs(config)
+        val snapshots = mutableListOf<RsiMomentumSnapshot>()
+        val errors = mutableListOf<RsiMomentumProfileError>()
+        var successfulProfiles = 0
+
+        for (profile in config.profiles) {
+            val previousSnapshot = previousByProfileId[profile.id]
+            val refreshed = runCatching {
+                refreshProfile(
+                    globalConfig = config,
+                    profile = profile,
+                    watchlistStocks = watchlistStocks,
+                    previousSnapshot = previousSnapshot,
+                )
+            }
+
+            refreshed.onSuccess { snapshot ->
+                successfulProfiles += 1
+                snapshots.add(snapshot)
+            }.onFailure { error ->
+                if (error is CancellationException) {
+                    throw error
+                }
+
+                val message = error.message ?: "Unknown refresh failure."
+                log.error("RSI momentum refresh failed for profile={}: {}", profile.id, message, error)
+                errors.add(
+                    RsiMomentumProfileError(
+                        profileId = profile.id,
+                        message = message,
+                    ),
+                )
+                val fallbackSnapshot = previousSnapshot?.copy(
+                    profileId = profile.id,
+                    profileLabel = profile.label,
+                    stale = true,
+                    message = "Refresh failed: $message",
+                    config = profile.toSummary(config.enabled),
+                ) ?: emptySnapshot(
+                    globalConfig = config,
+                    profile = profile,
+                    stale = true,
+                    message = "Refresh failed and no previous snapshot is available. Error: $message",
+                )
+                snapshots.add(fallbackSnapshot)
+            }
+        }
+
+        val response = RsiMomentumMultiSnapshot(
+            profiles = snapshots,
+            errors = errors,
+            partialSuccess = errors.isNotEmpty() && successfulProfiles > 0,
+        )
+
+        redis.set(
+            LATEST_SNAPSHOT_KEY,
+            mapper.writeValueAsString(response),
+            SNAPSHOT_TTL_SECONDS,
+        )
+
+        val failedProfileIds = errors.map { error -> error.profileId }
+        log.info(
+            "RSI momentum refresh completed: profiles={}, successfulProfiles={}, failedProfiles={}, partialSuccess={}",
+            snapshots.size,
+            successfulProfiles,
+            failedProfileIds,
+            response.partialSuccess,
+        )
+        return response
+    }
+
+    suspend fun calibrateRsiPeriods(
+        options: RsiMomentumCalibrationOptions = RsiMomentumCalibrationOptions(),
+    ): RsiMomentumCalibrationReport {
+        ensureInstrumentCacheLoaded()
+        val config = configService.loadConfig()
+        return calibrationEngine.calibrate(config, options)
+    }
+
+    suspend fun calibrateAndApplyRsiPeriods(
+        options: RsiMomentumCalibrationOptions = RsiMomentumCalibrationOptions(),
+    ): RsiMomentumCalibrationReport {
+        ensureInstrumentCacheLoaded()
+        val config = configService.loadConfig()
+        val report = calibrationEngine.calibrate(config, options)
+        val selectedByProfileId = report.profileResults.associateBy { result -> result.profileId }
+        val updatedProfiles = config.profiles.map { profile ->
+            val selected = selectedByProfileId[profile.id] ?: return@map profile
+            profile.copy(
+                rsiPeriods = selected.selectedRsiPeriods,
+                rsiCalibrationRunAt = report.runAt,
+                rsiCalibrationMethod = report.method,
+                rsiCalibrationSampleRange = selected.sampleRange,
+            )
+        }
+        configService.writeConfig(config.copy(profiles = updatedProfiles))
+        return report
+    }
+
+    private suspend fun refreshProfile(
+        globalConfig: RsiMomentumConfig,
+        profile: RsiMomentumProfileConfig,
+        watchlistStocks: List<Stock>,
+        previousSnapshot: RsiMomentumSnapshot?,
+    ): RsiMomentumSnapshot {
+        val baseSymbols = configService.loadBaseUniverseSymbols(profile.baseUniversePreset)
         val universe = RsiMomentumUniverseBuilder.build(
-            baseSymbols = refreshInputs.baseSymbols,
-            watchlistStocks = refreshInputs.watchlistStocks,
+            baseSymbols = baseSymbols,
+            watchlistStocks = watchlistStocks,
             tokenLookup = { symbol -> instrumentCache.token("NSE", symbol) },
             companyNameLookup = { symbol -> instrumentCache.find("NSE", symbol)?.name?.takeIf { it.isNotBlank() } },
         )
         log.info(
-            "RSI momentum refresh started: totalStocks={}, baseUniverseCount={}, watchlistCount={}",
+            "RSI momentum refresh started: profile={} totalStocks={} baseUniverseCount={} watchlistCount={}",
+            profile.id,
             universe.members.size,
             universe.baseUniverseCount,
             universe.watchlistCount,
         )
-        val previousHoldings = refreshInputs.previousSnapshot?.holdings
-            ?.map { holding -> holding.symbol }
-            ?: emptyList()
-        val analysis = analyzeUniverse(universe, config)
+        val previousHoldings = previousSnapshot?.holdings?.map { holding -> holding.symbol } ?: emptyList()
+        val analysis = analyzeUniverse(universe, profile)
 
         val rankedPortfolio = RsiMomentumRanker.rank(
             metrics = analysis.metrics,
             previousHoldings = previousHoldings,
-            candidateCount = config.candidateCount,
-            holdingCount = config.holdingCount,
+            candidateCount = profile.candidateCount,
+            boardDisplayCount = profile.boardDisplayCount,
+            replacementPoolCount = profile.replacementPoolCount,
+            holdingCount = profile.holdingCount,
+            maxExtensionAboveSma20ForNewEntry = profile.maxExtensionAboveSma20ForNewEntry,
         )
 
         val snapshot = RsiMomentumSnapshot(
+            profileId = profile.id,
+            profileLabel = profile.label,
             available = rankedPortfolio.topCandidates.isNotEmpty(),
             stale = false,
             message = if (rankedPortfolio.topCandidates.isEmpty()) {
@@ -121,7 +268,7 @@ class RsiMomentumService @Inject constructor(
             } else {
                 null
             },
-            config = config.toSummary(),
+            config = profile.toSummary(globalConfig.enabled),
             runAt = Instant.now().toString(),
             asOfDate = rankedPortfolio.asOfDate?.toString(),
             resolvedUniverseCount = universe.members.size,
@@ -140,14 +287,9 @@ class RsiMomentumService @Inject constructor(
                 failedSymbols = analysis.failedSymbols,
             ),
         )
-
-        redis.set(
-            LATEST_SNAPSHOT_KEY,
-            mapper.writeValueAsString(snapshot),
-            SNAPSHOT_TTL_SECONDS,
-        )
         log.info(
-            "RSI momentum refresh finished: totalStocks={}, eligibleStocks={}, backfilledStocks={}, failedStocks={}",
+            "RSI momentum refresh finished: profile={} totalStocks={} eligibleStocks={} backfilledStocks={} failedStocks={}",
+            profile.id,
             universe.members.size,
             analysis.metrics.size,
             analysis.backfilledSymbols.size,
@@ -156,27 +298,9 @@ class RsiMomentumService @Inject constructor(
         return snapshot
     }
 
-    private suspend fun loadRefreshInputs(config: RsiMomentumConfig): RefreshInputs = supervisorScope {
-        val baseSymbolsDeferred = async {
-            configService.loadBaseUniverseSymbols(config.baseUniversePreset)
-        }
-        val watchlistStocksDeferred = async {
-            stockHandler.read { dao -> dao.listAll() }
-        }
-        val previousSnapshotDeferred = async {
-            readSnapshotOrNull()
-        }
-
-        RefreshInputs(
-            baseSymbols = baseSymbolsDeferred.await(),
-            watchlistStocks = watchlistStocksDeferred.await(),
-            previousSnapshot = previousSnapshotDeferred.await(),
-        )
-    }
-
     private suspend fun analyzeUniverse(
         universe: UniverseBuildResult,
-        config: RsiMomentumConfig,
+        config: RsiMomentumProfileConfig,
     ): AnalysisSummary {
         log.info("RSI momentum batch started: totalStocks={}", universe.members.size)
         val analysisResults = supervisorScope {
@@ -216,7 +340,7 @@ class RsiMomentumService @Inject constructor(
 
     private suspend fun analyzeMember(
         member: UniverseMember,
-        config: RsiMomentumConfig,
+        config: RsiMomentumProfileConfig,
         stockIndex: Int,
         totalStocks: Int,
     ): MemberAnalysisResult {
@@ -258,6 +382,23 @@ class RsiMomentumService @Inject constructor(
                         }
 
                         outcome = "SUCCESS"
+                        val latestClose = candles.last().close.roundTo2()
+                        val sma20 = candles
+                            .takeLast(AVERAGE_TRADED_VALUE_LOOKBACK_DAYS)
+                            .map { candle -> candle.close }
+                            .average()
+                            .roundTo2()
+                        val buyZoneWindow = candles.takeLast(BUY_ZONE_LOOKBACK_DAYS)
+                        val buyZoneLow10w = buyZoneWindow.minOf { candle -> candle.low }.roundTo2()
+                        val buyZoneHigh10w = buyZoneWindow.maxOf { candle -> candle.high }.roundTo2()
+
+                        val rsi14Series = series.calculateRsi(14)
+                        val rsiStartIndex = (series.endIndex - RSI_BOUNDS_LOOKBACK_DAYS + 1).coerceAtLeast(0)
+                        val rsiWindow = (rsiStartIndex..series.endIndex).map { index ->
+                            rsi14Series.getDoubleValue(index, 50.0).roundTo2()
+                        }
+                        val lowestRsi50d = rsiWindow.minOrNull() ?: 50.0
+                        val highestRsi50d = rsiWindow.maxOrNull() ?: 50.0
                         MemberAnalysisResult.Success(
                             metrics = SecurityMetrics(
                                 member = member,
@@ -266,6 +407,12 @@ class RsiMomentumService @Inject constructor(
                                 rsi22 = rsiValues[22] ?: 50.0,
                                 rsi44 = rsiValues[44] ?: 50.0,
                                 rsi66 = rsiValues[66] ?: 50.0,
+                                close = latestClose,
+                                sma20 = sma20,
+                                buyZoneLow10w = buyZoneLow10w,
+                                buyZoneHigh10w = buyZoneHigh10w,
+                                lowestRsi50d = lowestRsi50d,
+                                highestRsi50d = highestRsi50d,
                                 avgTradedValueCr = avgTradedValueCr,
                             ),
                             backfilledSymbol = candleLoadResult.backfilledSymbol,
@@ -383,22 +530,86 @@ class RsiMomentumService @Inject constructor(
         )
     }
 
-    private suspend fun readSnapshotOrNull(): RsiMomentumSnapshot? {
+    private suspend fun readAggregateSnapshotOrNull(): RsiMomentumMultiSnapshot? {
         val cached = redis.get(LATEST_SNAPSHOT_KEY) ?: return null
-        return runCatching { mapper.readValue(cached, RsiMomentumSnapshot::class.java) }
-            .getOrNull()
+
+        return runCatching {
+            mapper.readValue(cached, RsiMomentumMultiSnapshot::class.java)
+        }.getOrElse { aggregateError ->
+            log.warn("Failed to deserialize RSI momentum aggregate snapshot: {}", aggregateError.message)
+            runCatching {
+                val legacySnapshot = mapper.readValue(cached, RsiMomentumSnapshot::class.java)
+                RsiMomentumMultiSnapshot(
+                    profiles = listOf(legacySnapshot),
+                    errors = emptyList(),
+                    partialSuccess = false,
+                )
+            }.onFailure { legacyError ->
+                log.warn("Failed to deserialize legacy RSI momentum snapshot: {}", legacyError.message)
+            }.getOrNull()
+        }
+    }
+
+    private fun alignProfilesWithConfig(
+        config: RsiMomentumConfig,
+        snapshots: List<RsiMomentumSnapshot>,
+        errors: List<RsiMomentumProfileError>,
+        partialSuccess: Boolean,
+        applyStaleCheck: Boolean,
+    ): RsiMomentumMultiSnapshot {
+        val byProfileId = snapshots.associateBy { snapshot ->
+            snapshot.profileId.takeIf { it.isNotBlank() } ?: snapshot.config.profileId
+        }
+        val byPreset = snapshots.associateBy { snapshot -> snapshot.config.baseUniversePreset }
+        val alignedSnapshots = config.profiles.map { profile ->
+            val matched = byProfileId[profile.id] ?: byPreset[profile.baseUniversePreset]
+            val snapshot = if (matched == null) {
+                emptySnapshot(
+                    globalConfig = config,
+                    profile = profile,
+                    stale = true,
+                    message = "No RSI momentum snapshot available for this profile yet. Run refresh.",
+                )
+            } else {
+                matched.copy(
+                    profileId = profile.id,
+                    profileLabel = profile.label,
+                    config = profile.toSummary(config.enabled),
+                )
+            }
+
+            if (applyStaleCheck) snapshot.withStaleFlagIfNeeded() else snapshot
+        }
+        val validProfileIds = alignedSnapshots.map { it.profileId }.toSet()
+        val filteredErrors = errors.filter { error -> error.profileId in validProfileIds }
+
+        return RsiMomentumMultiSnapshot(
+            profiles = alignedSnapshots,
+            errors = filteredErrors,
+            partialSuccess = partialSuccess && filteredErrors.isNotEmpty(),
+        )
     }
 
     private fun emptySnapshot(
-        config: RsiMomentumConfig,
+        globalConfig: RsiMomentumConfig,
+        profile: RsiMomentumProfileConfig,
         stale: Boolean,
         message: String,
     ): RsiMomentumSnapshot = RsiMomentumSnapshot(
+        profileId = profile.id,
+        profileLabel = profile.label,
         available = false,
         stale = stale,
         message = message,
-        config = config.toSummary(),
+        config = profile.toSummary(globalConfig.enabled),
     )
+
+    private fun RsiMomentumSnapshot.withStaleFlagIfNeeded(): RsiMomentumSnapshot {
+        if (!isSnapshotStale(runAt)) {
+            return this
+        }
+        return copy(stale = true, message = message ?: "Latest RSI momentum snapshot is older than 7 days.")
+    }
 
     private fun isSnapshotStale(runAt: String?): Boolean {
         if (runAt.isNullOrBlank()) {
@@ -423,6 +634,8 @@ class RsiMomentumService @Inject constructor(
         private const val SNAPSHOT_TTL_SECONDS: Long = 7 * 24 * 60 * 60
         private const val HISTORY_LOOKBACK_DAYS: Long = 400
         private const val AVERAGE_TRADED_VALUE_LOOKBACK_DAYS: Int = 20
+        private const val BUY_ZONE_LOOKBACK_DAYS: Int = 50
+        private const val RSI_BOUNDS_LOOKBACK_DAYS: Int = 50
         private const val CRORE_DIVISOR: Double = 10_000_000.0
         private const val MAX_ANALYSIS_CONCURRENCY: Int = 8
     }
@@ -430,12 +643,6 @@ class RsiMomentumService @Inject constructor(
     private data class CandleLoadResult(
         val candles: List<DailyCandle>,
         val backfilledSymbol: String?,
-    )
-
-    private data class RefreshInputs(
-        val baseSymbols: List<String>,
-        val watchlistStocks: List<com.tradingtool.core.model.stock.Stock>,
-        val previousSnapshot: RsiMomentumSnapshot?,
     )
 
     private data class AnalysisSummary(

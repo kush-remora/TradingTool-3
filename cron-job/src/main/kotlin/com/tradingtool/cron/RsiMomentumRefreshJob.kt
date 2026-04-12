@@ -40,12 +40,22 @@ fun main() {
         telegramNotifier.cronStarted(jobName)
         val exitCode = runCatching {
             RsiMomentumRuntime.fromEnvironment().use { runtime ->
-                val snapshot = runtime.service.refreshLatest()
+                val response = runtime.service.refreshLatest()
+                response.profiles.forEach { snapshot ->
+                    log.info(
+                        "RSI momentum profile refresh summary: profileId={} label={} candidates={} holdings={} stale={}",
+                        snapshot.profileId,
+                        snapshot.profileLabel,
+                        snapshot.topCandidates.size,
+                        snapshot.holdings.size,
+                        snapshot.stale,
+                    )
+                }
                 log.info(
-                    "RSI momentum refresh completed successfully: candidates={}, holdings={}, stale={}",
-                    snapshot.topCandidates.size,
-                    snapshot.holdings.size,
-                    snapshot.stale,
+                    "RSI momentum refresh completed: profiles={} partialSuccess={} failedProfiles={}",
+                    response.profiles.size,
+                    response.partialSuccess,
+                    response.errors.map { error -> error.profileId },
                 )
                 telegramNotifier.cronCompleted(jobName)
                 0

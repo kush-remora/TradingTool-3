@@ -4,11 +4,13 @@
 
 Strategy 1 is now implemented as a weekly portfolio-ranking module that reuses the existing `daily_candles` table and stores only the latest computed strategy snapshot in Redis.
 
+It now also includes a non-live calibration workflow that backtests RSI period sets per universe profile and writes the selected `rsiPeriods` back to `rsi_momentum_config.json`.
+
 The weekly universe is:
 - the configured base preset, default `NIFTY_LARGEMIDCAP_250`
 - plus all symbols currently present in the `stocks` watchlist table
 
-The strategy ranks the full universe weekly, exposes a `top 20` board, and produces a `top 10` actionable holdings list.
+The strategy ranks the full universe weekly, exposes a `top 40` board, and produces a `top 10` actionable holdings list.
 
 ## What Was Built
 
@@ -20,6 +22,9 @@ The strategy ranks the full universe weekly, exposes a `top 20` board, and produ
   - `GET /api/strategy/rsi-momentum/latest`
   - `POST /api/strategy/rsi-momentum/refresh`
 - Weekly cron trigger job and GitHub Actions schedule
+- Calibration CLI:
+  - `com.tradingtool.cron.RsiMomentumCalibrationJobKt`
+  - writes report artifacts under `build/reports/rsi-momentum-calibration/latest.{json,md}`
 
 ## Data Model
 
@@ -41,14 +46,33 @@ The strategy ranks the full universe weekly, exposes a `top 20` board, and produ
 - Compute `RSI(22)`, `RSI(44)`, `RSI(66)`
 - Rank descending by average RSI
 - Return:
-  - `topCandidates`: top 20 ranked names
+  - `topCandidates`: top 40 ranked names
+  - `topCandidates.avgRsi`: visible score for all 40 board rows
   - `holdings`: top 10 actionable names
   - `rebalance`: `entries`, `exits`, `holds`
+  - `topCandidates.entryAction`: `ENTRY`, `HOLD`, `SKIP`, `WATCH`
+  - `topCandidates.buyZoneLow10w` / `buyZoneHigh10w`: 10-week low/high zone
+  - `topCandidates.lowestRsi50d` / `highestRsi50d`: 50-day RSI bounds
 
 Rebalance logic:
 - keep an existing holding only while it remains inside top 20
-- replace dropped names with the highest-ranked non-held names
+- replace dropped or skipped names using eligible names from top 40 replacement pool
+- for new entries only, skip symbols trading above `SMA20 + 20%`
 - equal-weight target sizing is returned as metadata only
+
+## Calibration Rules
+
+- Runs weekly backtest on `daily_candles` using the same ranking and rebalance rules as live strategy:
+  - Top 20 rebalance buffer
+  - Top 40 display/replacement pool
+  - extension skip logic for new entries
+- Optimizes parameter sets by annualized Sortino (risk-adjusted objective)
+- Applies guardrails:
+  - max drawdown
+  - turnover
+  - first-half vs second-half Sortino stability
+- If top sets are close, prefers lower turnover and simpler periods
+- If no candidate passes all guardrails, selects the top Sortino candidate and marks rejection reasons in report
 
 ## Refresh Behavior
 
@@ -60,13 +84,22 @@ Rebalance logic:
 ## Default Config
 
 Current defaults:
-- `baseUniversePreset = NIFTY_LARGEMIDCAP_250`
+- `profiles[largemidcap250].baseUniversePreset = NIFTY_LARGEMIDCAP_250`
+- `profiles[largemidcap250].rsiPeriods = [22, 44, 66]`
+- `profiles[smallcap250].baseUniversePreset = NIFTY_SMALLCAP_250`
+- `profiles[smallcap250].rsiPeriods = [63, 126, 252]`
 - `candidateCount = 20`
+- `boardDisplayCount = 40`
+- `replacementPoolCount = 40`
 - `holdingCount = 10`
-- `rsiPeriods = [22, 44, 66]`
 - `minAverageTradedValue = 10.0`
+- `maxExtensionAboveSma20ForNewEntry = 0.20`
 - `rebalanceDay = FRIDAY`
 - `rebalanceTime = 15:40`
+- calibration metadata per profile:
+  - `rsiCalibrationRunAt`
+  - `rsiCalibrationMethod`
+  - `rsiCalibrationSampleRange`
 
 Config file:
 - `rsi_momentum_config.json`

@@ -358,13 +358,22 @@ export interface TechnicalContext {
 
 export interface RsiMomentumConfigSummary {
   enabled: boolean;
+  profileId: string;
+  profileLabel: string;
   baseUniversePreset: string;
   candidateCount: number;
+  boardDisplayCount: number;
+  replacementPoolCount: number;
   holdingCount: number;
   rsiPeriods: number[];
   minAverageTradedValue: number;
+  maxExtensionAboveSma20ForNewEntry: number;
+  maxExtensionAboveSma20ForNewEntryPct: number;
   rebalanceDay: string;
   rebalanceTime: string;
+  rsiCalibrationRunAt: string | null;
+  rsiCalibrationMethod: string | null;
+  rsiCalibrationSampleRange: string | null;
 }
 
 export interface RsiMomentumRankedStock {
@@ -376,9 +385,19 @@ export interface RsiMomentumRankedStock {
   rsi22: number;
   rsi44: number;
   rsi66: number;
+  close: number;
+  sma20: number;
+  extensionAboveSma20Pct: number;
+  buyZoneLow10w: number;
+  buyZoneHigh10w: number;
+  lowestRsi50d: number;
+  highestRsi50d: number;
   avgTradedValueCr: number;
   inBaseUniverse: boolean;
   inWatchlist: boolean;
+  entryBlocked: boolean;
+  entryBlockReason: string | null;
+  entryAction: "ENTRY" | "HOLD" | "SKIP" | "WATCH";
   targetWeightPct: number | null;
 }
 
@@ -400,6 +419,8 @@ export interface RsiMomentumDiagnostics {
 }
 
 export interface RsiMomentumSnapshot {
+  profileId: string;
+  profileLabel: string;
   available: boolean;
   stale: boolean;
   message: string | null;
@@ -412,4 +433,15 @@ export interface RsiMomentumSnapshot {
   holdings: RsiMomentumRankedStock[];
   rebalance: RsiMomentumRebalance;
   diagnostics: RsiMomentumDiagnostics;
+}
+
+export interface RsiMomentumProfileError {
+  profileId: string;
+  message: string;
+}
+
+export interface RsiMomentumMultiSnapshot {
+  profiles: RsiMomentumSnapshot[];
+  errors: RsiMomentumProfileError[];
+  partialSuccess: boolean;
 }
