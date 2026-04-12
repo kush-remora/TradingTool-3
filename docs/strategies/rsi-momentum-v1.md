@@ -50,14 +50,16 @@ The strategy ranks the full universe weekly, exposes a `top 40` board, and produ
   - `topCandidates.avgRsi`: visible score for all 40 board rows
   - `holdings`: top 10 actionable names
   - `rebalance`: `entries`, `exits`, `holds`
-  - `topCandidates.entryAction`: `ENTRY`, `HOLD`, `SKIP`, `WATCH`
+  - `topCandidates.entryAction`: `ENTRY`, `HOLD`, `WATCH_PULLBACK`, `SKIP`, `WATCH`
   - `topCandidates.buyZoneLow10w` / `buyZoneHigh10w`: 10-week low/high zone
   - `topCandidates.lowestRsi50d` / `highestRsi50d`: 50-day RSI bounds
 
 Rebalance logic:
 - keep an existing holding only while it remains inside top 20
 - replace dropped or skipped names using eligible names from top 40 replacement pool
-- for new entries only, skip symbols trading above `SMA20 + 20%`
+- for new entries only:
+  - `WATCH_PULLBACK` when price is above `SMA20 + 20%`
+  - `SKIP` when price is above `SMA20 + 30%`
 - equal-weight target sizing is returned as metadata only
 
 ## Calibration Rules
@@ -94,6 +96,7 @@ Current defaults:
 - `holdingCount = 10`
 - `minAverageTradedValue = 10.0`
 - `maxExtensionAboveSma20ForNewEntry = 0.20`
+- `maxExtensionAboveSma20ForSkipNewEntry = 0.30`
 - `rebalanceDay = FRIDAY`
 - `rebalanceTime = 15:40`
 - calibration metadata per profile:

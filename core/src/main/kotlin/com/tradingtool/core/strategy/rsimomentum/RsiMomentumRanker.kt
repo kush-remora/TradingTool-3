@@ -4,11 +4,16 @@ import com.tradingtool.core.technical.roundTo2
 import java.time.LocalDate
 
 object RsiMomentumRanker {
-    private const val ENTRY_BLOCK_REASON_EXTENSION_ABOVE_SMA20: String = "PRICE_EXTENSION_ABOVE_SMA20"
+    private const val ENTRY_BLOCK_REASON_EXTENSION_ABOVE_SMA20_WATCH: String = "PRICE_EXTENSION_IN_PULLBACK_ZONE"
+    private const val ENTRY_BLOCK_REASON_EXTENSION_ABOVE_SMA20_SKIP: String = "PRICE_EXTENSION_ABOVE_SKIP_THRESHOLD"
     private const val ENTRY_ACTION_SKIP: String = "SKIP"
     private const val ENTRY_ACTION_ENTRY: String = "ENTRY"
     private const val ENTRY_ACTION_HOLD: String = "HOLD"
+    private const val ENTRY_ACTION_WATCH_PULLBACK: String = "WATCH_PULLBACK"
     private const val ENTRY_ACTION_WATCH: String = "WATCH"
+    private const val ENTRY_STATE_ELIGIBLE: String = "ELIGIBLE"
+    private const val ENTRY_STATE_WATCH_PULLBACK: String = "WATCH_PULLBACK"
+    private const val ENTRY_STATE_SKIP: String = "SKIP"
 
     data class RankedPortfolio(
         val topCandidates: List<RsiMomentumRankedStock>,
@@ -25,6 +30,7 @@ object RsiMomentumRanker {
         replacementPoolCount: Int,
         holdingCount: Int,
         maxExtensionAboveSma20ForNewEntry: Double,
+        maxExtensionAboveSma20ForSkipNewEntry: Double,
     ): RankedPortfolio {
         val sorted = metrics
             .sortedWith(compareByDescending<SecurityMetrics> { metric -> metric.avgRsi }
@@ -38,11 +44,24 @@ object RsiMomentumRanker {
         val flaggedBoard = rankedBoard
             .map { candidate ->
                 val isPreviousHolding = candidate.symbol in previousHoldingSet
-                val isBlocked = !isPreviousHolding &&
-                    candidate.extensionAboveSma20Pct > (maxExtensionAboveSma20ForNewEntry * 100.0)
+                val state = when {
+                    isPreviousHolding -> ENTRY_STATE_ELIGIBLE
+                    candidate.extensionAboveSma20Pct > (maxExtensionAboveSma20ForSkipNewEntry * 100.0) -> ENTRY_STATE_SKIP
+                    candidate.extensionAboveSma20Pct > (maxExtensionAboveSma20ForNewEntry * 100.0) -> ENTRY_STATE_WATCH_PULLBACK
+                    else -> ENTRY_STATE_ELIGIBLE
+                }
                 candidate.copy(
-                    entryBlocked = isBlocked,
-                    entryBlockReason = if (isBlocked) ENTRY_BLOCK_REASON_EXTENSION_ABOVE_SMA20 else null,
+                    entryBlocked = state != ENTRY_STATE_ELIGIBLE,
+                    entryBlockReason = when (state) {
+                        ENTRY_STATE_SKIP -> ENTRY_BLOCK_REASON_EXTENSION_ABOVE_SMA20_SKIP
+                        ENTRY_STATE_WATCH_PULLBACK -> ENTRY_BLOCK_REASON_EXTENSION_ABOVE_SMA20_WATCH
+                        else -> null
+                    },
+                    entryAction = when (state) {
+                        ENTRY_STATE_SKIP -> ENTRY_ACTION_SKIP
+                        ENTRY_STATE_WATCH_PULLBACK -> ENTRY_ACTION_WATCH_PULLBACK
+                        else -> ENTRY_ACTION_WATCH
+                    },
                 )
             }
         val rebalanceCandidates = flaggedBoard.take(candidateCount)
@@ -82,7 +101,8 @@ object RsiMomentumRanker {
             val action = when {
                 candidate.symbol in holdSet -> ENTRY_ACTION_HOLD
                 candidate.symbol in entrySet -> ENTRY_ACTION_ENTRY
-                candidate.entryBlocked -> ENTRY_ACTION_SKIP
+                candidate.entryAction == ENTRY_ACTION_SKIP -> ENTRY_ACTION_SKIP
+                candidate.entryAction == ENTRY_ACTION_WATCH_PULLBACK -> ENTRY_ACTION_WATCH_PULLBACK
                 else -> ENTRY_ACTION_WATCH
             }
             candidate.copy(entryAction = action)

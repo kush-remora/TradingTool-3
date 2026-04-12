@@ -369,6 +369,8 @@ export interface RsiMomentumConfigSummary {
   minAverageTradedValue: number;
   maxExtensionAboveSma20ForNewEntry: number;
   maxExtensionAboveSma20ForNewEntryPct: number;
+  maxExtensionAboveSma20ForSkipNewEntry: number;
+  maxExtensionAboveSma20ForSkipNewEntryPct: number;
   rebalanceDay: string;
   rebalanceTime: string;
   rsiCalibrationRunAt: string | null;
@@ -397,7 +399,7 @@ export interface RsiMomentumRankedStock {
   inWatchlist: boolean;
   entryBlocked: boolean;
   entryBlockReason: string | null;
-  entryAction: "ENTRY" | "HOLD" | "SKIP" | "WATCH";
+  entryAction: "ENTRY" | "HOLD" | "SKIP" | "WATCH" | "WATCH_PULLBACK";
   targetWeightPct: number | null;
 }
 

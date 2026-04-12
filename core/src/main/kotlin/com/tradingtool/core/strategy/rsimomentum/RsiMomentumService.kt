@@ -257,6 +257,7 @@ class RsiMomentumService @Inject constructor(
             replacementPoolCount = profile.replacementPoolCount,
             holdingCount = profile.holdingCount,
             maxExtensionAboveSma20ForNewEntry = profile.maxExtensionAboveSma20ForNewEntry,
+            maxExtensionAboveSma20ForSkipNewEntry = profile.maxExtensionAboveSma20ForSkipNewEntry,
         )
 
         val snapshot = RsiMomentumSnapshot(

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { WatchlistRow } from "../types";
-
+import { apiBaseUrl } from "../utils/api";
 
 export function useWatchlist(tag: string = "") {
   const [rows, setRows] = useState<WatchlistRow[]>([]);
@@ -12,7 +12,7 @@ export function useWatchlist(tag: string = "") {
     if (showLoading) setLoading(true);
     try {
       const queryParams = tag ? `?tag=${encodeURIComponent(tag)}` : "";
-      const response = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/watchlist/rows${queryParams}`);
+      const response = await fetch(`${apiBaseUrl}/api/watchlist/rows${queryParams}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch watchlist: ${response.statusText}`);
       }
@@ -34,7 +34,7 @@ export function useWatchlist(tag: string = "") {
   const refreshIndicators = async (): Promise<string> => {
     setRefreshing(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/watchlist/refresh`, {
+      const response = await fetch(`${apiBaseUrl}/api/watchlist/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tags: tag ? [tag] : [] })

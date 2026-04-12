@@ -18,6 +18,7 @@ const actionColors: Record<RsiMomentumRankedStock["entryAction"], string> = {
   ENTRY: "green",
   HOLD: "blue",
   SKIP: "red",
+  WATCH_PULLBACK: "orange",
   WATCH: "default",
 };
 
@@ -49,11 +50,11 @@ const formatNumber = (value: number | null | undefined): string => {
   return value.toFixed(2);
 };
 
-function getExtensionColor(extensionPct: number, skipThresholdPct: number): string | undefined {
+function getExtensionColor(extensionPct: number, watchThresholdPct: number, skipThresholdPct: number): string | undefined {
   if (extensionPct > skipThresholdPct) {
     return "#cf1322";
   }
-  if (extensionPct >= skipThresholdPct - 5) {
+  if (extensionPct > watchThresholdPct) {
     return "#d46b08";
   }
   return undefined;
@@ -66,18 +67,21 @@ function renderEntryAction(row: RsiMomentumRankedStock) {
     </Tag>
   );
 
-  if (row.entryAction !== "SKIP") {
+  if (row.entryAction !== "SKIP" && row.entryAction !== "WATCH_PULLBACK") {
     return tag;
   }
 
   return (
-    <Tooltip title={row.entryBlockReason ?? "Blocked by extension filter"}>
+    <Tooltip title={row.entryBlockReason ?? "Entry filtered by extension rule"}>
       {tag}
     </Tooltip>
   );
 }
 
-function buildCandidateColumns(skipThresholdPct: number): ColumnsType<RsiMomentumRankedStock> {
+function buildCandidateColumns(
+  watchThresholdPct: number,
+  skipThresholdPct: number,
+): ColumnsType<RsiMomentumRankedStock> {
   return [
     {
       title: "Rank",
@@ -150,7 +154,7 @@ function buildCandidateColumns(skipThresholdPct: number): ColumnsType<RsiMomentu
       width: 140,
       sorter: (a, b) => a.extensionAboveSma20Pct - b.extensionAboveSma20Pct,
       render: (value: number) => {
-        const color = getExtensionColor(value, skipThresholdPct);
+        const color = getExtensionColor(value, watchThresholdPct, skipThresholdPct);
         return (
           <Typography.Text strong style={{ color }}>
             {formatPct(value)}
@@ -384,13 +388,19 @@ function RsiMomentumProfilePanel({
   profileError: string | null;
   onRetry: () => void;
 }) {
-  const skipThresholdPct = snapshot.config.maxExtensionAboveSma20ForNewEntryPct
+  const watchThresholdPct = snapshot.config.maxExtensionAboveSma20ForNewEntryPct
     ?? (snapshot.config.maxExtensionAboveSma20ForNewEntry * 100);
+  const skipThresholdPct = snapshot.config.maxExtensionAboveSma20ForSkipNewEntryPct
+    ?? (snapshot.config.maxExtensionAboveSma20ForSkipNewEntry * 100);
 
   const skippedCount = snapshot.topCandidates.filter((row) => row.entryAction === "SKIP").length;
+  const pullbackWatchCount = snapshot.topCandidates.filter((row) => row.entryAction === "WATCH_PULLBACK").length;
 
   const groupedCandidates = useMemo(() => buildGroupedCandidates(snapshot.topCandidates), [snapshot.topCandidates]);
-  const candidateColumns = useMemo(() => buildCandidateColumns(skipThresholdPct), [skipThresholdPct]);
+  const candidateColumns = useMemo(
+    () => buildCandidateColumns(watchThresholdPct, skipThresholdPct),
+    [watchThresholdPct, skipThresholdPct],
+  );
 
   const lastRunText = useMemo(() => {
     if (!snapshot.runAt) return "Never";
@@ -459,12 +469,12 @@ function RsiMomentumProfilePanel({
             </Col>
             <Col xs={12} md={8} xl={4}>
               <Card size="small">
-                <Statistic title="Holdings" value={snapshot.holdings.length} />
+                <Statistic title="Watch Pullback" value={pullbackWatchCount} />
               </Card>
             </Col>
             <Col xs={12} md={8} xl={4}>
               <Card size="small">
-                <Statistic title="Skip Threshold" value={`${skipThresholdPct.toFixed(0)}%`} />
+                <Statistic title="Holdings" value={snapshot.holdings.length} />
               </Card>
             </Col>
           </Row>
@@ -474,6 +484,7 @@ function RsiMomentumProfilePanel({
               <Tag color="green">Rebalance: Top {snapshot.config.candidateCount} buffer</Tag>
               <Tag color="geekblue">Board: Top {snapshot.config.boardDisplayCount}</Tag>
               <Tag color="purple">Replacement Pool: Top {snapshot.config.replacementPoolCount}</Tag>
+              <Tag color="orange">Watch Pullback If &gt; SMA20 + {formatNumber(watchThresholdPct)}%</Tag>
               <Tag color="red">Skip If &gt; SMA20 + {formatNumber(skipThresholdPct)}%</Tag>
               <Tag>Liquidity: ₹{snapshot.config.minAverageTradedValue.toFixed(1)}Cr+</Tag>
             </Space>

@@ -92,6 +92,8 @@ class RsiMomentumConfigService @Inject constructor() {
                     minAverageTradedValue = legacy.minAverageTradedValue,
                     maxExtensionAboveSma20ForNewEntry = legacy.maxExtensionAboveSma20ForNewEntry,
                     maxExtensionAboveSma20ForNewEntryPct = legacy.maxExtensionAboveSma20ForNewEntryPct,
+                    maxExtensionAboveSma20ForSkipNewEntry = legacy.maxExtensionAboveSma20ForSkipNewEntry,
+                    maxExtensionAboveSma20ForSkipNewEntryPct = legacy.maxExtensionAboveSma20ForSkipNewEntryPct,
                     rebalanceDay = legacy.rebalanceDay,
                     rebalanceTime = legacy.rebalanceTime,
                     rsiCalibrationRunAt = null,
@@ -124,6 +126,9 @@ class RsiMomentumConfigService @Inject constructor() {
         val normalizedExtensionFraction = (
             maxExtensionAboveSma20ForNewEntryPct?.div(100.0) ?: maxExtensionAboveSma20ForNewEntry
             ).coerceAtLeast(0.0)
+        val normalizedSkipExtensionFraction = (
+            maxExtensionAboveSma20ForSkipNewEntryPct?.div(100.0) ?: maxExtensionAboveSma20ForSkipNewEntry
+            ).coerceAtLeast(normalizedExtensionFraction)
 
         return copy(
             id = id.ifBlank { "profile-${index + 1}" },
@@ -137,6 +142,8 @@ class RsiMomentumConfigService @Inject constructor() {
             minAverageTradedValue = minAverageTradedValue.coerceAtLeast(0.0),
             maxExtensionAboveSma20ForNewEntry = normalizedExtensionFraction,
             maxExtensionAboveSma20ForNewEntryPct = normalizedExtensionFraction * 100.0,
+            maxExtensionAboveSma20ForSkipNewEntry = normalizedSkipExtensionFraction,
+            maxExtensionAboveSma20ForSkipNewEntryPct = normalizedSkipExtensionFraction * 100.0,
             rsiCalibrationRunAt = rsiCalibrationRunAt?.trim()?.takeIf { value -> value.isNotBlank() },
             rsiCalibrationMethod = rsiCalibrationMethod?.trim()?.takeIf { value -> value.isNotBlank() },
             rsiCalibrationSampleRange = rsiCalibrationSampleRange?.trim()?.takeIf { value -> value.isNotBlank() },
@@ -162,6 +169,8 @@ class RsiMomentumConfigService @Inject constructor() {
         val minAverageTradedValue: Double = RsiMomentumProfileConfig.DEFAULT_MIN_AVERAGE_TRADED_VALUE_CR,
         val maxExtensionAboveSma20ForNewEntry: Double = RsiMomentumProfileConfig.DEFAULT_MAX_EXTENSION_ABOVE_SMA20_FOR_NEW_ENTRY,
         val maxExtensionAboveSma20ForNewEntryPct: Double? = null,
+        val maxExtensionAboveSma20ForSkipNewEntry: Double = RsiMomentumProfileConfig.DEFAULT_MAX_EXTENSION_ABOVE_SMA20_FOR_SKIP_NEW_ENTRY,
+        val maxExtensionAboveSma20ForSkipNewEntryPct: Double? = null,
         val rebalanceDay: String = "FRIDAY",
         val rebalanceTime: String = "15:40",
     )

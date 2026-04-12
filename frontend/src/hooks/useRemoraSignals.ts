@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { RemoraEnvelope, RemoraSignal } from "../types";
+import { apiBaseUrl } from "../utils/api";
 
 export function useRemoraSignals(type?: "ACCUMULATION" | "DISTRIBUTION") {
   const [data, setData] = useState<RemoraEnvelope | null>(null);
@@ -7,7 +8,7 @@ export function useRemoraSignals(type?: "ACCUMULATION" | "DISTRIBUTION") {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const url = new URL(`${import.meta.env.VITE_API_URL || ""}/api/watchlist/remora`, window.location.href);
+    const url = new URL(`${apiBaseUrl}/api/watchlist/remora`);
     if (type) url.searchParams.set("type", type);
 
     setLoading(true);

@@ -20,6 +20,8 @@ data class RsiMomentumConfigSummary(
     val minAverageTradedValue: Double = RsiMomentumProfileConfig.DEFAULT_MIN_AVERAGE_TRADED_VALUE_CR,
     val maxExtensionAboveSma20ForNewEntry: Double = RsiMomentumProfileConfig.DEFAULT_MAX_EXTENSION_ABOVE_SMA20_FOR_NEW_ENTRY,
     val maxExtensionAboveSma20ForNewEntryPct: Double = RsiMomentumProfileConfig.DEFAULT_MAX_EXTENSION_ABOVE_SMA20_FOR_NEW_ENTRY * 100.0,
+    val maxExtensionAboveSma20ForSkipNewEntry: Double = RsiMomentumProfileConfig.DEFAULT_MAX_EXTENSION_ABOVE_SMA20_FOR_SKIP_NEW_ENTRY,
+    val maxExtensionAboveSma20ForSkipNewEntryPct: Double = RsiMomentumProfileConfig.DEFAULT_MAX_EXTENSION_ABOVE_SMA20_FOR_SKIP_NEW_ENTRY * 100.0,
     val rebalanceDay: String = "FRIDAY",
     val rebalanceTime: String = "15:40",
     val rsiCalibrationRunAt: String? = null,
@@ -39,6 +41,8 @@ data class RsiMomentumProfileConfig(
     val minAverageTradedValue: Double = DEFAULT_MIN_AVERAGE_TRADED_VALUE_CR,
     val maxExtensionAboveSma20ForNewEntry: Double = DEFAULT_MAX_EXTENSION_ABOVE_SMA20_FOR_NEW_ENTRY,
     val maxExtensionAboveSma20ForNewEntryPct: Double? = null,
+    val maxExtensionAboveSma20ForSkipNewEntry: Double = DEFAULT_MAX_EXTENSION_ABOVE_SMA20_FOR_SKIP_NEW_ENTRY,
+    val maxExtensionAboveSma20ForSkipNewEntryPct: Double? = null,
     val rebalanceDay: String = "FRIDAY",
     val rebalanceTime: String = "15:40",
     val rsiCalibrationRunAt: String? = null,
@@ -58,6 +62,8 @@ data class RsiMomentumProfileConfig(
         minAverageTradedValue = minAverageTradedValue,
         maxExtensionAboveSma20ForNewEntry = maxExtensionAboveSma20ForNewEntry,
         maxExtensionAboveSma20ForNewEntryPct = maxExtensionAboveSma20ForNewEntry * 100.0,
+        maxExtensionAboveSma20ForSkipNewEntry = maxExtensionAboveSma20ForSkipNewEntry,
+        maxExtensionAboveSma20ForSkipNewEntryPct = maxExtensionAboveSma20ForSkipNewEntry * 100.0,
         rebalanceDay = rebalanceDay,
         rebalanceTime = rebalanceTime,
         rsiCalibrationRunAt = rsiCalibrationRunAt,
@@ -72,6 +78,7 @@ data class RsiMomentumProfileConfig(
         const val DEFAULT_BOARD_DISPLAY_COUNT: Int = 40
         const val DEFAULT_REPLACEMENT_POOL_COUNT: Int = 40
         const val DEFAULT_MAX_EXTENSION_ABOVE_SMA20_FOR_NEW_ENTRY: Double = 0.20
+        const val DEFAULT_MAX_EXTENSION_ABOVE_SMA20_FOR_SKIP_NEW_ENTRY: Double = 0.30
         val DEFAULT_RSI_PERIODS: List<Int> = listOf(22, 44, 66)
 
         fun defaultProfiles(): List<RsiMomentumProfileConfig> = listOf(
