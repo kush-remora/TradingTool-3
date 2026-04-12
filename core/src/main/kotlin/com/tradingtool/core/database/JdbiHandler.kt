@@ -1,5 +1,7 @@
 package com.tradingtool.core.database
 
+import com.zaxxer.hikari.HikariConfig
+import com.zaxxer.hikari.HikariDataSource
 import com.tradingtool.core.model.DatabaseConfig
 import com.tradingtool.core.model.JdbiHandlerError
 import com.tradingtool.core.model.JdbiNotConfiguredError
@@ -10,9 +12,7 @@ import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.kotlin.KotlinPlugin
 import org.jdbi.v3.postgres.PostgresPlugin
 import org.jdbi.v3.sqlobject.SqlObjectPlugin
-
-
-
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * JDBI 3 Handler that executes blocking database calls on Dispatchers.IO.
@@ -189,10 +189,9 @@ class JdbiHandler<R, W>(
         }
 
         return try {
-            Jdbi.create(jdbcUrl)
-                .installPlugin(PostgresPlugin())
-                .installPlugin(SqlObjectPlugin())
-                .installPlugin(KotlinPlugin())
+            SHARED_JDBI_BY_JDBC_URL.computeIfAbsent(jdbcUrl) { sharedJdbcUrl ->
+                createPooledJdbi(sharedJdbcUrl, config)
+            }
         } catch (error: Exception) {
             throw JdbiHandlerError(
                 sanitizeJdbcErrorMessage(
@@ -227,10 +226,30 @@ class JdbiHandler<R, W>(
             .replace(PASSWORD_QUERY_REGEX, "$1***")
     }
 
+    private fun createPooledJdbi(jdbcUrl: String, config: DatabaseConfig): Jdbi {
+        val poolConfig = HikariConfig().apply {
+            this.jdbcUrl = jdbcUrl
+            maximumPoolSize = config.maxPoolSize
+            minimumIdle = config.minIdleConnections
+            connectionTimeout = config.connectionTimeoutMs
+            idleTimeout = config.idleTimeoutMs
+            maxLifetime = config.maxLifetimeMs
+            poolName = "tradingtool-jdbi-pool"
+        }
+
+        val dataSource = HikariDataSource(poolConfig)
+
+        return Jdbi.create(dataSource)
+            .installPlugin(PostgresPlugin())
+            .installPlugin(SqlObjectPlugin())
+            .installPlugin(KotlinPlugin())
+    }
+
     private companion object {
         val IDENTIFIER_REGEX: Regex = Regex("^[A-Za-z_][A-Za-z0-9_]*$")
         val JDBC_USERINFO_REGEX: Regex = Regex("(jdbc:postgresql://)([^@\\s/]+)@")
         val POSTGRES_USERINFO_REGEX: Regex = Regex("(postgresql://)([^@\\s/]+)@")
         val PASSWORD_QUERY_REGEX: Regex = Regex("([?&]password=)[^&\\s]+", RegexOption.IGNORE_CASE)
+        val SHARED_JDBI_BY_JDBC_URL: ConcurrentHashMap<String, Jdbi> = ConcurrentHashMap()
     }
 }

@@ -89,8 +89,19 @@ class ServiceModule(
 
     @Provides
     @Singleton
-    fun provideDatabaseConfig(config: AppConfig): DatabaseConfig =
-        DatabaseConfig(jdbcUrl = config.supabase.dbUrl)
+    fun provideDatabaseConfig(config: AppConfig): DatabaseConfig {
+        val maxPoolSize = readPositiveIntEnv("SUPABASE_DB_MAX_POOL_SIZE", 5)
+        val minIdleConnections = readNonNegativeIntEnv("SUPABASE_DB_MIN_IDLE", 0).coerceAtMost(maxPoolSize)
+
+        return DatabaseConfig(
+            jdbcUrl = config.supabase.dbUrl,
+            maxPoolSize = maxPoolSize,
+            minIdleConnections = minIdleConnections,
+            connectionTimeoutMs = readPositiveLongEnv("SUPABASE_DB_CONNECTION_TIMEOUT_MS", 10_000),
+            idleTimeoutMs = readPositiveLongEnv("SUPABASE_DB_IDLE_TIMEOUT_MS", 600_000),
+            maxLifetimeMs = readPositiveLongEnv("SUPABASE_DB_MAX_LIFETIME_MS", 1_800_000),
+        )
+    }
 
     @Provides @Singleton
     fun provideKiteTokenJdbiHandler(config: DatabaseConfig): KiteTokenJdbiHandler =
@@ -286,4 +297,33 @@ class ServiceModule(
             candleCache,
             patternConfigService,
         )
+
+    private companion object {
+        fun readPositiveIntEnv(envName: String, defaultValue: Int): Int {
+            val rawValue = System.getenv(envName)?.trim().orEmpty()
+            if (rawValue.isEmpty()) {
+                return defaultValue
+            }
+
+            return rawValue.toIntOrNull()?.takeIf { value -> value > 0 } ?: defaultValue
+        }
+
+        fun readNonNegativeIntEnv(envName: String, defaultValue: Int): Int {
+            val rawValue = System.getenv(envName)?.trim().orEmpty()
+            if (rawValue.isEmpty()) {
+                return defaultValue
+            }
+
+            return rawValue.toIntOrNull()?.takeIf { value -> value >= 0 } ?: defaultValue
+        }
+
+        fun readPositiveLongEnv(envName: String, defaultValue: Long): Long {
+            val rawValue = System.getenv(envName)?.trim().orEmpty()
+            if (rawValue.isEmpty()) {
+                return defaultValue
+            }
+
+            return rawValue.toLongOrNull()?.takeIf { value -> value > 0 } ?: defaultValue
+        }
+    }
 }
