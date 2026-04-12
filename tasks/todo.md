@@ -136,6 +136,37 @@ Make `stock_delivery_daily` the single source of truth for both delivery values 
 
 ---
 
+# Implementation Plan: Delivery Reconciliation Cron + Telegram
+
+## Overview
+Ship a standalone cron job that performs the same delivery reconciliation flow used by Remora, writes inspection artifacts, and sends Telegram lifecycle alerts so delivery import no longer depends on Remora-triggered refreshes.
+
+## Implementation Steps
+- [x] Add a standalone `DeliveryReconciliationJob` entrypoint in `cron-job`.
+- [x] Add a compact reconciliation run-report model plus markdown and Telegram summary formatting.
+- [x] Extend `DeliveryReconciliationService` with a read helper for configured-universe rows on a date.
+- [x] Persist `latest.md` and `latest.json` under `build/reports/delivery-reconciliation/`.
+- [x] Send Telegram start/completion/failure alerts for the job.
+- [x] Run a live dry run against the real database/source and record the result.
+- [x] Re-run the same date to confirm `alreadyComplete=true` behavior.
+
+## Review
+- Added `DeliveryReconciliationJob` as the standalone cron entrypoint for live dry runs and daily delivery reconciliation.
+- Added a report factory/formatter so the job now emits both a human-readable markdown artifact and a JSON artifact from the same reconciliation result.
+- Reused the existing Telegram lifecycle pattern with a concise completion summary showing resolved date, counts, watchlist-linked rows, non-watchlist rows, and source-fetch status.
+- Kept Remora’s reconciliation safety net in place; the cron job is now the preferred daily import path, but Remora still protects scans if delivery has not been refreshed yet.
+- Live dry run result for `2026-04-10`:
+  - expected symbols: `502`
+  - present rows: `501`
+  - missing-from-source rows: `0`
+  - nullable `stock_id` rows: `482`
+  - first run fetched from NSE and wrote artifacts successfully
+  - second run on the same date returned `alreadyComplete=true` and `fetchedFromSource=false`
+- Current blocking data-quality issue:
+  - `SCHNEIDER` is in the configured universe but does not resolve to a Kite `instrument_token`, so the job exits non-zero with a report instead of silently pretending the date is fully complete.
+
+---
+
 # Implementation Plan: Strategy Foundations - Delivery Data + Fundamental Health
 
 ## Overview

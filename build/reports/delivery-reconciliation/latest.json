@@ -1,0 +1,76 @@
+{
+  "requestedDate" : "2026-04-10",
+  "resolvedDate" : "2026-04-10",
+  "expectedSymbolCount" : 502,
+  "presentCount" : 501,
+  "missingFromSourceCount" : 0,
+  "nullableStockIdCount" : 482,
+  "watchlistLinkedCount" : 19,
+  "nonWatchlistCount" : 482,
+  "fetchedFromSource" : false,
+  "alreadyComplete" : true,
+  "unresolvedIssues" : [ "Instrument token could not be resolved for configured symbol SCHNEIDER.", "Expected 502 reconciled rows but found 501 rows in stock_delivery_daily." ],
+  "presentSamples" : [ {
+    "instrumentToken" : 1793,
+    "symbol" : "AARTIIND",
+    "stockId" : null,
+    "reconciliationStatus" : "PRESENT",
+    "delivPer" : 64.51
+  }, {
+    "instrumentToken" : 3329,
+    "symbol" : "ABB",
+    "stockId" : null,
+    "reconciliationStatus" : "PRESENT",
+    "delivPer" : 48.75
+  }, {
+    "instrumentToken" : 5633,
+    "symbol" : "ACC",
+    "stockId" : null,
+    "reconciliationStatus" : "PRESENT",
+    "delivPer" : 42.1
+  }, {
+    "instrumentToken" : 6401,
+    "symbol" : "ADANIENT",
+    "stockId" : null,
+    "reconciliationStatus" : "PRESENT",
+    "delivPer" : 33.04
+  }, {
+    "instrumentToken" : 10241,
+    "symbol" : "AEGISLOG",
+    "stockId" : null,
+    "reconciliationStatus" : "PRESENT",
+    "delivPer" : 14.73
+  } ],
+  "missingFromSourceSamples" : [ ],
+  "nullableStockIdSamples" : [ {
+    "instrumentToken" : 1793,
+    "symbol" : "AARTIIND",
+    "stockId" : null,
+    "reconciliationStatus" : "PRESENT",
+    "delivPer" : 64.51
+  }, {
+    "instrumentToken" : 3329,
+    "symbol" : "ABB",
+    "stockId" : null,
+    "reconciliationStatus" : "PRESENT",
+    "delivPer" : 48.75
+  }, {
+    "instrumentToken" : 5633,
+    "symbol" : "ACC",
+    "stockId" : null,
+    "reconciliationStatus" : "PRESENT",
+    "delivPer" : 42.1
+  }, {
+    "instrumentToken" : 6401,
+    "symbol" : "ADANIENT",
+    "stockId" : null,
+    "reconciliationStatus" : "PRESENT",
+    "delivPer" : 33.04
+  }, {
+    "instrumentToken" : 10241,
+    "symbol" : "AEGISLOG",
+    "stockId" : null,
+    "reconciliationStatus" : "PRESENT",
+    "delivPer" : 14.73
+  } ]
+}

@@ -12,6 +12,8 @@ data class DeliveryUniverseConfig(
     val presetNames: List<String> = DeliveryConfigService.DEFAULT_PRESET_NAMES,
     @JsonProperty("include_watchlist")
     val includeWatchlist: Boolean = true,
+    @JsonProperty("excluded_symbols")
+    val excludedSymbols: List<String> = emptyList(),
 )
 
 data class DeliveryConfig(

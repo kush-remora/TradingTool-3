@@ -11,6 +11,7 @@ import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.delivery.validation.DeliveryFileDescriptor
+import com.tradingtool.core.delivery.model.StockDeliveryDaily
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
@@ -33,20 +34,23 @@ class DeliveryReconciliationService @Inject constructor(
     }
 
     suspend fun isDateReconciled(tradingDate: LocalDate): Boolean {
-        val expectations = resolveExpectations()
-        if (expectations.isEmpty()) {
+        val expectationState = resolveExpectations()
+        if (expectationState.totalSymbolCount == 0) {
             return true
+        }
+        if (expectationState.expectations.isEmpty()) {
+            return false
         }
 
         val existingRows = deliveryHandler.read { dao ->
             dao.findByTradingDateAndInstrumentTokens(
                 tradingDate = tradingDate,
-                instrumentTokens = expectations.map { expectation -> expectation.instrumentToken },
+                instrumentTokens = expectationState.expectations.map { expectation -> expectation.instrumentToken },
             )
         }
 
         return DeliveryReconciliationAnalyzer.isDateComplete(
-            expectedInstrumentTokens = expectations.map { expectation -> expectation.instrumentToken }.toSet(),
+            expectedInstrumentTokens = expectationState.expectations.map { expectation -> expectation.instrumentToken }.toSet(),
             existingRows = existingRows,
         )
     }
@@ -56,9 +60,23 @@ class DeliveryReconciliationService @Inject constructor(
         return reconcileDate(latestTradingDate)
     }
 
+    suspend fun findConfiguredRowsForDate(tradingDate: LocalDate): List<StockDeliveryDaily> {
+        val expectationState = resolveExpectations()
+        if (expectationState.expectations.isEmpty()) {
+            return emptyList()
+        }
+
+        return deliveryHandler.read { dao ->
+            dao.findByTradingDateAndInstrumentTokens(
+                tradingDate = tradingDate,
+                instrumentTokens = expectationState.expectations.map { expectation -> expectation.instrumentToken },
+            )
+        }
+    }
+
     suspend fun reconcileDate(tradingDate: LocalDate): DeliveryDateReconciliationResult {
-        val expectations = resolveExpectations()
-        if (expectations.isEmpty()) {
+        val expectationState = resolveExpectations()
+        if (expectationState.totalSymbolCount == 0) {
             return DeliveryDateReconciliationResult(
                 tradingDate = tradingDate,
                 expectedCount = 0,
@@ -68,8 +86,19 @@ class DeliveryReconciliationService @Inject constructor(
                 missingFromSourceCount = 0,
             )
         }
+        if (expectationState.expectations.isEmpty()) {
+            return DeliveryDateReconciliationResult(
+                tradingDate = tradingDate,
+                expectedCount = expectationState.totalSymbolCount,
+                alreadyComplete = true,
+                fetchedFromSource = false,
+                presentCount = 0,
+                missingFromSourceCount = 0,
+                unresolvedSymbols = expectationState.unresolvedSymbols,
+            )
+        }
 
-        val expectedTokens = expectations.map { expectation -> expectation.instrumentToken }
+        val expectedTokens = expectationState.expectations.map { expectation -> expectation.instrumentToken }
         val existingRows = deliveryHandler.read { dao ->
             dao.findByTradingDateAndInstrumentTokens(
                 tradingDate = tradingDate,
@@ -80,11 +109,12 @@ class DeliveryReconciliationService @Inject constructor(
         if (DeliveryReconciliationAnalyzer.isDateComplete(expectedTokens.toSet(), existingRows)) {
             return DeliveryDateReconciliationResult(
                 tradingDate = tradingDate,
-                expectedCount = expectations.size,
+                expectedCount = expectationState.totalSymbolCount,
                 alreadyComplete = true,
                 fetchedFromSource = false,
                 presentCount = existingRows.count { row -> row.reconciliationStatus.name == "PRESENT" },
                 missingFromSourceCount = existingRows.count { row -> row.reconciliationStatus.name == "MISSING_FROM_SOURCE" },
+                unresolvedSymbols = expectationState.unresolvedSymbols,
             )
         }
 
@@ -99,7 +129,7 @@ class DeliveryReconciliationService @Inject constructor(
             DeliveryReconciliationAnalyzer.selectBestRowsBySymbol(sourceRows)
         }
         val upserts = DeliveryReconciliationAnalyzer.buildUpserts(
-            expectations = expectations,
+            expectations = expectationState.expectations,
             sourceRows = sourceRowsBySymbol,
             sourceFileName = descriptor.fileName,
             sourceUrl = descriptor.url,
@@ -134,33 +164,52 @@ class DeliveryReconciliationService @Inject constructor(
 
         return DeliveryDateReconciliationResult(
             tradingDate = tradingDate,
-            expectedCount = expectations.size,
+            expectedCount = expectationState.totalSymbolCount,
             alreadyComplete = false,
             fetchedFromSource = true,
             presentCount = upserts.count { row -> row.reconciliationStatus.name == "PRESENT" },
             missingFromSourceCount = upserts.count { row -> row.reconciliationStatus.name == "MISSING_FROM_SOURCE" },
+            unresolvedSymbols = expectationState.unresolvedSymbols,
         )
     }
 
-    private suspend fun resolveExpectations(): List<DeliveryExpectation> {
+    private suspend fun resolveExpectations(): DeliveryExpectationState {
         ensureInstrumentCacheLoaded()
         val symbols = deliveryUniverseService.resolveTargetSymbols().toList()
         if (symbols.isEmpty()) {
-            return emptyList()
+            return DeliveryExpectationState(
+                totalSymbolCount = 0,
+                expectations = emptyList(),
+                unresolvedSymbols = emptyList(),
+            )
         }
 
         val trackedStocks = stockHandler.read { dao ->
             dao.listBySymbols(symbols, NSE_EXCHANGE)
         }.associateBy { stock -> stock.symbol.uppercase() }
 
-        return symbols.map { symbol ->
-            DeliveryExpectation(
-                stockId = trackedStocks[symbol]?.id,
-                instrumentToken = resolveInstrumentToken(symbol),
-                symbol = symbol,
-                exchange = NSE_EXCHANGE,
-            )
+        val expectations = mutableListOf<DeliveryExpectation>()
+        val unresolvedSymbols = mutableListOf<String>()
+
+        symbols.forEach { symbol ->
+            val instrumentToken = instrumentCache.token(NSE_EXCHANGE, symbol)
+            if (instrumentToken == null) {
+                unresolvedSymbols += symbol
+            } else {
+                expectations += DeliveryExpectation(
+                    stockId = trackedStocks[symbol]?.id,
+                    instrumentToken = instrumentToken,
+                    symbol = symbol,
+                    exchange = NSE_EXCHANGE,
+                )
+            }
         }
+
+        return DeliveryExpectationState(
+            totalSymbolCount = symbols.size,
+            expectations = expectations,
+            unresolvedSymbols = unresolvedSymbols,
+        )
     }
 
     private suspend fun ensureInstrumentCacheLoaded() {
@@ -172,12 +221,6 @@ class DeliveryReconciliationService @Inject constructor(
             kiteClient.client().getInstruments(NSE_EXCHANGE)
         }
         instrumentCache.refresh(instruments)
-    }
-
-    private fun resolveInstrumentToken(symbol: String): Long {
-        return checkNotNull(instrumentCache.token(NSE_EXCHANGE, symbol)) {
-            "Instrument token not found for configured delivery symbol $symbol"
-        }
     }
 
     private suspend fun resolveSourceDescriptor(tradingDate: LocalDate): DeliveryFileDescriptor {
@@ -202,3 +245,9 @@ class DeliveryReconciliationService @Inject constructor(
         const val NSE_EXCHANGE: String = "NSE"
     }
 }
+
+private data class DeliveryExpectationState(
+    val totalSymbolCount: Int,
+    val expectations: List<DeliveryExpectation>,
+    val unresolvedSymbols: List<String>,
+)
