@@ -64,9 +64,11 @@ object DatabaseConstants {
 
     object StockDeliveryColumns {
         const val STOCK_ID = "stock_id"
+        const val INSTRUMENT_TOKEN = "instrument_token"
         const val SYMBOL = "symbol"
         const val EXCHANGE = "exchange"
         const val TRADING_DATE = "trading_date"
+        const val RECONCILIATION_STATUS = "reconciliation_status"
         const val SERIES = "series"
         const val TTL_TRD_QNTY = "ttl_trd_qnty"
         const val DELIV_QTY = "deliv_qty"

@@ -1,0 +1,45 @@
+{
+  "requestedDate" : null,
+  "resolvedTradingDate" : "2026-04-10",
+  "discoveryWorked" : true,
+  "discoveryBucket" : "CurrentDay",
+  "discoveryError" : null,
+  "targetSymbols" : [ "360ONE", "3MINDIA", "ABB", "ABBOTINDIA", "ABCAPITAL", "ACC", "ADANIENSOL", "ADANIENT", "ADANIGREEN", "ADANIPORTS", "ADANIPOWER", "AIAENG", "AIIL", "AJANTPHARM", "ALKEM", "AMBUJACEM", "ANANTRAJ", "ANTHEM", "APARINDS", "APLAPOLLO", "APOLLOHOSP", "APOLLOTYRE", "ASHOKLEY", "ASIANPAINT", "ASTRAL", "ATGL", "AUBANK", "AUROPHARMA", "AWL", "AXISBANK", "BAJAJ-AUTO", "BAJAJFINSV", "BAJAJHFL", "BAJAJHLDNG", "BAJFINANCE", "BALKRISIND", "BANKBARODA", "BANKINDIA", "BDL", "BEL", "BERGEPAINT", "BHARATFORG", "BHARTIARTL", "BHARTIHEXA", "BHEL", "BIOCON", "BLUESTARCO", "BOSCHLTD", "BPCL", "BRITANNIA", "BSE", "CANBK", "CGPOWER", "CHOLAFIN", "CIPLA", "COALINDIA", "COCHINSHIP", "COFORGE", "COLPAL", "CONCOR", "COROMANDEL", "CRISIL", "CUMMINSIND", "DABUR", "DALBHARAT", "DIVISLAB", "DIXON", "DLF", "DMART", "DRREDDY", "EICHERMOT", "ENDURANCE", "ENRIN", "ESCORTS", "ETERNAL", "EXIDEIND", "FEDERALBNK", "FLUOROCHEM", "FORTIS", "GAIL", "GICRE", "GLAXO", "GLENMARK", "GMRAIRPORT", "GODFRYPHLP", "GODREJCP", "GODREJIND", "GODREJPROP", "GRASIM", "GROWW", "GVT&D", "HAL", "HAVELLS", "HCLTECH", "HDBFS", "HDFCAMC", "HDFCBANK", "HDFCLIFE", "HEROMOTOCO", "HEXT", "HINDALCO", "HINDPETRO", "HINDUNILVR", "HINDZINC", "HONAUT", "HUDCO", "HYUNDAI", "ICICIAMC", "ICICIBANK", "ICICIGI", "ICICIPRULI", "IDEA", "IDFCFIRSTB", "INDHOTEL", "INDIANB", "INDIGO", "INDUSINDBK", "INDUSTOWER", "INFY", "IOC", "IPCALAB", "IRCTC", "IREDA", "IRFC", "ITC", "ITCHOTELS", "JINDALSTEL", "JIOFIN", "JKCEMENT", "JSL", "JSWENERGY", "JSWINFRA", "JSWSTEEL", "JUBLFOOD", "KALYANKJIL", "KAYNES", "KEI", "KOTAKBANK", "KPITTECH", "KPRMILL", "KRISHANA", "LAURUSLABS", "LENSKART", "LGEINDIA", "LICHSGFIN", "LICI", "LINDEINDIA", "LLOYDSME", "LODHA", "LT", "LTF", "LTM", "LTTS", "LUPIN", "M&M", "M&MFIN", "MAHABANK", "MANKIND", "MARICO", "MARUTI", "MAXHEALTH", "MAZDOCK", "MCX", "MEDANTA", "MFSL", "MOTHERSON", "MOTILALOFS", "MPHASIS", "MRF", "MTARTECH", "MUTHOOTFIN", "NAM-INDIA", "NATIONALUM", "NAUKRI", "NESTLEIND", "NETWEB", "NHPC", "NIACL", "NLCINDIA", "NMDC", "NTPC", "NTPCGREEN", "NYKAA", "OBEROIRLTY", "OFSS", "OIL", "ONGC", "PAGEIND", "PATANJALI", "PAYTM", "PERSISTENT", "PETRONET", "PFC", "PHOENIXLTD", "PIDILITIND", "PIIND", "PNB", "POLICYBZR", "POLYCAB", "POWERGRID", "POWERINDIA", "PREMIERENE", "PRESTIGE", "RADICO", "RECLTD", "RELIANCE", "RVNL", "SAIL", "SBICARD", "SBILIFE", "SBIN", "SCHAEFFLER", "SHREECEM", "SHRIRAMFIN", "SIEMENS", "SJVN", "SOLARINDS", "SONACOMS", "SRF", "SUNDARMFIN", "SUNPHARMA", "SUPREMEIND", "SUZLON", "SWIGGY", "TATACAP", "TATACOMM", "TATACONSUM", "TATAELXSI", "TATAINVEST", "TATAPOWER", "TATASTEEL", "TCS", "TECHM", "THERMAX", "TIINDIA", "TITAN", "TMCV", "TMPV", "TORNTPHARM", "TORNTPOWER", "TRENT", "TVSMOTOR", "UBL", "ULTRACEMCO", "UNIONBANK", "UNITDSPR", "UNOMINDA", "UPL", "VBL", "VEDL", "VMM", "VOLTAS", "WAAREEENER", "WIPRO", "YESBANK", "ZYDUSLIFE" ],
+  "bhavDataFull" : {
+    "source" : "BHAVDATA_FULL",
+    "available" : true,
+    "downloadSucceeded" : true,
+    "parseSucceeded" : true,
+    "fileName" : "sec_bhavdata_full_10042026.csv",
+    "fileUrl" : "https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_10042026.csv",
+    "rowCount" : 3037,
+    "targetSymbolCount" : 256,
+    "matchedTargetCount" : 256,
+    "missingTargetSymbols" : [ ],
+    "coverageRatio" : 1.0,
+    "error" : null
+  },
+  "mto" : {
+    "source" : "MTO",
+    "available" : true,
+    "downloadSucceeded" : true,
+    "parseSucceeded" : true,
+    "fileName" : "MTO_10042026.DAT",
+    "fileUrl" : "https://nsearchives.nseindia.com/archives/equities/mto/MTO_10042026.DAT",
+    "rowCount" : 3222,
+    "targetSymbolCount" : 256,
+    "matchedTargetCount" : 256,
+    "missingTargetSymbols" : [ ],
+    "coverageRatio" : 1.0,
+    "error" : null
+  },
+  "comparison" : {
+    "comparedSymbolCount" : 256,
+    "bhavOnlySymbols" : [ ],
+    "mtoOnlySymbols" : [ ],
+    "materialMismatches" : [ ],
+    "materiallyConsistent" : true
+  },
+  "recommendedSource" : "BHAVDATA_FULL",
+  "verdict" : "Proceed with CM-BHAVDATA-FULL as the primary delivery source."
+}

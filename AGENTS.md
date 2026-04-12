@@ -142,6 +142,45 @@ Responsibilities:
 - **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
 - **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
 
+## Mandatory Skill Invocation
+
+For any implementation task in this repo, explicitly invoke all of these skills before planning or coding:
+
+- `coding-standards`
+- `backend-architect`
+- `kotlin-patterns`
+- `frontend-patterns`
+- `kotlin-reviewer`
+
+This is mandatory repo policy, not guidance.
+
+Implementation task means any task that changes:
+- application code
+- config
+- schema
+- API behavior
+- UI behavior
+- or architecture
+
+Documentation-only tasks and planning-only tasks do not require this five-skill workflow.
+
+Required implementation workflow:
+- `coding-standards` is the baseline quality floor for every implementation task.
+- `backend-architect` must be invoked for backend, data-flow, contract, model, and API thinking.
+- `kotlin-patterns` must be invoked for Kotlin implementation structure and architecture decisions.
+- `frontend-patterns` must be invoked for UI, rendering, state, and data-presentation implications.
+- `kotlin-reviewer` must be run as the review gate before finalizing Kotlin-related implementation work.
+
+This rule applies even when the task is mostly backend or mostly frontend.
+
+If one of these skills has no direct code surface in a task, it must still be invoked and acknowledged with a short note that it produced no direct changes for that slice.
+
+Completion rules:
+- Kotlin changes are not complete until `kotlin-reviewer` has been run as the review pass.
+- Frontend changes are not complete unless `frontend-patterns` has been consulted.
+- Backend, data-model, and API changes are not complete unless `backend-architect` has been consulted.
+- `coding-standards` is always required, regardless of task area.
+
 ## Remora Philosophy
 
 For any Remora-related feature, treat [docs/strategies/remora-philosophy.md](docs/strategies/remora-philosophy.md) as a core design constraint.

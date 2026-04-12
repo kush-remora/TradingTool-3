@@ -85,6 +85,57 @@ Backend intermittently fails with:
 
 ---
 
+# Implementation Plan: Config-Driven Delivery Ingestion Foundation
+
+## Overview
+Implement the delivery-data foundation for Remora using a dedicated JSON config, a config-driven V1 universe, and an `instrument_token`-aware delivery table/model path.
+
+## Implementation Steps
+- [x] Add a dedicated `delivery_config.json` and Kotlin config models/service.
+- [x] Lock V1 delivery universe to `NIFTY_LARGEMIDCAP_250 + NIFTY_SMALLCAP_250 + NSE watchlist`.
+- [x] Add a delivery universe service so delivery flows stop borrowing RSI config.
+- [x] Extend `stock_delivery_daily` schema, constants, model, and DAO upsert/read mapping with `instrument_token`.
+- [x] Refactor delivery validation and Remora delivery persistence to use the delivery config universe.
+- [x] Run focused tests and compile checks.
+- [x] Add final review notes.
+
+## Review
+- Added `delivery_config.json` and a dedicated delivery config/universe service so delivery scope is now config-driven instead of borrowed from RSI settings.
+- Locked V1 delivery universe to `NIFTY_LARGEMIDCAP_250 + NIFTY_SMALLCAP_250 + NSE watchlist`, with watchlist filtering limited to NSE stocks.
+- Extended `stock_delivery_daily` with `instrument_token`, backfill SQL, and a new `(instrument_token, trading_date)` index while preserving the existing `(stock_id, trading_date)` primary key.
+- Refactored delivery validation and Remora persistence to consume the new delivery universe service.
+- Hardened delivery row mapping with a timestamp fallback when `OffsetDateTime` retrieval is not supported by the JDBC result set implementation.
+- Verification:
+  - `mvn -q -pl core -Dtest=DeliveryConfigServiceTest,DeliveryUniverseServiceTest,StockDeliveryMapperTest,NseDeliverySourceAdapterTest,DeliverySourceValidationAnalyzerTest test`
+  - `mvn -q -pl core,service,cron-job -DskipTests compile`
+- Residual note: the schema change relies on backfilling `instrument_token` from `stocks` before enforcing `NOT NULL`, so the live database should be checked once after applying `tables.sql`.
+
+---
+
+# Implementation Plan: Same-Table Delivery Reconciliation
+
+## Overview
+Make `stock_delivery_daily` the single source of truth for both delivery values and reconciliation state, keyed by `instrument_token + trading_date`.
+
+## Implementation Steps
+- [x] Make `stock_id` nullable, add `reconciliation_status`, and change the table key to `instrument_token + trading_date`.
+- [x] Extend delivery models and DAOs for nullable `stock_id`, reconciliation status, and token-keyed reads/upserts.
+- [x] Add a delivery reconciliation service that compares expected universe rows against stored rows and fetches a date only when incomplete.
+- [x] Refactor Remora to reconcile by date before scanning and to treat `MISSING_FROM_SOURCE` as known missing data.
+- [x] Run focused tests and compile checks.
+- [x] Add final review notes.
+
+## Review
+- `stock_delivery_daily` is now keyed by `instrument_token + trading_date`, with nullable `stock_id` and a persisted `reconciliation_status`.
+- Added `DeliveryReconciliationService` plus reconciliation analyzer helpers so delivery fetches happen once per missing/incomplete date, not per stock.
+- Remora now reconciles the latest available delivery date before scanning and ignores `MISSING_FROM_SOURCE` rows in delivery-ratio calculations.
+- Verification:
+  - `mvn -q -pl core -Dtest=DeliveryConfigServiceTest,DeliveryUniverseServiceTest,StockDeliveryMapperTest,DeliveryReconciliationAnalyzerTest,NseDeliverySourceAdapterTest,DeliverySourceValidationAnalyzerTest test`
+  - `mvn -q -pl core,service,cron-job -DskipTests compile`
+- Residual note: this slice assumes every configured NSE symbol resolves to a Kite `instrument_token`; if Kite instrument lookup drifts, reconciliation currently fails loudly instead of persisting a third unresolved-token status.
+
+---
+
 # Implementation Plan: Strategy Foundations - Delivery Data + Fundamental Health
 
 ## Overview

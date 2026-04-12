@@ -32,6 +32,9 @@ import com.tradingtool.core.candle.dao.CandleReadDao
 import com.tradingtool.core.candle.dao.CandleWriteDao
 import com.tradingtool.core.delivery.dao.StockDeliveryReadDao
 import com.tradingtool.core.delivery.dao.StockDeliveryWriteDao
+import com.tradingtool.core.delivery.config.DeliveryConfigService
+import com.tradingtool.core.delivery.config.DeliveryUniverseService
+import com.tradingtool.core.delivery.reconciliation.DeliveryReconciliationService
 import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
 import com.tradingtool.core.screener.CandleDataService
 import com.tradingtool.core.screener.WeeklyPatternConfigService
@@ -72,6 +75,9 @@ class ServiceModule(
         bind(AppConfig::class.java).toInstance(appConfig)
         bind(ResourceScope::class.java).`in`(Singleton::class.java)
         bind(WatchlistConfigService::class.java).`in`(Singleton::class.java)
+        bind(DeliveryConfigService::class.java).`in`(Singleton::class.java)
+        bind(DeliveryUniverseService::class.java).`in`(Singleton::class.java)
+        bind(DeliveryReconciliationService::class.java).`in`(Singleton::class.java)
         bind(StockService::class.java).`in`(Singleton::class.java)
         bind(TradeService::class.java).`in`(Singleton::class.java)
         bind(TradeReadinessService::class.java).`in`(Singleton::class.java)
@@ -273,14 +279,14 @@ class ServiceModule(
         stockHandler: StockJdbiHandler,
         remoraHandler: RemoraJdbiHandler,
         deliveryHandler: StockDeliveryJdbiHandler,
-        nseAdapter: NseDeliverySourceAdapter,
+        deliveryReconciliationService: DeliveryReconciliationService,
         telegramSender: TelegramSender,
         kiteClient: KiteConnectClient,
     ): RemoraService = RemoraService(
         stockHandler = stockHandler,
         remoraHandler = remoraHandler,
         deliveryHandler = deliveryHandler,
-        nseAdapter = nseAdapter,
+        deliveryReconciliationService = deliveryReconciliationService,
         telegramSender = telegramSender,
         kiteClient = kiteClient,
     )

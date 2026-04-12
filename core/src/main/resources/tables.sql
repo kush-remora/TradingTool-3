@@ -122,10 +122,12 @@ CREATE TABLE IF NOT EXISTS public.intraday_candles (
 
 -- Stock delivery data: daily delivery metrics for each stock
 CREATE TABLE IF NOT EXISTS public.stock_delivery_daily (
-    stock_id INTEGER NOT NULL REFERENCES public.stocks(id),
+    stock_id BIGINT REFERENCES public.stocks(id),
+    instrument_token BIGINT NOT NULL,
     symbol TEXT NOT NULL,
     exchange TEXT NOT NULL,
     trading_date DATE NOT NULL,
+    reconciliation_status TEXT NOT NULL CHECK (reconciliation_status IN ('PRESENT', 'MISSING_FROM_SOURCE')),
     series TEXT,
     ttl_trd_qnty BIGINT,
     deliv_qty BIGINT,
@@ -133,10 +135,11 @@ CREATE TABLE IF NOT EXISTS public.stock_delivery_daily (
     source_file_name TEXT,
     source_url TEXT,
     fetched_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (stock_id, trading_date)
+    PRIMARY KEY (instrument_token, trading_date)
 );
 
 CREATE INDEX IF NOT EXISTS idx_daily_candles_symbol      ON public.daily_candles (symbol, candle_date);
 CREATE INDEX IF NOT EXISTS idx_intraday_candles_symbol   ON public.intraday_candles (symbol, interval, candle_timestamp);
 CREATE INDEX IF NOT EXISTS idx_stock_delivery_daily_trading_date ON public.stock_delivery_daily (trading_date DESC);
 CREATE INDEX IF NOT EXISTS idx_stock_delivery_daily_symbol_date ON public.stock_delivery_daily (symbol, trading_date DESC);
+CREATE INDEX IF NOT EXISTS idx_stock_delivery_daily_stock_id_date ON public.stock_delivery_daily (stock_id, trading_date DESC);

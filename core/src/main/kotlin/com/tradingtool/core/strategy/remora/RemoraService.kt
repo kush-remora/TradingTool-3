@@ -4,7 +4,8 @@ import com.tradingtool.core.config.IndicatorConfig
 import com.tradingtool.core.database.RemoraJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
 import com.tradingtool.core.database.StockJdbiHandler
-import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
+import com.tradingtool.core.delivery.model.DeliveryReconciliationStatus
+import com.tradingtool.core.delivery.reconciliation.DeliveryReconciliationService
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.model.remora.RemoraEnvelope
 import com.tradingtool.core.model.remora.RemoraSignal
@@ -41,7 +42,7 @@ class RemoraService(
     private val stockHandler: StockJdbiHandler,
     private val remoraHandler: RemoraJdbiHandler,
     private val deliveryHandler: StockDeliveryJdbiHandler,
-    private val nseAdapter: NseDeliverySourceAdapter,
+    private val deliveryReconciliationService: DeliveryReconciliationService,
     private val telegramSender: TelegramSender,
     private val kiteClient: KiteConnectClient,
     private val config: IndicatorConfig = IndicatorConfig.DEFAULT,
@@ -88,7 +89,7 @@ class RemoraService(
 
                 // Fetch delivery history for ratio calculation (need 10 lookback + 20 baseline = 30 records min)
                 val deliveryRows = deliveryHandler.read {
-                    it.findRecentByStockId(stock.id.toInt(), LocalDate.now(ist).plusDays(1), 50)
+                    it.findRecentByInstrumentToken(stock.instrumentToken, LocalDate.now(ist).plusDays(1), 50)
                 }
                 val deliveryMap = prepareDeliveryMap(deliveryRows)
 
@@ -140,8 +141,11 @@ class RemoraService(
         }
 
         deliveryMutex.withLock {
-            val latestInDb = deliveryHandler.read { it.getLatestTradingDate() }
-            if (latestInDb != null && !isDeliveryStale(latestInDb)) {
+            val latestAvailableDate = deliveryReconciliationService.latestAvailableTradingDate()
+            if (latestAvailableDate != null &&
+                !isDeliveryStale(latestAvailableDate) &&
+                deliveryReconciliationService.isDateReconciled(latestAvailableDate)
+            ) {
                 staleReason = null
                 return@withLock
             }
@@ -152,10 +156,9 @@ class RemoraService(
             }
 
             try {
-                log.info("Refreshing delivery data from NSE...")
-                val rows = nseAdapter.fetchLatestDeliveryData()
-                if (rows.isNotEmpty()) {
-                    persistDelivery(rows)
+                log.info("Reconciling latest delivery data from NSE...")
+                val result = deliveryReconciliationService.reconcileLatestAvailableDate()
+                if (result != null) {
                     staleReason = null
                     lastFailureAt = null
                 } else {
@@ -186,44 +189,13 @@ class RemoraService(
         staleReason = reason
     }
 
-    private suspend fun persistDelivery(rows: List<NseDeliverySourceAdapter.NseDeliveryRow>) {
-        val trackedStocks = stockHandler.read { it.listAll() }.filter { it.exchange == "NSE" }
-        val symbolMap = trackedStocks.associateBy { it.symbol.uppercase() }
-
-        val bestRows = rows
-            .filter { symbolMap.containsKey(it.symbol.uppercase()) }
-            .groupBy { it.symbol.uppercase() to it.tradingDate }
-            .mapValues { (_, symbolRows) ->
-                symbolRows.sortedWith(compareBy<NseDeliverySourceAdapter.NseDeliveryRow> {
-                    when (it.series) {
-                        "EQ" -> 0
-                        "BE" -> 1
-                        else -> 2
-                    }
-                }.thenByDescending { it.ttlTrdQnty }).first()
-            }.values
-
-        deliveryHandler.write { dao ->
-            bestRows.forEach { row ->
-                val stock = symbolMap[row.symbol.uppercase()]!!
-                dao.upsert(
-                    stockId = stock.id.toInt(),
-                    symbol = stock.symbol,
-                    exchange = stock.exchange,
-                    tradingDate = row.tradingDate,
-                    series = row.series,
-                    ttlTrdQnty = row.ttlTrdQnty,
-                    delivQty = row.delivQty,
-                    delivPer = row.delivPer,
-                    sourceFileName = row.sourceFileName,
-                    sourceUrl = row.sourceUrl
-                )
-            }
-        }
-    }
-
     private fun prepareDeliveryMap(history: List<com.tradingtool.core.delivery.model.StockDeliveryDaily>): Map<LocalDate, RemoraSignalCalculator.DeliveryMetrics> {
-        val sorted = history.sortedByDescending { it.tradingDate }
+        val sorted = history
+            .filter { row ->
+                row.reconciliationStatus == DeliveryReconciliationStatus.PRESENT &&
+                    row.delivPer != null
+            }
+            .sortedByDescending { it.tradingDate }
         return sorted.mapIndexedNotNull { index, today ->
             val prior = sorted.drop(index + 1).take(20)
             if (prior.size < 20) return@mapIndexedNotNull null
@@ -241,8 +213,10 @@ class RemoraService(
             if (type.isNullOrBlank()) dao.findAll() else dao.findByType(type.uppercase())
         }
 
-        val latestDeliveryDate = deliveryHandler.read { it.getLatestTradingDate() }
-        val isStale = latestDeliveryDate == null || isDeliveryStale(latestDeliveryDate)
+        val latestDeliveryDate = deliveryReconciliationService.latestAvailableTradingDate()
+        val isStale = latestDeliveryDate == null ||
+            isDeliveryStale(latestDeliveryDate) ||
+            !deliveryReconciliationService.isDateReconciled(latestDeliveryDate)
 
         if (onDemand && isStale) {
             log.info("Remora signals or delivery stale. Triggering on-demand scan.")
@@ -255,11 +229,13 @@ class RemoraService(
             val updatedSignals = remoraHandler.read { dao ->
                 if (type.isNullOrBlank()) dao.findAll() else dao.findByType(type.uppercase())
             }
-            val updatedDeliveryDate = deliveryHandler.read { it.getLatestTradingDate() }
+            val updatedDeliveryDate = deliveryReconciliationService.latestAvailableTradingDate()
             return RemoraEnvelope(
                 signals = updatedSignals,
                 asOfDate = updatedDeliveryDate?.toString(),
-                isStale = updatedDeliveryDate == null || isDeliveryStale(updatedDeliveryDate),
+                isStale = updatedDeliveryDate == null ||
+                    isDeliveryStale(updatedDeliveryDate) ||
+                    !deliveryReconciliationService.isDateReconciled(updatedDeliveryDate),
                 staleReason = staleReason
             )
         }

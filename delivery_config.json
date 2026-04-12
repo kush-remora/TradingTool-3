@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "source": "CM_BHAVDATA_FULL",
+  "universe": {
+    "preset_names": [
+      "NIFTY_LARGEMIDCAP_250",
+      "NIFTY_SMALLCAP_250"
+    ],
+    "include_watchlist": true
+  }
+}

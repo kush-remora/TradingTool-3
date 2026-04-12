@@ -11,16 +11,20 @@ interface StockDeliveryWriteDao {
     @SqlUpdate(
         """
         INSERT INTO ${Tables.STOCK_DELIVERY_DAILY} (
-            ${Cols.STOCK_ID}, ${Cols.SYMBOL}, ${Cols.EXCHANGE}, ${Cols.TRADING_DATE}, 
+            ${Cols.STOCK_ID}, ${Cols.INSTRUMENT_TOKEN}, ${Cols.SYMBOL}, ${Cols.EXCHANGE}, ${Cols.TRADING_DATE},
+            ${Cols.RECONCILIATION_STATUS},
             ${Cols.SERIES}, ${Cols.TTL_TRD_QNTY}, ${Cols.DELIV_QTY}, ${Cols.DELIV_PER}, 
             ${Cols.SOURCE_FILE_NAME}, ${Cols.SOURCE_URL}
         ) VALUES (
-            :stockId, :symbol, :exchange, :tradingDate, 
+            :stockId, :instrumentToken, :symbol, :exchange, :tradingDate,
+            :reconciliationStatus,
             :series, :ttlTrdQnty, :delivQty, :delivPer, 
             :sourceFileName, :sourceUrl
-        ) ON CONFLICT (${Cols.STOCK_ID}, ${Cols.TRADING_DATE}) DO UPDATE SET
+        ) ON CONFLICT (${Cols.INSTRUMENT_TOKEN}, ${Cols.TRADING_DATE}) DO UPDATE SET
+            ${Cols.STOCK_ID} = EXCLUDED.${Cols.STOCK_ID},
             ${Cols.SYMBOL} = EXCLUDED.${Cols.SYMBOL},
             ${Cols.EXCHANGE} = EXCLUDED.${Cols.EXCHANGE},
+            ${Cols.RECONCILIATION_STATUS} = EXCLUDED.${Cols.RECONCILIATION_STATUS},
             ${Cols.SERIES} = EXCLUDED.${Cols.SERIES},
             ${Cols.TTL_TRD_QNTY} = EXCLUDED.${Cols.TTL_TRD_QNTY},
             ${Cols.DELIV_QTY} = EXCLUDED.${Cols.DELIV_QTY},
@@ -31,10 +35,12 @@ interface StockDeliveryWriteDao {
         """
     )
     fun upsert(
-        @Bind("stockId") stockId: Int,
+        @Bind("stockId") stockId: Long?,
+        @Bind("instrumentToken") instrumentToken: Long,
         @Bind("symbol") symbol: String,
         @Bind("exchange") exchange: String,
         @Bind("tradingDate") tradingDate: LocalDate,
+        @Bind("reconciliationStatus") reconciliationStatus: String,
         @Bind("series") series: String?,
         @Bind("ttlTrdQnty") ttlTrdQnty: Long?,
         @Bind("delivQty") delivQty: Long?,
