@@ -29,6 +29,7 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import kotlin.system.measureTimeMillis
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -519,7 +520,7 @@ class RsiMomentumService @Inject constructor(
     private fun isCandleDataStale(candles: List<DailyCandle>): Boolean {
         val lastDate = candles.maxOfOrNull { candle -> candle.candleDate } ?: return true
         val today = LocalDate.now(ist)
-        return lastDate.isBefore(today.minusDays(1))
+        return isCandleDateStale(lastDate, today)
     }
 
     private fun buildDateRange(): Pair<Date, Date> {
@@ -674,4 +675,21 @@ class RsiMomentumService @Inject constructor(
             override val backfilledSymbol: String?,
         ) : MemberAnalysisResult(backfilledSymbol)
     }
+}
+
+internal fun latestExpectedTradingDate(today: LocalDate): LocalDate = when (today.dayOfWeek) {
+    DayOfWeek.SATURDAY -> today.minusDays(1) // Friday
+    DayOfWeek.SUNDAY -> today.minusDays(2) // Friday
+    DayOfWeek.MONDAY -> today.minusDays(3) // Friday
+    else -> today.minusDays(1)
+}
+
+internal fun isCandleDateStale(
+    lastCandleDate: LocalDate,
+    today: LocalDate,
+    holidayGraceDays: Long = 3,
+): Boolean {
+    val expectedTradingDate = latestExpectedTradingDate(today)
+    val staleCutoff = expectedTradingDate.minusDays(holidayGraceDays.coerceAtLeast(0))
+    return lastCandleDate.isBefore(staleCutoff)
 }
