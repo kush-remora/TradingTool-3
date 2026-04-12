@@ -447,3 +447,87 @@ export interface RsiMomentumMultiSnapshot {
   errors: RsiMomentumProfileError[];
   partialSuccess: boolean;
 }
+
+// ==================== S4 Volume Spike Strategy ====================
+
+export interface S4ConfigSummary {
+  enabled: boolean;
+  profileId: string;
+  profileLabel: string;
+  baseUniversePreset: string;
+  candidateCount: number;
+  minAverageTradedValue: number;
+  minHistoryBars: number;
+  todayVolumeRatioThreshold: number;
+  recent3dAvgVolumeRatioThreshold: number;
+  recent5dMaxVolumeRatioThreshold: number;
+  spikePersistenceThreshold: number;
+  breakoutPriceChangePctThreshold: number;
+  breakoutReturn3dPctThreshold: number;
+}
+
+export interface S4RankedCandidate {
+  rank: number;
+  symbol: string;
+  companyName: string;
+  instrumentToken: number;
+  profileId: string;
+  baseUniversePreset: string;
+  close: number;
+  avgVolume20d: number;
+  avgTradedValueCr20d: number;
+  todayVolumeRatio: number;
+  recent3dAvgVolumeRatio: number;
+  recent5dMaxVolumeRatio: number;
+  spikePersistenceDays5d: number;
+  recent10dAvgVolumeRatio: number;
+  elevatedVolumeDays10d: number;
+  todayPriceChangePct: number;
+  priceReturn3dPct: number;
+  breakoutAbove20dHigh: boolean;
+  indexRank: number;
+  indexSize: number;
+  indexLayer: string;
+  todayVolumeScore: number;
+  recent3dVolumeScore: number;
+  persistenceScore: number;
+  priceScore: number;
+  classification: "FRESH_SPIKE" | "BUILDUP_BREAKOUT" | "EXTENDED_SPIKE" | string;
+  score: number;
+}
+
+export interface S4Diagnostics {
+  baseUniverseCount: number;
+  unresolvedSymbols: string[];
+  insufficientHistorySymbols: string[];
+  illiquidSymbols: string[];
+  disqualifiedSymbols: string[];
+  backfilledSymbols: string[];
+  failedSymbols: string[];
+}
+
+export interface S4Snapshot {
+  profileId: string;
+  profileLabel: string;
+  available: boolean;
+  stale: boolean;
+  message: string | null;
+  config: S4ConfigSummary;
+  runAt: string | null;
+  asOfDate: string | null;
+  resolvedUniverseCount: number;
+  eligibleUniverseCount: number;
+  topCandidates: S4RankedCandidate[];
+  diagnostics: S4Diagnostics;
+}
+
+export interface S4ProfileError {
+  profileId: string;
+  message: string;
+}
+
+export interface S4MultiSnapshot {
+  profiles: S4Snapshot[];
+  errors: S4ProfileError[];
+  partialSuccess: boolean;
+}

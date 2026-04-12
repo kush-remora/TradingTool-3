@@ -1,5 +1,7 @@
 # TradingTool-3 UI Design Philosophy
 
+For all Remora-related screens, this file should be read together with [docs/strategies/remora-philosophy.md](/Users/kushbhardwaj/Documents/github/TradingTool-3/docs/strategies/remora-philosophy.md). The UI is not just presenting market data; it should express the institutional-footprint philosophy behind the strategy.
+
 ## The "Groww" Inspiration: Simple, Compact, Data-Dense
 
 When designing or updating the UI for TradingTool-3, we draw heavy inspiration from platforms like Groww, which balance the need for detailed financial data with a clean, uncluttered, and approachable aesthetic. We want our trading tool to feel more like a streamlined e-commerce platform than a disjointed terminal wrapper.
@@ -25,3 +27,14 @@ When designing or updating the UI for TradingTool-3, we draw heavy inspiration f
    - Modals and Drawers should slide in without jarring context switches, allowing users to enter trade details while keeping an eye on the background data.
 
 By adhering to these principles, TradingTool-3 will provide an expert-level trading experience in a visually accessible package.
+
+## Remora-Specific UI Rule
+
+When building Remora UI, prioritize clarity around:
+
+1. footprint detection,
+2. breakout confirmation,
+3. readiness to act,
+4. and why a stock is not yet actionable.
+
+If a screen shows numbers without helping the user understand those four things, the screen is incomplete.

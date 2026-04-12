@@ -2,6 +2,7 @@ package com.tradingtool.resources
 
 import com.google.inject.Inject
 import com.tradingtool.core.di.ResourceScope
+import com.tradingtool.core.strategy.s4.S4Service
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumService
 import com.tradingtool.resources.common.endpoint
 import com.tradingtool.resources.common.ok
@@ -17,6 +18,7 @@ import java.util.concurrent.CompletableFuture
 @Produces(MediaType.APPLICATION_JSON)
 class StrategyResource @Inject constructor(
     private val rsiMomentumService: RsiMomentumService,
+    private val s4Service: S4Service,
     resourceScope: ResourceScope,
 ) {
     private val ioScope = resourceScope.ioScope
@@ -32,5 +34,16 @@ class StrategyResource @Inject constructor(
     fun refreshRsiMomentum(): CompletableFuture<Response> = ioScope.endpoint {
         ok(rsiMomentumService.refreshLatest())
     }
-}
 
+    @GET
+    @Path("/s4/latest")
+    fun getLatestS4(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(s4Service.getLatest())
+    }
+
+    @POST
+    @Path("/s4/refresh")
+    fun refreshS4(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(s4Service.refreshLatest())
+    }
+}

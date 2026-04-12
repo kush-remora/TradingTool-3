@@ -141,3 +141,21 @@ Responsibilities:
 - **Simplicity First**: Make every change as simple as possible. Impact minimal code.
 - **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
 - **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
+
+## Remora Philosophy
+
+For any Remora-related feature, treat [docs/strategies/remora-philosophy.md](docs/strategies/remora-philosophy.md) as a core design constraint.
+
+This applies to:
+- UI creation
+- backend design
+- data modeling
+- feature naming
+- trade workflow decisions
+
+The key idea:
+- we are not trying to predict in isolation,
+- we are trying to detect institutional footprints,
+- then wait for breakout confirmation before acting.
+
+If a change makes Remora feel like a generic scanner or a raw data dump, it is drifting away from the intended philosophy.

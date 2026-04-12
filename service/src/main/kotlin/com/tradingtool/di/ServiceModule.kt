@@ -39,6 +39,8 @@ import com.tradingtool.core.screener.WeeklyPatternService
 import com.tradingtool.core.strategy.remora.RemoraService
 import com.tradingtool.core.strategy.remora.RemoraSignalReadDao
 import com.tradingtool.core.strategy.remora.RemoraSignalWriteDao
+import com.tradingtool.core.strategy.s4.S4ConfigService
+import com.tradingtool.core.strategy.s4.S4Service
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumConfigService
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumService
 import com.tradingtool.core.stock.service.StockDetailService
@@ -141,6 +143,10 @@ class ServiceModule(
 
     @Provides
     @Singleton
+    fun provideS4ConfigService(): S4ConfigService = S4ConfigService()
+
+    @Provides
+    @Singleton
     fun provideRsiMomentumService(
         configService: RsiMomentumConfigService,
         candleHandler: CandleJdbiHandler,
@@ -152,6 +158,23 @@ class ServiceModule(
         configService = configService,
         candleHandler = candleHandler,
         stockHandler = stockHandler,
+        redis = redis,
+        kiteClient = kiteClient,
+        instrumentCache = instrumentCache,
+        indicatorConfig = IndicatorConfig.DEFAULT,
+    )
+
+    @Provides
+    @Singleton
+    fun provideS4Service(
+        configService: S4ConfigService,
+        candleHandler: CandleJdbiHandler,
+        redis: RedisHandler,
+        kiteClient: KiteConnectClient,
+        instrumentCache: InstrumentCache,
+    ): S4Service = S4Service(
+        configService = configService,
+        candleHandler = candleHandler,
         redis = redis,
         kiteClient = kiteClient,
         instrumentCache = instrumentCache,
