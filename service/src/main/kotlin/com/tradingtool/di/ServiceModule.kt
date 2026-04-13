@@ -11,6 +11,7 @@ import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.database.KiteTokenJdbiHandler
 import com.tradingtool.core.database.RedisHandler
 import com.tradingtool.core.database.RemoraJdbiHandler
+import com.tradingtool.core.database.RsiMomentumSnapshotJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
 import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.di.ResourceScope
@@ -44,8 +45,12 @@ import com.tradingtool.core.strategy.remora.RemoraSignalReadDao
 import com.tradingtool.core.strategy.remora.RemoraSignalWriteDao
 import com.tradingtool.core.strategy.s4.S4ConfigService
 import com.tradingtool.core.strategy.s4.S4Service
+import com.tradingtool.core.strategy.rsimomentum.RsiMomentumBackfillService
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumConfigService
+import com.tradingtool.core.strategy.rsimomentum.RsiMomentumHistoryService
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumService
+import com.tradingtool.core.strategy.rsimomentum.dao.RsiMomentumSnapshotReadDao
+import com.tradingtool.core.strategy.rsimomentum.dao.RsiMomentumSnapshotWriteDao
 import com.tradingtool.core.stock.service.StockDetailService
 import com.tradingtool.core.stock.service.StockService
 import com.tradingtool.core.telegram.TelegramApiClient
@@ -160,6 +165,7 @@ class ServiceModule(
         redis: RedisHandler,
         kiteClient: KiteConnectClient,
         instrumentCache: InstrumentCache,
+        snapshotHandler: RsiMomentumSnapshotJdbiHandler,
     ): RsiMomentumService = RsiMomentumService(
         configService = configService,
         candleHandler = candleHandler,
@@ -167,7 +173,31 @@ class ServiceModule(
         redis = redis,
         kiteClient = kiteClient,
         instrumentCache = instrumentCache,
+        snapshotHandler = snapshotHandler,
         indicatorConfig = IndicatorConfig.DEFAULT,
+    )
+
+    @Provides @Singleton
+    fun provideRsiMomentumSnapshotJdbiHandler(config: DatabaseConfig): RsiMomentumSnapshotJdbiHandler =
+        handler<RsiMomentumSnapshotReadDao, RsiMomentumSnapshotWriteDao>(config)
+
+    @Provides @Singleton
+    fun provideRsiMomentumHistoryService(snapshotHandler: RsiMomentumSnapshotJdbiHandler): RsiMomentumHistoryService =
+        RsiMomentumHistoryService(snapshotHandler)
+
+    @Provides @Singleton
+    fun provideRsiMomentumBackfillService(
+        configService: RsiMomentumConfigService,
+        candleHandler: CandleJdbiHandler,
+        stockHandler: StockJdbiHandler,
+        snapshotHandler: RsiMomentumSnapshotJdbiHandler,
+        instrumentCache: InstrumentCache,
+    ): RsiMomentumBackfillService = RsiMomentumBackfillService(
+        configService = configService,
+        candleHandler = candleHandler,
+        stockHandler = stockHandler,
+        snapshotHandler = snapshotHandler,
+        instrumentCache = instrumentCache,
     )
 
     @Provides

@@ -6,6 +6,7 @@ import com.tradingtool.core.config.ConfigLoader
 import com.tradingtool.core.config.IndicatorConfig
 import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.database.RedisHandler
+import com.tradingtool.core.database.RsiMomentumSnapshotJdbiHandler
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConfig
 import com.tradingtool.core.kite.KiteConnectClient
@@ -14,6 +15,8 @@ import com.tradingtool.core.kite.KiteTokenWriteDao
 import com.tradingtool.core.model.DatabaseConfig
 import com.tradingtool.core.stock.dao.StockReadDao
 import com.tradingtool.core.stock.dao.StockWriteDao
+import com.tradingtool.core.strategy.rsimomentum.dao.RsiMomentumSnapshotReadDao
+import com.tradingtool.core.strategy.rsimomentum.dao.RsiMomentumSnapshotWriteDao
 import java.io.Closeable
 
 class RsiMomentumRuntime private constructor(
@@ -39,6 +42,7 @@ class RsiMomentumRuntime private constructor(
                 redis = redisHandler,
                 kiteClient = kiteClient,
                 instrumentCache = InstrumentCache(),
+                snapshotHandler = buildHandler<RsiMomentumSnapshotReadDao, RsiMomentumSnapshotWriteDao>(databaseConfig),
                 indicatorConfig = IndicatorConfig.DEFAULT,
             )
 

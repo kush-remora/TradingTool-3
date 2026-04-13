@@ -88,6 +88,19 @@ interface CandleReadDao {
 
     @SqlQuery(
         """
+        SELECT DISTINCT candle_date
+        FROM public.${Tables.DAILY_CANDLES}
+        WHERE candle_date BETWEEN :from AND :to
+        ORDER BY candle_date
+        """
+    )
+    fun getDistinctTradingDates(
+        @Bind("from") from: LocalDate,
+        @Bind("to") to: LocalDate,
+    ): List<LocalDate>
+
+    @SqlQuery(
+        """
         SELECT * FROM public.${Tables.INTRADAY_CANDLES}
         WHERE instrument_token = :token
           AND interval = :interval

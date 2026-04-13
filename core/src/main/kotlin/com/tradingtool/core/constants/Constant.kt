@@ -12,6 +12,7 @@ object DatabaseConstants {
         const val DAILY_CANDLES = "daily_candles"
         const val INTRADAY_CANDLES = "intraday_candles"
         const val STOCK_DELIVERY_DAILY = "stock_delivery_daily"
+        const val RSI_MOMENTUM_SNAPSHOT_DAILY = "rsi_momentum_snapshot_daily"
     }
 
     object KiteTokenColumns {

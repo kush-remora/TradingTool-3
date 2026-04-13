@@ -8,6 +8,7 @@ import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.config.IndicatorConfig
 import com.tradingtool.core.database.CandleJdbiHandler
 import com.tradingtool.core.database.RedisHandler
+import com.tradingtool.core.database.RsiMomentumSnapshotJdbiHandler
 import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConnectClient
@@ -33,6 +34,7 @@ import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.Date
@@ -45,6 +47,7 @@ class RsiMomentumService @Inject constructor(
     private val redis: RedisHandler,
     private val kiteClient: KiteConnectClient,
     private val instrumentCache: InstrumentCache,
+    private val snapshotHandler: RsiMomentumSnapshotJdbiHandler,
     private val indicatorConfig: IndicatorConfig = IndicatorConfig.DEFAULT,
 ) {
     private val log = LoggerFactory.getLogger(RsiMomentumService::class.java)
@@ -186,6 +189,27 @@ class RsiMomentumService @Inject constructor(
             mapper.writeValueAsString(response),
             SNAPSHOT_TTL_SECONDS,
         )
+
+        // Persist daily snapshot for each successfully refreshed profile
+        for (snapshot in snapshots) {
+            val asOfDate = snapshot.asOfDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            val runAt = snapshot.runAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
+            if (asOfDate != null && runAt != null && snapshot.available) {
+                runCatching {
+                    val snapshotJson = mapper.writeValueAsString(snapshot)
+                    snapshotHandler.write { dao ->
+                        dao.upsert(
+                            profileId = snapshot.profileId,
+                            asOfDate = asOfDate,
+                            runAt = OffsetDateTime.ofInstant(runAt, ist),
+                            snapshotJson = snapshotJson,
+                        )
+                    }
+                }.onFailure { e ->
+                    log.warn("Failed to persist daily snapshot for profile={} date={}: {}", snapshot.profileId, asOfDate, e.message)
+                }
+            }
+        }
 
         val failedProfileIds = errors.map { error -> error.profileId }
         log.info(

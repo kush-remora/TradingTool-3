@@ -325,3 +325,35 @@ These tracks should land as reusable data pipelines and Postgres-backed datasets
 - Current repo already contains NSE-based delivery ingestion and a delivery history table, but it is tailored to the existing half-built Remora path and should be treated as a starting point, not the final foundation.
 - Corrected earlier planning mistake: the target is not Power Copy specifically; it is bhav copy or another trustworthy daily delivery source.
 - No code implementation started yet for redesigned delivery ingestion or fundamentals.
+
+---
+
+# Implementation Plan: RSI Momentum V1 — Daily Snapshot History + Backtest + Lifecycle
+
+## Overview
+Persist RSI momentum snapshots by day, run a 3-month point-in-time backtest with daily rebalancing, and add lifecycle analytics for top-10 rank tenure. Ships backend + UI tabs inside the existing RSI Momentum screen.
+
+## Implementation Steps
+
+### Backend
+- [ ] 1. Add `rsi_momentum_snapshot_daily` table DDL to `tables.sql` and `DatabaseConstants`.
+- [ ] 2. Add `RsiMomentumSnapshotDailyRecord` data class and DAO (read + write) with JDBI annotations.
+- [ ] 3. Add `RsiMomentumSnapshotJdbiHandler` typealias and wire in `ServiceModule`.
+- [ ] 4. Extend `RsiMomentumService.refreshLatest()` to upsert daily snapshot row after Redis write.
+- [ ] 5. Add `RsiMomentumHistoryService` with history queries, backtest engine, and lifecycle engine.
+- [ ] 6. Add new response models: `BacktestResult`, `LifecycleEpisode`, `LifecycleSummary`, `LifecycleSymbolDetail`.
+- [ ] 7. Add 5 new endpoints to `StrategyResource`.
+
+### Frontend
+- [ ] 8. Add new TypeScript types for history, backtest, lifecycle.
+- [ ] 9. Add `useRsiMomentumBacktest` and `useRsiMomentumLifecycle` hooks.
+- [ ] 10. Add `BacktestTab` component (KPI cards, equity+drawdown SVG, trade log table).
+- [ ] 11. Add `LifecycleTab` component (symbol picker, rank timeline, episode table, cohort summary).
+- [ ] 12. Wire both tabs into `RsiMomentumProfilePanel`.
+
+### Tests
+- [ ] 13. Backend unit tests: snapshot DAO, backtest engine, lifecycle engine.
+- [ ] 14. Frontend hook tests: backtest + lifecycle API flows.
+
+## Review
+- Pending implementation.

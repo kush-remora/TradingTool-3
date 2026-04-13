@@ -448,6 +448,126 @@ export interface RsiMomentumMultiSnapshot {
   partialSuccess: boolean;
 }
 
+// ─── RSI Momentum History ────────────────────────────────────────────────────
+
+export interface RsiMomentumHistoryEntry {
+  profileId: string;
+  asOfDate: string;
+  runAt: string;
+  snapshot: RsiMomentumSnapshot;
+}
+
+// ─── RSI Momentum Backtest ───────────────────────────────────────────────────
+
+export interface StatefulBacktestConfig {
+  enabled: boolean;
+  entryRankMax: number;
+  takeProfitRank: number;
+  exitOnTakeProfitLeave: boolean;
+  giveUpRankMin: number;
+}
+
+export interface StockTrade {
+  symbol: string;
+  companyName: string;
+  entryDate: string;
+  entryPrice: number;
+  entryRank: number;
+  entryAvgRsi: number;
+  exitDate: string | null;
+  exitPrice: number | null;
+  exitRank: number | null;
+  exitAvgRsi: number | null;
+  daysHeld: number;
+  returnPct: number | null;
+  status: "CLOSED" | "OPEN";
+}
+
+export interface BacktestSummary {
+  totalTrades: number;
+  closedTrades: number;
+  openPositions: number;
+  winRate: number | null;
+  avgReturnPct: number | null;
+  avgDaysHeld: number;
+  totalTurnover: number;
+}
+
+export interface BacktestRequest {
+  profileId: string;
+  fromDate?: string;
+  toDate?: string;
+  initialCapital?: number;
+  transactionCostBps?: number;
+  topN?: number;
+  statefulConfig?: StatefulBacktestConfig;
+}
+
+export interface BacktestResult {
+  profileId: string;
+  fromDate: string;
+  toDate: string;
+  topN: number | null;
+  statefulConfig: StatefulBacktestConfig | null;
+  snapshotDaysUsed: number;
+  summary: BacktestSummary;
+  trades: StockTrade[];
+}
+
+// ─── RSI Momentum Lifecycle ──────────────────────────────────────────────────
+
+export interface RankTimelinePoint {
+  date: string;
+  rank: number | null;
+  inTop10: boolean;
+  price: number | null;
+  avgRsi: number | null;
+}
+
+export interface LifecycleEpisode {
+  symbol: string;
+  entryDate: string;
+  exitDate: string | null;
+  daysInTop10: number;
+  bestRank: number;
+  bestRankDate: string;
+  exitReason: "DROPPED_OUT" | "END_OF_WINDOW" | null;
+  rankTimeline: RankTimelinePoint[];
+}
+
+export interface MultiSymbolHistoryResponse {
+  profileId: string;
+  fromDate: string;
+  toDate: string;
+  symbols: string[];
+  timelines: Record<string, RankTimelinePoint[]>;
+}
+
+export interface RankBucketTransition {
+  from: string;
+  to: string;
+  count: number;
+}
+
+export interface LifecycleSummary {
+  profileId: string;
+  fromDate: string;
+  toDate: string;
+  totalEpisodes: number;
+  avgDaysInTop10: number;
+  medianDaysInTop10: number;
+  shortStayChurnRate: number;
+  rankBucketTransitions: RankBucketTransition[];
+}
+
+export interface LifecycleSymbolDetail {
+  profileId: string;
+  symbol: string;
+  fromDate: string;
+  toDate: string;
+  episodes: LifecycleEpisode[];
+}
+
 // ==================== S4 Volume Spike Strategy ====================
 
 export interface S4ConfigSummary {

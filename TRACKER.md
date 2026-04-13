@@ -24,7 +24,8 @@ This file tracks active, pending, and completed features.
 
 ## ✅ Completed Features
 * **Watchlist Refactoring** (2026-04-06): Transitioned to pre-defined tagging system from `watchlist_config.json`.
-
+* **RSI Momentum V1** (2026-04-14): Daily snapshots, history, backtesting with buffer exits, and lifecycle analytics.
+* **RSI Momentum V1.1** (2026-04-14): Stateful Rank-Based Backtesting and Multi-Symbol comparison view.
 
 ---
 

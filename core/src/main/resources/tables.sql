@@ -170,3 +170,20 @@ CREATE INDEX IF NOT EXISTS idx_intraday_candles_symbol   ON public.intraday_cand
 CREATE INDEX IF NOT EXISTS idx_stock_delivery_daily_trading_date ON public.stock_delivery_daily (trading_date DESC);
 CREATE INDEX IF NOT EXISTS idx_stock_delivery_daily_symbol_date ON public.stock_delivery_daily (symbol, trading_date DESC);
 CREATE INDEX IF NOT EXISTS idx_stock_delivery_daily_stock_id_date ON public.stock_delivery_daily (stock_id, trading_date DESC);
+
+-- RSI Momentum daily snapshots: point-in-time replay store keyed by (profile_id, as_of_date).
+-- snapshot_json stores the full RsiMomentumSnapshot payload for that profile/date.
+-- run_at is the wall-clock time the refresh ran; as_of_date is the last candle date used.
+CREATE TABLE IF NOT EXISTS public.
+(
+    profile_id    TEXT NOT NULL,
+    as_of_date    DATE NOT NULL,
+    run_at        TIMESTAMPTZ NOT NULL,
+    snapshot_json JSONB NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (profile_id, as_of_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rsi_momentum_snapshot_daily_profile_date
+    ON public.rsi_momentum_snapshot_daily (profile_id, as_of_date DESC);
