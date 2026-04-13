@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "source": "SCREENER",
+  "request_delay_ms": 1200,
+  "universe": {
+    "preset_names": [
+      "NIFTY_LARGEMIDCAP_250",
+      "NIFTY_SMALLCAP_250"
+    ],
+    "include_watchlist": true
+  }
+}

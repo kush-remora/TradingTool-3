@@ -11,11 +11,16 @@ class ScreenerFundamentalsSourceAdapter @Inject constructor(
 ) {
     suspend fun fetchCompanyPage(symbol: String): Result<String> {
         val normalizedSymbol = symbol.trim().uppercase()
-        val url = "$BASE_URL/company/$normalizedSymbol/consolidated/"
+        val url = buildCompanyPageUrl(normalizedSymbol)
         return httpClient.get(
             url = url,
             headers = DEFAULT_HEADERS,
         )
+    }
+
+    fun buildCompanyPageUrl(symbol: String): String {
+        val normalizedSymbol = symbol.trim().uppercase()
+        return "$BASE_URL/company/$normalizedSymbol/consolidated/"
     }
 
     companion object {

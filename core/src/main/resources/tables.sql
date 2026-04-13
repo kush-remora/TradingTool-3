@@ -69,6 +69,32 @@ CREATE TABLE IF NOT EXISTS public.stock_indicators_snapshot (
 
 CREATE INDEX IF NOT EXISTS idx_stock_indicators_computed ON public.stock_indicators_snapshot(computed_at DESC);
 
+-- Stock fundamentals: daily snapshot of validated Screener fundamentals
+CREATE TABLE IF NOT EXISTS public.stock_fundamentals_daily (
+    stock_id BIGINT REFERENCES public.stocks(id),
+    instrument_token BIGINT NOT NULL,
+    symbol TEXT NOT NULL,
+    exchange TEXT NOT NULL,
+    universe TEXT NOT NULL CHECK (universe IN ('largemidcap250', 'smallcap250', 'watchlist')),
+    snapshot_date DATE NOT NULL,
+    company_name TEXT NOT NULL,
+    market_cap_cr NUMERIC(18, 2),
+    stock_pe NUMERIC(12, 2),
+    roce_percent NUMERIC(8, 2),
+    roe_percent NUMERIC(8, 2),
+    promoter_holding_percent NUMERIC(8, 2),
+    broad_industry TEXT,
+    industry TEXT,
+    source_name TEXT NOT NULL,
+    source_url TEXT NOT NULL,
+    fetched_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (instrument_token, snapshot_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_stock_fundamentals_daily_snapshot_date ON public.stock_fundamentals_daily (snapshot_date DESC);
+CREATE INDEX IF NOT EXISTS idx_stock_fundamentals_daily_symbol_date ON public.stock_fundamentals_daily (symbol, snapshot_date DESC);
+CREATE INDEX IF NOT EXISTS idx_stock_fundamentals_daily_stock_id_date ON public.stock_fundamentals_daily (stock_id, snapshot_date DESC);
+
 -- Remora Strategy: stores one row per stock per day a signal fires.
 -- Only inserted when consecutiveDays >= 2, so this is a sparse audit log.
 CREATE TABLE IF NOT EXISTS public.remora_signals (

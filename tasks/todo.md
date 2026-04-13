@@ -1,3 +1,20 @@
+# Implementation Plan: RSI Momentum Daily Refresh + Top-10 Immediate Exit
+
+## Overview
+Switch RSI momentum refresh from Friday-only to weekday-daily and align rebalance exits to top-10 membership so dropped names are exited on the next daily run.
+
+## Implementation Steps
+- [x] Update `.github/workflows/rsi-momentum-weekly-refresh.yml` cron from Friday-only to Monday-Friday daily at 15:40 IST.
+- [x] Update `rsi_momentum_config.json` profiles to use `candidateCount = 10` (same as `holdingCount`) for immediate top-10 exits.
+- [x] Run a focused verification check and record outcomes.
+
+## Review
+- Workflow now runs weekday-daily at 15:40 IST (`10:10 UTC`) instead of Friday-only.
+- RSI momentum profile rebalance buffer is now top-10 aligned (`candidateCount = 10`, `holdingCount = 10`) for both `largemidcap250` and `smallcap250`.
+- Verification: `mvn -pl cron-job -DskipTests compile --no-transfer-progress` passed.
+
+---
+
 # Implementation Plan: S4 Tiered Volume Spike Multi-Cap Momentum Filter
 
 ## Overview
@@ -171,6 +188,24 @@ Ship a standalone cron job that performs the same delivery reconciliation flow u
   - `largemidcap250`
   - `smallcap250`
   - `watchlist` for watchlist-only additions that are not part of either preset universe
+
+---
+
+# Implementation Plan: Screener Fundamentals Persistence
+
+## Overview
+Persist validated Screener fundamentals into Postgres as a daily snapshot history for the same configured universe used by delivery.
+
+## Implementation Steps
+- [ ] Add `fundamentals_config.json` with the V1 Screener source, universe, and request delay.
+- [ ] Add fundamentals DAO/JDBI persistence support for `stock_fundamentals_daily`.
+- [ ] Add a fundamentals refresh service that resolves the configured universe, fetches Screener snapshots, and upserts daily rows.
+- [ ] Add a standalone `FundamentalsRefreshJob` with report artifacts and Telegram lifecycle alerts.
+- [ ] Add focused tests for config loading, row mapping, and refresh report tolerance behavior.
+- [ ] Run targeted tests/compile checks and record review notes.
+
+## Review
+- Pending implementation.
 
 ---
 

@@ -1,0 +1,39 @@
+{
+  "requestedSymbolsOverride" : [ "INFY", "RELIANCE", "TCS" ],
+  "snapshotDate" : "2026-04-14",
+  "expectedSymbolCount" : 3,
+  "storedRowCount" : 3,
+  "successfulCount" : 3,
+  "failedCount" : 0,
+  "nullableStockIdCount" : 3,
+  "watchlistLinkedCount" : 0,
+  "nonWatchlistCount" : 3,
+  "blockingIssues" : [ ],
+  "warningIssues" : [ ],
+  "storedSamples" : [ {
+    "instrumentToken" : 408065,
+    "symbol" : "INFY",
+    "stockId" : null,
+    "universe" : "LARGEMIDCAP_250",
+    "marketCapCr" : 517882.0,
+    "stockPe" : 18.0,
+    "promoterHoldingPercent" : 14.52
+  }, {
+    "instrumentToken" : 738561,
+    "symbol" : "RELIANCE",
+    "stockId" : null,
+    "universe" : "LARGEMIDCAP_250",
+    "marketCapCr" : 1779721.0,
+    "stockPe" : 23.2,
+    "promoterHoldingPercent" : 50.0
+  }, {
+    "instrumentToken" : 2953217,
+    "symbol" : "TCS",
+    "stockId" : null,
+    "universe" : "LARGEMIDCAP_250",
+    "marketCapCr" : 894591.0,
+    "stockPe" : 17.0,
+    "promoterHoldingPercent" : 71.77
+  } ],
+  "failureSamples" : [ ]
+}
