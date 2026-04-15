@@ -121,3 +121,15 @@ data class MultiSymbolHistoryResponse(
     val symbols: List<String>,
     val timelines: Map<String, List<RankTimelinePoint>>,
 )
+
+data class EquityCurvePoint(
+    val date: String,
+    val strategyValue: Double,
+    val benchmarkValue: Double?,
+)
+
+data class DrawdownPoint(
+    val date: String,
+    val strategyDrawdownPct: Double,
+    val benchmarkDrawdownPct: Double?,
+)

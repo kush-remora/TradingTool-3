@@ -29,6 +29,9 @@ data class WeeklyPatternResult(
     val buyDayLowMax: Double,
     val currentRsiStatus: AdaptiveRsiStatus? = null,
     val targetRecommendation: TargetRecommendation? = null,
+    val vcpTightnessPct: Double? = null,
+    val volumeSignatureRatio: Double? = null,
+    val mondayStrikeRatePct: Double? = null,
 )
 
 /** Response envelope for GET /api/screener/weekly-pattern — adds run metadata. */
@@ -117,6 +120,9 @@ data class WeeklyPatternDetail(
     val reason: String? = null,
     val buyDayLowMin: Double,
     val buyDayLowMax: Double,
+    val vcpTightnessPct: Double? = null,
+    val volumeSignatureRatio: Double? = null,
+    val mondayStrikeRatePct: Double? = null,
     val dayOfWeekProfile: List<DayProfile>,
     val autocorrelation: AutocorrelationResult,
     val patternSummary: String,

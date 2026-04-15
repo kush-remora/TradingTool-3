@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, DatePicker, Row, Select, Space, Spin, Statistic, Table, Tag, Typography, Switch, InputNumber, Checkbox } from "antd";
+import { Alert, Button, Card, Col, DatePicker, Row, Select, Space, Spin, Statistic, Table, Tag, Typography, Switch, InputNumber, Checkbox, Input } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import { useState } from "react";
@@ -140,10 +140,12 @@ export function BacktestTab({ profileId }: { profileId: string }) {
   
   // Stateful config states
   const [useStateful, setUseStateful] = useState(false);
+  const [useJsonMode, setUseJsonMode] = useState(false);
   const [entryRankMax, setEntryRankMax] = useState(20);
   const [takeProfitRank, setTakeProfitRank] = useState(1);
   const [exitOnPeakLoss, setExitOnPeakLoss] = useState(true);
   const [giveUpRankMin, setGiveUpRankMin] = useState(25);
+  const [rawJson, setRawJson] = useState("");
 
   const [preparing, setPreparing] = useState(false);
   const [prepareResult, setPrepareResult] = useState<string | null>(null);
@@ -170,13 +172,25 @@ export function BacktestTab({ profileId }: { profileId: string }) {
   };
 
   const handleRun = () => {
-    const statefulConfig: StatefulBacktestConfig | undefined = useStateful ? {
-      enabled: true,
-      entryRankMax,
-      takeProfitRank,
-      exitOnTakeProfitLeave: exitOnPeakLoss,
-      giveUpRankMin
-    } : undefined;
+    let statefulConfig: StatefulBacktestConfig | undefined = undefined;
+
+    if (useStateful) {
+      if (useJsonMode) {
+        try {
+          statefulConfig = JSON.parse(rawJson);
+        } catch (e) {
+          return alert("Invalid JSON format in configuration.");
+        }
+      } else {
+        statefulConfig = {
+          enabled: true,
+          entryRankMax,
+          takeProfitRank,
+          exitOnTakeProfitLeave: exitOnPeakLoss,
+          giveUpRankMin
+        };
+      }
+    }
 
     void run({
       profileId,
@@ -185,6 +199,18 @@ export function BacktestTab({ profileId }: { profileId: string }) {
       topN: !useStateful && topN > 0 ? topN : undefined,
       statefulConfig
     });
+  };
+
+  const syncJsonFromForm = () => {
+    const cfg = {
+      enabled: true,
+      entryRankMax,
+      takeProfitRank,
+      exitOnTakeProfitLeave: exitOnPeakLoss,
+      giveUpRankMin
+    };
+    setRawJson(JSON.stringify(cfg, null, 2));
+    setUseJsonMode(true);
   };
 
   return (
@@ -223,32 +249,60 @@ export function BacktestTab({ profileId }: { profileId: string }) {
               />
             </Space>
           ) : (
-            <Card size="small" styles={{ body: { background: "#fafafa" } }} title="Rank-Based Strategy Rules">
-              <Row gutter={[24, 12]}>
-                <Col>
-                  <Space direction="vertical" size={4}>
-                    <Typography.Text type="secondary">Entry Rank Limit (<=)</Typography.Text>
-                    <InputNumber min={1} max={40} value={entryRankMax} onChange={v => setEntryRankMax(v || 20)} />
+            <Card 
+              size="small" 
+              styles={{ body: { background: "#fafafa" } }} 
+              title={
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span>Rank-Based Strategy Rules</span>
+                  <Space>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>JSON Mode</Typography.Text>
+                    <Switch size="small" checked={useJsonMode} onChange={setUseJsonMode} />
                   </Space>
-                </Col>
-                <Col>
-                  <Space direction="vertical" size={4}>
-                    <Typography.Text type="secondary">Peak Rank Goal</Typography.Text>
-                    <InputNumber min={1} max={10} value={takeProfitRank} onChange={v => setTakeProfitRank(v || 1)} />
-                  </Space>
-                </Col>
-                <Col>
-                  <Space direction="vertical" size={4}>
-                    <Typography.Text type="secondary">Give Up Rank Threshold (> )</Typography.Text>
-                    <InputNumber min={5} max={100} value={giveUpRankMin} onChange={v => setGiveUpRankMin(v || 25)} />
-                  </Space>
-                </Col>
-                <Col style={{ alignSelf: "end", marginBottom: 8 }}>
-                  <Checkbox checked={exitOnPeakLoss} onChange={e => setExitOnPeakLoss(e.target.checked)}>
-                    Exit ONLY when leaving Peak Rank
-                  </Checkbox>
-                </Col>
-              </Row>
+                </div>
+              }
+            >
+              {!useJsonMode ? (
+                <Row gutter={[24, 12]}>
+                  <Col>
+                    <Space direction="vertical" size={4}>
+                      <Typography.Text type="secondary">{"Entry Rank Limit (≤)"}</Typography.Text>
+                      <InputNumber min={1} max={40} value={entryRankMax} onChange={v => setEntryRankMax(v || 20)} />
+                    </Space>
+                  </Col>
+                  <Col>
+                    <Space direction="vertical" size={4}>
+                      <Typography.Text type="secondary">Peak Rank Goal</Typography.Text>
+                      <InputNumber min={1} max={10} value={takeProfitRank} onChange={v => setTakeProfitRank(v || 1)} />
+                    </Space>
+                  </Col>
+                  <Col>
+                    <Space direction="vertical" size={4}>
+                      <Typography.Text type="secondary">{"Give Up Rank Threshold (>)"}</Typography.Text>
+                      <InputNumber min={5} max={100} value={giveUpRankMin} onChange={v => setGiveUpRankMin(v || 25)} />
+                    </Space>
+                  </Col>
+                  <Col style={{ alignSelf: "end", marginBottom: 8 }}>
+                    <Checkbox checked={exitOnPeakLoss} onChange={e => setExitOnPeakLoss(e.target.checked)}>
+                      Exit ONLY when leaving Peak Rank
+                    </Checkbox>
+                  </Col>
+                  <Col style={{ alignSelf: "end", marginBottom: 8 }}>
+                    <Button size="small" onClick={syncJsonFromForm}>View as JSON</Button>
+                  </Col>
+                </Row>
+              ) : (
+                <Space direction="vertical" style={{ width: "100%" }}>
+                  <Typography.Text type="secondary">Paste strategy configuration JSON here (from rsi_backtest_configs.json):</Typography.Text>
+                  <Input.TextArea 
+                    rows={6} 
+                    value={rawJson} 
+                    onChange={e => setRawJson(e.target.value)}
+                    placeholder='{ "enabled": true, "entryRankMax": 20, ... }'
+                  />
+                  <Button size="small" onClick={() => setUseJsonMode(false)}>Back to Form</Button>
+                </Space>
+              )}
             </Card>
           )}
 

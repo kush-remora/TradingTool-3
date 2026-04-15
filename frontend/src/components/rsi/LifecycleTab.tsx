@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, DatePicker, Row, Select, Space, Spin, Statistic, Table, Tag, Typography } from "antd";
+import { Alert, Button, Card, Col, DatePicker, Row, Select, Space, Spin, Statistic, Table, Tag, Typography, Tooltip } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
@@ -374,10 +374,3 @@ export function LifecycleTab({
   );
 }
 
-// Internal SVG Tooltip wrapper to avoid extra dependency if possible
-function Tooltip({ children, title }: { children: React.ReactNode, title: React.ReactNode }) {
-   // Simplified version using title attribute for browser default if antd Tooltip has issues inside SVG
-   // but since antd Tooltip works on children, we just use it.
-   const { Tooltip: AntdTooltip } = require('antd');
-   return <AntdTooltip title={title}>{children}</AntdTooltip>;
-}

@@ -147,6 +147,28 @@ class WeeklyPatternService(
         val avgPotential = bestPair.allWeeks.mapNotNull { it.maxPotentialPct }.average().roundTo2()
         val targetRecommendation = analysis.targetRecommendation
 
+        val vcpTightness = if (analysisWeeks.size >= 4) {
+            analysisWeeks.takeLast(4).map { week ->
+                val low = week.dailyCandles.values.minOf { it.low }
+                val high = week.dailyCandles.values.maxOf { it.high }
+                if (low > 0) ((high - low) / low) * 100.0 else 0.0
+            }.average().roundTo2()
+        } else null
+
+        val upVol = analysisWeeks.flatMap { it.dailyCandles.values }.filter { it.close > it.open }.sumOf { it.volume }.toDouble()
+        val downVol = analysisWeeks.flatMap { it.dailyCandles.values }.filter { it.close < it.open }.sumOf { it.volume }.toDouble()
+        val volumeSignature = if (downVol > 0) (upVol / downVol).roundTo2() else 1.0
+
+        val mondayWeeks = analysisWeeks.filter { it.dailyCandles.containsKey(DayOfWeek.MONDAY.value) }
+        val mondayStrikeRate = if (mondayWeeks.isNotEmpty()) {
+            val successes = mondayWeeks.count { week ->
+                val entry = week.dailyCandles[DayOfWeek.MONDAY.value]!!.open
+                val weekHigh = week.dailyCandles.values.maxOf { it.high }
+                weekHigh >= (entry * 1.05)
+            }
+            (successes.toDouble() / mondayWeeks.size * 100.0).roundTo2()
+        } else 0.0
+
         val latestDate = allYearCandles.last().candleDate
         val latestRsi = rsiMap[latestDate] ?: rsiMap.values.lastOrNull()
         val currentRsiStatus = if (latestRsi != null) {
@@ -184,6 +206,9 @@ class WeeklyPatternService(
             buyDayLowMax = maxLow.roundTo2(),
             currentRsiStatus = currentRsiStatus,
             targetRecommendation = targetRecommendation,
+            vcpTightnessPct = vcpTightness,
+            volumeSignatureRatio = volumeSignature,
+            mondayStrikeRatePct = mondayStrikeRate,
         )
     }
 
@@ -785,6 +810,28 @@ class WeeklyPatternService(
 
         val avgPotential = bestPair.allWeeks.mapNotNull { it.maxPotentialPct }.average().roundTo2()
 
+        val vcpTightness = if (analysisWeeks.size >= 4) {
+            analysisWeeks.takeLast(4).map { week ->
+                val low = week.dailyCandles.values.minOf { it.low }
+                val high = week.dailyCandles.values.maxOf { it.high }
+                if (low > 0) ((high - low) / low) * 100.0 else 0.0
+            }.average().roundTo2()
+        } else null
+
+        val upVol = analysisWeeks.flatMap { it.dailyCandles.values }.filter { it.close > it.open }.sumOf { it.volume }.toDouble()
+        val downVol = analysisWeeks.flatMap { it.dailyCandles.values }.filter { it.close < it.open }.sumOf { it.volume }.toDouble()
+        val volumeSignature = if (downVol > 0) (upVol / downVol).roundTo2() else 1.0
+
+        val mondayWeeks = analysisWeeks.filter { it.dailyCandles.containsKey(DayOfWeek.MONDAY.value) }
+        val mondayStrikeRate = if (mondayWeeks.isNotEmpty()) {
+            val successes = mondayWeeks.count { week ->
+                val entry = week.dailyCandles[DayOfWeek.MONDAY.value]!!.open
+                val weekHigh = week.dailyCandles.values.maxOf { it.high }
+                weekHigh >= (entry * 1.05)
+            }
+            (successes.toDouble() / mondayWeeks.size * 100.0).roundTo2()
+        } else 0.0
+
         val heatmap = bestPair.allWeeks.mapIndexed { idx, w ->
             fun getOpenClosePct(day: Int): Double? {
                 val candle = w.dailyCandles[day] ?: return null
@@ -839,6 +886,9 @@ class WeeklyPatternService(
             reason = null,
             buyDayLowMin = minLow.roundTo2(),
             buyDayLowMax = maxLow.roundTo2(),
+            vcpTightnessPct = vcpTightness,
+            volumeSignatureRatio = volumeSignature,
+            mondayStrikeRatePct = mondayStrikeRate,
             dayOfWeekProfile = profile,
             autocorrelation = autocorrel,
             patternSummary = summary,

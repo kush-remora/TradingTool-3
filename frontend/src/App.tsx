@@ -10,9 +10,11 @@ import { ScreenerPage } from "./pages/ScreenerPage";
 import { TradeReadyPage } from "./pages/TradeReadyPage";
 import { BarChartOutlined } from "@ant-design/icons";
 import { RsiMomentumPage } from "./pages/RsiMomentumPage";
+import { RsiMomentumSafePage } from "./pages/RsiMomentumSafePage";
+import { WeeklySwingPage } from "./pages/WeeklySwingPage";
 import { S4VolumeSpikePage } from "./pages/S4VolumeSpikePage";
 
-type PageKey = "watchlist" | "graph" | "trade" | "trade-ready" | "remora" | "screener" | "rsi-momentum" | "s4-volume-spike";
+type PageKey = "watchlist" | "graph" | "trade" | "trade-ready" | "remora" | "screener" | "rsi-momentum" | "rsi-momentum-safe" | "weekly-swing" | "s4-volume-spike";
 
 const menuItems: MenuProps["items"] = [
   { key: "watchlist", label: "Watchlist", icon: <UnorderedListOutlined /> },
@@ -21,6 +23,8 @@ const menuItems: MenuProps["items"] = [
   { key: "trade-ready", label: "Trade Ready", icon: <ThunderboltOutlined /> },
   { key: "remora", label: "Remora", icon: <FundOutlined /> },
   { key: "rsi-momentum", label: "RSI Momentum", icon: <FundOutlined /> },
+  { key: "rsi-momentum-safe", label: "RSI Safe", icon: <ThunderboltOutlined /> },
+  { key: "weekly-swing", label: "Weekly Swing", icon: <BarChartOutlined /> },
   { key: "s4-volume-spike", label: "S4 Volume Spike", icon: <FundOutlined /> },
   { key: "screener", label: "Weekly Screener", icon: <BarChartOutlined /> },
 ];
@@ -71,6 +75,8 @@ export default function App() {
           { page === "trade-ready" && <TradeReadyPage /> }
           { page === "remora" && <RemoraPage /> }
           { page === "rsi-momentum" && <RsiMomentumPage /> }
+          { page === "rsi-momentum-safe" && <RsiMomentumSafePage /> }
+          { page === "weekly-swing" && <WeeklySwingPage /> }
           { page === "s4-volume-spike" && <S4VolumeSpikePage /> }
           { page === "screener" && <ScreenerPage /> }
         </Layout.Content>

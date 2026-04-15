@@ -31,13 +31,18 @@ object RsiMomentumRanker {
         holdingCount: Int,
         maxExtensionAboveSma20ForNewEntry: Double,
         maxExtensionAboveSma20ForSkipNewEntry: Double,
+        previousRanks: Map<String, Int> = emptyMap(),
     ): RankedPortfolio {
         val sorted = metrics
             .sortedWith(compareByDescending<SecurityMetrics> { metric -> metric.avgRsi }
                 .thenBy { metric -> metric.member.symbol })
 
         val rankedBoard = sorted.mapIndexed { index, metric ->
-            metric.toRankedStock(rank = index + 1)
+            val symbol = metric.member.symbol.uppercase()
+            metric.toRankedStock(
+                rank = index + 1,
+                rank5DaysAgo = previousRanks[symbol],
+            )
         }
 
         val previousHoldingSet = previousHoldings.map { symbol -> symbol.uppercase() }.toSet()
@@ -120,8 +125,10 @@ object RsiMomentumRanker {
         )
     }
 
-    private fun SecurityMetrics.toRankedStock(rank: Int): RsiMomentumRankedStock = RsiMomentumRankedStock(
+    private fun SecurityMetrics.toRankedStock(rank: Int, rank5DaysAgo: Int? = null): RsiMomentumRankedStock = RsiMomentumRankedStock(
         rank = rank,
+        rank5DaysAgo = rank5DaysAgo,
+        rankImprovement = rank5DaysAgo?.let { it - rank },
         symbol = member.symbol,
         companyName = member.companyName,
         instrumentToken = member.instrumentToken,
@@ -132,6 +139,7 @@ object RsiMomentumRanker {
         close = close,
         sma20 = sma20,
         extensionAboveSma20Pct = extensionAboveSma20Pct(),
+        maxDailyMove5dPct = maxDailyMove5dPct,
         buyZoneLow10w = buyZoneLow10w,
         buyZoneHigh10w = buyZoneHigh10w,
         lowestRsi50d = lowestRsi50d,

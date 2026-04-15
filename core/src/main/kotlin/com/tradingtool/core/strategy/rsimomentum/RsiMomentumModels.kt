@@ -98,6 +98,8 @@ data class RsiMomentumProfileConfig(
 
 data class RsiMomentumRankedStock(
     val rank: Int,
+    val rank5DaysAgo: Int? = null,
+    val rankImprovement: Int? = null,
     val symbol: String,
     val companyName: String,
     val instrumentToken: Long,
@@ -108,6 +110,7 @@ data class RsiMomentumRankedStock(
     val close: Double,
     val sma20: Double,
     val extensionAboveSma20Pct: Double,
+    val maxDailyMove5dPct: Double = 0.0,
     val buyZoneLow10w: Double,
     val buyZoneHigh10w: Double,
     val lowestRsi50d: Double,
@@ -191,6 +194,7 @@ data class SecurityMetrics(
     val rsi66: Double,
     val close: Double,
     val sma20: Double,
+    val maxDailyMove5dPct: Double = 0.0,
     val buyZoneLow10w: Double,
     val buyZoneHigh10w: Double,
     val lowestRsi50d: Double,

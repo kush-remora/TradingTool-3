@@ -271,6 +271,18 @@ class RsiMomentumService @Inject constructor(
             universe.watchlistCount,
         )
         val previousHoldings = previousSnapshot?.holdings?.map { holding -> holding.symbol } ?: emptyList()
+
+        val fiveDaysAgo = LocalDate.now(ist).minusDays(5)
+        val snapshot5DaysAgoRecord = snapshotHandler.read { dao ->
+            dao.getLatestOnOrBefore(profile.id, fiveDaysAgo)
+        }
+        val previousRanks = snapshot5DaysAgoRecord?.let { record ->
+            runCatching {
+                val snap = mapper.readValue(record.snapshotJson, RsiMomentumSnapshot::class.java)
+                snap.topCandidates.associate { it.symbol.uppercase() to it.rank }
+            }.getOrNull()
+        } ?: emptyMap()
+
         val analysis = analyzeUniverse(universe, profile)
 
         val rankedPortfolio = RsiMomentumRanker.rank(
@@ -282,6 +294,7 @@ class RsiMomentumService @Inject constructor(
             holdingCount = profile.holdingCount,
             maxExtensionAboveSma20ForNewEntry = profile.maxExtensionAboveSma20ForNewEntry,
             maxExtensionAboveSma20ForSkipNewEntry = profile.maxExtensionAboveSma20ForSkipNewEntry,
+            previousRanks = previousRanks,
         )
 
         val snapshot = RsiMomentumSnapshot(
@@ -414,6 +427,14 @@ class RsiMomentumService @Inject constructor(
                             .map { candle -> candle.close }
                             .average()
                             .roundTo2()
+                        val maxDailyMove5dPct = candles
+                            .takeLast(6) // 6 bars needed for 5 return calculations
+                            .zipWithNext { a, b ->
+                                if (a.close > 0.0) ((b.close - a.close) / a.close) * 100.0 else 0.0
+                            }
+                            .map { Math.abs(it) }
+                            .maxOrNull()
+                            ?.roundTo2() ?: 0.0
                         val buyZoneWindow = candles.takeLast(BUY_ZONE_LOOKBACK_DAYS)
                         val buyZoneLow10w = buyZoneWindow.minOf { candle -> candle.low }.roundTo2()
                         val buyZoneHigh10w = buyZoneWindow.maxOf { candle -> candle.high }.roundTo2()
@@ -435,6 +456,7 @@ class RsiMomentumService @Inject constructor(
                                 rsi66 = rsiValues[66] ?: 50.0,
                                 close = latestClose,
                                 sma20 = sma20,
+                                maxDailyMove5dPct = maxDailyMove5dPct,
                                 buyZoneLow10w = buyZoneLow10w,
                                 buyZoneHigh10w = buyZoneHigh10w,
                                 lowestRsi50d = lowestRsi50d,

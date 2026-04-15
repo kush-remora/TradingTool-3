@@ -143,6 +143,7 @@ class RsiMomentumHistoryServiceTest {
                 rank = rank, symbol = sym, companyName = sym, instrumentToken = 0L,
                 avgRsi = 60.0, rsi22 = 60.0, rsi44 = 60.0, rsi66 = 60.0,
                 close = 100.0, sma20 = 95.0, extensionAboveSma20Pct = 5.0,
+                maxDailyMove5dPct = 2.0,
                 buyZoneLow10w = 90.0, buyZoneHigh10w = 110.0,
                 lowestRsi50d = 40.0, highestRsi50d = 80.0,
                 avgTradedValueCr = 50.0, inBaseUniverse = true, inWatchlist = false,

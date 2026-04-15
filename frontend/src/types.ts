@@ -246,6 +246,9 @@ export interface WeeklyPatternResult {
   buyDayLowMax: number;
   currentRsiStatus: AdaptiveRsiStatus | null;
   targetRecommendation: TargetRecommendation | null;
+  vcpTightnessPct: number | null;
+  volumeSignatureRatio: number | null;
+  mondayStrikeRatePct: number | null;
 }
 
 export interface WeeklyPatternListResponse {
@@ -380,6 +383,8 @@ export interface RsiMomentumConfigSummary {
 
 export interface RsiMomentumRankedStock {
   rank: number;
+  rank5DaysAgo: number | null;
+  rankImprovement: number | null;
   symbol: string;
   companyName: string;
   instrumentToken: number;
@@ -390,6 +395,7 @@ export interface RsiMomentumRankedStock {
   close: number;
   sma20: number;
   extensionAboveSma20Pct: number;
+  maxDailyMove5dPct: number;
   buyZoneLow10w: number;
   buyZoneHigh10w: number;
   lowestRsi50d: number;

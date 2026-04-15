@@ -1,0 +1,37 @@
+{
+  "scenarios": [
+    {
+      "name": "The Rank 1 Peak Climb",
+      "description": "Enter at Top 20, Exit immediately upon hitting Rank 1.",
+      "config": {
+        "enabled": true,
+        "entryRankMax": 20,
+        "takeProfitRank": 1,
+        "exitOnTakeProfitLeave": false,
+        "giveUpRankMin": 25
+      }
+    },
+    {
+      "name": "The Rank 1 Peak Rider",
+      "description": "Enter at Top 10, Exit only when it LOSES the Rank 1 spot.",
+      "config": {
+        "enabled": true,
+        "entryRankMax": 10,
+        "takeProfitRank": 1,
+        "exitOnTakeProfitLeave": true,
+        "giveUpRankMin": 15
+      }
+    },
+    {
+      "name": "Standard Top 10 Buffer",
+      "description": "Classic Top 10 entry, Exit if it drops out of Top 25.",
+      "config": {
+        "enabled": true,
+        "entryRankMax": 10,
+        "takeProfitRank": 0,
+        "exitOnTakeProfitLeave": false,
+        "giveUpRankMin": 25
+      }
+    }
+  ]
+}

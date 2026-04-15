@@ -245,6 +245,7 @@ class RsiMomentumRankerTest {
         rsi66 = avgRsi + 2,
         close = close,
         sma20 = sma20,
+        maxDailyMove5dPct = 2.0,
         buyZoneLow10w = buyZoneLow10w,
         buyZoneHigh10w = buyZoneHigh10w,
         lowestRsi50d = lowestRsi50d,
