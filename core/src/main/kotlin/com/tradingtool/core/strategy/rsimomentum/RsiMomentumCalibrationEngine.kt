@@ -193,6 +193,7 @@ class RsiMomentumCalibrationEngine(
                 (ranked.rebalance.entries.size + ranked.rebalance.exits.size).toDouble() /
                     max(profile.holdingCount, 1).toDouble()
                 ).coerceAtLeast(0.0)
+
             val grossReturn = portfolioReturn(
                 holdings = holdings,
                 preparedBySymbol = preparedUniverse.associateBy { prepared -> prepared.member.symbol },

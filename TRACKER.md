@@ -26,6 +26,10 @@ This file tracks active, pending, and completed features.
 * **Watchlist Refactoring** (2026-04-06): Transitioned to pre-defined tagging system from `watchlist_config.json`.
 * **RSI Momentum V1** (2026-04-14): Daily snapshots, history, backtesting with buffer exits, and lifecycle analytics.
 * **RSI Momentum V1.1** (2026-04-14): Stateful Rank-Based Backtesting and Multi-Symbol comparison view.
+* **RSI Safe Sniper** (2026-04-16): Fully configurable "Safe" variant with on-demand "Sniper" backtester (10% Target / 3% SL logic).
+    - Configurable SMA20 Extension, Rank Filter, and Volatility via `rsi_momentum_config.json`.
+    - Three entry logics: Leader, Jumper (Rank Improvement), and Hybrid.
+    - Integrated "Explainability" links to historical snapshots, Kite, and Groww.
 
 ### 3. Strategy UI Separation
 - **Status:** Completed ✅

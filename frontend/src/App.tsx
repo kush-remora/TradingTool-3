@@ -30,44 +30,53 @@ const menuItems: MenuProps["items"] = [
 ];
 
 export default function App() {
-  const [page, setPage] = useState<PageKey>("watchlist");
+  const getInitialPage = (): PageKey => {
+    const path = window.location.pathname;
+    const baseUrl = import.meta.env.BASE_URL;
+    // Remove baseUrl from path to find the internal route
+    const internalPath = path.startsWith(baseUrl) ? path.slice(baseUrl.length) : path;
+    const cleanPath = internalPath.replace(/^\//, "");
+    
+    const validPages: PageKey[] = ["watchlist", "graph", "trade", "trade-ready", "remora", "screener", "rsi-momentum", "rsi-momentum-safe", "weekly-swing", "s4-volume-spike"];
+    if (validPages.includes(cleanPath as PageKey)) {
+        return cleanPath as PageKey;
+    }
+    return "watchlist";
+  };
+
+  const [page, setPage] = useState<PageKey>(getInitialPage());
+
+  const handleMenuClick: MenuProps["onClick"] = (e) => {
+    const key = e.key as PageKey;
+    setPage(key);
+    
+    // Update URL without full reload to keep query params if needed, 
+    // but here we usually want to clear them when switching main tabs
+    const baseUrl = import.meta.env.BASE_URL;
+    const newPath = `${baseUrl}${key}`;
+    window.history.pushState({}, "", newPath);
+  };
 
   return (
     <ConfigProvider
       theme={{
-        algorithm: theme.defaultAlgorithm,
-        token: {
-          colorPrimary: "#1677ff",
-          borderRadius: 8,
-          fontSize: 14,
-        },
+        algorithm: theme.darkAlgorithm,
       }}
     >
-      <Layout style={{ minHeight: "100vh", background: "#f5f7fa" }}>
-        {/* Top nav */}
-        <Layout.Header
-          style={{
-            background: "#fff",
-            borderBottom: "1px solid #e8e8e8",
-            padding: "0 24px",
-            display: "flex",
-            alignItems: "center",
-            height: 48,
-            lineHeight: "48px",
-          }}
-        >
-          <span style={{ fontWeight: 700, fontSize: 15, marginRight: 32, color: "#1677ff" }}>
+      <Layout style={{ minHeight: "100vh" }}>
+        <Layout.Header style={{ display: "flex", alignItems: "center", padding: "0 20px" }}>
+          <div style={{ color: "#fff", fontSize: "1.2rem", fontWeight: "bold", marginRight: "40px" }}>
             TradingTool
-          </span>
+          </div>
           <Menu
+            theme="dark"
             mode="horizontal"
             selectedKeys={[page]}
             items={menuItems}
-            onClick={(e) => setPage(e.key as PageKey)}
-            style={{ border: "none", flex: 1, lineHeight: "46px", background: "transparent" }}
+            onClick={handleMenuClick}
+            style={{ flex: 1, minWidth: 0 }}
           />
         </Layout.Header>
-
         <Layout.Content>
           {page === "watchlist" && <WatchlistPage />}
           {page === "graph" && <GraphPage />}

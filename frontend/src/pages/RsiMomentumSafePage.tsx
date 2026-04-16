@@ -1,12 +1,17 @@
-import { ReloadOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
+import { ReloadOutlined, SafetyCertificateOutlined, TableOutlined, PlayCircleOutlined } from "@ant-design/icons";
 import { Alert, Button, Card, Empty, Space, Spin, Tabs, Tag, Typography, Table, Tooltip } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { useRsiMomentum } from "../hooks/useRsiMomentum";
-import type { RsiMomentumRankedStock, RsiMomentumSnapshot } from "../types";
-import { buildCandidateColumns, formatNumber, getExtensionColor, renderEntryAction, formatInr, formatPct } from "../components/rsi/RsiBoard";
+import type { RsiMomentumSnapshot } from "../types";
+import { buildCandidateColumns, formatInr } from "../components/rsi/RsiBoard";
+import { RsiSniperBacktest } from "../components/rsi/RsiSniperBacktest";
 
 export function RsiMomentumSafePage() {
-  const { data, loading, refreshing, refreshingProfileId, error, refresh } = useRsiMomentum();
+  const queryParams = new URLSearchParams(window.location.search);
+  const historyDate = queryParams.get("date");
+  const targetProfileId = queryParams.get("profileId");
+
+  const { data, loading, refreshing, refreshingProfileId, error, refresh } = useRsiMomentum(historyDate);
   const profiles = data?.profiles ?? [];
   const [activeProfileId, setActiveProfileId] = useState<string | undefined>(undefined);
 
@@ -15,9 +20,21 @@ export function RsiMomentumSafePage() {
       setActiveProfileId(undefined);
       return;
     }
-    const hasActive = activeProfileId != null && profiles.some((p) => p.profileId === activeProfileId);
-    if (!hasActive) setActiveProfileId(profiles[0].profileId);
-  }, [profiles, activeProfileId]);
+    
+    // Priority: 1. targetProfileId from URL, 2. current activeProfileId, 3. first profile in list
+    const initialId = targetProfileId || activeProfileId;
+    const hasActive = initialId != null && profiles.some((p) => p.profileId === initialId);
+    
+    if (hasActive) {
+        if (activeProfileId !== initialId) setActiveProfileId(initialId as string);
+    } else {
+        setActiveProfileId(profiles[0].profileId);
+    }
+  }, [profiles, activeProfileId, targetProfileId]);
+
+  const handleBackToLatest = () => {
+    window.location.href = window.location.pathname;
+  };
 
   return (
     <div style={{ padding: 24, background: "#f5f7fa", minHeight: "calc(100vh - 48px)" }}>
@@ -26,21 +43,28 @@ export function RsiMomentumSafePage() {
           <div>
             <Typography.Title level={4} style={{ margin: 0 }}>
               <SafetyCertificateOutlined style={{ color: "#52c41a", marginRight: 8 }} />
-              RSI Safe Variant
+              RSI Safe Variant {historyDate && <Tag color="blue" style={{ marginLeft: 8 }}>Historical: {historyDate}</Tag>}
             </Typography.Title>
             <Typography.Text type="secondary">
               Focused on Rank 1-15, Rank Improvement, and strict 20DMA extension rules ({"<10%"}).
             </Typography.Text>
           </div>
 
-          <Button
-            type="primary"
-            icon={<ReloadOutlined />}
-            onClick={() => void refresh()}
-            loading={refreshing && refreshingProfileId == null}
-          >
-            Refresh All
-          </Button>
+          <Space>
+            {historyDate && (
+                <Button onClick={handleBackToLatest}>Back to Latest</Button>
+            )}
+            {!historyDate && (
+                <Button
+                    type="primary"
+                    icon={<ReloadOutlined />}
+                    onClick={() => void refresh()}
+                    loading={refreshing && refreshingProfileId == null}
+                >
+                    Refresh All
+                </Button>
+            )}
+          </Space>
         </div>
 
         {error && <Alert type="error" showIcon message={error} />}
@@ -61,9 +85,33 @@ export function RsiMomentumSafePage() {
               key: profile.profileId,
               label: profile.config.profileLabel || profile.config.baseUniversePreset,
               children: (
-                <RsiSafePanel
-                  snapshot={profile}
-                  refreshLoading={refreshing && refreshingProfileId === profile.profileId}
+                <Tabs
+                  defaultActiveKey="board"
+                  items={[
+                    {
+                      key: "board",
+                      label: (
+                        <span>
+                          <TableOutlined /> Board
+                        </span>
+                      ),
+                      children: (
+                        <RsiSafePanel
+                          snapshot={profile}
+                          refreshLoading={refreshing && refreshingProfileId === profile.profileId}
+                        />
+                      ),
+                    },
+                    {
+                      key: "backtest",
+                      label: (
+                        <span>
+                          <PlayCircleOutlined /> Backtest
+                        </span>
+                      ),
+                      children: <RsiSniperBacktest profileId={profile.profileId} />,
+                    },
+                  ]}
                 />
               ),
             }))}
@@ -75,17 +123,19 @@ export function RsiMomentumSafePage() {
 }
 
 function RsiSafePanel({ snapshot, refreshLoading }: { snapshot: RsiMomentumSnapshot; refreshLoading: boolean }) {
+  const { safeRules } = snapshot.config;
+
   const safeCandidates = useMemo(() => {
     return snapshot.topCandidates
-      .filter((s) => s.rank <= 25) // Look at top 25 to find the best 15 safe ones
-      .filter((s) => s.extensionAboveSma20Pct <= 10.0)
-      .filter((s) => s.maxDailyMove5dPct <= 8.0)
+      .filter((s) => s.rank <= safeRules.initialRankFilter)
+      .filter((s) => s.extensionAboveSma20Pct <= safeRules.maxExtensionAboveSma20Pct)
+      .filter((s) => s.maxDailyMove5dPct <= safeRules.maxDailyMove5dPct)
       .sort((a, b) => (b.rankImprovement || 0) - (a.rankImprovement || 0))
-      .slice(0, 15);
-  }, [snapshot.topCandidates]);
+      .slice(0, safeRules.displayCount);
+  }, [snapshot.topCandidates, safeRules]);
 
   const columns = useMemo(() => {
-    const base = buildCandidateColumns(7.0, 10.0); // Strict thresholds for Safe view
+    const base = buildCandidateColumns(safeRules.maxExtensionAboveSma20Pct * 0.7, safeRules.maxExtensionAboveSma20Pct);
     
     // Insert Rank Improvement after Rank
     const enhanced = [...base];
@@ -114,18 +164,18 @@ function RsiSafePanel({ snapshot, refreshLoading }: { snapshot: RsiMomentumSnaps
         key: "maxDailyMove5dPct",
         width: 120,
         render: (val: number) => (
-            <Typography.Text type={val > 8 ? "danger" : "secondary"}>
+            <Typography.Text type={val > safeRules.maxDailyMove5dPct ? "danger" : "secondary"}>
                 {val.toFixed(2)}%
             </Typography.Text>
         )
     });
 
     return enhanced;
-  }, []);
+  }, [safeRules]);
 
   return (
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
-      <Card title="Top 15 Safe Candidates (Rank 1-25 Filtered)" size="small">
+      <Card title={`Top ${safeCandidates.length} Safe Candidates (Rank 1-${safeRules.initialRankFilter} Filtered)`} size="small">
         <Table
           columns={columns}
           dataSource={safeCandidates}
@@ -143,9 +193,9 @@ function RsiSafePanel({ snapshot, refreshLoading }: { snapshot: RsiMomentumSnaps
         message="Safe Rules Applied" 
         description={
           <ul style={{ margin: 0, paddingLeft: 16 }}>
-            <li>Rank must be in Top 25</li>
-            <li>Price extension above SMA20 must be &le; 10%</li>
-            <li>No single-day move &gt; 8% in last 5 days</li>
+            <li>Rank must be in Top {safeRules.initialRankFilter}</li>
+            <li>Price extension above SMA20 must be &le; {safeRules.maxExtensionAboveSma20Pct}%</li>
+            <li>No single-day move &gt; {safeRules.maxDailyMove5dPct}% in last 5 days</li>
             <li>Sorted by Rank Improvement (Rank 5d ago vs Now)</li>
           </ul>
         }

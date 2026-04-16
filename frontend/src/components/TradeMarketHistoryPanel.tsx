@@ -1,5 +1,5 @@
 import { Button, Empty, InputNumber, Space, Spin, Table, Tag, Typography } from "antd";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useStockDetail } from "../hooks/useStockDetail";
 import type { DayDetail } from "../types";
 import {
@@ -99,7 +99,7 @@ const SIGNAL_BADGE: Record<SessionSignalKind, SignalBadgeStyle> = {
   },
 };
 
-function renderSignalTag(signal: SessionSignalKind): JSX.Element {
+function renderSignalTag(signal: SessionSignalKind): React.ReactElement {
   const style = SIGNAL_BADGE[signal];
   return (
     <Tag

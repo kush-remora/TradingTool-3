@@ -5,7 +5,9 @@ import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.strategy.s4.S4Service
 import com.tradingtool.core.strategy.rsimomentum.BackfillRequest
 import com.tradingtool.core.strategy.rsimomentum.BacktestRequest
+import com.tradingtool.core.strategy.rsimomentum.RsiMomentumBacktestRequest
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumBackfillService
+import com.tradingtool.core.strategy.rsimomentum.RsiMomentumBacktestService
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumHistoryService
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumService
 import com.tradingtool.resources.common.endpoint
@@ -29,6 +31,7 @@ class StrategyResource @Inject constructor(
     private val rsiMomentumService: RsiMomentumService,
     private val rsiMomentumHistoryService: RsiMomentumHistoryService,
     private val rsiMomentumBackfillService: RsiMomentumBackfillService,
+    private val rsiMomentumBacktestService: RsiMomentumBacktestService,
     private val s4Service: S4Service,
     resourceScope: ResourceScope,
 ) {
@@ -75,6 +78,13 @@ class StrategyResource @Inject constructor(
     @Consumes(MediaType.APPLICATION_JSON)
     fun runRsiMomentumBacktest(request: BacktestRequest): CompletableFuture<Response> = ioScope.endpoint {
         ok(rsiMomentumHistoryService.runBacktest(request))
+    }
+
+    @POST
+    @Path("/rsi-momentum/backtest/sniper")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runRsiMomentumSniperBacktest(request: RsiMomentumBacktestRequest): CompletableFuture<Response> = ioScope.endpoint {
+        ok(rsiMomentumBacktestService.runBacktest(request))
     }
 
     @POST

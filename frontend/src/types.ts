@@ -379,6 +379,14 @@ export interface RsiMomentumConfigSummary {
   rsiCalibrationRunAt: string | null;
   rsiCalibrationMethod: string | null;
   rsiCalibrationSampleRange: string | null;
+  safeRules: SafeRulesConfig;
+}
+
+export interface SafeRulesConfig {
+  initialRankFilter: number;
+  maxExtensionAboveSma20Pct: number;
+  maxDailyMove5dPct: number;
+  displayCount: number;
 }
 
 export interface RsiMomentumRankedStock {
@@ -461,6 +469,53 @@ export interface RsiMomentumHistoryEntry {
   asOfDate: string;
   runAt: string;
   snapshot: RsiMomentumSnapshot;
+}
+
+export type RsiBacktestLogicType = "LEADER" | "JUMPER" | "HYBRID";
+
+export interface RsiMomentumBacktestRequest {
+  profileId: string;
+  logicType: RsiBacktestLogicType;
+  fromDate?: string;
+  toDate?: string;
+  initialCapital: number;
+  targetPct: number;
+  stopLossPct: number;
+  runBackfill: boolean;
+}
+
+export interface BacktestTrade {
+  symbol: string;
+  companyName: string;
+  entryDate: string;
+  exitDate: string;
+  entryPrice: number;
+  exitPrice: number;
+  targetPrice: number;
+  stopLossPrice: number;
+  result: "PROFIT" | "LOSS";
+  profitPct: number;
+  profitAmount: number;
+  holdingDays: number;
+  entryRank: number;
+  entryRankImprovement: number | null;
+}
+
+export interface RsiMomentumBacktestReport {
+  profileId: string;
+  logicType: RsiBacktestLogicType;
+  fromDate: string;
+  toDate: string;
+  initialCapital: number;
+  finalCapital: number;
+  totalProfit: number;
+  totalProfitPct: number;
+  totalTrades: number;
+  winningTrades: number;
+  losingTrades: number;
+  winRate: number;
+  avgHoldingDays: number;
+  trades: BacktestTrade[];
 }
 
 // ─── RSI Momentum Backtest ───────────────────────────────────────────────────

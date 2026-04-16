@@ -200,6 +200,18 @@ class ServiceModule(
         instrumentCache = instrumentCache,
     )
 
+    @Provides @Singleton
+    fun provideRsiMomentumBacktestService(
+        snapshotHandler: RsiMomentumSnapshotJdbiHandler,
+        candleHandler: CandleJdbiHandler,
+        backfillService: RsiMomentumBackfillService,
+    ): com.tradingtool.core.strategy.rsimomentum.RsiMomentumBacktestService =
+        com.tradingtool.core.strategy.rsimomentum.RsiMomentumBacktestService(
+            snapshotHandler = snapshotHandler,
+            candleHandler = candleHandler,
+            backfillService = backfillService,
+        )
+
     @Provides
     @Singleton
     fun provideS4Service(

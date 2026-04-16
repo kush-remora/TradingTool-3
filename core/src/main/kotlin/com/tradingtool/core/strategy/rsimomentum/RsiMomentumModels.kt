@@ -7,6 +7,39 @@ data class RsiMomentumConfig(
     val profiles: List<RsiMomentumProfileConfig> = RsiMomentumProfileConfig.defaultProfiles(),
 )
 
+data class UniverseMember(
+    val symbol: String,
+    val companyName: String,
+    val instrumentToken: Long,
+    val inBaseUniverse: Boolean,
+    val inWatchlist: Boolean,
+)
+
+data class UniverseBuildResult(
+    val members: List<UniverseMember>,
+    val baseUniverseCount: Int,
+    val watchlistCount: Int,
+    val watchlistAdditionsCount: Int,
+    val unresolvedSymbols: List<String>,
+)
+
+data class SecurityMetrics(
+    val member: UniverseMember,
+    val asOfDate: LocalDate,
+    val avgRsi: Double,
+    val rsi22: Double,
+    val rsi44: Double,
+    val rsi66: Double,
+    val close: Double,
+    val sma20: Double,
+    val maxDailyMove5dPct: Double = 0.0,
+    val buyZoneLow10w: Double,
+    val buyZoneHigh10w: Double,
+    val lowestRsi50d: Double,
+    val highestRsi50d: Double,
+    val avgTradedValueCr: Double,
+)
+
 data class RsiMomentumConfigSummary(
     val enabled: Boolean = true,
     val profileId: String = "",
@@ -27,6 +60,14 @@ data class RsiMomentumConfigSummary(
     val rsiCalibrationRunAt: String? = null,
     val rsiCalibrationMethod: String? = null,
     val rsiCalibrationSampleRange: String? = null,
+    val safeRules: SafeRulesConfig = SafeRulesConfig(),
+)
+
+data class SafeRulesConfig(
+    val initialRankFilter: Int = 25,
+    val maxExtensionAboveSma20Pct: Double = 10.0,
+    val maxDailyMove5dPct: Double = 8.0,
+    val displayCount: Int = 15,
 )
 
 data class RsiMomentumProfileConfig(
@@ -48,6 +89,7 @@ data class RsiMomentumProfileConfig(
     val rsiCalibrationRunAt: String? = null,
     val rsiCalibrationMethod: String? = null,
     val rsiCalibrationSampleRange: String? = null,
+    val safeRules: SafeRulesConfig = SafeRulesConfig(),
 ) {
     fun toSummary(globalEnabled: Boolean): RsiMomentumConfigSummary = RsiMomentumConfigSummary(
         enabled = globalEnabled,
@@ -69,6 +111,7 @@ data class RsiMomentumProfileConfig(
         rsiCalibrationRunAt = rsiCalibrationRunAt,
         rsiCalibrationMethod = rsiCalibrationMethod,
         rsiCalibrationSampleRange = rsiCalibrationSampleRange,
+        safeRules = safeRules,
     )
 
     companion object {
@@ -116,18 +159,18 @@ data class RsiMomentumRankedStock(
     val lowestRsi50d: Double,
     val highestRsi50d: Double,
     val avgTradedValueCr: Double,
-    val inBaseUniverse: Boolean,
-    val inWatchlist: Boolean,
+    val inBaseUniverse: Boolean = false,
+    val inWatchlist: Boolean = false,
     val entryBlocked: Boolean = false,
     val entryBlockReason: String? = null,
-    val entryAction: String = "WATCH",
-    val targetWeightPct: Double? = null,
+    val targetWeightPct: Double = 0.0,
+    val entryAction: String? = null,
 )
 
 data class RsiMomentumRebalance(
-    val entries: List<String> = emptyList(),
-    val exits: List<String> = emptyList(),
-    val holds: List<String> = emptyList(),
+    val entries: List<String>,
+    val exits: List<String>,
+    val holds: List<String>,
 )
 
 data class RsiMomentumDiagnostics(
@@ -142,8 +185,8 @@ data class RsiMomentumDiagnostics(
 )
 
 data class RsiMomentumSnapshot(
-    val profileId: String = "",
-    val profileLabel: String = "",
+    val profileId: String,
+    val profileLabel: String? = null,
     val available: Boolean,
     val stale: Boolean,
     val message: String? = null,
@@ -154,8 +197,65 @@ data class RsiMomentumSnapshot(
     val eligibleUniverseCount: Int = 0,
     val topCandidates: List<RsiMomentumRankedStock> = emptyList(),
     val holdings: List<RsiMomentumRankedStock> = emptyList(),
-    val rebalance: RsiMomentumRebalance = RsiMomentumRebalance(),
-    val diagnostics: RsiMomentumDiagnostics = RsiMomentumDiagnostics(),
+    val rebalance: RsiMomentumRebalance? = null,
+    val diagnostics: RsiMomentumDiagnostics? = null,
+)
+
+enum class RsiBacktestLogicType {
+    LEADER,
+    JUMPER,
+    HYBRID
+}
+
+data class RsiMomentumBacktestRequest(
+    val profileId: String,
+    val logicType: RsiBacktestLogicType = RsiBacktestLogicType.HYBRID,
+    val fromDate: String? = null,
+    val toDate: String? = null,
+    val initialCapital: Double = 100000.0,
+    val targetPct: Double = 10.0,
+    val stopLossPct: Double = 3.0,
+    val runBackfill: Boolean = true,
+)
+
+data class BacktestTrade(
+    val symbol: String,
+    val companyName: String,
+    val entryDate: String,
+    val exitDate: String,
+    val entryPrice: Double,
+    val exitPrice: Double,
+    val targetPrice: Double,
+    val stopLossPrice: Double,
+    val result: String, // "PROFIT" or "LOSS"
+    val profitPct: Double,
+    val profitAmount: Double,
+    val holdingDays: Int,
+    val entryRank: Int,
+    val entryRankImprovement: Int?,
+)
+
+data class RsiMomentumBacktestReport(
+    val profileId: String,
+    val logicType: RsiBacktestLogicType,
+    val fromDate: String,
+    val toDate: String,
+    val initialCapital: Double,
+    val finalCapital: Double,
+    val totalProfit: Double,
+    val totalProfitPct: Double,
+    val totalTrades: Int,
+    val winningTrades: Int,
+    val losingTrades: Int,
+    val winRate: Double,
+    val avgHoldingDays: Double,
+    val trades: List<BacktestTrade>,
+)
+
+data class RsiMomentumMultiSnapshot(
+    val profiles: List<RsiMomentumSnapshot>,
+    val errors: List<RsiMomentumProfileError> = emptyList(),
+    val partialSuccess: Boolean = false,
 )
 
 data class RsiMomentumProfileError(
@@ -163,41 +263,114 @@ data class RsiMomentumProfileError(
     val message: String,
 )
 
-data class RsiMomentumMultiSnapshot(
-    val profiles: List<RsiMomentumSnapshot> = emptyList(),
-    val errors: List<RsiMomentumProfileError> = emptyList(),
-    val partialSuccess: Boolean = false,
+data class RsiMomentumHistoryEntry(
+    val profileId: String,
+    val asOfDate: String,
+    val runAt: String,
+    val snapshot: RsiMomentumSnapshot,
 )
 
-data class UniverseMember(
+data class BacktestRequest(
+    val profileId: String,
+    val fromDate: String? = null,
+    val toDate: String? = null,
+    val topN: Int? = 10,
+    val statefulConfig: StatefulBacktestConfig? = null,
+)
+
+data class StatefulBacktestConfig(
+    val enabled: Boolean = false,
+    val entryRankMax: Int = 10,
+    val takeProfitRank: Int = 3,
+    val exitOnTakeProfitLeave: Boolean = true,
+    val giveUpRankMin: Int = 20,
+)
+
+data class BacktestResult(
+    val profileId: String,
+    val fromDate: String,
+    val toDate: String,
+    val topN: Int?,
+    val statefulConfig: StatefulBacktestConfig? = null,
+    val snapshotDaysUsed: Int,
+    val summary: BacktestSummary,
+    val trades: List<StockTrade>,
+)
+
+data class BacktestSummary(
+    val totalTrades: Int,
+    val closedTrades: Int,
+    val openPositions: Int,
+    val winRate: Double?,
+    val avgReturnPct: Double?,
+    val avgDaysHeld: Double,
+    val totalTurnover: Int,
+)
+
+data class StockTrade(
     val symbol: String,
-    val instrumentToken: Long,
     val companyName: String,
-    val inBaseUniverse: Boolean,
-    val inWatchlist: Boolean,
+    val entryDate: String,
+    val entryPrice: Double,
+    val entryRank: Int,
+    val entryAvgRsi: Double,
+    val exitDate: String?,
+    val exitPrice: Double?,
+    val exitRank: Int?,
+    val exitAvgRsi: Double?,
+    val daysHeld: Int,
+    val returnPct: Double?,
+    val status: String, // "OPEN" or "CLOSED"
 )
 
-data class UniverseBuildResult(
-    val members: List<UniverseMember>,
-    val unresolvedSymbols: List<String>,
-    val baseUniverseCount: Int,
-    val watchlistCount: Int,
-    val watchlistAdditionsCount: Int,
+data class LifecycleEpisode(
+    val symbol: String,
+    val entryDate: String,
+    val exitDate: String?,
+    val daysInTop10: Int,
+    val bestRank: Int,
+    val bestRankDate: String,
+    val exitReason: String,
+    val rankTimeline: List<RankTimelinePoint>,
 )
 
-data class SecurityMetrics(
-    val member: UniverseMember,
-    val asOfDate: LocalDate,
-    val avgRsi: Double,
-    val rsi22: Double,
-    val rsi44: Double,
-    val rsi66: Double,
-    val close: Double,
-    val sma20: Double,
-    val maxDailyMove5dPct: Double = 0.0,
-    val buyZoneLow10w: Double,
-    val buyZoneHigh10w: Double,
-    val lowestRsi50d: Double,
-    val highestRsi50d: Double,
-    val avgTradedValueCr: Double,
+data class RankTimelinePoint(
+    val date: String,
+    val rank: Int?,
+    val inTop10: Boolean,
+    val price: Double?,
+    val avgRsi: Double?,
+)
+
+data class LifecycleSymbolDetail(
+    val profileId: String,
+    val symbol: String,
+    val fromDate: String,
+    val toDate: String,
+    val episodes: List<LifecycleEpisode>,
+)
+
+data class LifecycleSummary(
+    val profileId: String,
+    val fromDate: String,
+    val toDate: String,
+    val totalEpisodes: Int,
+    val avgDaysInTop10: Double,
+    val medianDaysInTop10: Double,
+    val shortStayChurnRate: Double,
+    val rankBucketTransitions: List<RankBucketTransition>,
+)
+
+data class RankBucketTransition(
+    val from: String,
+    val to: String,
+    val count: Int,
+)
+
+data class MultiSymbolHistoryResponse(
+    val profileId: String,
+    val fromDate: String,
+    val toDate: String,
+    val symbols: List<String>,
+    val timelines: Map<String, List<RankTimelinePoint>>,
 )
