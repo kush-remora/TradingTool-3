@@ -38,5 +38,5 @@
     "rsiCalibrationRunAt" : "2026-04-11T19:05:58.198927Z",
     "rsiCalibrationMethod" : "RISK_ADJUSTED_SORTINO_WITH_GUARDRAILS_V1",
     "rsiCalibrationSampleRange" : "2021-04-11..2026-04-11"
-  } ]
+  }]
 }
