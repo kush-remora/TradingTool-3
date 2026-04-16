@@ -58,18 +58,14 @@ export default function App() {
   };
 
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-      }}
-    >
+    <ConfigProvider>
       <Layout style={{ minHeight: "100vh" }}>
-        <Layout.Header style={{ display: "flex", alignItems: "center", padding: "0 20px" }}>
-          <div style={{ color: "#fff", fontSize: "1.2rem", fontWeight: "bold", marginRight: "40px" }}>
+        <Layout.Header style={{ display: "flex", alignItems: "center", padding: "0 20px", background: "#fff", borderBottom: "1px solid #f0f0f0" }}>
+          <div style={{ color: "#000", fontSize: "1.2rem", fontWeight: "bold", marginRight: "40px" }}>
             TradingTool
           </div>
           <Menu
-            theme="dark"
+            theme="light"
             mode="horizontal"
             selectedKeys={[page]}
             items={menuItems}

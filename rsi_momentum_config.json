@@ -21,10 +21,11 @@
     "rsiCalibrationSampleRange" : "2021-04-11..2026-04-11",
     "safeRules": {
       "initialRankFilter": 25,
-      "maxExtensionAboveSma20Pct": 10.0,
+      "maxMoveFrom3WeekLowPct": 20.0,
       "maxDailyMove5dPct": 8.0,
       "displayCount": 15
-    }
+    },
+    "blockedEntryDays": ["FRIDAY"]
   }, {
     "id" : "smallcap250",
     "label" : "Smallcap250",
@@ -46,9 +47,10 @@
     "rsiCalibrationSampleRange" : "2021-04-11..2026-04-11",
     "safeRules": {
       "initialRankFilter": 25,
-      "maxExtensionAboveSma20Pct": 10.0,
+      "maxMoveFrom3WeekLowPct": 20.0,
       "maxDailyMove5dPct": 8.0,
       "displayCount": 15
-    }
+    },
+    "blockedEntryDays": ["FRIDAY"]
   }]
 }

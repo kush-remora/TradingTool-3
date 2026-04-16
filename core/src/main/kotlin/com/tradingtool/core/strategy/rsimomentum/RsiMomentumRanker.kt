@@ -31,11 +31,17 @@ object RsiMomentumRanker {
         holdingCount: Int,
         maxExtensionAboveSma20ForNewEntry: Double,
         maxExtensionAboveSma20ForSkipNewEntry: Double,
+        blockedEntryDays: List<String> = emptyList(),
         previousRanks: Map<String, Int> = emptyMap(),
     ): RankedPortfolio {
         val sorted = metrics
             .sortedWith(compareByDescending<SecurityMetrics> { metric -> metric.avgRsi }
                 .thenBy { metric -> metric.member.symbol })
+
+        val asOfDate = metrics.maxOfOrNull { metric -> metric.asOfDate }
+        val isBlockedDay = asOfDate?.let { date -> 
+            blockedEntryDays.any { it.equals(date.dayOfWeek.name, ignoreCase = true) } 
+        } ?: false
 
         val rankedBoard = sorted.mapIndexed { index, metric ->
             val symbol = metric.member.symbol.uppercase()
@@ -65,7 +71,7 @@ object RsiMomentumRanker {
                     entryAction = when (state) {
                         ENTRY_STATE_SKIP -> ENTRY_ACTION_SKIP
                         ENTRY_STATE_WATCH_PULLBACK -> ENTRY_ACTION_WATCH_PULLBACK
-                        else -> ENTRY_ACTION_WATCH
+                        else -> if (isBlockedDay) ENTRY_ACTION_WATCH else ENTRY_ACTION_WATCH // Default to WATCH, will be overridden below
                     },
                 )
             }
@@ -77,7 +83,7 @@ object RsiMomentumRanker {
         val retained = rebalanceCandidates.filter { candidate -> candidate.symbol in previousHoldingSet }
         val retainedSymbols = retained.map { candidate -> candidate.symbol }.toSet()
 
-        val newSelections = replacementPool
+        val newSelections = if (isBlockedDay) emptyList() else replacementPool
             .filterNot { candidate -> candidate.symbol in retainedSymbols }
             .filterNot { candidate -> candidate.entryBlocked }
             .take((holdingCount - retained.size).coerceAtLeast(0))
@@ -108,6 +114,7 @@ object RsiMomentumRanker {
                 candidate.symbol in entrySet -> ENTRY_ACTION_ENTRY
                 candidate.entryAction == ENTRY_ACTION_SKIP -> ENTRY_ACTION_SKIP
                 candidate.entryAction == ENTRY_ACTION_WATCH_PULLBACK -> ENTRY_ACTION_WATCH_PULLBACK
+                isBlockedDay && !candidate.entryBlocked -> ENTRY_ACTION_WATCH
                 else -> ENTRY_ACTION_WATCH
             }
             candidate.copy(entryAction = action)
@@ -121,7 +128,7 @@ object RsiMomentumRanker {
                 exits = exits,
                 holds = holds,
             ),
-            asOfDate = metrics.maxOfOrNull { metric -> metric.asOfDate },
+            asOfDate = asOfDate,
         )
     }
 
@@ -139,12 +146,16 @@ object RsiMomentumRanker {
         close = close,
         sma20 = sma20,
         extensionAboveSma20Pct = extensionAboveSma20Pct(),
+        moveFrom3WeekLowPct = moveFrom3WeekLowPct(),
         maxDailyMove5dPct = maxDailyMove5dPct,
         buyZoneLow10w = buyZoneLow10w,
         buyZoneHigh10w = buyZoneHigh10w,
         lowestRsi50d = lowestRsi50d,
         highestRsi50d = highestRsi50d,
         avgTradedValueCr = avgTradedValueCr,
+        avgVol3d = avgVol3d,
+        avgVol20d = avgVol20d,
+        volumeRatio = if (avgVol20d > 0.0) (avgVol3d / avgVol20d).roundTo2() else 1.0,
         inBaseUniverse = member.inBaseUniverse,
         inWatchlist = member.inWatchlist,
     )
@@ -154,5 +165,12 @@ object RsiMomentumRanker {
             return 0.0
         }
         return (((close / sma20) - 1.0) * 100.0).roundTo2()
+    }
+
+    private fun SecurityMetrics.moveFrom3WeekLowPct(): Double {
+        if (lowestLow15d <= 0.0) {
+            return 0.0
+        }
+        return (((close / lowestLow15d) - 1.0) * 100.0).roundTo2()
     }
 }

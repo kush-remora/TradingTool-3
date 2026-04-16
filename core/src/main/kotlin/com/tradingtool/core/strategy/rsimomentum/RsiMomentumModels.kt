@@ -38,6 +38,9 @@ data class SecurityMetrics(
     val lowestRsi50d: Double,
     val highestRsi50d: Double,
     val avgTradedValueCr: Double,
+    val lowestLow15d: Double = 0.0,
+    val avgVol3d: Double = 0.0,
+    val avgVol20d: Double = 0.0,
 )
 
 data class RsiMomentumConfigSummary(
@@ -61,13 +64,15 @@ data class RsiMomentumConfigSummary(
     val rsiCalibrationMethod: String? = null,
     val rsiCalibrationSampleRange: String? = null,
     val safeRules: SafeRulesConfig = SafeRulesConfig(),
+    val blockedEntryDays: List<String> = emptyList(),
 )
 
 data class SafeRulesConfig(
     val initialRankFilter: Int = 25,
-    val maxExtensionAboveSma20Pct: Double = 10.0,
+    val maxMoveFrom3WeekLowPct: Double = 20.0,
     val maxDailyMove5dPct: Double = 8.0,
     val displayCount: Int = 15,
+    val minVolumeExhaustionRatio: Double? = null,
 )
 
 data class RsiMomentumProfileConfig(
@@ -90,6 +95,7 @@ data class RsiMomentumProfileConfig(
     val rsiCalibrationMethod: String? = null,
     val rsiCalibrationSampleRange: String? = null,
     val safeRules: SafeRulesConfig = SafeRulesConfig(),
+    val blockedEntryDays: List<String> = emptyList(),
 ) {
     fun toSummary(globalEnabled: Boolean): RsiMomentumConfigSummary = RsiMomentumConfigSummary(
         enabled = globalEnabled,
@@ -112,6 +118,7 @@ data class RsiMomentumProfileConfig(
         rsiCalibrationMethod = rsiCalibrationMethod,
         rsiCalibrationSampleRange = rsiCalibrationSampleRange,
         safeRules = safeRules,
+        blockedEntryDays = blockedEntryDays,
     )
 
     companion object {
@@ -153,12 +160,16 @@ data class RsiMomentumRankedStock(
     val close: Double,
     val sma20: Double,
     val extensionAboveSma20Pct: Double,
+    val moveFrom3WeekLowPct: Double = 0.0,
     val maxDailyMove5dPct: Double = 0.0,
     val buyZoneLow10w: Double,
     val buyZoneHigh10w: Double,
     val lowestRsi50d: Double,
     val highestRsi50d: Double,
     val avgTradedValueCr: Double,
+    val avgVol3d: Double = 0.0,
+    val avgVol20d: Double = 0.0,
+    val volumeRatio: Double = 1.0,
     val inBaseUniverse: Boolean = false,
     val inWatchlist: Boolean = false,
     val entryBlocked: Boolean = false,

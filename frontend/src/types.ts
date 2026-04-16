@@ -380,13 +380,15 @@ export interface RsiMomentumConfigSummary {
   rsiCalibrationMethod: string | null;
   rsiCalibrationSampleRange: string | null;
   safeRules: SafeRulesConfig;
+  blockedEntryDays: string[];
 }
 
 export interface SafeRulesConfig {
   initialRankFilter: number;
-  maxExtensionAboveSma20Pct: number;
+  maxMoveFrom3WeekLowPct: number;
   maxDailyMove5dPct: number;
   displayCount: number;
+  minVolumeExhaustionRatio: number | null;
 }
 
 export interface RsiMomentumRankedStock {
@@ -403,12 +405,16 @@ export interface RsiMomentumRankedStock {
   close: number;
   sma20: number;
   extensionAboveSma20Pct: number;
+  moveFrom3WeekLowPct: number;
   maxDailyMove5dPct: number;
   buyZoneLow10w: number;
   buyZoneHigh10w: number;
   lowestRsi50d: number;
   highestRsi50d: number;
   avgTradedValueCr: number;
+  avgVol3d: number;
+  avgVol20d: number;
+  volumeRatio: number;
   inBaseUniverse: boolean;
   inWatchlist: boolean;
   entryBlocked: boolean;

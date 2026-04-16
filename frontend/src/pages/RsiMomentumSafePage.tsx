@@ -128,17 +128,39 @@ function RsiSafePanel({ snapshot, refreshLoading }: { snapshot: RsiMomentumSnaps
   const safeCandidates = useMemo(() => {
     return snapshot.topCandidates
       .filter((s) => s.rank <= safeRules.initialRankFilter)
-      .filter((s) => s.extensionAboveSma20Pct <= safeRules.maxExtensionAboveSma20Pct)
+      .filter((s) => s.moveFrom3WeekLowPct <= safeRules.maxMoveFrom3WeekLowPct)
       .filter((s) => s.maxDailyMove5dPct <= safeRules.maxDailyMove5dPct)
+      .filter((s) => {
+        if (safeRules.minVolumeExhaustionRatio == null) return true;
+        return s.volumeRatio >= safeRules.minVolumeExhaustionRatio;
+      })
       .sort((a, b) => (b.rankImprovement || 0) - (a.rankImprovement || 0))
       .slice(0, safeRules.displayCount);
   }, [snapshot.topCandidates, safeRules]);
 
   const columns = useMemo(() => {
-    const base = buildCandidateColumns(safeRules.maxExtensionAboveSma20Pct * 0.7, safeRules.maxExtensionAboveSma20Pct);
+    const base = buildCandidateColumns(15, 20); // Dummies for threshold as we are replacing column
     
+    // Replace % Above SMA20 with Move from 3W Low
+    const enhanced = base.map(col => {
+        if (col.key === "extensionAboveSma20Pct") {
+            return {
+                title: "3W Low Move",
+                dataIndex: "moveFrom3WeekLowPct",
+                key: "moveFrom3WeekLowPct",
+                width: 140,
+                sorter: (a: any, b: any) => a.moveFrom3WeekLowPct - b.moveFrom3WeekLowPct,
+                render: (val: number) => (
+                    <Typography.Text strong type={val > safeRules.maxMoveFrom3WeekLowPct ? "danger" : undefined}>
+                        {val.toFixed(2)}%
+                    </Typography.Text>
+                )
+            };
+        }
+        return col;
+    });
+
     // Insert Rank Improvement after Rank
-    const enhanced = [...base];
     enhanced.splice(1, 0, {
       title: "Rank Imp.",
       key: "rankImprovement",
@@ -170,6 +192,21 @@ function RsiSafePanel({ snapshot, refreshLoading }: { snapshot: RsiMomentumSnaps
         )
     });
 
+    // Add Volume Ratio
+    enhanced.splice(7, 0, {
+        title: "Vol Ratio (3d/20d)",
+        dataIndex: "volumeRatio",
+        key: "volumeRatio",
+        width: 140,
+        render: (val: number, row) => (
+            <Tooltip title={`Avg Vol 3d: ${formatQty(row.avgVol3d)} | 20d: ${formatQty(row.avgVol20d)}`}>
+                <Typography.Text strong type={safeRules.minVolumeExhaustionRatio && val < safeRules.minVolumeExhaustionRatio ? "danger" : undefined}>
+                    {val.toFixed(2)}x
+                </Typography.Text>
+            </Tooltip>
+        )
+    });
+
     return enhanced;
   }, [safeRules]);
 
@@ -183,7 +220,7 @@ function RsiSafePanel({ snapshot, refreshLoading }: { snapshot: RsiMomentumSnaps
           pagination={false}
           size="small"
           loading={refreshLoading}
-          scroll={{ x: 1800 }}
+          scroll={{ x: 2000 }}
         />
       </Card>
       
@@ -194,12 +231,21 @@ function RsiSafePanel({ snapshot, refreshLoading }: { snapshot: RsiMomentumSnaps
         description={
           <ul style={{ margin: 0, paddingLeft: 16 }}>
             <li>Rank must be in Top {safeRules.initialRankFilter}</li>
-            <li>Price extension above SMA20 must be &le; {safeRules.maxExtensionAboveSma20Pct}%</li>
+            <li>Price move from 3-week low must be &le; {safeRules.maxMoveFrom3WeekLowPct}% (Exhaustion Filter)</li>
+            {safeRules.minVolumeExhaustionRatio != null && (
+                <li>Volume Ratio (3d/20d) must be &ge; {safeRules.minVolumeExhaustionRatio}x (Conviction Filter)</li>
+            )}
             <li>No single-day move &gt; {safeRules.maxDailyMove5dPct}% in last 5 days</li>
+            <li>Blocked entry days: {snapshot.config.blockedEntryDays.length > 0 ? snapshot.config.blockedEntryDays.join(", ") : "None"}</li>
             <li>Sorted by Rank Improvement (Rank 5d ago vs Now)</li>
           </ul>
         }
       />
     </Space>
   );
+}
+
+function formatQty(value: number | null | undefined): string {
+    if (typeof value !== "number") return "-";
+    return value.toLocaleString("en-IN");
 }
