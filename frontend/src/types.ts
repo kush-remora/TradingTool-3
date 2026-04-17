@@ -385,7 +385,7 @@ export interface RsiMomentumConfigSummary {
 
 export interface SafeRulesConfig {
   initialRankFilter: number;
-  maxMoveFrom3WeekLowPct: number;
+  maxMoveFrom30DayLowPct: number;
   maxDailyMove5dPct: number;
   displayCount: number;
   minVolumeExhaustionRatio: number | null;
@@ -405,7 +405,7 @@ export interface RsiMomentumRankedStock {
   close: number;
   sma20: number;
   extensionAboveSma20Pct: number;
-  moveFrom3WeekLowPct: number;
+  moveFrom30DayLowPct: number;
   maxDailyMove5dPct: number;
   buyZoneLow10w: number;
   buyZoneHigh10w: number;
@@ -579,6 +579,34 @@ export interface BacktestResult {
   snapshotDaysUsed: number;
   summary: BacktestSummary;
   trades: StockTrade[];
+}
+
+export interface BackfillFreshRequest {
+  fromDate?: string;
+  toDate?: string;
+}
+
+export interface BackfillFreshResult {
+  fromDate: string;
+  toDate: string;
+  clearedRows: number;
+  profiles: string[];
+  profileResults: {
+    profileId: string;
+    fromDate: string;
+    toDate: string;
+    tradingDatesFound: number;
+    datesSkipped: number;
+    datesProcessed: number;
+    datesFailed: number;
+    message: string;
+  }[];
+  message: string;
+}
+
+export interface BackfillFreshResponse {
+  rebuild: BackfillFreshResult;
+  latest: RsiMomentumMultiSnapshot;
 }
 
 // ─── RSI Momentum Lifecycle ──────────────────────────────────────────────────

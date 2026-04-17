@@ -222,6 +222,10 @@ class RsiMomentumService @Inject constructor(
         return response
     }
 
+    suspend fun clearLatestSnapshotCache() {
+        redis.delete(LATEST_SNAPSHOT_KEY)
+    }
+
     suspend fun calibrateRsiPeriods(
         options: RsiMomentumCalibrationOptions = RsiMomentumCalibrationOptions(),
     ): RsiMomentumCalibrationReport {
@@ -292,8 +296,8 @@ class RsiMomentumService @Inject constructor(
             boardDisplayCount = profile.boardDisplayCount,
             replacementPoolCount = profile.replacementPoolCount,
             holdingCount = profile.holdingCount,
-            maxExtensionAboveSma20ForNewEntry = profile.maxExtensionAboveSma20ForNewEntry,
-            maxExtensionAboveSma20ForSkipNewEntry = profile.maxExtensionAboveSma20ForSkipNewEntry,
+            maxMoveFrom30DayLowPct = profile.safeRules.maxMoveFrom30DayLowPct,
+            minVolumeExhaustionRatio = profile.safeRules.minVolumeExhaustionRatio,
             blockedEntryDays = profile.blockedEntryDays,
             previousRanks = previousRanks,
         )
@@ -448,7 +452,7 @@ class RsiMomentumService @Inject constructor(
                         val lowestRsi50d = rsiWindow.minOrNull() ?: 50.0
                         val highestRsi50d = rsiWindow.maxOrNull() ?: 50.0
 
-                        val lowestLow15d = candles.takeLast(15).minOf { it.low }.roundTo2()
+                        val lowestLow30d = candles.takeLast(30).minOf { it.low }.roundTo2()
                         val avgVol3d = candles.takeLast(3).map { it.volume.toDouble() }.average().roundTo2()
                         val avgVol20d = candles.takeLast(20).map { it.volume.toDouble() }.average().roundTo2()
 
@@ -468,7 +472,7 @@ class RsiMomentumService @Inject constructor(
                                 lowestRsi50d = lowestRsi50d,
                                 highestRsi50d = highestRsi50d,
                                 avgTradedValueCr = avgTradedValueCr,
-                                lowestLow15d = lowestLow15d,
+                                lowestLow30d = lowestLow30d,
                                 avgVol3d = avgVol3d,
                                 avgVol20d = avgVol20d,
                             ),

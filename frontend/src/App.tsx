@@ -1,5 +1,5 @@
 import { ApartmentOutlined, BookOutlined, FundOutlined, ThunderboltOutlined, UnorderedListOutlined } from "@ant-design/icons";
-import { ConfigProvider, Layout, Menu, theme } from "antd";
+import { ConfigProvider, Layout, Menu } from "antd";
 import type { MenuProps } from "antd";
 import { useState } from "react";
 import { GraphPage } from "./pages/GraphPage";
@@ -10,11 +10,12 @@ import { ScreenerPage } from "./pages/ScreenerPage";
 import { TradeReadyPage } from "./pages/TradeReadyPage";
 import { BarChartOutlined } from "@ant-design/icons";
 import { RsiMomentumPage } from "./pages/RsiMomentumPage";
-import { RsiMomentumSafePage } from "./pages/RsiMomentumSafePage";
+import RsiMomentumSafePage from "./pages/RsiMomentumSafePage";
+import { RsiMomentumBasePage } from "./pages/RsiMomentumBasePage";
 import { WeeklySwingPage } from "./pages/WeeklySwingPage";
 import { S4VolumeSpikePage } from "./pages/S4VolumeSpikePage";
 
-type PageKey = "watchlist" | "graph" | "trade" | "trade-ready" | "remora" | "screener" | "rsi-momentum" | "rsi-momentum-safe" | "weekly-swing" | "s4-volume-spike";
+type PageKey = "watchlist" | "graph" | "trade" | "trade-ready" | "remora" | "screener" | "rsi-momentum" | "rsi-momentum-base" | "rsi-momentum-safe" | "weekly-swing" | "s4-volume-spike";
 
 const menuItems: MenuProps["items"] = [
   { key: "watchlist", label: "Watchlist", icon: <UnorderedListOutlined /> },
@@ -23,6 +24,7 @@ const menuItems: MenuProps["items"] = [
   { key: "trade-ready", label: "Trade Ready", icon: <ThunderboltOutlined /> },
   { key: "remora", label: "Remora", icon: <FundOutlined /> },
   { key: "rsi-momentum", label: "RSI Momentum", icon: <FundOutlined /> },
+  { key: "rsi-momentum-base", label: "RSI Momentum Base", icon: <FundOutlined /> },
   { key: "rsi-momentum-safe", label: "RSI Safe", icon: <ThunderboltOutlined /> },
   { key: "weekly-swing", label: "Weekly Swing", icon: <BarChartOutlined /> },
   { key: "s4-volume-spike", label: "S4 Volume Spike", icon: <FundOutlined /> },
@@ -37,7 +39,7 @@ export default function App() {
     const internalPath = path.startsWith(baseUrl) ? path.slice(baseUrl.length) : path;
     const cleanPath = internalPath.replace(/^\//, "");
     
-    const validPages: PageKey[] = ["watchlist", "graph", "trade", "trade-ready", "remora", "screener", "rsi-momentum", "rsi-momentum-safe", "weekly-swing", "s4-volume-spike"];
+    const validPages: PageKey[] = ["watchlist", "graph", "trade", "trade-ready", "remora", "screener", "rsi-momentum", "rsi-momentum-base", "rsi-momentum-safe", "weekly-swing", "s4-volume-spike"];
     if (validPages.includes(cleanPath as PageKey)) {
         return cleanPath as PageKey;
     }
@@ -80,6 +82,7 @@ export default function App() {
           { page === "trade-ready" && <TradeReadyPage /> }
           { page === "remora" && <RemoraPage /> }
           { page === "rsi-momentum" && <RsiMomentumPage /> }
+          { page === "rsi-momentum-base" && <RsiMomentumBasePage /> }
           { page === "rsi-momentum-safe" && <RsiMomentumSafePage /> }
           { page === "weekly-swing" && <WeeklySwingPage /> }
           { page === "s4-volume-spike" && <S4VolumeSpikePage /> }

@@ -1,5 +1,7 @@
 # RSI Momentum V1
 
+See also: `docs/strategies/rsi-momentum-research-framework.md` for the current explainability and experiment-organization framework used for backtesting work.
+
 ## Summary
 
 Strategy 1 is now implemented as a weekly portfolio-ranking module that reuses the existing `daily_candles` table and stores only the latest computed strategy snapshot in Redis.

@@ -184,8 +184,9 @@ class RsiMomentumCalibrationEngine(
                 boardDisplayCount = profile.boardDisplayCount,
                 replacementPoolCount = profile.replacementPoolCount,
                 holdingCount = profile.holdingCount,
-                maxExtensionAboveSma20ForNewEntry = profile.maxExtensionAboveSma20ForNewEntry,
-                maxExtensionAboveSma20ForSkipNewEntry = profile.maxExtensionAboveSma20ForSkipNewEntry,
+                maxMoveFrom30DayLowPct = profile.safeRules.maxMoveFrom30DayLowPct,
+                minVolumeExhaustionRatio = profile.safeRules.minVolumeExhaustionRatio,
+                blockedEntryDays = profile.blockedEntryDays,
             )
 
             val holdings = ranked.holdings.map { stock -> stock.symbol }

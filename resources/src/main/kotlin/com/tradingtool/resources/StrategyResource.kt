@@ -4,6 +4,7 @@ import com.google.inject.Inject
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.strategy.s4.S4Service
 import com.tradingtool.core.strategy.rsimomentum.BackfillRequest
+import com.tradingtool.core.strategy.rsimomentum.BackfillFreshRequest
 import com.tradingtool.core.strategy.rsimomentum.BacktestRequest
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumBacktestRequest
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumBackfillService
@@ -92,6 +93,16 @@ class StrategyResource @Inject constructor(
     @Consumes(MediaType.APPLICATION_JSON)
     fun backfillRsiMomentumSnapshots(request: BackfillRequest): CompletableFuture<Response> = ioScope.endpoint {
         ok(rsiMomentumBackfillService.backfill(request))
+    }
+
+    @POST
+    @Path("/rsi-momentum/backfill/fresh")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun backfillRsiMomentumSnapshotsFresh(request: BackfillFreshRequest): CompletableFuture<Response> = ioScope.endpoint {
+        val rebuild = rsiMomentumBackfillService.backfillFresh(request)
+        rsiMomentumService.clearLatestSnapshotCache()
+        val latest = rsiMomentumService.refreshLatest()
+        ok(mapOf("rebuild" to rebuild, "latest" to latest))
     }
 
     @GET

@@ -41,6 +41,20 @@ data class BackfillResult(
     val message: String,
 )
 
+data class BackfillFreshRequest(
+    val fromDate: String? = null,
+    val toDate: String? = null,
+)
+
+data class BackfillFreshResult(
+    val fromDate: String,
+    val toDate: String,
+    val clearedRows: Int,
+    val profiles: List<String>,
+    val profileResults: List<BackfillResult>,
+    val message: String,
+)
+
 @Singleton
 class RsiMomentumBackfillService @Inject constructor(
     private val configService: RsiMomentumConfigService,
@@ -101,7 +115,8 @@ class RsiMomentumBackfillService @Inject constructor(
             emptySet()
         }
 
-        val datesToProcess = tradingDates.filter { it !in existingDates }
+        val tradingDatesSorted = tradingDates.sorted()
+        val datesToProcess = tradingDatesSorted.filter { it !in existingDates }
         val skipped = tradingDates.size - datesToProcess.size
 
         log.info(
@@ -158,7 +173,19 @@ class RsiMomentumBackfillService @Inject constructor(
         // Track previous holdings day-by-day for rebalance continuity
         var previousHoldings: List<String> = emptyList()
 
-        for (asOfDate in datesToProcess.sorted()) {
+        // If we are starting from a middle date, we should try to find the previous holding snapshot
+        if (tradingDatesSorted.indexOf(datesToProcess.first()) > 0) {
+            val prevDateIndex = tradingDatesSorted.indexOf(datesToProcess.first()) - 1
+            val prevDate = tradingDatesSorted[prevDateIndex]
+            snapshotHandler.read { dao ->
+                dao.getByProfileAndDate(request.profileId, prevDate)
+            }?.let { record ->
+                val prevSnapshot = mapper.readValue(record.snapshotJson, RsiMomentumSnapshot::class.java)
+                previousHoldings = prevSnapshot.holdings.map { it.symbol }
+            }
+        }
+
+        for (asOfDate in datesToProcess) {
             runCatching {
                 val snapshot = computeSnapshotForDate(
                     asOfDate = asOfDate,
@@ -204,6 +231,49 @@ class RsiMomentumBackfillService @Inject constructor(
         )
     }
 
+    suspend fun backfillFresh(request: BackfillFreshRequest): BackfillFreshResult {
+        val rawFrom = request.fromDate?.let { LocalDate.parse(it) } ?: LocalDate.now().minusMonths(3)
+        val rawTo = request.toDate?.let { LocalDate.parse(it) } ?: LocalDate.now()
+        val from = if (rawFrom.isAfter(rawTo)) rawTo else rawFrom
+        val to = if (rawFrom.isAfter(rawTo)) rawFrom else rawTo
+
+        val config = configService.loadConfig()
+        val profileIds = config.profiles.map { it.id }
+        if (profileIds.isEmpty()) {
+            return BackfillFreshResult(
+                fromDate = from.toString(),
+                toDate = to.toString(),
+                clearedRows = 0,
+                profiles = emptyList(),
+                profileResults = emptyList(),
+                message = "No RSI momentum profiles configured. Nothing was rebuilt.",
+            )
+        }
+
+        val clearedRows = snapshotHandler.write { dao -> dao.deleteAll() }
+
+        val profileResults = mutableListOf<BackfillResult>()
+        for (profileId in profileIds) {
+            profileResults += backfill(
+                BackfillRequest(
+                    profileId = profileId,
+                    fromDate = from.toString(),
+                    toDate = to.toString(),
+                    skipExisting = false,
+                ),
+            )
+        }
+
+        return BackfillFreshResult(
+            fromDate = from.toString(),
+            toDate = to.toString(),
+            clearedRows = clearedRows,
+            profiles = profileIds,
+            profileResults = profileResults,
+            message = "Backfill fresh complete for ${profileIds.size} profile(s).",
+        )
+    }
+
     private fun computeSnapshotForDate(
         asOfDate: LocalDate,
         profile: RsiMomentumProfileConfig,
@@ -240,6 +310,13 @@ class RsiMomentumBackfillService @Inject constructor(
                 val rsi14Series = series.calculateRsi(14)
                 val rsiStartIndex = (series.endIndex - RSI_BOUNDS_LOOKBACK_DAYS + 1).coerceAtLeast(0)
                 val rsiWindow = (rsiStartIndex..series.endIndex).map { i -> rsi14Series.getDoubleValue(i, 50.0).roundTo2() }
+                
+                val lowestRsi50d = rsiWindow.minOrNull() ?: 50.0
+                val highestRsi50d = rsiWindow.maxOrNull() ?: 50.0
+                
+                val lowestLow30d = candles.takeLast(30).minOf { it.low }.roundTo2()
+                val avgVol3d = candles.takeLast(3).map { it.volume.toDouble() }.average().roundTo2()
+                val avgVol20d = candles.takeLast(20).map { it.volume.toDouble() }.average().roundTo2()
 
                 SecurityMetrics(
                     member = member,
@@ -252,9 +329,12 @@ class RsiMomentumBackfillService @Inject constructor(
                     sma20 = sma20,
                     buyZoneLow10w = buyZoneWindow.minOf { it.low }.roundTo2(),
                     buyZoneHigh10w = buyZoneWindow.maxOf { it.high }.roundTo2(),
-                    lowestRsi50d = rsiWindow.minOrNull() ?: 50.0,
-                    highestRsi50d = rsiWindow.maxOrNull() ?: 50.0,
+                    lowestRsi50d = lowestRsi50d,
+                    highestRsi50d = highestRsi50d,
                     avgTradedValueCr = avgTradedValueCr,
+                    lowestLow30d = lowestLow30d,
+                    avgVol3d = avgVol3d,
+                    avgVol20d = avgVol20d,
                 )
             }.getOrNull()
         }
@@ -266,8 +346,9 @@ class RsiMomentumBackfillService @Inject constructor(
             boardDisplayCount = profile.boardDisplayCount,
             replacementPoolCount = profile.replacementPoolCount,
             holdingCount = profile.holdingCount,
-            maxExtensionAboveSma20ForNewEntry = profile.maxExtensionAboveSma20ForNewEntry,
-            maxExtensionAboveSma20ForSkipNewEntry = profile.maxExtensionAboveSma20ForSkipNewEntry,
+            maxMoveFrom30DayLowPct = profile.safeRules.maxMoveFrom30DayLowPct,
+            minVolumeExhaustionRatio = profile.safeRules.minVolumeExhaustionRatio,
+            blockedEntryDays = profile.blockedEntryDays,
         )
 
         return RsiMomentumSnapshot(

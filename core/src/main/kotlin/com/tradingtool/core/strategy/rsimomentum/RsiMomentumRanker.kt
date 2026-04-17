@@ -4,8 +4,10 @@ import com.tradingtool.core.technical.roundTo2
 import java.time.LocalDate
 
 object RsiMomentumRanker {
-    private const val ENTRY_BLOCK_REASON_EXTENSION_ABOVE_SMA20_WATCH: String = "PRICE_EXTENSION_IN_PULLBACK_ZONE"
-    private const val ENTRY_BLOCK_REASON_EXTENSION_ABOVE_SMA20_SKIP: String = "PRICE_EXTENSION_ABOVE_SKIP_THRESHOLD"
+    private const val ENTRY_BLOCK_REASON_EXHAUSTION_WATCH: String = "EXHAUSTION_ZONE_APPROACHING"
+    private const val ENTRY_BLOCK_REASON_EXHAUSTED: String = "VERTICAL_MOVE_EXHAUSTED"
+    private const val ENTRY_BLOCK_REASON_LOW_CONVICTION: String = "VOLUME_CONVICTION_LOW"
+    private const val ENTRY_BLOCK_REASON_DAY_BLOCKED: String = "ENTRY_DAY_BLOCKED"
     private const val ENTRY_ACTION_SKIP: String = "SKIP"
     private const val ENTRY_ACTION_ENTRY: String = "ENTRY"
     private const val ENTRY_ACTION_HOLD: String = "HOLD"
@@ -29,8 +31,8 @@ object RsiMomentumRanker {
         boardDisplayCount: Int,
         replacementPoolCount: Int,
         holdingCount: Int,
-        maxExtensionAboveSma20ForNewEntry: Double,
-        maxExtensionAboveSma20ForSkipNewEntry: Double,
+        maxMoveFrom30DayLowPct: Double,
+        minVolumeExhaustionRatio: Double? = null,
         blockedEntryDays: List<String> = emptyList(),
         previousRanks: Map<String, Int> = emptyMap(),
     ): RankedPortfolio {
@@ -55,23 +57,36 @@ object RsiMomentumRanker {
         val flaggedBoard = rankedBoard
             .map { candidate ->
                 val isPreviousHolding = candidate.symbol in previousHoldingSet
+                
+                var blockReason: String? = null
                 val state = when {
                     isPreviousHolding -> ENTRY_STATE_ELIGIBLE
-                    candidate.extensionAboveSma20Pct > (maxExtensionAboveSma20ForSkipNewEntry * 100.0) -> ENTRY_STATE_SKIP
-                    candidate.extensionAboveSma20Pct > (maxExtensionAboveSma20ForNewEntry * 100.0) -> ENTRY_STATE_WATCH_PULLBACK
+                    isBlockedDay -> {
+                        blockReason = ENTRY_BLOCK_REASON_DAY_BLOCKED
+                        ENTRY_STATE_SKIP
+                    }
+                    candidate.moveFrom30DayLowPct > maxMoveFrom30DayLowPct -> {
+                        blockReason = ENTRY_BLOCK_REASON_EXHAUSTED
+                        ENTRY_STATE_SKIP
+                    }
+                    candidate.moveFrom30DayLowPct > (maxMoveFrom30DayLowPct * 0.8) -> {
+                        blockReason = ENTRY_BLOCK_REASON_EXHAUSTION_WATCH
+                        ENTRY_STATE_WATCH_PULLBACK
+                    }
+                    minVolumeExhaustionRatio != null && candidate.volumeRatio < minVolumeExhaustionRatio -> {
+                        blockReason = ENTRY_BLOCK_REASON_LOW_CONVICTION
+                        ENTRY_STATE_SKIP
+                    }
                     else -> ENTRY_STATE_ELIGIBLE
                 }
+
                 candidate.copy(
                     entryBlocked = state != ENTRY_STATE_ELIGIBLE,
-                    entryBlockReason = when (state) {
-                        ENTRY_STATE_SKIP -> ENTRY_BLOCK_REASON_EXTENSION_ABOVE_SMA20_SKIP
-                        ENTRY_STATE_WATCH_PULLBACK -> ENTRY_BLOCK_REASON_EXTENSION_ABOVE_SMA20_WATCH
-                        else -> null
-                    },
+                    entryBlockReason = blockReason,
                     entryAction = when (state) {
-                        ENTRY_STATE_SKIP -> ENTRY_ACTION_SKIP
+                        ENTRY_STATE_SKIP -> if (isBlockedDay) ENTRY_ACTION_WATCH else ENTRY_ACTION_SKIP
                         ENTRY_STATE_WATCH_PULLBACK -> ENTRY_ACTION_WATCH_PULLBACK
-                        else -> if (isBlockedDay) ENTRY_ACTION_WATCH else ENTRY_ACTION_WATCH // Default to WATCH, will be overridden below
+                        else -> ENTRY_ACTION_WATCH
                     },
                 )
             }
@@ -146,7 +161,7 @@ object RsiMomentumRanker {
         close = close,
         sma20 = sma20,
         extensionAboveSma20Pct = extensionAboveSma20Pct(),
-        moveFrom3WeekLowPct = moveFrom3WeekLowPct(),
+        moveFrom30DayLowPct = moveFrom30DayLowPct(),
         maxDailyMove5dPct = maxDailyMove5dPct,
         buyZoneLow10w = buyZoneLow10w,
         buyZoneHigh10w = buyZoneHigh10w,
@@ -167,10 +182,10 @@ object RsiMomentumRanker {
         return (((close / sma20) - 1.0) * 100.0).roundTo2()
     }
 
-    private fun SecurityMetrics.moveFrom3WeekLowPct(): Double {
-        if (lowestLow15d <= 0.0) {
+    private fun SecurityMetrics.moveFrom30DayLowPct(): Double {
+        if (lowestLow30d <= 0.0) {
             return 0.0
         }
-        return (((close / lowestLow15d) - 1.0) * 100.0).roundTo2()
+        return (((close / lowestLow30d) - 1.0) * 100.0).roundTo2()
     }
 }

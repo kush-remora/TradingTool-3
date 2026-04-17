@@ -149,10 +149,25 @@ class RsiMomentumBacktestService @Inject constructor(
 
     private fun findCandidate(snapshot: RsiMomentumSnapshot, logic: RsiBacktestLogicType): RsiMomentumRankedStock? {
         val safeRules = snapshot.config.safeRules
+        val asOfDate = LocalDate.parse(snapshot.asOfDate!!)
+
+        // Rule 2: Blocked Entry Days (Applicable always)
+        val isBlockedDay = snapshot.config.blockedEntryDays.any { 
+            it.equals(asOfDate.dayOfWeek.name, ignoreCase = true) 
+        }
+        if (isBlockedDay) return null
+
         val candidates = snapshot.topCandidates
             .filter { it.rank <= safeRules.initialRankFilter }
-            .filter { it.extensionAboveSma20Pct <= safeRules.maxExtensionAboveSma20Pct }
+            // Rule 1: Replace SMA20 extension with 30-day move from low
+            .filter { it.moveFrom30DayLowPct <= safeRules.maxMoveFrom30DayLowPct }
             .filter { it.maxDailyMove5dPct <= safeRules.maxDailyMove5dPct }
+            // Rule 3: Volume Exhaustion (Separate Logic)
+            .filter { candidate ->
+                val threshold = safeRules.minVolumeExhaustionRatio
+                if (threshold == null) true
+                else candidate.volumeRatio >= threshold
+            }
 
         return when (logic) {
             RsiBacktestLogicType.LEADER -> candidates.minByOrNull { it.rank }

@@ -1,3 +1,87 @@
+# Implementation Plan: RSI Momentum Backfill Fresh
+
+## Overview
+Add a destructive rebuild flow triggered from UI: clear RSI momentum snapshot storage (`rsi_momentum_snapshot_daily` + Redis latest snapshot key), rebuild snapshots fresh for selected date range, refresh latest data, and present updated results.
+
+## Implementation Steps
+- [x] Add DAO support to clear RSI snapshot daily table.
+- [x] Add backend fresh-backfill request/result models and service method.
+- [x] Add API endpoint for fresh backfill and latest refresh.
+- [x] Add `Backfill Fresh` button in RSI Momentum Base UI with confirmation.
+- [x] Re-load and present rebuilt data after fresh backfill completes.
+- [x] Run backend compile checks.
+- [x] Run frontend build checks and document current blockers.
+
+## Review
+- Added table wipe DAO method:
+  - `core/.../RsiMomentumSnapshotWriteDao.kt` -> `deleteAll()`.
+- Added fresh backfill flow:
+  - `core/.../RsiMomentumBackfillService.kt` -> `BackfillFreshRequest`, `BackfillFreshResult`, `backfillFresh(...)`.
+- Added Redis cache clear helper:
+  - `core/.../RsiMomentumService.kt` -> `clearLatestSnapshotCache()`.
+- Added API endpoint:
+  - `resources/.../StrategyResource.kt` -> `POST /api/strategy/rsi-momentum/backfill/fresh`.
+- Added UI trigger:
+  - `frontend/src/pages/RsiMomentumBasePage.tsx` -> `Backfill Fresh` button with destructive confirmation and post-action reload.
+- Added frontend API response typing:
+  - `frontend/src/types.ts` -> `BackfillFreshRequest/Result/Response`.
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm run -s build` still fails due pre-existing `react-router-dom` unresolved import in `RsiMomentumSafePage.tsx`, unrelated to this feature.
+
+---
+
+# Implementation Plan: RSI Momentum Base UI
+
+## Overview
+Build a brand-new `RSI Momentum Base` page focused on pure momentum score visibility over a date range, CSV export, and stock rank movement tracking. Reuse existing RSI history APIs and avoid strategy-logic changes.
+
+## Implementation Steps
+- [x] Add a new `RSI Momentum Base` page and route in frontend navigation.
+- [x] Build date-range loader using existing `/api/strategy/rsi-momentum/history` API.
+- [x] Show day-wise momentum results with top-40 table for selected day.
+- [x] Add CSV export for loaded date-range momentum rows.
+- [x] Add stock rank movement view across selected date range.
+- [x] Add/extend frontend types/hooks minimally as needed.
+- [x] Run frontend build/type checks and document results.
+- [x] Run Kotlin reviewer pass (no Kotlin code changes expected) and record findings.
+
+## Review
+- Added new page: `frontend/src/pages/RsiMomentumBasePage.tsx`.
+- Added new history-range hook: `frontend/src/hooks/useRsiMomentumBaseHistory.ts`.
+- Added menu/route integration in `frontend/src/App.tsx` with page key `rsi-momentum-base`.
+- Feature coverage:
+  - Date-range load for momentum snapshots (`/api/strategy/rsi-momentum/history`)
+  - Day-wise selection and top-list table view
+  - CSV download for all loaded momentum rows
+  - Stock rank movement table across selected range
+- Verification:
+  - `npm run -s build` fails due pre-existing unresolved dependency in `frontend/src/pages/RsiMomentumSafePage.tsx` (`react-router-dom`) unrelated to this new page.
+  - `npx tsc --noEmit` reports multiple pre-existing frontend errors unrelated to this feature; no new blocker specific to `RsiMomentumBasePage` was observed in isolation.
+- Kotlin reviewer pass:
+  - Invoked as required by repo policy.
+  - No Kotlin changes were made in this feature slice, so no Kotlin review findings for this implementation.
+
+---
+
+# Documentation Plan: RSI Momentum Explainability + Anti-Overfit Research Framework
+
+## Overview
+Document the agreed RSI momentum research structure in plain language while reflecting existing system capabilities (classic rank lane, fixed-target lane, rank-jump lane, weekday entry policy variants, and explainability requirements).
+
+## Implementation Steps
+- [x] Add a dedicated strategy document for explainability-first RSI momentum experiments.
+- [x] Capture lane-based structure (Classic, Target, Rank-Jump) and a minimal experiment matrix.
+- [x] Document anti-overfitting controls and current temporary scope choices (skip transaction/slippage for now).
+- [x] Link the new document from strategy docs for discoverability.
+
+## Review
+- Added `docs/strategies/rsi-momentum-research-framework.md` as the canonical research-organization and explainability note.
+- Linked it in `docs/strategies/README.md`.
+- Added pointer in `docs/strategies/rsi-momentum-v1.md` to separate implementation history from current research framework.
+
+---
+
 # Implementation Plan: RSI Momentum Daily Refresh + Top-10 Immediate Exit
 
 ## Overview

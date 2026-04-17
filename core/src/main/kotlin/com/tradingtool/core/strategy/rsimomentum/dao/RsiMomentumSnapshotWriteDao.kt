@@ -27,4 +27,11 @@ interface RsiMomentumSnapshotWriteDao {
         @Bind("runAt") runAt: OffsetDateTime,
         @Bind("snapshotJson") snapshotJson: String,
     )
+
+    @SqlUpdate(
+        """
+        DELETE FROM public.${Tables.RSI_MOMENTUM_SNAPSHOT_DAILY}
+        """
+    )
+    fun deleteAll(): Int
 }

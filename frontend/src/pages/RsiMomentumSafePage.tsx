@@ -1,122 +1,79 @@
 import { ReloadOutlined, SafetyCertificateOutlined, TableOutlined, PlayCircleOutlined } from "@ant-design/icons";
 import { Alert, Button, Card, Empty, Space, Spin, Tabs, Tag, Typography, Table, Tooltip } from "antd";
-import { useEffect, useMemo, useState } from "react";
-import { useRsiMomentum } from "../hooks/useRsiMomentum";
-import type { RsiMomentumSnapshot } from "../types";
-import { buildCandidateColumns, formatInr } from "../components/rsi/RsiBoard";
-import { RsiSniperBacktest } from "../components/rsi/RsiSniperBacktest";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useS4Profiles } from "../hooks/useS4Data";
+import { RsiMomentumSnapshot, RsiMomentumRankedStock } from "../types";
+import { buildCandidateColumns } from "../components/rsi/RsiCandidateColumns";
+import { postJson } from "../utils/api";
 
-export function RsiMomentumSafePage() {
-  const queryParams = new URLSearchParams(window.location.search);
-  const historyDate = queryParams.get("date");
-  const targetProfileId = queryParams.get("profileId");
-
-  const { data, loading, refreshing, refreshingProfileId, error, refresh } = useRsiMomentum(historyDate);
-  const profiles = data?.profiles ?? [];
-  const [activeProfileId, setActiveProfileId] = useState<string | undefined>(undefined);
+export default function RsiMomentumSafePage() {
+  const { profiles, loading, error, refresh } = useS4Profiles();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeKey, setActiveKey] = useState<string | undefined>(searchParams.get("profile") || undefined);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (profiles.length === 0) {
-      setActiveProfileId(undefined);
-      return;
+    if (!activeKey && profiles.length > 0) {
+      setActiveKey(profiles[0].profileId);
     }
-    
-    // Priority: 1. targetProfileId from URL, 2. current activeProfileId, 3. first profile in list
-    const initialId = targetProfileId || activeProfileId;
-    const hasActive = initialId != null && profiles.some((p) => p.profileId === initialId);
-    
-    if (hasActive) {
-        if (activeProfileId !== initialId) setActiveProfileId(initialId as string);
-    } else {
-        setActiveProfileId(profiles[0].profileId);
-    }
-  }, [profiles, activeProfileId, targetProfileId]);
+  }, [profiles, activeKey]);
 
-  const handleBackToLatest = () => {
-    window.location.href = window.location.pathname;
+  const handleTabChange = (key: string) => {
+    setActiveKey(key);
+    setSearchParams({ profile: key });
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refresh();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  if (loading && profiles.length === 0) return <div style={{ padding: 40, textAlign: "center" }}><Spin size="large" tip="Loading profiles..." /></div>;
+  if (error) return <Alert type="error" message="Error loading profiles" description={error} showIcon style={{ margin: 24 }} />;
+  if (profiles.length === 0) return <Empty description="No RSI Momentum profiles configured" style={{ marginTop: 100 }} />;
+
   return (
-    <div style={{ padding: 24, background: "#f5f7fa", minHeight: "calc(100vh - 48px)" }}>
-      <Space direction="vertical" size={16} style={{ width: "100%" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+    <div style={{ padding: 24 }}>
+      <Space direction="vertical" size={24} style={{ width: "100%" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <Typography.Title level={4} style={{ margin: 0 }}>
-              <SafetyCertificateOutlined style={{ color: "#52c41a", marginRight: 8 }} />
-              RSI Safe Variant {historyDate && <Tag color="blue" style={{ marginLeft: 8 }}>Historical: {historyDate}</Tag>}
+            <Typography.Title level={2} style={{ margin: 0 }}>
+              <SafetyCertificateOutlined style={{ marginRight: 12, color: "#52c41a" }} />
+              RSI Safe (Sniper)
             </Typography.Title>
             <Typography.Text type="secondary">
-              Focused on Rank 1-15, Rank Improvement, and strict 20DMA extension rules ({"<10%"}).
+              Low-risk entries based on rank improvement, price exhaustion, and volume conviction.
             </Typography.Text>
           </div>
-
-          <Space>
-            {historyDate && (
-                <Button onClick={handleBackToLatest}>Back to Latest</Button>
-            )}
-            {!historyDate && (
-                <Button
-                    type="primary"
-                    icon={<ReloadOutlined />}
-                    onClick={() => void refresh()}
-                    loading={refreshing && refreshingProfileId == null}
-                >
-                    Refresh All
-                </Button>
-            )}
-          </Space>
+          <Button 
+            type="primary" 
+            icon={<ReloadOutlined />} 
+            loading={refreshing} 
+            onClick={handleRefresh}
+          >
+            Refresh All
+          </Button>
         </div>
 
-        {error && <Alert type="error" showIcon message={error} />}
-
-        {loading ? (
-          <div style={{ textAlign: "center", padding: 64 }}>
-            <Spin size="large" />
-          </div>
-        ) : profiles.length === 0 ? (
-          <Card>
-            <Empty description="No RSI momentum profiles available." />
-          </Card>
-        ) : (
-          <Tabs
-            activeKey={activeProfileId}
-            onChange={(id) => setActiveProfileId(id)}
-            items={profiles.map((profile) => ({
-              key: profile.profileId,
-              label: profile.config.profileLabel || profile.config.baseUniversePreset,
-              children: (
-                <Tabs
-                  defaultActiveKey="board"
-                  items={[
-                    {
-                      key: "board",
-                      label: (
-                        <span>
-                          <TableOutlined /> Board
-                        </span>
-                      ),
-                      children: (
-                        <RsiSafePanel
-                          snapshot={profile}
-                          refreshLoading={refreshing && refreshingProfileId === profile.profileId}
-                        />
-                      ),
-                    },
-                    {
-                      key: "backtest",
-                      label: (
-                        <span>
-                          <PlayCircleOutlined /> Backtest
-                        </span>
-                      ),
-                      children: <RsiSniperBacktest profileId={profile.profileId} />,
-                    },
-                  ]}
-                />
-              ),
-            }))}
-          />
-        )}
+        <Tabs
+          activeKey={activeKey}
+          onChange={handleTabChange}
+          type="card"
+          items={profiles.map((snapshot) => ({
+            key: snapshot.profileId,
+            label: (
+              <span>
+                <TableOutlined /> {snapshot.profileLabel}
+              </span>
+            ),
+            children: <RsiSafePanel snapshot={snapshot} refreshLoading={refreshing} />,
+          }))}
+        />
       </Space>
     </div>
   );
@@ -128,7 +85,7 @@ function RsiSafePanel({ snapshot, refreshLoading }: { snapshot: RsiMomentumSnaps
   const safeCandidates = useMemo(() => {
     return snapshot.topCandidates
       .filter((s) => s.rank <= safeRules.initialRankFilter)
-      .filter((s) => s.moveFrom3WeekLowPct <= safeRules.maxMoveFrom3WeekLowPct)
+      .filter((s) => s.moveFrom30DayLowPct <= safeRules.maxMoveFrom30DayLowPct)
       .filter((s) => s.maxDailyMove5dPct <= safeRules.maxDailyMove5dPct)
       .filter((s) => {
         if (safeRules.minVolumeExhaustionRatio == null) return true;
@@ -141,17 +98,17 @@ function RsiSafePanel({ snapshot, refreshLoading }: { snapshot: RsiMomentumSnaps
   const columns = useMemo(() => {
     const base = buildCandidateColumns(15, 20); // Dummies for threshold as we are replacing column
     
-    // Replace % Above SMA20 with Move from 3W Low
+    // Replace % Above SMA20 with Move from 30D Low
     const enhanced = base.map(col => {
-        if (col.key === "extensionAboveSma20Pct") {
+        if (col.key === "extensionAboveSma20Pct" || col.key === "moveFrom3WeekLowPct") {
             return {
-                title: "3W Low Move",
-                dataIndex: "moveFrom3WeekLowPct",
-                key: "moveFrom3WeekLowPct",
+                title: "30D Low Move",
+                dataIndex: "moveFrom30DayLowPct",
+                key: "moveFrom30DayLowPct",
                 width: 140,
-                sorter: (a: any, b: any) => a.moveFrom3WeekLowPct - b.moveFrom3WeekLowPct,
+                sorter: (a: any, b: any) => a.moveFrom30DayLowPct - b.moveFrom30DayLowPct,
                 render: (val: number) => (
-                    <Typography.Text strong type={val > safeRules.maxMoveFrom3WeekLowPct ? "danger" : undefined}>
+                    <Typography.Text strong type={val > safeRules.maxMoveFrom30DayLowPct ? "danger" : undefined}>
                         {val.toFixed(2)}%
                     </Typography.Text>
                 )
@@ -231,7 +188,7 @@ function RsiSafePanel({ snapshot, refreshLoading }: { snapshot: RsiMomentumSnaps
         description={
           <ul style={{ margin: 0, paddingLeft: 16 }}>
             <li>Rank must be in Top {safeRules.initialRankFilter}</li>
-            <li>Price move from 3-week low must be &le; {safeRules.maxMoveFrom3WeekLowPct}% (Exhaustion Filter)</li>
+            <li>Price move from 30-day low must be &le; {safeRules.maxMoveFrom30DayLowPct}% (Exhaustion Filter)</li>
             {safeRules.minVolumeExhaustionRatio != null && (
                 <li>Volume Ratio (3d/20d) must be &ge; {safeRules.minVolumeExhaustionRatio}x (Conviction Filter)</li>
             )}
