@@ -1,16 +1,15 @@
-import { ReloadOutlined, SafetyCertificateOutlined, TableOutlined, PlayCircleOutlined } from "@ant-design/icons";
+import { ReloadOutlined, SafetyCertificateOutlined, TableOutlined } from "@ant-design/icons";
 import { Alert, Button, Card, Empty, Space, Spin, Tabs, Tag, Typography, Table, Tooltip } from "antd";
 import { useMemo, useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
-import { useS4Profiles } from "../hooks/useS4Data";
-import { RsiMomentumSnapshot, RsiMomentumRankedStock } from "../types";
-import { buildCandidateColumns } from "../components/rsi/RsiCandidateColumns";
-import { postJson } from "../utils/api";
+import { useRsiMomentum } from "../hooks/useRsiMomentum";
+import { RsiMomentumSnapshot } from "../types";
+import { buildCandidateColumns } from "../components/rsi/RsiBoard";
+import { RsiSniperBacktest } from "../components/rsi/RsiSniperBacktest";
 
 export default function RsiMomentumSafePage() {
-  const { profiles, loading, error, refresh } = useS4Profiles();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [activeKey, setActiveKey] = useState<string | undefined>(searchParams.get("profile") || undefined);
+  const { data, loading, error, refresh } = useRsiMomentum();
+  const profiles = data?.profiles ?? [];
+  const [activeKey, setActiveKey] = useState<string | undefined>(undefined);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -21,7 +20,6 @@ export default function RsiMomentumSafePage() {
 
   const handleTabChange = (key: string) => {
     setActiveKey(key);
-    setSearchParams({ profile: key });
   };
 
   const handleRefresh = async () => {
@@ -198,6 +196,10 @@ function RsiSafePanel({ snapshot, refreshLoading }: { snapshot: RsiMomentumSnaps
           </ul>
         }
       />
+
+      <Card title="Configurable Backtest" size="small">
+        <RsiSniperBacktest profileId={snapshot.profileId} />
+      </Card>
     </Space>
   );
 }

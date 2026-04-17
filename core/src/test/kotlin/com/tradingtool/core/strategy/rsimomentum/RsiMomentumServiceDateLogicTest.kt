@@ -38,5 +38,20 @@ class RsiMomentumServiceDateLogicTest {
 
         assertTrue(isCandleDateStale(previousMonday, sunday))
     }
-}
 
+    @Test
+    fun `strict freshness flags one-day lag on trading weeks`() {
+        val friday = LocalDate.of(2026, 4, 17)
+        val wednesday = LocalDate.of(2026, 4, 15)
+
+        assertTrue(isCandleDateStale(wednesday, friday, holidayGraceDays = 0))
+    }
+
+    @Test
+    fun `strict freshness still accepts friday candle on monday`() {
+        val monday = LocalDate.of(2026, 4, 13)
+        val friday = LocalDate.of(2026, 4, 10)
+
+        assertFalse(isCandleDateStale(friday, monday, holidayGraceDays = 0))
+    }
+}

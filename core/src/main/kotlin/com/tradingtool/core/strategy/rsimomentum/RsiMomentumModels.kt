@@ -218,6 +218,12 @@ enum class RsiBacktestLogicType {
     HYBRID
 }
 
+enum class RsiBacktestExitMode {
+    T_PLUS_3,
+    RSI_60,
+    T_PLUS_3_OR_RSI_60,
+}
+
 data class RsiMomentumBacktestRequest(
     val profileId: String,
     val logicType: RsiBacktestLogicType = RsiBacktestLogicType.HYBRID,
@@ -227,6 +233,14 @@ data class RsiMomentumBacktestRequest(
     val targetPct: Double = 10.0,
     val stopLossPct: Double = 3.0,
     val runBackfill: Boolean = true,
+    val entryRankMin: Int = 21,
+    val entryRankMax: Int = 40,
+    val rankLookbackDays: Int = 5,
+    val jumpMin: Int = 0,
+    val jumpMax: Int = 3,
+    val blockedEntryDays: List<String> = emptyList(),
+    val exitMode: RsiBacktestExitMode = RsiBacktestExitMode.T_PLUS_3_OR_RSI_60,
+    val rsiExitThreshold: Double = 60.0,
 )
 
 data class BacktestTrade(
@@ -244,6 +258,11 @@ data class BacktestTrade(
     val holdingDays: Int,
     val entryRank: Int,
     val entryRankImprovement: Int?,
+    val entryRsi22: Double?,
+    val exitRsi22: Double?,
+    val entryFarthestRankInLookback: Int?,
+    val entryJumpFromFarthest: Int?,
+    val exitReason: String,
 )
 
 data class RsiMomentumBacktestReport(
@@ -261,6 +280,14 @@ data class RsiMomentumBacktestReport(
     val winRate: Double,
     val avgHoldingDays: Double,
     val trades: List<BacktestTrade>,
+    val entryRankMin: Int,
+    val entryRankMax: Int,
+    val rankLookbackDays: Int,
+    val jumpMin: Int,
+    val jumpMax: Int,
+    val blockedEntryDays: List<String>,
+    val exitMode: RsiBacktestExitMode,
+    val rsiExitThreshold: Double,
 )
 
 data class RsiMomentumMultiSnapshot(

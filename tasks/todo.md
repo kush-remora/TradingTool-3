@@ -441,3 +441,47 @@ Persist RSI momentum snapshots by day, run a 3-month point-in-time backtest with
 
 ## Review
 - Pending implementation.
+
+---
+
+# Implementation Plan: RSI Safe Backtest Configurability (Jump/Days/Exit/Rank Window)
+
+## Overview
+Add configurable RSI Safe backtesting knobs so we can test low-overfit rule variants directly from UI.
+
+## Implementation Steps
+- [x] 1. Extend sniper backtest request/response models with rank band, jump band, lookback window, blocked entry days, and exit mode.
+- [x] 2. Update backtest engine to compute jump from farthest rank in lookback window and apply rank/jump/day filters.
+- [x] 3. Add exit modes: `T+3`, `RSI threshold`, and `T+3 or RSI threshold`.
+- [x] 4. Surface new controls in RSI Safe UI backtest form.
+- [x] 5. Add trade-level explainability fields (farthest rank, jump, exit reason).
+- [x] 6. Verify backend + frontend compilation.
+
+## Review
+- Backend compile: pass (`mvn -q -pl core,resources,service -DskipTests compile`)
+- Frontend build: pass (`npm run -s build`)
+# Bugfix Plan: RSI Momentum Missing Latest 2 Days in Backfill/Load
+
+## Problem
+Backfill/history views were stopping at `2026-04-15` even when source data already had `2026-04-16` and `2026-04-17`.
+
+## Implementation Steps
+- [x] Reproduce the issue from local API (`/history` and `/refresh`) and confirm latest snapshot date.
+- [x] Trace candle freshness and Kite fetch date-range logic in RSI momentum service.
+- [x] Tighten freshness gate so RSI sync triggers as soon as latest expected trading day is missing.
+- [x] Expand Kite history fetch end date to include current day candle when available.
+- [x] Add regression tests for strict freshness behavior.
+- [x] Run backend compile and frontend build checks.
+
+## Review
+- Root cause 1: RSI freshness check allowed up to 3-day lag before syncing candles.
+- Root cause 2: Kite history fetch end date used today's `00:00`, which excluded same-day candle.
+- Fixes applied in:
+  - `core/src/main/kotlin/com/tradingtool/core/strategy/rsimomentum/RsiMomentumService.kt`
+    - freshness check now uses `holidayGraceDays = 0` for RSI sync path.
+    - history fetch end moved to next-day start (`today + 1 day at 00:00`) to include today if published.
+  - `core/src/test/kotlin/com/tradingtool/core/strategy/rsimomentum/RsiMomentumServiceDateLogicTest.kt`
+    - added strict freshness regression tests.
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm run -s build` passed.

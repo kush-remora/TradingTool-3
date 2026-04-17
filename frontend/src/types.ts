@@ -478,6 +478,7 @@ export interface RsiMomentumHistoryEntry {
 }
 
 export type RsiBacktestLogicType = "LEADER" | "JUMPER" | "HYBRID";
+export type RsiBacktestExitMode = "T_PLUS_3" | "RSI_60" | "T_PLUS_3_OR_RSI_60";
 
 export interface RsiMomentumBacktestRequest {
   profileId: string;
@@ -488,6 +489,14 @@ export interface RsiMomentumBacktestRequest {
   targetPct: number;
   stopLossPct: number;
   runBackfill: boolean;
+  entryRankMin: number;
+  entryRankMax: number;
+  rankLookbackDays: number;
+  jumpMin: number;
+  jumpMax: number;
+  blockedEntryDays: string[];
+  exitMode: RsiBacktestExitMode;
+  rsiExitThreshold: number;
 }
 
 export interface BacktestTrade {
@@ -505,6 +514,11 @@ export interface BacktestTrade {
   holdingDays: number;
   entryRank: number;
   entryRankImprovement: number | null;
+  entryRsi22: number | null;
+  exitRsi22: number | null;
+  entryFarthestRankInLookback: number | null;
+  entryJumpFromFarthest: number | null;
+  exitReason: string;
 }
 
 export interface RsiMomentumBacktestReport {
@@ -522,6 +536,14 @@ export interface RsiMomentumBacktestReport {
   winRate: number;
   avgHoldingDays: number;
   trades: BacktestTrade[];
+  entryRankMin: number;
+  entryRankMax: number;
+  rankLookbackDays: number;
+  jumpMin: number;
+  jumpMax: number;
+  blockedEntryDays: string[];
+  exitMode: RsiBacktestExitMode;
+  rsiExitThreshold: number;
 }
 
 // ─── RSI Momentum Backtest ───────────────────────────────────────────────────

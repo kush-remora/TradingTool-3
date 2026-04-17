@@ -580,14 +580,17 @@ class RsiMomentumService @Inject constructor(
     private fun isCandleDataStale(candles: List<DailyCandle>): Boolean {
         val lastDate = candles.maxOfOrNull { candle -> candle.candleDate } ?: return true
         val today = LocalDate.now(ist)
-        return isCandleDateStale(lastDate, today)
+        // RSI momentum snapshots should run on the latest available daily candle.
+        // Keep holiday awareness via latestExpectedTradingDate(), but do not allow extra grace lag.
+        return isCandleDateStale(lastDate, today, holidayGraceDays = 0)
     }
 
     private fun buildDateRange(): Pair<Date, Date> {
         val today = LocalDate.now(ist)
+        val rangeEndExclusive = today.plusDays(1).atStartOfDay(ist)
         return Pair(
             Date.from(today.minusDays(HISTORY_LOOKBACK_DAYS).atStartOfDay(ist).toInstant()),
-            Date.from(today.atStartOfDay(ist).toInstant()),
+            Date.from(rangeEndExclusive.toInstant()),
         )
     }
 

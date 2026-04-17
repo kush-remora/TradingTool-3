@@ -274,7 +274,7 @@ class RsiMomentumBackfillService @Inject constructor(
         )
     }
 
-    private fun computeSnapshotForDate(
+    private suspend fun computeSnapshotForDate(
         asOfDate: LocalDate,
         profile: RsiMomentumProfileConfig,
         config: RsiMomentumConfig,
@@ -339,6 +339,17 @@ class RsiMomentumBackfillService @Inject constructor(
             }.getOrNull()
         }
 
+        val fiveDaysAgo = asOfDate.minusDays(5)
+        val snapshot5DaysAgoRecord = snapshotHandler.read { dao ->
+            dao.getLatestOnOrBefore(profile.id, fiveDaysAgo)
+        }
+        val previousRanks = snapshot5DaysAgoRecord?.let { record ->
+            runCatching {
+                val snapshot = mapper.readValue(record.snapshotJson, RsiMomentumSnapshot::class.java)
+                snapshot.topCandidates.associate { candidate -> candidate.symbol.uppercase() to candidate.rank }
+            }.getOrNull()
+        } ?: emptyMap()
+
         val ranked = RsiMomentumRanker.rank(
             metrics = metrics,
             previousHoldings = previousHoldings,
@@ -349,6 +360,7 @@ class RsiMomentumBackfillService @Inject constructor(
             maxMoveFrom30DayLowPct = profile.safeRules.maxMoveFrom30DayLowPct,
             minVolumeExhaustionRatio = profile.safeRules.minVolumeExhaustionRatio,
             blockedEntryDays = profile.blockedEntryDays,
+            previousRanks = previousRanks,
         )
 
         return RsiMomentumSnapshot(
