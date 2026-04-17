@@ -70,8 +70,8 @@ class StockFundamentalsMapperTest {
         rowSet.updateDouble(Cols.PROMOTER_HOLDING_PERCENT, 50.1)
         rowSet.updateString(Cols.BROAD_INDUSTRY, "Energy")
         rowSet.updateString(Cols.INDUSTRY, "Oil & Gas")
-        rowSet.updateString(Cols.SOURCE_NAME, "screener")
-        rowSet.updateString(Cols.SOURCE_URL, "https://www.screener.in/company/RELIANCE/consolidated/")
+        rowSet.updateString(Cols.SOURCE_NAME, "nse-corporate-filings")
+        rowSet.updateString(Cols.SOURCE_URL, "https://www.nseindia.com/api/corporates-financial-results?index=equities&symbol=RELIANCE&period=Quarterly")
         rowSet.updateNull(Cols.FETCHED_AT)
         rowSet.insertRow()
         rowSet.moveToCurrentRow()
@@ -86,7 +86,7 @@ class StockFundamentalsMapperTest {
         assertEquals(DeliveryUniverse.LARGEMIDCAP_250, mapped.universe)
         assertEquals(24.8, mapped.stockPe)
         assertEquals("Energy", mapped.broadIndustry)
-        assertEquals("screener", mapped.sourceName)
+        assertEquals("nse-corporate-filings", mapped.sourceName)
     }
 
     private fun statementContext(): StatementContext {

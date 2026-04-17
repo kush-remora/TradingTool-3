@@ -4,6 +4,7 @@ import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.candle.IntradayCandle
 import com.tradingtool.core.database.CandleJdbiHandler
 import com.tradingtool.core.database.StockJdbiHandler
+import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConnectClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -26,6 +27,7 @@ import java.util.Date
 class CandleDataService(
     private val stockHandler: StockJdbiHandler,
     private val candleHandler: CandleJdbiHandler,
+    private val instrumentCache: InstrumentCache,
 ) {
     private val log = LoggerFactory.getLogger(CandleDataService::class.java)
     private val ist = ZoneId.of("Asia/Kolkata")
@@ -35,6 +37,8 @@ class CandleDataService(
      * Returns the count of symbols successfully synced.
      */
     suspend fun sync(symbols: List<String>, kiteClient: KiteConnectClient): Int {
+        ensureInstrumentCacheLoaded(kiteClient)
+
         val today = LocalDate.now(ist)
         val fromDaily = today.minusDays(500) // Approx 2 years of trading days for SMA200 + RSI bounds
         val fromIntraday = today.minusDays(70) // 10-week lookback for intraday patterns
@@ -43,12 +47,13 @@ class CandleDataService(
         var synced = 0
         for (symbol in symbols) {
             val stock = stockHandler.read { it.getBySymbol(symbol, "NSE") }
-            if (stock == null) {
-                log.warn("Symbol {} not found in watchlist — skipping sync", symbol)
+            val token = stock?.instrumentToken ?: instrumentCache.token("NSE", symbol)
+            if (token == null || token <= 0) {
+                log.warn("Symbol {} has no instrument token in stocks table or instrument cache — skipping sync", symbol)
                 continue
             }
 
-            val tokenStr = stock.instrumentToken.toString()
+            val tokenStr = token.toString()
             log.info("Syncing candles for {} (token={})", symbol, tokenStr)
 
             try {
@@ -57,7 +62,7 @@ class CandleDataService(
                     kiteClient.client().getHistoricalData(fromDaily.toJavaDate(), toDate, tokenStr, "day", false, false)
                 }
                 val dailyCandles = dailyRaw.dataArrayList.mapNotNull { bar ->
-                    parseDailyCandle(bar, stock.instrumentToken, symbol)
+                    parseDailyCandle(bar, token, symbol)
                 }
                 if (dailyCandles.isNotEmpty()) {
                     candleHandler.write { it.upsertDailyCandles(dailyCandles) }
@@ -70,7 +75,7 @@ class CandleDataService(
                     kiteClient.client().getHistoricalData(fromIntraday.toJavaDate(), toDate, tokenStr, "15minute", false, false)
                 }
                 val intradayCandles = intradayRaw.dataArrayList.mapNotNull { bar ->
-                    parseIntradayCandle(bar, stock.instrumentToken, symbol, "15minute")
+                    parseIntradayCandle(bar, token, symbol, "15minute")
                 }
                 if (intradayCandles.isNotEmpty()) {
                     candleHandler.write { it.upsertIntradayCandles(intradayCandles) }
@@ -134,4 +139,14 @@ class CandleDataService(
 
     private fun LocalDate.toJavaDate(): Date =
         Date.from(atStartOfDay(ist).toInstant())
+
+    private suspend fun ensureInstrumentCacheLoaded(kiteClient: KiteConnectClient) {
+        if (!instrumentCache.isEmpty()) {
+            return
+        }
+        val instruments = withContext(Dispatchers.IO) {
+            kiteClient.client().getInstruments("NSE")
+        }
+        instrumentCache.refresh(instruments)
+    }
 }

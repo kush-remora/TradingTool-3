@@ -14,6 +14,14 @@ data class ScreenerFundamentalsSnapshot(
     val pledgedPercent: Double?,
 )
 
+data class NseFundamentalsPayload(
+    val symbol: String,
+    val quoteJson: String,
+    val financialResultsJson: String,
+    val shareholdingJson: String,
+    val sourceUrl: String,
+)
+
 data class ScreenerFundamentalsValidationRow(
     val symbol: String,
     val reachable: Boolean,

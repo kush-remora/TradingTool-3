@@ -3,7 +3,7 @@ package com.tradingtool.core.fundamentals.config
 import com.fasterxml.jackson.annotation.JsonProperty
 
 enum class FundamentalsDataSource {
-    SCREENER,
+    NSE_CORPORATE_FILINGS,
 }
 
 data class FundamentalsUniverseConfig(
@@ -15,7 +15,7 @@ data class FundamentalsUniverseConfig(
 
 data class FundamentalsConfig(
     val enabled: Boolean = true,
-    val source: FundamentalsDataSource = FundamentalsDataSource.SCREENER,
+    val source: FundamentalsDataSource = FundamentalsDataSource.NSE_CORPORATE_FILINGS,
     @JsonProperty("request_delay_ms")
     val requestDelayMs: Long = 1200,
     val universe: FundamentalsUniverseConfig = FundamentalsUniverseConfig(),

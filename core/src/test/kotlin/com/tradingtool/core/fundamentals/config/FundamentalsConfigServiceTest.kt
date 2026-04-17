@@ -18,7 +18,7 @@ class FundamentalsConfigServiceTest {
 
             assertTrue(configPath.exists())
             assertTrue(config.enabled)
-            assertEquals(FundamentalsDataSource.SCREENER, config.source)
+            assertEquals(FundamentalsDataSource.NSE_CORPORATE_FILINGS, config.source)
             assertEquals(FundamentalsConfigService.DEFAULT_PRESET_NAMES, config.universe.presetNames)
             assertTrue(config.universe.includeWatchlist)
             assertEquals(1_200L, config.requestDelayMs)

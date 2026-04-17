@@ -32,6 +32,10 @@ data class WeeklyPatternResult(
     val vcpTightnessPct: Double? = null,
     val volumeSignatureRatio: Double? = null,
     val mondayStrikeRatePct: Double? = null,
+    val setupQualityScore: Int,
+    val expectedSwingPct: Double,
+    val baselineDistancePct: Double?,
+    val swingSetup: SwingSetup? = null,
 )
 
 /** Response envelope for GET /api/screener/weekly-pattern — adds run metadata. */
@@ -39,7 +43,21 @@ data class WeeklyPatternListResponse(
     val runAt: String,
     val lookbackWeeks: Int,
     val buyZoneLookbackWeeks: Int,
+    val universeSourceTags: List<String>,
     val results: List<WeeklyPatternResult>,
+)
+
+data class SwingSetup(
+    val buyZoneMin: Double,
+    val buyZoneMax: Double,
+    val safeTargetPct: Double,
+    val recommendedTargetPct: Double,
+    val aggressiveTargetPct: Double,
+    val expectedSwingPct: Double,
+    val hardStopLossPct: Double,
+    val invalidationCondition: String,
+    val confidence: String,
+    val reasoning: String,
 )
 
 // ── Detail view (Screens 2 + 3) ──────────────────────────────────────────────
@@ -129,4 +147,8 @@ data class WeeklyPatternDetail(
     val weeklyHeatmap: List<WeekHeatmapRow>,
     val targetRecommendation: TargetRecommendation? = null,
     val targetScenarios: List<TargetScenario> = emptyList(),
+    val setupQualityScore: Int,
+    val expectedSwingPct: Double,
+    val baselineDistancePct: Double?,
+    val swingSetup: SwingSetup? = null,
 )

@@ -46,6 +46,44 @@ interface StockFundamentalsReadDao {
         @Bind("snapshotDate") snapshotDate: LocalDate,
         @BindList("instrumentTokens") instrumentTokens: List<Long>,
     ): List<StockFundamentalsDaily>
+
+    @SqlQuery(
+        """
+        SELECT DISTINCT ON (${Cols.INSTRUMENT_TOKEN}) *
+        FROM ${Tables.STOCK_FUNDAMENTALS_DAILY}
+        WHERE ${Cols.INSTRUMENT_TOKEN} IN (<instrumentTokens>)
+        ORDER BY ${Cols.INSTRUMENT_TOKEN}, ${Cols.SNAPSHOT_DATE} DESC
+        """
+    )
+    fun findLatestByInstrumentTokens(
+        @BindList("instrumentTokens") instrumentTokens: List<Long>,
+    ): List<StockFundamentalsDaily>
+
+    @SqlQuery(
+        """
+        SELECT DISTINCT ON (${Cols.SYMBOL}) *
+        FROM ${Tables.STOCK_FUNDAMENTALS_DAILY}
+        WHERE ${Cols.SYMBOL} IN (<symbols>)
+        ORDER BY ${Cols.SYMBOL}, ${Cols.SNAPSHOT_DATE} DESC
+        """
+    )
+    fun findLatestBySymbols(
+        @BindList("symbols") symbols: List<String>,
+    ): List<StockFundamentalsDaily>
+
+    @SqlQuery(
+        """
+        SELECT DISTINCT ON (${Cols.SYMBOL}) *
+        FROM ${Tables.STOCK_FUNDAMENTALS_DAILY}
+        WHERE ${Cols.SYMBOL} IN (<symbols>)
+          AND ${Cols.SNAPSHOT_DATE} < :snapshotDate
+        ORDER BY ${Cols.SYMBOL}, ${Cols.SNAPSHOT_DATE} DESC
+        """
+    )
+    fun findLatestBySymbolsBeforeDate(
+        @BindList("symbols") symbols: List<String>,
+        @Bind("snapshotDate") snapshotDate: LocalDate,
+    ): List<StockFundamentalsDaily>
 }
 
 class StockFundamentalsMapper : RowMapper<StockFundamentalsDaily> {

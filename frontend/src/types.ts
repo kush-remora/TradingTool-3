@@ -221,6 +221,19 @@ export interface WatchlistRow {
 
 // ==================== Weekly Screener ====================
 
+export interface SwingSetup {
+  buyZoneMin: number;
+  buyZoneMax: number;
+  safeTargetPct: number;
+  recommendedTargetPct: number;
+  aggressiveTargetPct: number;
+  expectedSwingPct: number;
+  hardStopLossPct: number;
+  invalidationCondition: string;
+  confidence: "HIGH" | "MEDIUM" | "LOW" | string;
+  reasoning: string;
+}
+
 export interface WeeklyPatternResult {
   symbol: string;
   exchange: string;
@@ -249,13 +262,50 @@ export interface WeeklyPatternResult {
   vcpTightnessPct: number | null;
   volumeSignatureRatio: number | null;
   mondayStrikeRatePct: number | null;
+  setupQualityScore?: number;
+  expectedSwingPct?: number;
+  baselineDistancePct?: number | null;
+  swingSetup?: SwingSetup | null;
 }
 
 export interface WeeklyPatternListResponse {
   runAt: string;
   lookbackWeeks: number;
   buyZoneLookbackWeeks: number;
+  universeSourceTags?: string[];
   results: WeeklyPatternResult[];
+}
+
+export interface FundamentalsTableRow {
+  symbol: string;
+  companyName: string;
+  exchange: string;
+  instrumentToken: number;
+  tag: string;
+  fundamentalsSnapshotDate: string | null;
+  marketCapCr: number | null;
+  stockPe: number | null;
+  rocePercent: number | null;
+  roePercent: number | null;
+  promoterHoldingPercent: number | null;
+  industry: string | null;
+  broadIndustry: string | null;
+  ltp: number | null;
+  rsi14: number | null;
+  roc1w: number | null;
+  roc3m: number | null;
+  volumeVsAvg: number | null;
+  isSelected: boolean | null;
+  filterReasons: string[];
+}
+
+export interface FundamentalsTagOverviewResponse {
+  tag: string;
+  profile: string | null;
+  totalStocks: number;
+  selectedCount: number | null;
+  rejectedCount: number | null;
+  rows: FundamentalsTableRow[];
 }
 
 export interface DayProfile {

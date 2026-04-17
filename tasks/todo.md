@@ -1,4 +1,55 @@
+# Implementation Plan: Fundamentals Universe + Profile Filter APIs and UI
+
+## Overview
+Deliver a complete fundamentals scanning flow for index tags: load all stocks + fundamentals by tag, run profile-based filtering, and show results in UI with filter status plus live market context.
+
+## Implementation Steps
+- [x] Add DAO delete support for fundamentals rows by symbol list.
+- [x] Add refresh-service helper to clear fundamentals rows for a symbol list.
+- [x] Add read DAO support to fetch latest fundamentals snapshot by instrument token list.
+- [x] Add config service to load bucket/profile rules from `fundamentals_filter_config.json`.
+- [x] Add Screener endpoint to refresh fundamentals by tag (delete then refetch/upsert).
+- [x] Add Screener endpoint to fetch fundamentals universe rows by tag.
+- [x] Add Screener endpoint to apply profile-based filtering for a tag.
+- [x] Build frontend Fundamentals Screener UI with filtered column and reasons.
+- [x] Add live context columns in UI (`LTP`, `RSI14`, `ROC 1W`, `ROC 3M`, `volumeVsAvg`).
+- [x] Run compile/build checks for backend and frontend.
+- [x] Add review notes with behavior and assumptions.
+
+## Review
+- Backend:
+  - Added `deleteBySymbols(symbols)` in `StockFundamentalsWriteDao`.
+  - Added `findLatestByInstrumentTokens(tokens)` in `StockFundamentalsReadDao`.
+  - Added `deleteSnapshotsForSymbols(symbols)` in `FundamentalsRefreshService`.
+  - Added `FundamentalsFilterConfigService` to read `fundamentals_filter_config.json`.
+  - Added `NIFTY_200` bucket to `fundamentals_filter_config.json`.
+  - Added `StockFundamentalsJdbiHandler` provider in `ServiceModule`.
+  - Added Screener endpoints:
+    - `POST /api/screener/fundamentals/refresh-by-tag?tag=...`
+    - `GET /api/screener/fundamentals/by-tag?tag=...`
+    - `POST /api/screener/fundamentals/filter`
+  - Added NSE constituents source service:
+    - `NseIndexConstituentsService` uses `https://www.nseindia.com/api/equity-stockIndices?index=...`
+    - Filters `series=EQ` symbols and uses NSE index names (`NIFTY 50`, `NIFTY 100`, `NIFTY 200`, `NIFTY SMALLCAP 250`).
+  - Tag resolution order now:
+    1. NSE API constituents
+    2. stock tags fallback
+    3. smallcap preset CSV fallback
+- Frontend:
+  - Added `FundamentalsScreener` component with tag/profile controls and strict-missing-data toggle.
+  - Added filtered status + reason columns and live context columns.
+  - Added Screener page mode toggle between `Fundamentals` and `Weekly Pattern`.
+  - Added `FundamentalsTableRow` and `FundamentalsTagOverviewResponse` types.
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm --prefix frontend run -s build` passed.
+- Assumptions:
+  - NSE index API remains reachable and responsive during tag resolution.
+  - Smallcap preset CSV remains a safe fallback when NSE/tag resolution is unavailable.
+  - Current filtering data availability is strongest for ROCE and stored fundamentals fields; strict mode flags missing fields explicitly.
+
 # Implementation Plan: RSI Momentum Backfill Fresh
+
 
 ## Overview
 Add a destructive rebuild flow triggered from UI: clear RSI momentum snapshot storage (`rsi_momentum_snapshot_daily` + Redis latest snapshot key), rebuild snapshots fresh for selected date range, refresh latest data, and present updated results.
@@ -485,3 +536,104 @@ Backfill/history views were stopping at `2026-04-15` even when source data alrea
 - Verification:
   - `mvn -q -pl core,resources,service -DskipTests compile` passed.
   - `npm run -s build` passed.
+# Implementation Plan: Replace Screener Fundamentals with NSE Corporate Filings
+
+## Overview
+Replace the current Screener-based fundamentals ingestion with a free NSE-based implementation using NSE corporate filings endpoints and related NSE quote/shareholding APIs.
+
+## POC Summary (Completed Before Implementation)
+- [x] Verified `GET /api/corporates-financial-results?index=equities&symbol=INFY&period=Quarterly` returns filing rows with `companyName`, period/date fields, and XBRL links.
+- [x] Verified `GET /api/quote-equity?symbol=INFY` returns company/industry metadata and `pdSymbolPe`.
+- [x] Verified `GET /api/corporate-share-holdings-master?index=equities&symbol=INFY` returns promoter holding (`pr_and_prgrp`).
+
+## Implementation Steps
+- [x] Replace `ScreenerFundamentalsSourceAdapter` internals with NSE endpoint fetch flow.
+- [x] Replace HTML parser logic with NSE JSON parser logic for snapshot fields.
+- [x] Update fundamentals source config enum/default from Screener to NSE.
+- [x] Update refresh service source gate and source-name metadata.
+- [x] Remove remaining Screener URL dependencies and update relevant tests.
+- [x] Run targeted backend tests and compile checks.
+- [x] Add review notes with known NSE field limitations.
+
+## Review
+- Backend replacement completed:
+  - `ScreenerFundamentalsSourceAdapter` now fetches NSE:
+    - `/api/quote-equity?symbol=...`
+    - `/api/corporates-financial-results?index=equities&symbol=...&period=Quarterly`
+    - `/api/corporate-share-holdings-master?index=equities&symbol=...`
+  - `ScreenerFundamentalsParser` now parses combined NSE JSON payload (no Screener HTML parsing).
+  - `FundamentalsDataSource` default switched to `NSE_CORPORATE_FILINGS`.
+  - `FundamentalsRefreshService` source gate and metadata updated to NSE source.
+  - `fundamentals_config.json` updated to `NSE_CORPORATE_FILINGS`.
+- Test updates completed:
+  - Rewrote parser test to validate NSE JSON payload mapping.
+  - Updated source metadata fixtures in fundamentals mapper/report tests to NSE values.
+  - Updated config service test for new default source enum.
+- Verification:
+  - `mvn -q -pl core,resources,service,cron-job -DskipTests compile` passed.
+  - `mvn -q -pl core -Dtest=... test` could not complete because the repository currently has unrelated pre-existing Kotlin test compile failures in RSI momentum tests.
+- Known field limitation from current NSE free endpoints:
+  - `ROCE`, `ROE`, `debtToEquity`, and `pledgedPercent` are not directly present in the consumed NSE payloads, so they are currently stored as `null` in this replacement.
+  - Added preservation logic so previously stored non-null fundamentals are retained when NSE payload omits those fields on newer refresh dates.
+
+# Implementation Plan: Weekly Scanner Expanded Index Universe
+
+## Overview
+Move weekly scanner default universe from watchlist-only to a broader NSE index universe so scans can run across NIFTY 50/100/250, largemidcap/smallcap, and sector/thematic NIFTY baskets.
+
+## Implementation Steps
+- [x] Replace weekly scanner default symbol resolver to build a union of configured NIFTY indices (instead of only `weekly` tag).
+- [x] Add resilient fetch behavior: dedupe symbols, skip empty index responses, and fallback to weekly watchlist symbols when NSE fetch returns nothing.
+- [x] Update candle sync + weekly analysis symbol metadata resolution so non-watchlist index symbols can still resolve instrument token/name.
+- [ ] Add/adjust focused tests for expanded resolver behavior and fallbacks (blocked by pre-existing test compile failures in unrelated RSI momentum tests).
+- [x] Run targeted backend tests (or compile at minimum) and document verification.
+
+## Review
+- Updated weekly scanner default symbol resolution in [ScreenerResource.kt](/Users/kushbhardwaj/Documents/github/TradingTool-3/resources/src/main/kotlin/com/tradingtool/resources/ScreenerResource.kt) to union NSE constituents across broad + sector/thematic NIFTY indices.
+- Added robust fallback to `weekly` watchlist tag when NSE index fetch returns no symbols.
+- Updated candle sync token resolution in [CandleDataService.kt](/Users/kushbhardwaj/Documents/github/TradingTool-3/core/src/main/kotlin/com/tradingtool/core/screener/CandleDataService.kt) to use `InstrumentCache` when stock is not in watchlist table.
+- Updated weekly analysis metadata resolution in [WeeklyPatternService.kt](/Users/kushbhardwaj/Documents/github/TradingTool-3/core/src/main/kotlin/com/tradingtool/core/screener/WeeklyPatternService.kt) to support non-watchlist symbols via `InstrumentCache`.
+- Updated DI wiring in [ServiceModule.kt](/Users/kushbhardwaj/Documents/github/TradingTool-3/service/src/main/kotlin/com/tradingtool/di/ServiceModule.kt) for new `InstrumentCache` dependencies.
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `mvn -q -pl core -Dtest=WeeklyPatternServiceTest test` could not run due unrelated pre-existing Kotlin test-compile errors in RSI momentum tests.
+
+# Implementation Plan: Weekly Scanner V1 (Broad + 14 Sectoral) with Swing Setup Card
+
+## Overview
+Implement PRD-approved weekly scanner upgrade: exact broad + 14 sectoral NSE index universe, scanner response contract expansion, and UI swing setup card on row click.
+
+## Implementation Steps
+- [x] Lock weekly scanner default universe to broad + 14 sectoral/thematic NSE indices.
+- [x] Keep manual symbol override precedence and resilient fallback to watchlist.
+- [x] Add `universeSourceTags` to weekly scanner list response.
+- [x] Add setup-level response fields: `setupQualityScore`, `expectedSwingPct`, `baselineDistancePct`, and structured `swingSetup` object.
+- [x] Compute baseline-distance metric from latest close vs 10-week baseline low.
+- [x] Add Weekly Swing row-click drawer card showing buy zone, target plan, hard stop, invalidation, confidence, and reasoning.
+- [x] Run backend compile and frontend build.
+
+## Review
+- Backend updated:
+  - `resources/src/main/kotlin/com/tradingtool/resources/ScreenerResource.kt`
+    - Weekly universe resolver now returns symbols + source tags.
+    - `GET /api/screener/weekly-pattern` now returns `universeSourceTags`.
+    - Default universe locked to exact broad + 14 sectoral/thematic list from PRD.
+  - `core/src/main/kotlin/com/tradingtool/core/screener/WeeklyPatternModels.kt`
+    - Added `SwingSetup` model.
+    - Added `setupQualityScore`, `expectedSwingPct`, `baselineDistancePct`, `swingSetup` to weekly result/detail payloads.
+    - Added `universeSourceTags` to list response envelope.
+  - `core/src/main/kotlin/com/tradingtool/core/screener/WeeklyPatternService.kt`
+    - Added baseline-distance calculation.
+    - Added swing-setup builder with stop-loss + invalidation + reasoning.
+    - Wired setup-level fields for list/detail/no-data responses.
+- Frontend updated:
+  - `frontend/src/types.ts`
+    - Added `SwingSetup` type and weekly response fields.
+  - `frontend/src/pages/WeeklySwingPage.tsx`
+    - Added sortable columns for Expected Swing and Baseline Distance.
+    - Added Setup Score column backed by API field.
+    - Added universe tag display under page subtitle.
+    - Added row-click `Drawer` Swing Setup card.
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm --prefix frontend run -s build` passed.

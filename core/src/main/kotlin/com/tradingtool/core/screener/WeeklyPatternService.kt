@@ -3,6 +3,7 @@ package com.tradingtool.core.screener
 import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.database.StockJdbiHandler
+import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.model.stock.Stock
 import com.tradingtool.core.technical.AdaptiveRsi
 import com.tradingtool.core.technical.StrategyTechnicalSignals
@@ -28,6 +29,7 @@ class WeeklyPatternService(
     private val stockHandler: StockJdbiHandler,
     private val candleCache: CandleCacheService,
     private val patternConfigService: WeeklyPatternConfigService,
+    private val instrumentCache: InstrumentCache = InstrumentCache(),
 ) {
     private val log = LoggerFactory.getLogger(WeeklyPatternService::class.java)
     private val ist = ZoneId.of("Asia/Kolkata")
@@ -57,6 +59,13 @@ class WeeklyPatternService(
         val eval: DayPairEval,
         val targetScenarios: List<TargetScenario>,
         val targetRecommendation: TargetRecommendation?,
+    )
+
+    private data class SymbolContext(
+        val symbol: String,
+        val exchange: String,
+        val instrumentToken: Long,
+        val companyName: String,
     )
 
     data class WeekInstance(
@@ -93,11 +102,11 @@ class WeeklyPatternService(
         val results = symbols.map { symbol ->
             async {
                 analysisSemaphore.withPermit {
-                    val stock = allStocks[symbol]
-                    if (stock == null) {
-                        noData(symbol, "Unknown", "symbol_not_in_watchlist")
+                    val context = resolveSymbolContext(symbol, allStocks[symbol])
+                    if (context == null) {
+                        noData(symbol, symbol, "symbol_metadata_unavailable")
                     } else {
-                        analyzeSymbol(stock, config)
+                        analyzeSymbol(context, config)
                     }
                 }
             }
@@ -111,15 +120,15 @@ class WeeklyPatternService(
         results
     }
 
-    private suspend fun analyzeSymbol(stock: Stock, config: WeeklyPatternConfig): WeeklyPatternResult {
-        val symbol = stock.symbol
-        val token = stock.instrumentToken
+    private suspend fun analyzeSymbol(symbolContext: SymbolContext, config: WeeklyPatternConfig): WeeklyPatternResult {
+        val symbol = symbolContext.symbol
+        val token = symbolContext.instrumentToken
         val today = LocalDate.now(ist)
         val from = today.minusYears(5)
 
         val allYearCandles = candleCache.getDailyCandles(token, symbol, from, today)
         if (allYearCandles.isEmpty()) {
-            return noData(symbol, stock.companyName, "no_candle_data")
+            return noData(symbol, symbolContext.companyName, "no_candle_data")
         }
 
         val rsiMap = StrategyTechnicalSignals.buildRollingRsiBoundsMap(
@@ -136,7 +145,7 @@ class WeeklyPatternService(
         val analysis = analyzeSeasonality(analysisWeeks, rsiMap, config)
         val bestPair = analysis?.eval
         if (bestPair == null || bestPair.eligibleWeeksCount < config.minWeeksRequired) {
-            return noData(symbol, stock.companyName, "insufficient_data")
+            return noData(symbol, symbolContext.companyName, "insufficient_data")
         }
 
         val (minLow, maxLow) = calculateBuyDayLowRange(
@@ -146,6 +155,7 @@ class WeeklyPatternService(
         )
         val avgPotential = bestPair.allWeeks.mapNotNull { it.maxPotentialPct }.average().roundTo2()
         val targetRecommendation = analysis.targetRecommendation
+        val expectedSwingPct = resolveExpectedSwingPct(bestPair, targetRecommendation)
 
         val vcpTightness = if (analysisWeeks.size >= 4) {
             analysisWeeks.takeLast(4).map { week ->
@@ -171,6 +181,15 @@ class WeeklyPatternService(
 
         val latestDate = allYearCandles.last().candleDate
         val latestRsi = rsiMap[latestDate] ?: rsiMap.values.lastOrNull()
+        val latestClose = allYearCandles.lastOrNull()?.close ?: 0.0
+        val baselineDistancePct = calculateBaselineDistancePct(completedWeeks, latestClose)
+        val swingSetup = buildSwingSetup(
+            bestPair = bestPair,
+            targetRecommendation = targetRecommendation,
+            config = config,
+            buyZoneMin = minLow,
+            buyZoneMax = maxLow,
+        )
         val currentRsiStatus = if (latestRsi != null) {
             AdaptiveRsi.getStatus(
                 currentRsi = latestRsi.current,
@@ -184,9 +203,9 @@ class WeeklyPatternService(
 
         return WeeklyPatternResult(
             symbol = symbol,
-            exchange = stock.exchange,
+            exchange = symbolContext.exchange,
             instrumentToken = token,
-            companyName = stock.companyName,
+            companyName = symbolContext.companyName,
             weeksAnalyzed = bestPair.weeksCount,
             buyDay = dayNames[bestPair.buyDay],
             entryReboundPct = config.entryReboundPct.roundTo2(),
@@ -209,6 +228,10 @@ class WeeklyPatternService(
             vcpTightnessPct = vcpTightness,
             volumeSignatureRatio = volumeSignature,
             mondayStrikeRatePct = mondayStrikeRate,
+            setupQualityScore = bestPair.compositeScore,
+            expectedSwingPct = expectedSwingPct,
+            baselineDistancePct = baselineDistancePct,
+            swingSetup = swingSetup,
         )
     }
 
@@ -252,6 +275,62 @@ class WeeklyPatternService(
 
         if (lowSamples.isEmpty()) return Pair(0.0, 0.0)
         return Pair(lowSamples.minOrNull() ?: 0.0, lowSamples.maxOrNull() ?: 0.0)
+    }
+
+    private fun calculateBaselineDistancePct(
+        completedWeeks: List<WeekInstance>,
+        latestClose: Double,
+        baselineWeeks: Int = 10,
+    ): Double? {
+        if (latestClose <= 0.0) {
+            return null
+        }
+
+        val baselineLow = completedWeeks
+            .takeLast(baselineWeeks)
+            .flatMap { week -> week.dailyCandles.values }
+            .map { candle -> candle.low }
+            .filter { low -> low > 0.0 }
+            .minOrNull()
+            ?: return null
+
+        return (((latestClose - baselineLow) / baselineLow) * 100.0).roundTo2()
+    }
+
+    private fun resolveExpectedSwingPct(
+        bestPair: DayPairEval,
+        targetRecommendation: TargetRecommendation?,
+    ): Double {
+        return (targetRecommendation?.expectedSwingPct ?: bestPair.avgSwingPct).roundTo2()
+    }
+
+    private fun buildSwingSetup(
+        bestPair: DayPairEval,
+        targetRecommendation: TargetRecommendation?,
+        config: WeeklyPatternConfig,
+        buyZoneMin: Double,
+        buyZoneMax: Double,
+    ): SwingSetup {
+        val safeTarget = targetRecommendation?.safeTargetPct?.roundTo2() ?: config.swingTargetPct.roundTo2()
+        val recommendedTarget = targetRecommendation?.recommendedTargetPct?.roundTo2() ?: config.swingTargetPct.roundTo2()
+        val aggressiveTarget = targetRecommendation?.aggressiveTargetPct?.roundTo2() ?: config.swingTargetPct.roundTo2()
+        val expectedSwing = resolveExpectedSwingPct(bestPair, targetRecommendation)
+        val confidence = targetRecommendation?.confidence ?: if (bestPair.compositeScore >= 70) "MEDIUM" else "LOW"
+        val reasoning = "Buy near ₹${buyZoneMin.roundTo2()}-₹${buyZoneMax.roundTo2()} around ${dayNames[bestPair.buyDay]} support; " +
+            "historical consistency ${bestPair.reboundConsistency}/${bestPair.eligibleWeeksCount}."
+
+        return SwingSetup(
+            buyZoneMin = buyZoneMin.roundTo2(),
+            buyZoneMax = buyZoneMax.roundTo2(),
+            safeTargetPct = safeTarget,
+            recommendedTargetPct = recommendedTarget,
+            aggressiveTargetPct = aggressiveTarget,
+            expectedSwingPct = expectedSwing,
+            hardStopLossPct = config.stopLossPct.roundTo2(),
+            invalidationCondition = "Invalidate if price closes below ₹${buyZoneMin.roundTo2()} or hard stop-loss ${config.stopLossPct.roundTo2()}% is hit.",
+            confidence = confidence,
+            reasoning = reasoning,
+        )
     }
 
     private fun analyzeSeasonality(
@@ -726,8 +805,9 @@ class WeeklyPatternService(
 
     suspend fun analyzeDetail(symbol: String): WeeklyPatternDetail? {
         val config = patternConfigService.loadConfig()
-        val stock = stockHandler.read { it.getBySymbol(symbol, "NSE") } ?: return null
-        val token = stock.instrumentToken
+        val stock = stockHandler.read { it.getBySymbol(symbol, "NSE") }
+        val symbolContext = resolveSymbolContext(symbol, stock) ?: return null
+        val token = symbolContext.instrumentToken
         val today = LocalDate.now(ist)
         val from = today.minusYears(5)
 
@@ -749,6 +829,7 @@ class WeeklyPatternService(
         val bestPair = analysis.eval
         val targetScenarios = analysis.targetScenarios
         val targetRecommendation = analysis.targetRecommendation
+        val expectedSwingPct = resolveExpectedSwingPct(bestPair, targetRecommendation)
 
         val (minLow, maxLow) = calculateBuyDayLowRange(
             completedWeeks = completedWeeks,
@@ -809,6 +890,15 @@ class WeeklyPatternService(
         }
 
         val avgPotential = bestPair.allWeeks.mapNotNull { it.maxPotentialPct }.average().roundTo2()
+        val latestClose = allYearCandles.lastOrNull()?.close ?: 0.0
+        val baselineDistancePct = calculateBaselineDistancePct(completedWeeks, latestClose)
+        val swingSetup = buildSwingSetup(
+            bestPair = bestPair,
+            targetRecommendation = targetRecommendation,
+            config = config,
+            buyZoneMin = minLow,
+            buyZoneMax = maxLow,
+        )
 
         val vcpTightness = if (analysisWeeks.size >= 4) {
             analysisWeeks.takeLast(4).map { week ->
@@ -865,9 +955,9 @@ class WeeklyPatternService(
 
         return WeeklyPatternDetail(
             symbol = symbol,
-            exchange = stock.exchange,
+            exchange = symbolContext.exchange,
             instrumentToken = token,
-            companyName = stock.companyName,
+            companyName = symbolContext.companyName,
             weeksAnalyzed = bestPair.weeksCount,
             buyDay = dayNames[bestPair.buyDay],
             entryReboundPct = config.entryReboundPct.roundTo2(),
@@ -895,6 +985,38 @@ class WeeklyPatternService(
             weeklyHeatmap = heatmap.reversed(),
             targetRecommendation = targetRecommendation,
             targetScenarios = targetScenarios,
+            setupQualityScore = bestPair.compositeScore,
+            expectedSwingPct = expectedSwingPct,
+            baselineDistancePct = baselineDistancePct,
+            swingSetup = swingSetup,
+        )
+    }
+
+    private fun resolveSymbolContext(symbol: String, stock: Stock?): SymbolContext? {
+        val normalizedSymbol = symbol.trim().uppercase()
+        if (normalizedSymbol.isEmpty()) {
+            return null
+        }
+
+        if (stock != null && stock.instrumentToken > 0) {
+            return SymbolContext(
+                symbol = stock.symbol,
+                exchange = stock.exchange,
+                instrumentToken = stock.instrumentToken,
+                companyName = stock.companyName,
+            )
+        }
+
+        val instrument = instrumentCache.find("NSE", normalizedSymbol) ?: return null
+        if (instrument.instrument_token <= 0) {
+            return null
+        }
+
+        return SymbolContext(
+            symbol = normalizedSymbol,
+            exchange = "NSE",
+            instrumentToken = instrument.instrument_token,
+            companyName = instrument.name?.takeIf { it.isNotBlank() } ?: normalizedSymbol,
         )
     }
 
@@ -921,6 +1043,10 @@ class WeeklyPatternService(
         reason = reason,
         buyDayLowMin = 0.0,
         buyDayLowMax = 0.0,
+        setupQualityScore = 0,
+        expectedSwingPct = 0.0,
+        baselineDistancePct = null,
+        swingSetup = null,
     )
 
     private fun pearsonCorrel(series: List<Double>, lag: Int): Double {

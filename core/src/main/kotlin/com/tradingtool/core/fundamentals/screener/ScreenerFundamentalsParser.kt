@@ -1,97 +1,87 @@
 package com.tradingtool.core.fundamentals.screener
 
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+
 object ScreenerFundamentalsParser {
-    fun parse(symbol: String, html: String): ScreenerFundamentalsSnapshot {
+    fun parse(symbol: String, payloadJson: String): ScreenerFundamentalsSnapshot {
+        val payload = objectMapper.readValue(payloadJson, NseFundamentalsPayload::class.java)
+
+        val quoteRoot = objectMapper.readTree(payload.quoteJson)
+        val filingsRoot = objectMapper.readTree(payload.financialResultsJson)
+        val shareholdingRoot = objectMapper.readTree(payload.shareholdingJson)
+
+        val companyName = quoteRoot.path("info").path("companyName").asCleanText()
+            ?: filingsRoot.firstOrNullNode()?.path("companyName")?.asCleanText()
+            ?: error("Company name not found in NSE payload for $symbol")
+
+        val industry = quoteRoot.path("metadata").path("industry").asCleanText()
+            ?: quoteRoot.path("industryInfo").path("industry").asCleanText()
+            ?: filingsRoot.firstOrNullNode()?.path("industry")?.asCleanText()
+
+        val broadIndustry = quoteRoot.path("industryInfo").path("macro").asCleanText()
+            ?: quoteRoot.path("industryInfo").path("sector").asCleanText()
+
+        val stockPe = quoteRoot.path("metadata").path("pdSymbolPe").asDoubleOrNull()
+
+        val issuedSize = quoteRoot.path("securityInfo").path("issuedSize").asDoubleOrNull()
+        val lastPrice = quoteRoot.path("priceInfo").path("lastPrice").asDoubleOrNull()
+        val marketCapCr = if (issuedSize != null && lastPrice != null) {
+            (issuedSize * lastPrice) / RUPEES_PER_CRORE
+        } else {
+            null
+        }
+
+        val promoterHoldingPercent = shareholdingRoot.firstOrNullNode()
+            ?.path("pr_and_prgrp")
+            ?.asDoubleOrNull()
+
         return ScreenerFundamentalsSnapshot(
             symbol = symbol,
-            companyName = extractCompanyName(html),
-            marketCapCr = extractTopRatioNumber(html, "Market Cap"),
-            stockPe = extractTopRatioNumber(html, "Stock P/E"),
-            rocePercent = extractTopRatioNumber(html, "ROCE"),
-            roePercent = extractTopRatioNumber(html, "ROE"),
-            promoterHoldingPercent = extractPromoterHolding(html),
-            broadIndustry = extractIndustry(html, "Broad Industry"),
-            industry = extractIndustry(html, "Industry"),
-            debtToEquity = extractDetailedRatio(html, "Debt to equity"),
-            pledgedPercent = extractDetailedRatio(html, "Pledged percentage"),
+            companyName = companyName,
+            marketCapCr = marketCapCr,
+            stockPe = stockPe,
+            rocePercent = null,
+            roePercent = null,
+            promoterHoldingPercent = promoterHoldingPercent,
+            broadIndustry = broadIndustry,
+            industry = industry,
+            debtToEquity = null,
+            pledgedPercent = null,
         )
     }
 
-    private fun extractCompanyName(html: String): String {
-        val match = H1_REGEX.find(html)
-            ?: TITLE_REGEX.find(html)
-            ?: error("Company name not found on Screener page.")
-        return decodeHtml(match.groupValues[1].trim())
+    private fun JsonNode.asCleanText(): String? {
+        if (!isTextual) {
+            return null
+        }
+        val value = asText().trim()
+        return if (value.isEmpty() || value == "-") null else value
     }
 
-    private fun extractTopRatioNumber(html: String, label: String): Double? {
-        val pattern = Regex(
-            """<li class="flex flex-space-between"[^>]*>\s*<span class="name">\s*$label\s*</span>.*?<span class="number">([^<]+)</span>""",
-            setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
-        )
-        return pattern.find(html)
-            ?.groupValues
-            ?.getOrNull(1)
-            ?.let(::parseNumber)
-    }
-
-    private fun extractPromoterHolding(html: String): Double? {
-        val rowMatch = PROMOTER_ROW_REGEX.find(html) ?: return null
-        val cellMatches = TD_PERCENT_REGEX.findAll(rowMatch.value).toList()
-        return cellMatches.lastOrNull()
-            ?.groupValues
-            ?.getOrNull(1)
-            ?.let(::parseNumber)
-    }
-
-    private fun extractIndustry(html: String, title: String): String? {
-        val pattern = Regex(
-            """title="$title">([^<]+)</a>""",
-            setOf(RegexOption.IGNORE_CASE),
-        )
-        return pattern.find(html)
-            ?.groupValues
-            ?.getOrNull(1)
-            ?.trim()
-            ?.let(::decodeHtml)
-    }
-
-    private fun extractDetailedRatio(html: String, label: String): Double? {
-        val pattern = Regex(
-            """<td[^>]*class="text"[^>]*>\s*$label\s*</td>\s*<td[^>]*>\s*([^<]+)\s*</td>""",
-            setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
-        )
-        return pattern.find(html)
-            ?.groupValues
-            ?.getOrNull(1)
-            ?.let(::parseNumber)
+    private fun JsonNode.asDoubleOrNull(): Double? {
+        return when {
+            isNumber -> asDouble()
+            isTextual -> parseNumber(asText())
+            else -> null
+        }
     }
 
     private fun parseNumber(raw: String): Double? {
         val normalized = raw
             .replace(",", "")
-            .replace("%", "")
-            .replace("₹", "")
-            .replace("Cr.", "", ignoreCase = true)
             .trim()
-        if (normalized.isBlank() || normalized == "-") {
+        if (normalized.isEmpty() || normalized == "-") {
             return null
         }
         return normalized.toDoubleOrNull()
     }
 
-    private fun decodeHtml(value: String): String {
-        return value
-            .replace("&amp;", "&")
-            .replace("&#39;", "'")
-            .replace("&quot;", "\"")
+    private fun JsonNode.firstOrNullNode(): JsonNode? {
+        return if (isArray && size() > 0) get(0) else null
     }
 
-    private val H1_REGEX = Regex("""<h1 class="margin-0 show-from-tablet-landscape">([^<]+)</h1>""")
-    private val TITLE_REGEX = Regex("""<title>([^<]+?) share price""")
-    private val PROMOTER_ROW_REGEX = Regex(
-        """<tr[^>]*>\s*<td class="text">\s*<button[^>]*classification=promoters[^>]*>.*?</tr>""",
-        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
-    )
-    private val TD_PERCENT_REGEX = Regex("""<td>\s*([0-9.,]+)%\s*</td>""")
+    private val objectMapper: ObjectMapper = ObjectMapper().registerKotlinModule()
+    private const val RUPEES_PER_CRORE: Double = 10_000_000.0
 }

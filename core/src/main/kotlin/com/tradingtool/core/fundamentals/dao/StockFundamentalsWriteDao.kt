@@ -3,6 +3,7 @@ package com.tradingtool.core.fundamentals.dao
 import com.tradingtool.core.constants.DatabaseConstants.StockFundamentalsColumns as Cols
 import com.tradingtool.core.constants.DatabaseConstants.Tables
 import org.jdbi.v3.sqlobject.customizer.Bind
+import org.jdbi.v3.sqlobject.customizer.BindList
 import org.jdbi.v3.sqlobject.statement.SqlUpdate
 import java.time.LocalDate
 
@@ -56,4 +57,12 @@ interface StockFundamentalsWriteDao {
         @Bind("sourceName") sourceName: String,
         @Bind("sourceUrl") sourceUrl: String,
     ): Int
+
+    @SqlUpdate(
+        """
+        DELETE FROM ${Tables.STOCK_FUNDAMENTALS_DAILY}
+        WHERE ${Cols.SYMBOL} IN (<symbols>)
+        """
+    )
+    fun deleteBySymbols(@BindList("symbols") symbols: List<String>): Int
 }

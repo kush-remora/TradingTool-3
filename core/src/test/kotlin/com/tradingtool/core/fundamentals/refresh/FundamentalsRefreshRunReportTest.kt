@@ -74,8 +74,8 @@ class FundamentalsRefreshRunReportTest {
             promoterHoldingPercent = 50.0,
             broadIndustry = "Industry",
             industry = "Sub Industry",
-            sourceName = "screener",
-            sourceUrl = "https://www.screener.in/company/$symbol/consolidated/",
+            sourceName = "nse-corporate-filings",
+            sourceUrl = "https://www.nseindia.com/api/corporates-financial-results?index=equities&symbol=$symbol&period=Quarterly",
             fetchedAt = null,
         )
     }

@@ -7,6 +7,7 @@ import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.fundamentals.config.FundamentalsConfigService
 import com.tradingtool.core.fundamentals.config.FundamentalsDataSource
 import com.tradingtool.core.fundamentals.config.FundamentalsUniverseService
+import com.tradingtool.core.fundamentals.model.StockFundamentalsDaily
 import com.tradingtool.core.fundamentals.screener.ScreenerFundamentalsParser
 import com.tradingtool.core.fundamentals.screener.ScreenerFundamentalsSnapshot
 import com.tradingtool.core.fundamentals.screener.ScreenerFundamentalsSourceAdapter
@@ -41,7 +42,7 @@ class FundamentalsRefreshService @Inject constructor(
         if (!config.enabled) {
             error("Fundamentals refresh is disabled in ${FundamentalsConfigService.CONFIG_FILE_NAME}.")
         }
-        if (config.source != FundamentalsDataSource.SCREENER) {
+        if (config.source != FundamentalsDataSource.NSE_CORPORATE_FILINGS) {
             error("Unsupported fundamentals source: ${config.source}")
         }
 
@@ -59,6 +60,10 @@ class FundamentalsRefreshService @Inject constructor(
         }
 
         val trackedStocks = loadTrackedStocks(universeAssignments.keys.toList())
+        val previousFundamentalsBySymbol = loadLatestFundamentalsBeforeDate(
+            symbols = universeAssignments.keys.toList(),
+            snapshotDate = snapshotDate,
+        )
         val targets = mutableListOf<FundamentalsTarget>()
         val failures = mutableListOf<FundamentalsRefreshFailure>()
 
@@ -85,7 +90,11 @@ class FundamentalsRefreshService @Inject constructor(
             when (val response = sourceAdapter.fetchCompanyPage(target.symbol)) {
                 is Result.Success -> {
                     runCatching {
-                        val snapshot = ScreenerFundamentalsParser.parse(target.symbol, response.data)
+                        val parsedSnapshot = ScreenerFundamentalsParser.parse(target.symbol, response.data)
+                        val snapshot = mergeWithPreviousSnapshot(
+                            current = parsedSnapshot,
+                            previous = previousFundamentalsBySymbol[target.symbol],
+                        )
                         upserts += FundamentalsUpsert(
                             stockId = target.stockId,
                             instrumentToken = target.instrumentToken,
@@ -100,7 +109,7 @@ class FundamentalsRefreshService @Inject constructor(
                     }.onFailure { error ->
                         failures += FundamentalsRefreshFailure(
                             symbol = target.symbol,
-                            reason = error.message ?: "Screener page parse failed.",
+                            reason = error.message ?: "NSE fundamentals payload parse failed.",
                         )
                     }
                 }
@@ -160,6 +169,22 @@ class FundamentalsRefreshService @Inject constructor(
         )
     }
 
+    suspend fun deleteSnapshotsForSymbols(symbols: List<String>): Int {
+        val normalizedSymbols = symbols.asSequence()
+            .map { symbol -> symbol.trim().uppercase() }
+            .filter { symbol -> symbol.isNotEmpty() }
+            .distinct()
+            .toList()
+
+        if (normalizedSymbols.isEmpty()) {
+            return 0
+        }
+
+        return fundamentalsHandler.write { dao ->
+            dao.deleteBySymbols(normalizedSymbols)
+        }
+    }
+
     suspend fun findRowsForDate(
         snapshotDate: LocalDate,
         instrumentTokens: List<Long>,
@@ -177,6 +202,36 @@ class FundamentalsRefreshService @Inject constructor(
         }.associateBy { stock -> stock.symbol.uppercase() }
     }
 
+    private suspend fun loadLatestFundamentalsBeforeDate(
+        symbols: List<String>,
+        snapshotDate: LocalDate,
+    ): Map<String, StockFundamentalsDaily> {
+        if (symbols.isEmpty()) {
+            return emptyMap()
+        }
+        return fundamentalsHandler.read { dao ->
+            dao.findLatestBySymbolsBeforeDate(symbols, snapshotDate)
+        }.associateBy { row -> row.symbol.uppercase() }
+    }
+
+    private fun mergeWithPreviousSnapshot(
+        current: ScreenerFundamentalsSnapshot,
+        previous: StockFundamentalsDaily?,
+    ): ScreenerFundamentalsSnapshot {
+        if (previous == null) {
+            return current
+        }
+        return current.copy(
+            marketCapCr = current.marketCapCr ?: previous.marketCapCr,
+            stockPe = current.stockPe ?: previous.stockPe,
+            rocePercent = current.rocePercent ?: previous.rocePercent,
+            roePercent = current.roePercent ?: previous.roePercent,
+            promoterHoldingPercent = current.promoterHoldingPercent ?: previous.promoterHoldingPercent,
+            broadIndustry = current.broadIndustry ?: previous.broadIndustry,
+            industry = current.industry ?: previous.industry,
+        )
+    }
+
     private suspend fun ensureInstrumentCacheLoaded() {
         if (!instrumentCache.isEmpty()) {
             return
@@ -190,7 +245,7 @@ class FundamentalsRefreshService @Inject constructor(
 
     private companion object {
         const val NSE_EXCHANGE: String = "NSE"
-        const val SOURCE_NAME: String = "screener"
+        const val SOURCE_NAME: String = "nse-corporate-filings"
         val IST_ZONE: ZoneId = ZoneId.of("Asia/Kolkata")
     }
 }

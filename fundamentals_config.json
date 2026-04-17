@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "source": "SCREENER",
+  "source": "NSE_CORPORATE_FILINGS",
   "request_delay_ms": 1200,
   "universe": {
     "preset_names": [
