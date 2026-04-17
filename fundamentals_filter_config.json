@@ -1,0 +1,117 @@
+{
+  "enabled": true,
+  "version": 1,
+  "notes": "PE ratio intentionally excluded. Financial services can use a separate ruleset in later phase.",
+  "buckets": {
+    "NIFTY_50": {
+      "standard": {
+        "debt_to_equity_max": 1.5,
+        "roce_min_percent": 12.0,
+        "promoter_pledge_max_percent": 5.0,
+        "sales_cagr_3y_min_percent": 8.0,
+        "pat_cagr_3y_min_percent": 8.0,
+        "ocf_positive_years_min": 3,
+        "ocf_positive_years_window": 4,
+        "avg_traded_value_20d_min_cr": 100.0
+      },
+      "extreme": {
+        "debt_to_equity_max": 1.0,
+        "roce_min_percent": 15.0,
+        "promoter_pledge_max_percent": 2.0,
+        "sales_cagr_3y_min_percent": 12.0,
+        "pat_cagr_3y_min_percent": 12.0,
+        "ocf_positive_years_min": 4,
+        "ocf_positive_years_window": 4,
+        "avg_traded_value_20d_min_cr": 150.0
+      }
+    },
+    "NIFTY_100": {
+      "standard": {
+        "debt_to_equity_max": 1.2,
+        "roce_min_percent": 14.0,
+        "promoter_pledge_max_percent": 5.0,
+        "sales_cagr_3y_min_percent": 10.0,
+        "pat_cagr_3y_min_percent": 10.0,
+        "ocf_positive_years_min": 3,
+        "ocf_positive_years_window": 4,
+        "avg_traded_value_20d_min_cr": 50.0
+      },
+      "extreme": {
+        "debt_to_equity_max": 0.9,
+        "roce_min_percent": 17.0,
+        "promoter_pledge_max_percent": 3.0,
+        "sales_cagr_3y_min_percent": 14.0,
+        "pat_cagr_3y_min_percent": 14.0,
+        "ocf_positive_years_min": 4,
+        "ocf_positive_years_window": 4,
+        "avg_traded_value_20d_min_cr": 80.0
+      }
+    },
+    "NIFTY_200": {
+      "standard": {
+        "debt_to_equity_max": 1.0,
+        "roce_min_percent": 15.0,
+        "promoter_pledge_max_percent": 4.0,
+        "sales_cagr_3y_min_percent": 11.0,
+        "pat_cagr_3y_min_percent": 11.0,
+        "ocf_positive_years_min": 3,
+        "ocf_positive_years_window": 4,
+        "avg_traded_value_20d_min_cr": 30.0
+      },
+      "extreme": {
+        "debt_to_equity_max": 0.8,
+        "roce_min_percent": 18.0,
+        "promoter_pledge_max_percent": 2.0,
+        "sales_cagr_3y_min_percent": 15.0,
+        "pat_cagr_3y_min_percent": 15.0,
+        "ocf_positive_years_min": 4,
+        "ocf_positive_years_window": 4,
+        "avg_traded_value_20d_min_cr": 50.0
+      }
+    },
+    "NIFTY_MIDCAP_250": {
+      "standard": {
+        "debt_to_equity_max": 0.9,
+        "roce_min_percent": 16.0,
+        "promoter_pledge_max_percent": 3.0,
+        "sales_cagr_3y_min_percent": 12.0,
+        "pat_cagr_3y_min_percent": 12.0,
+        "ocf_positive_years_min": 3,
+        "ocf_positive_years_window": 4,
+        "avg_traded_value_20d_min_cr": 20.0
+      },
+      "extreme": {
+        "debt_to_equity_max": 0.6,
+        "roce_min_percent": 20.0,
+        "promoter_pledge_max_percent": 2.0,
+        "sales_cagr_3y_min_percent": 16.0,
+        "pat_cagr_3y_min_percent": 16.0,
+        "ocf_positive_years_min": 4,
+        "ocf_positive_years_window": 4,
+        "avg_traded_value_20d_min_cr": 30.0
+      }
+    },
+    "NIFTY_SMALLCAP_250": {
+      "standard": {
+        "debt_to_equity_max": 0.7,
+        "roce_min_percent": 18.0,
+        "promoter_pledge_max_percent": 2.0,
+        "sales_cagr_3y_min_percent": 15.0,
+        "pat_cagr_3y_min_percent": 15.0,
+        "ocf_positive_years_min": 3,
+        "ocf_positive_years_window": 4,
+        "avg_traded_value_20d_min_cr": 10.0
+      },
+      "extreme": {
+        "debt_to_equity_max": 0.5,
+        "roce_min_percent": 22.0,
+        "promoter_pledge_max_percent": 1.0,
+        "sales_cagr_3y_min_percent": 18.0,
+        "pat_cagr_3y_min_percent": 18.0,
+        "ocf_positive_years_min": 4,
+        "ocf_positive_years_window": 4,
+        "avg_traded_value_20d_min_cr": 15.0
+      }
+    }
+  }
+}
