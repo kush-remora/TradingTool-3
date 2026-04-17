@@ -239,6 +239,7 @@ export interface WeeklyPatternResult {
   exchange: string;
   instrumentToken: number;
   companyName: string;
+  sourceBuckets?: string[];
   weeksAnalyzed: number;
   buyDay: string;
   entryReboundPct: number;

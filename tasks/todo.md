@@ -637,3 +637,47 @@ Implement PRD-approved weekly scanner upgrade: exact broad + 14 sectoral NSE ind
 - Verification:
   - `mvn -q -pl core,resources,service -DskipTests compile` passed.
   - `npm --prefix frontend run -s build` passed.
+
+---
+
+# Implementation Plan: Weekly Pattern Enhancements V1 (ScreenerOverview)
+
+## Overview
+Implement the full weekly screener UX enhancement set on the existing `ScreenerOverview` surface: table column controls with persistence, full-column filtering/sorting/multi-select, custom ranking builder, inline trade planner, and right-side detail drawer with setup/chart/timeline/planner tabs.
+
+## Implementation Steps
+- [x] Add persistent localStorage state keys and safe parse/fallback utilities for columns, filters, sort, rank presets, and planner defaults.
+- [x] Refactor `ScreenerOverview` table model to support dynamic visible columns, reorder, pin left/right, and reset defaults via an AntD columns drawer.
+- [x] Add filter/sort support across visible columns with multi-select categorical filters and search, including stock symbol/company filters.
+- [x] Add quick filter chips and saved filter presets (save/apply/delete) persisted in localStorage.
+- [x] Add ranking drawer with weight sliders, rank mode switch (System vs Custom), score normalization, and ranking presets persistence.
+- [x] Add inline trade planner module with risk model outputs and per-symbol checklist persistence.
+- [x] Replace row navigation with in-context right detail drawer; fetch/cache weekly detail + technical context on demand with non-blocking error handling.
+- [x] Add mini chart and timeline tabs in detail drawer using existing response data.
+- [x] Run frontend build and record verification + assumptions.
+
+## Review
+- Frontend enhancements implemented on existing weekly pattern screen:
+  - `frontend/src/components/ScreenerOverview.tsx`
+    - Added persisted table config state for columns (`show/hide`, reorder, pin left/right) with reset.
+    - Added persisted sort + advanced multi-select filters (`filterSearch`) for every visible column.
+    - Added quick chips (`Inside zone`, `Near`, `Strong score`, `Buy day today`) and saved filter presets.
+    - Added ranking builder drawer with weighted sliders and preset save/load/delete.
+    - Added client-side `customRankScore` and rank mode switch (`System Score` / `Custom Weighted Score`).
+    - Added inline trade planner (expand row + drawer tab) with risk-based quantity, RR, and persisted per-symbol checklist.
+    - Replaced hard navigation with right-side in-context detail drawer (Setup, Mini Chart, Timeline, Trade Planner).
+    - Added on-demand detail fetch with per-symbol session cache and non-blocking error state.
+    - Added universe-bucket visibility column (`Universe Bucket`) sourced from `sourceBuckets`.
+  - `frontend/src/pages/ScreenerPage.tsx`
+    - Weekly mode now stays on `ScreenerOverview`; no route jump to `ScreenerDetail`.
+  - New utilities:
+    - `frontend/src/utils/weeklyScreenerRanking.ts`
+    - `frontend/src/utils/weeklyScreenerTableState.ts`
+  - New tests:
+    - `frontend/src/utils/weeklyScreenerRanking.test.ts`
+    - `frontend/src/utils/weeklyScreenerTableState.test.ts`
+- Verification:
+  - `npm --prefix frontend run -s test:run -- src/utils/weeklyScreenerRanking.test.ts src/utils/weeklyScreenerTableState.test.ts` passed.
+  - `npm --prefix frontend run -s build` passed.
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `cd frontend && npx tsc --noEmit` still fails due pre-existing unrelated repo issues; no new type errors from this feature slice remain.

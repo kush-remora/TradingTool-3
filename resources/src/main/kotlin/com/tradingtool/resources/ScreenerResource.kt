@@ -101,9 +101,14 @@ class ScreenerResource @Inject constructor(
 ) {
     private val ioScope = resourceScope.ioScope
     private val log = LoggerFactory.getLogger(javaClass)
+    private data class WeeklyIndexUniverse(
+        val symbols: List<String>,
+        val symbolBuckets: Map<String, List<String>>,
+    )
     private data class ResolvedWeeklyUniverse(
         val symbols: List<String>,
         val sourceTags: List<String>,
+        val symbolBuckets: Map<String, List<String>>,
     )
 
     /**
@@ -132,7 +137,9 @@ class ScreenerResource @Inject constructor(
         val universe = resolveWeeklyUniverse(symbolsParam)
         if (universe.symbols.isEmpty()) return@endpoint badRequest("No symbols found. Check weekly scanner index universe config.")
 
-        val results = weeklyPatternService.analyze(universe.symbols)
+        val results = weeklyPatternService.analyze(universe.symbols).map { row ->
+            row.copy(sourceBuckets = universe.symbolBuckets[row.symbol] ?: emptyList())
+        }
         ok(WeeklyPatternListResponse(
             runAt = Instant.now().toString(),
             lookbackWeeks = weeklyPatternService.lookbackWeeks(),
@@ -250,14 +257,16 @@ class ScreenerResource @Inject constructor(
             return ResolvedWeeklyUniverse(
                 symbols = symbols,
                 sourceTags = listOf("MANUAL_OVERRIDE"),
+                symbolBuckets = symbols.associateWith { listOf("MANUAL_OVERRIDE") },
             )
         }
 
-        val indexSymbols = loadWeeklyScannerUniverseSymbols()
-        if (indexSymbols.isNotEmpty()) {
+        val indexUniverse = loadWeeklyScannerUniverseSymbols()
+        if (indexUniverse.symbols.isNotEmpty()) {
             return ResolvedWeeklyUniverse(
-                symbols = indexSymbols,
+                symbols = indexUniverse.symbols,
                 sourceTags = WEEKLY_SCANNER_INDEX_NAMES,
+                symbolBuckets = indexUniverse.symbolBuckets,
             )
         }
 
@@ -273,10 +282,11 @@ class ScreenerResource @Inject constructor(
         return ResolvedWeeklyUniverse(
             symbols = fallbackSymbols,
             sourceTags = listOf("WATCHLIST:weekly"),
+            symbolBuckets = fallbackSymbols.associateWith { listOf("WATCHLIST:weekly") },
         )
     }
 
-    private suspend fun loadWeeklyScannerUniverseSymbols(): List<String> = coroutineScope {
+    private suspend fun loadWeeklyScannerUniverseSymbols(): WeeklyIndexUniverse = coroutineScope {
         val fetches = WEEKLY_SCANNER_INDEX_NAMES.map { indexName ->
             async {
                 indexName to nseIndexConstituentsService.fetchSymbols(indexName)
@@ -291,13 +301,25 @@ class ScreenerResource @Inject constructor(
             .distinct()
             .sorted()
             .toList()
+        val symbolBuckets = mutableMapOf<String, MutableSet<String>>()
+        byIndex.forEach { (indexName, members) ->
+            members.forEach { symbol ->
+                val normalized = symbol.trim().uppercase()
+                if (normalized.isNotEmpty()) {
+                    symbolBuckets.getOrPut(normalized) { linkedSetOf() }.add(indexName)
+                }
+            }
+        }
 
         val missingIndexes = byIndex.filter { (_, members) -> members.isEmpty() }.map { (indexName, _) -> indexName }
         if (missingIndexes.isNotEmpty()) {
             log.warn("Weekly scanner universe fetch returned zero members for indexes={}", missingIndexes)
         }
         log.info("Weekly scanner resolved {} symbols from {} indexes", symbols.size, WEEKLY_SCANNER_INDEX_NAMES.size)
-        symbols
+        WeeklyIndexUniverse(
+            symbols = symbols,
+            symbolBuckets = symbolBuckets.mapValues { (_, buckets) -> buckets.toList() },
+        )
     }
 
     private suspend fun resolveFundamentalsSymbolsForTag(tag: FundamentalsIndexTag): List<String> {

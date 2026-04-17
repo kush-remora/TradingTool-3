@@ -9,6 +9,7 @@ data class WeeklyPatternResult(
     val exchange: String,
     val instrumentToken: Long,
     val companyName: String,
+    val sourceBuckets: List<String> = emptyList(),
     val weeksAnalyzed: Int,
     val buyDay: String,
     val entryReboundPct: Double,
