@@ -146,7 +146,7 @@ class WeeklyCycleSuccessServiceTest {
     }
 
     @Test
-    fun `evaluateStableBase fails when recent start lows drift too much`() {
+    fun `evaluateStableBase fails when anchor and latest lows shift too much`() {
         val unstable = evaluateStableBase(
             cycles = listOf(
                 metrics("2026-W11", 100.0),
@@ -159,7 +159,39 @@ class WeeklyCycleSuccessServiceTest {
 
         assertFalse(unstable.pass)
         assertEquals(60.0, unstable.driftPct)
-        assertTrue(unstable.reason?.contains("Base drift") == true)
+        assertTrue(unstable.reason?.contains("Base shift") == true)
+    }
+
+    @Test
+    fun `evaluateStableBase passes when shift equals threshold`() {
+        val exact = evaluateStableBase(
+            cycles = listOf(
+                metrics("2026-W11", 100.0),
+                metrics("2026-W12", 110.0),
+                metrics("2026-W13", 102.0),
+                metrics("2026-W14", 104.0),
+            ),
+            maxDriftPct = 4.0,
+        )
+
+        assertTrue(exact.pass)
+        assertEquals(4.0, exact.driftPct)
+    }
+
+    @Test
+    fun `evaluateStableBase fails when fewer than two valid start weeks`() {
+        val insufficient = evaluateStableBase(
+            cycles = listOf(
+                metrics("2026-W11", 0.0),
+                metrics("2026-W12", -1.0),
+                metrics("2026-W13", 100.0),
+            ),
+            maxDriftPct = 4.0,
+        )
+
+        assertFalse(insufficient.pass)
+        assertEquals("Need at least 2 valid start weeks", insufficient.reason)
+        assertNull(insufficient.driftPct)
     }
 
     private fun week(year: Int, isoWeek: Int, candles: Map<Int, DailyCandle>): WeeklyCycleWeek {

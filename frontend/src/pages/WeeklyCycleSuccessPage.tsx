@@ -219,7 +219,7 @@ export function WeeklyCycleSuccessPage() {
               <InputNumber data-testid="roc-input" min={0} value={rocPct} onChange={(value) => setRocPct(value ?? 2)} />
             </div>
             <div>
-              <Text type="secondary">Stable Base Drift %</Text>
+              <Text type="secondary">Base Shift % (Anchor→Latest)</Text>
               <br />
               <InputNumber data-testid="stable-base-drift-input" min={0} value={stableBaseDriftPct} onChange={(value) => setStableBaseDriftPct(value ?? 4)} />
             </div>

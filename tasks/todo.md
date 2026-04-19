@@ -1143,16 +1143,22 @@ Fix Pattern Screener `Refresh patterns` so sync respects the currently selected 
 Add a stable-base guardrail to Weekly Cycle Success Scanner so stocks pass only when recent weekly swing base remains in a tight band (not stair-stepping upward/downward).
 
 ## Implementation Steps
-- [ ] Extend weekly cycle request parsing to accept optional stable-base max drift % threshold (default 4.0).
-- [ ] Add backend weekly-cycle evaluation fields for stable-base metrics and pass/fail reason.
-- [ ] Apply stable-base filter using last 4 completed weekly start lows; include metrics in API response rows.
-- [ ] Update Weekly Cycle Success frontend page with threshold input and new columns/visual tags.
-- [ ] Update backend/frontend tests for new request param, filter behavior, and query building.
-- [ ] Run compile/test checks for touched modules.
-- [ ] Run kotlin-reviewer pass and record outcome (including note if no Kotlin-specific findings).
+- [x] Extend weekly cycle request parsing to accept optional stable-base max drift % threshold (default 4.0).
+- [x] Add backend weekly-cycle evaluation fields for stable-base metrics and pass/fail reason.
+- [x] Apply stable-base filter using anchor vs latest weekly start lows from selected window; include metrics in API response rows.
+- [x] Update Weekly Cycle Success frontend page with threshold input and new columns/visual tags.
+- [x] Update backend/frontend tests for new request param, filter behavior, and query building.
+- [x] Run compile/test checks for touched modules.
+- [x] Run kotlin-reviewer pass and record outcome (including note if no Kotlin-specific findings).
 
 ## Review
-- Pending implementation.
+- Stable-base logic now uses `abs((latestStartLow - anchorStartLow) / anchorStartLow) * 100` where anchor is the oldest valid week in selected window.
+- API field names are unchanged for compatibility (`stableBaseDriftPct`, `stableBaseLowMin`, `stableBaseLowMax`), but values now represent base-shift semantics.
+- UI label updated to `Base Shift % (Anchor→Latest)` while keeping compact execution layout unchanged.
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm --prefix frontend run -s test -- src/pages/WeeklyCycleSuccessPage.test.tsx` passed (4/4).
+  - Kotlin test execution is currently blocked by unrelated pre-existing RSI test compile errors outside this change slice.
 
 ## Update: Weekly Cycle Success Column Simplification (Execution Toggle)
 - [x] Merge `Success` and `Success Rate` into one composite column (`Success (x/y | %)`).

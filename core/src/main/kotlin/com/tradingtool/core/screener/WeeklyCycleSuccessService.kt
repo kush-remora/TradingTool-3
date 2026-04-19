@@ -18,6 +18,7 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.WeekFields
+import kotlin.math.abs
 
 @Singleton
 class WeeklyCycleSuccessService @Inject constructor(
@@ -101,7 +102,7 @@ class WeeklyCycleSuccessService @Inject constructor(
                         rocThresholdPct = rocThresholdPct,
                     )
                     val stableBase = evaluateStableBase(
-                        cycles = evaluatedCycles.takeLast(STABLE_BASE_WEEKS),
+                        cycles = evaluatedCycles,
                         maxDriftPct = stableBaseMaxDriftPct,
                     )
 
@@ -178,8 +179,6 @@ class WeeklyCycleSuccessService @Inject constructor(
         val companyName: String,
     )
 }
-
-private const val STABLE_BASE_WEEKS = 4
 
 internal data class StableBaseEvaluation(
     val pass: Boolean,
@@ -277,72 +276,46 @@ internal fun evaluateStableBase(
     cycles: List<WeeklyCycleMetrics>,
     maxDriftPct: Double,
 ): StableBaseEvaluation {
-    if (cycles.size < STABLE_BASE_WEEKS) {
+    val validCycles = cycles.filter { cycle -> cycle.startLow > 0.0 }
+    if (validCycles.size < 2) {
         return StableBaseEvaluation(
             pass = false,
-            reason = "Need at least $STABLE_BASE_WEEKS valid start weeks",
+            reason = "Need at least 2 valid start weeks",
             driftPct = null,
             lowMin = null,
             lowMax = null,
-            weeksCount = cycles.size,
+            weeksCount = validCycles.size,
         )
     }
 
-    val lows = cycles.map { cycle -> cycle.startLow }.filter { low -> low > 0.0 }
-    if (lows.size < STABLE_BASE_WEEKS) {
+    val anchorLow = validCycles.first().startLow
+    val latestLow = validCycles.last().startLow
+    if (anchorLow <= 0.0) {
         return StableBaseEvaluation(
             pass = false,
-            reason = "Invalid start lows in recent weeks",
+            reason = "Need at least 2 valid start weeks",
             driftPct = null,
             lowMin = null,
             lowMax = null,
-            weeksCount = lows.size,
+            weeksCount = validCycles.size,
         )
     }
 
-    val lowMin = lows.minOrNull() ?: return StableBaseEvaluation(
-        pass = false,
-        reason = "Could not compute base low range",
-        driftPct = null,
-        lowMin = null,
-        lowMax = null,
-        weeksCount = lows.size,
-    )
-    val lowMax = lows.maxOrNull() ?: return StableBaseEvaluation(
-        pass = false,
-        reason = "Could not compute base low range",
-        driftPct = null,
-        lowMin = null,
-        lowMax = null,
-        weeksCount = lows.size,
-    )
-
-    if (lowMin <= 0.0) {
-        return StableBaseEvaluation(
-            pass = false,
-            reason = "Recent base low is non-positive",
-            driftPct = null,
-            lowMin = lowMin.roundTo2(),
-            lowMax = lowMax.roundTo2(),
-            weeksCount = lows.size,
-        )
-    }
-
-    val driftPct = ((lowMax - lowMin) / lowMin * 100.0).roundTo2()
-    val pass = driftPct <= maxDriftPct
+    val baseShiftPct = (abs(latestLow - anchorLow) / anchorLow * 100.0).roundTo2()
+    val pass = baseShiftPct <= maxDriftPct
     val reason = if (pass) {
         null
     } else {
-        "Base drift ${driftPct.roundTo2()}% > ${maxDriftPct.roundTo2()}%"
+        "Base shift ${baseShiftPct.roundTo2()}% > ${maxDriftPct.roundTo2()}%"
     }
 
     return StableBaseEvaluation(
         pass = pass,
         reason = reason,
-        driftPct = driftPct,
-        lowMin = lowMin.roundTo2(),
-        lowMax = lowMax.roundTo2(),
-        weeksCount = lows.size,
+        driftPct = baseShiftPct,
+        lowMin = minOf(anchorLow, latestLow).roundTo2(),
+        lowMax = maxOf(anchorLow, latestLow).roundTo2(),
+        weeksCount = validCycles.size,
     )
 }
 
