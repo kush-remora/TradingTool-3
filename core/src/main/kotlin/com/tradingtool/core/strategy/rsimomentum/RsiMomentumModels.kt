@@ -124,6 +124,7 @@ data class RsiMomentumProfileConfig(
     companion object {
         const val DEFAULT_BASE_UNIVERSE_PRESET: String = "NIFTY_LARGEMIDCAP_250"
         const val DEFAULT_SMALLCAP_UNIVERSE_PRESET: String = "NIFTY_SMALLCAP_250"
+        const val DEFAULT_NIFTY50_UNIVERSE_PRESET: String = "NIFTY_50"
         const val DEFAULT_MIN_AVERAGE_TRADED_VALUE_CR: Double = 10.0
         const val DEFAULT_BOARD_DISPLAY_COUNT: Int = 40
         const val DEFAULT_REPLACEMENT_POOL_COUNT: Int = 40
@@ -141,6 +142,11 @@ data class RsiMomentumProfileConfig(
                 id = "smallcap250",
                 label = "Smallcap250",
                 baseUniversePreset = DEFAULT_SMALLCAP_UNIVERSE_PRESET,
+            ),
+            RsiMomentumProfileConfig(
+                id = "nifty50",
+                label = "Nifty50",
+                baseUniversePreset = DEFAULT_NIFTY50_UNIVERSE_PRESET,
             ),
         )
     }
@@ -308,12 +314,140 @@ data class RsiMomentumHistoryEntry(
     val snapshot: RsiMomentumSnapshot,
 )
 
+data class DrawdownBucketSummary(
+    val atLeast20Pct: Int,
+    val atLeast30Pct: Int,
+    val atLeast40Pct: Int,
+    val atLeast50Pct: Int,
+    val atLeast60Pct: Int,
+)
+
+data class DrawdownBucketFlags(
+    val atLeast20Pct: Boolean,
+    val atLeast30Pct: Boolean,
+    val atLeast40Pct: Boolean,
+    val atLeast50Pct: Boolean,
+    val atLeast60Pct: Boolean,
+)
+
+data class MomentumLeaderRow(
+    val symbol: String,
+    val companyName: String,
+    val instrumentToken: Long,
+    val profileIds: List<String>,
+    val entryCount: Int,
+    val bestRank: Int,
+    val firstSeen: String,
+    val lastSeen: String,
+    val high1yClose: Double?,
+    val todayClose: Double?,
+    val minClose20d: Double?,
+    val ddTodayPct: Double?,
+    val dd20dMinPct: Double?,
+    val ddTodayBuckets: DrawdownBucketFlags,
+    val dd20dMinBuckets: DrawdownBucketFlags,
+)
+
+data class LeadersDrawdownProfileSection(
+    val profileId: String,
+    val profileLabel: String,
+    val rowCount: Int,
+    val rows: List<MomentumLeaderRow>,
+    val ddTodayBucketSummary: DrawdownBucketSummary,
+    val dd20dMinBucketSummary: DrawdownBucketSummary,
+    val warnings: List<String> = emptyList(),
+)
+
+data class LeadersDrawdownCombinedSection(
+    val rowCount: Int,
+    val rows: List<MomentumLeaderRow>,
+    val ddTodayBucketSummary: DrawdownBucketSummary,
+    val dd20dMinBucketSummary: DrawdownBucketSummary,
+    val warnings: List<String> = emptyList(),
+)
+
+data class LeadersDrawdownMeta(
+    val fromDate: String,
+    val toDate: String,
+    val asOfDate: String,
+    val topN: Int,
+    val profileIds: List<String>,
+)
+
+data class LeadersDrawdownResponse(
+    val meta: LeadersDrawdownMeta,
+    val profiles: List<LeadersDrawdownProfileSection>,
+    val combined: LeadersDrawdownCombinedSection,
+)
+
 data class BacktestRequest(
     val profileId: String,
     val fromDate: String? = null,
     val toDate: String? = null,
     val topN: Int? = 10,
     val statefulConfig: StatefulBacktestConfig? = null,
+)
+
+data class SimpleMomentumBacktestRequest(
+    val profileId: String,
+    val fromDate: String? = null,
+    val toDate: String? = null,
+    val initialCapital: Double = 200000.0,
+    val entryRankMin: Int = 1,
+    val entryRankMax: Int = 5,
+    val holdRankMax: Int = 10,
+)
+
+data class SimpleMomentumTrade(
+    val symbol: String,
+    val companyName: String,
+    val entryDate: String,
+    val entryRank: Int,
+    val entryPrice: Double,
+    val quantity: Int,
+    val investedAmount: Double,
+    val exitDate: String?,
+    val exitRank: Int?,
+    val exitPrice: Double?,
+    val exitAmount: Double?,
+    val pnlAmount: Double?,
+    val pnlPct: Double?,
+    val daysHeld: Int,
+    val status: String, // "OPEN" or "CLOSED"
+    val exitReason: String?,
+    val peakCloseSinceEntry: Double?,
+    val trailingStopPriceAtExit: Double?,
+)
+
+data class SimpleMomentumBacktestSummary(
+    val totalTrades: Int,
+    val closedTrades: Int,
+    val openPositions: Int,
+    val winRate: Double?,
+    val finalCapital: Double,
+    val totalProfit: Double,
+    val totalProfitPct: Double,
+    val cashBalance: Double,
+    val entriesSkippedByDrawdownGuard: Int,
+    val exitsByTrailingStop: Int,
+)
+
+data class SimpleMomentumBacktestResult(
+    val profileId: String,
+    val fromDate: String,
+    val toDate: String,
+    val firstSnapshotDate: String?,
+    val lastSnapshotDate: String?,
+    val initialCapital: Double,
+    val entryRankMin: Int,
+    val entryRankMax: Int,
+    val holdRankMax: Int,
+    val drawdownGuardLookbackDays: Int,
+    val drawdownGuardThresholdPct: Double,
+    val trailingStopPct: Double,
+    val snapshotDaysUsed: Int,
+    val summary: SimpleMomentumBacktestSummary,
+    val trades: List<SimpleMomentumTrade>,
 )
 
 data class StatefulBacktestConfig(

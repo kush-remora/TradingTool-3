@@ -155,6 +155,7 @@ class RsiMomentumConfigService @Inject constructor() {
         private val PRESET_RESOURCES: Map<String, String> = mapOf(
             RsiMomentumProfileConfig.DEFAULT_BASE_UNIVERSE_PRESET to "strategy-universes/nifty_largemidcap_250.csv",
             RsiMomentumProfileConfig.DEFAULT_SMALLCAP_UNIVERSE_PRESET to "strategy-universes/nifty_smallcap_250.csv",
+            RsiMomentumProfileConfig.DEFAULT_NIFTY50_UNIVERSE_PRESET to "strategy-universes/nifty_50.csv",
         )
     }
 

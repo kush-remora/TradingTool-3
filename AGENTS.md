@@ -88,6 +88,10 @@ Responsibilities:
 - Be direct and concise.
 - Surface trade-offs only when they materially affect delivery.
 - Ask clarifying questions only when necessary; otherwise make reasonable assumptions and proceed.
+- Every response must be provided in two sections:
+  - `Standard`: normal detailed response.
+  - `Crisp Summary`: very short, essential-only version (2-5 lines max).
+- Default to the `Crisp Summary` first when the user asks for short output.
 
 ## Agent Operating Rules
 

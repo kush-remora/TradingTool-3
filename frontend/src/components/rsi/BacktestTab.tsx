@@ -4,7 +4,8 @@ import dayjs from "dayjs";
 import { useState } from "react";
 import { postJson } from "../../utils/api";
 import { useRsiMomentumBacktest } from "../../hooks/useRsiMomentumBacktest";
-import type { BacktestResult, StockTrade, StatefulBacktestConfig } from "../../types";
+import { useSimpleMomentumBacktest } from "../../hooks/useSimpleMomentumBacktest";
+import type { BacktestResult, SimpleMomentumBacktestResult, SimpleMomentumTrade, StatefulBacktestConfig, StockTrade } from "../../types";
 
 const { RangePicker } = DatePicker;
 
@@ -135,8 +136,15 @@ const TOP_N_OPTIONS = [
 
 export function BacktestTab({ profileId }: { profileId: string }) {
   const { data, loading, error, run } = useRsiMomentumBacktest();
+  const {
+    data: simpleData,
+    loading: simpleLoading,
+    error: simpleError,
+    run: runSimpleBacktest,
+  } = useSimpleMomentumBacktest();
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
   const [topN, setTopN] = useState<number>(0);
+  const [simpleCapital, setSimpleCapital] = useState<number>(200000);
   
   // Stateful config states
   const [useStateful, setUseStateful] = useState(false);
@@ -198,6 +206,17 @@ export function BacktestTab({ profileId }: { profileId: string }) {
       toDate,
       topN: !useStateful && topN > 0 ? topN : undefined,
       statefulConfig
+    });
+  };
+
+  const handleRunSimple = () => {
+    void runSimpleBacktest({
+      profileId,
+      fromDate,
+      toDate,
+      initialCapital: simpleCapital,
+      entryRankMax: 5,
+      holdRankMax: 10,
     });
   };
 
@@ -331,14 +350,44 @@ export function BacktestTab({ profileId }: { profileId: string }) {
         <Alert type="error" showIcon message={prepareError} closable onClose={() => setPrepareError(null)} />
       )}
       {error && <Alert type="error" showIcon message={error} />}
+      {simpleError && <Alert type="error" showIcon message={simpleError} />}
+
+      <Card size="small" title="Simple Momentum Backtest (Top 5, Exit on Top 10)">
+        <Space direction="vertical" size={8} style={{ width: "100%" }}>
+          <Typography.Text type="secondary">
+            Rules: buy current top 5 momentum names with equal capital, hold while rank ≤ 10, sell once rank &gt; 10.
+          </Typography.Text>
+          <Space wrap align="center">
+            <Typography.Text strong>Capital:</Typography.Text>
+            <InputNumber
+              min={10000}
+              step={10000}
+              value={simpleCapital}
+              onChange={(value) => setSimpleCapital(value || 200000)}
+              addonAfter="INR"
+            />
+            <Typography.Text type="secondary">Entry: Top 5</Typography.Text>
+            <Typography.Text type="secondary">Hold: Top 10</Typography.Text>
+            <Button type="primary" onClick={handleRunSimple} loading={simpleLoading}>
+              Run Simple Backtest
+            </Button>
+          </Space>
+        </Space>
+      </Card>
 
       {loading && (
         <div style={{ textAlign: "center", padding: 32 }}>
           <Spin />
         </div>
       )}
+      {simpleLoading && (
+        <div style={{ textAlign: "center", padding: 32 }}>
+          <Spin />
+        </div>
+      )}
 
       {data && !loading && <BacktestResults result={data} />}
+      {simpleData && !simpleLoading && <SimpleMomentumBacktestResults result={simpleData} />}
 
       {!data && !loading && !error && (
         <Card size="small">
@@ -411,6 +460,145 @@ function BacktestResults({ result }: { result: BacktestResult }) {
           pagination={{ pageSize: 25, showSizeChanger: true }}
           scroll={{ x: 1200 }}
           rowClassName={(row) => row.status === "OPEN" ? "ant-table-row-selected" : ""}
+        />
+      </Card>
+    </Space>
+  );
+}
+
+const simpleColumns: ColumnsType<SimpleMomentumTrade> = [
+  {
+    title: "Symbol",
+    dataIndex: "symbol",
+    key: "symbol",
+    width: 130,
+    fixed: "left",
+  },
+  {
+    title: "Status",
+    dataIndex: "status",
+    key: "status",
+    width: 90,
+    render: (status: string) => <Tag color={status === "OPEN" ? "blue" : "default"}>{status}</Tag>,
+  },
+  {
+    title: "Entry Date",
+    dataIndex: "entryDate",
+    key: "entryDate",
+    width: 110,
+  },
+  {
+    title: "Entry Rank",
+    dataIndex: "entryRank",
+    key: "entryRank",
+    width: 90,
+    render: (rank: number) => `#${rank}`,
+  },
+  {
+    title: "Qty",
+    dataIndex: "quantity",
+    key: "quantity",
+    width: 80,
+  },
+  {
+    title: "Invested",
+    dataIndex: "investedAmount",
+    key: "investedAmount",
+    width: 120,
+    render: fmtPrice,
+  },
+  {
+    title: "Exit Date",
+    dataIndex: "exitDate",
+    key: "exitDate",
+    width: 110,
+    render: (value: string | null) => value ?? "—",
+  },
+  {
+    title: "Exit Rank",
+    dataIndex: "exitRank",
+    key: "exitRank",
+    width: 90,
+    render: (rank: number | null) => (rank != null ? `#${rank}` : "—"),
+  },
+  {
+    title: "P&L",
+    dataIndex: "pnlAmount",
+    key: "pnlAmount",
+    width: 120,
+    render: (value: number | null) => {
+      if (value == null) return "—";
+      return (
+        <Typography.Text style={{ color: value >= 0 ? "#3f8600" : "#cf1322" }}>
+          {value >= 0 ? "+" : ""}₹{value.toFixed(2)}
+        </Typography.Text>
+      );
+    },
+  },
+  {
+    title: "P&L %",
+    dataIndex: "pnlPct",
+    key: "pnlPct",
+    width: 100,
+    render: fmtPct,
+  },
+  {
+    title: "Days Held",
+    dataIndex: "daysHeld",
+    key: "daysHeld",
+    width: 100,
+  },
+];
+
+function SimpleMomentumBacktestResults({ result }: { result: SimpleMomentumBacktestResult }) {
+  const summary = result.summary;
+  const snapshotCoverage = result.firstSnapshotDate && result.lastSnapshotDate
+    ? `${result.firstSnapshotDate} to ${result.lastSnapshotDate}`
+    : "No snapshots";
+  const hasSparseCoverage = result.firstSnapshotDate != null && result.firstSnapshotDate > result.fromDate;
+
+  return (
+    <Space direction="vertical" size={16} style={{ width: "100%" }}>
+      {hasSparseCoverage && (
+        <Alert
+          type="warning"
+          showIcon
+          message={`Requested window starts at ${result.fromDate}, but first available snapshot is ${result.firstSnapshotDate}.`}
+          description="Backtest uses available snapshot dates only. Run Prepare Data / backfill for full range coverage."
+        />
+      )}
+      <Row gutter={[12, 12]}>
+        <Col xs={12} md={8} xl={4}>
+          <Card size="small"><Statistic title="Final Capital" value={`₹${summary.finalCapital.toFixed(2)}`} /></Card>
+        </Col>
+        <Col xs={12} md={8} xl={4}>
+          <Card size="small"><Statistic title="Total Profit" value={`₹${summary.totalProfit.toFixed(2)}`} valueStyle={{ color: summary.totalProfit >= 0 ? "#3f8600" : "#cf1322" }} /></Card>
+        </Col>
+        <Col xs={12} md={8} xl={4}>
+          <Card size="small"><Statistic title="Return %" value={summary.totalProfitPct.toFixed(2)} suffix="%" valueStyle={{ color: summary.totalProfitPct >= 0 ? "#3f8600" : "#cf1322" }} /></Card>
+        </Col>
+        <Col xs={12} md={8} xl={4}>
+          <Card size="small"><Statistic title="Total Trades" value={summary.totalTrades} /></Card>
+        </Col>
+        <Col xs={12} md={8} xl={4}>
+          <Card size="small"><Statistic title="Closed Trades" value={summary.closedTrades} /></Card>
+        </Col>
+        <Col xs={12} md={8} xl={4}>
+          <Card size="small"><Statistic title="Open Positions" value={summary.openPositions} /></Card>
+        </Col>
+      </Row>
+
+      <Card
+        size="small"
+        title={`Simple Momentum Journal — Requested: ${result.fromDate} to ${result.toDate} · Snapshot coverage: ${snapshotCoverage} · ${result.snapshotDaysUsed} snapshot days`}
+      >
+        <Table
+          columns={simpleColumns}
+          dataSource={result.trades}
+          rowKey={(row) => `${row.symbol}-${row.entryDate}`}
+          size="small"
+          pagination={{ pageSize: 25, showSizeChanger: true }}
+          scroll={{ x: 1200 }}
         />
       </Card>
     </Space>

@@ -189,8 +189,11 @@ class ServiceModule(
         handler<RsiMomentumSnapshotReadDao, RsiMomentumSnapshotWriteDao>(config)
 
     @Provides @Singleton
-    fun provideRsiMomentumHistoryService(snapshotHandler: RsiMomentumSnapshotJdbiHandler): RsiMomentumHistoryService =
-        RsiMomentumHistoryService(snapshotHandler)
+    fun provideRsiMomentumHistoryService(
+        snapshotHandler: RsiMomentumSnapshotJdbiHandler,
+        candleHandler: CandleJdbiHandler,
+        configService: RsiMomentumConfigService,
+    ): RsiMomentumHistoryService = RsiMomentumHistoryService(snapshotHandler, candleHandler, configService)
 
     @Provides @Singleton
     fun provideRsiMomentumBackfillService(
@@ -377,6 +380,13 @@ class ServiceModule(
             candleCache,
             patternConfigService,
         )
+
+    @Provides @Singleton
+    fun provideSwingService(
+        stockHandler: StockJdbiHandler,
+        candleCache: CandleCacheService,
+    ): com.tradingtool.core.analysis.swing.SwingService =
+        com.tradingtool.core.analysis.swing.SwingService(stockHandler, candleCache)
 
     private companion object {
         fun readPositiveIntEnv(envName: String, defaultValue: Int): Int {

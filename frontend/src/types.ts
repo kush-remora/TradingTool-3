@@ -528,6 +528,72 @@ export interface RsiMomentumHistoryEntry {
   snapshot: RsiMomentumSnapshot;
 }
 
+export interface DrawdownBucketSummary {
+  atLeast20Pct: number;
+  atLeast30Pct: number;
+  atLeast40Pct: number;
+  atLeast50Pct: number;
+  atLeast60Pct: number;
+}
+
+export interface DrawdownBucketFlags {
+  atLeast20Pct: boolean;
+  atLeast30Pct: boolean;
+  atLeast40Pct: boolean;
+  atLeast50Pct: boolean;
+  atLeast60Pct: boolean;
+}
+
+export interface MomentumLeaderRow {
+  symbol: string;
+  companyName: string;
+  instrumentToken: number;
+  profileIds: string[];
+  entryCount: number;
+  bestRank: number;
+  firstSeen: string;
+  lastSeen: string;
+  high1yClose: number | null;
+  todayClose: number | null;
+  minClose20d: number | null;
+  ddTodayPct: number | null;
+  dd20dMinPct: number | null;
+  ddTodayBuckets: DrawdownBucketFlags;
+  dd20dMinBuckets: DrawdownBucketFlags;
+}
+
+export interface LeadersDrawdownProfileSection {
+  profileId: string;
+  profileLabel: string;
+  rowCount: number;
+  rows: MomentumLeaderRow[];
+  ddTodayBucketSummary: DrawdownBucketSummary;
+  dd20dMinBucketSummary: DrawdownBucketSummary;
+  warnings: string[];
+}
+
+export interface LeadersDrawdownCombinedSection {
+  rowCount: number;
+  rows: MomentumLeaderRow[];
+  ddTodayBucketSummary: DrawdownBucketSummary;
+  dd20dMinBucketSummary: DrawdownBucketSummary;
+  warnings: string[];
+}
+
+export interface LeadersDrawdownMeta {
+  fromDate: string;
+  toDate: string;
+  asOfDate: string;
+  topN: number;
+  profileIds: string[];
+}
+
+export interface LeadersDrawdownResponse {
+  meta: LeadersDrawdownMeta;
+  profiles: LeadersDrawdownProfileSection[];
+  combined: LeadersDrawdownCombinedSection;
+}
+
 export type RsiBacktestLogicType = "LEADER" | "JUMPER" | "HYBRID";
 export type RsiBacktestExitMode = "T_PLUS_3" | "RSI_60" | "T_PLUS_3_OR_RSI_60";
 
@@ -654,6 +720,107 @@ export interface BacktestResult {
   trades: StockTrade[];
 }
 
+export interface SimpleMomentumBacktestRequest {
+  profileId: string;
+  fromDate?: string;
+  toDate?: string;
+  initialCapital?: number;
+  entryRankMin?: number;
+  entryRankMax?: number;
+  holdRankMax?: number;
+}
+
+export interface SimpleMomentumTrade {
+  symbol: string;
+  companyName: string;
+  entryDate: string;
+  entryRank: number;
+  entryPrice: number;
+  quantity: number;
+  investedAmount: number;
+  exitDate: string | null;
+  exitRank: number | null;
+  exitPrice: number | null;
+  exitAmount: number | null;
+  pnlAmount: number | null;
+  pnlPct: number | null;
+  daysHeld: number;
+  status: "OPEN" | "CLOSED";
+  exitReason: string | null;
+  peakCloseSinceEntry: number | null;
+  trailingStopPriceAtExit: number | null;
+}
+
+export interface SimpleMomentumBacktestSummary {
+  totalTrades: number;
+  closedTrades: number;
+  openPositions: number;
+  winRate: number | null;
+  finalCapital: number;
+  totalProfit: number;
+  totalProfitPct: number;
+  cashBalance: number;
+  entriesSkippedByDrawdownGuard: number;
+  exitsByTrailingStop: number;
+}
+
+export interface SimpleMomentumBacktestResult {
+  profileId: string;
+  fromDate: string;
+  toDate: string;
+  firstSnapshotDate: string | null;
+  lastSnapshotDate: string | null;
+  initialCapital: number;
+  entryRankMin: number;
+  entryRankMax: number;
+  holdRankMax: number;
+  drawdownGuardLookbackDays: number;
+  drawdownGuardThresholdPct: number;
+  trailingStopPct: number;
+  snapshotDaysUsed: number;
+  summary: SimpleMomentumBacktestSummary;
+  trades: SimpleMomentumTrade[];
+}
+
+export interface SimpleMomentumPrepareRequest {
+  profileId: string;
+  fromDate: string;
+  toDate: string;
+}
+
+export interface DailyCandleSyncResult {
+  fromDate: string;
+  toDate: string;
+  totalSymbols: number;
+  symbolsSynced: number;
+  symbolsFailed: number;
+  failedSymbols: string[];
+  dailyCandlesUpserted: number;
+}
+
+export interface SimpleMomentumPrepareResponse {
+  profileId: string;
+  profileLabel: string;
+  baseUniversePreset: string;
+  requestedFromDate: string;
+  requestedToDate: string;
+  symbolsTargeted: number;
+  candleSync: DailyCandleSyncResult;
+  snapshotBackfill: BackfillResult;
+  warnings: string[];
+}
+
+export interface BackfillResult {
+  profileId: string;
+  fromDate: string;
+  toDate: string;
+  tradingDatesFound: number;
+  datesSkipped: number;
+  datesProcessed: number;
+  datesFailed: number;
+  message: string;
+}
+
 export interface BackfillFreshRequest {
   fromDate?: string;
   toDate?: string;
@@ -680,6 +847,16 @@ export interface BackfillFreshResult {
 export interface BackfillFreshResponse {
   rebuild: BackfillFreshResult;
   latest: RsiMomentumMultiSnapshot;
+}
+
+export interface MomentumDataPrepareResponse {
+  profileId: string;
+  fromDate: string;
+  toDate: string;
+  tradingDaysProcessed: number;
+  todayAsOfDateUsed: string | null;
+  top50Count: number;
+  warnings: string[];
 }
 
 // ─── RSI Momentum Lifecycle ──────────────────────────────────────────────────
@@ -818,4 +995,40 @@ export interface S4MultiSnapshot {
   profiles: S4Snapshot[];
   errors: S4ProfileError[];
   partialSuccess: boolean;
+}
+
+// ==================== Swing Analysis ====================
+
+export interface SwingCandle {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export type SwingType = "PEAK" | "TROUGH";
+
+export interface SwingPoint {
+  date: string;
+  dayOfWeek: string;
+  price: number;
+  type: SwingType;
+  changePct: number;
+  barsSinceLast: number;
+}
+
+export interface SwingStats {
+  averageUpswingPct: number;
+  averageDownswingPct: number;
+  averageSwingDurationBars: number;
+}
+
+export interface SwingAnalysisResponse {
+  symbol: string;
+  reversalPct: number;
+  points: SwingPoint[];
+  candles: SwingCandle[];
+  stats: SwingStats;
 }

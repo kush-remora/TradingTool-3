@@ -23,6 +23,9 @@ This file tracks active, pending, and completed features.
 ---
 
 ## ✅ Completed Features
+* **Corporate Event Data Export** (2026-04-19): New tool to export +/- 5 days of candle data for stocks with upcoming quarterly results.
+    - Integrated with Kite historical API and local candle cache.
+    - New frontend page "Results Export" for bulk processing tab-separated stock lists.
 * **Watchlist Refactoring** (2026-04-06): Transitioned to pre-defined tagging system from `watchlist_config.json`.
 * **RSI Momentum V1** (2026-04-14): Daily snapshots, history, backtesting with buffer exits, and lifecycle analytics.
 * **RSI Momentum V1.1** (2026-04-14): Stateful Rank-Based Backtesting and Multi-Symbol comparison view.

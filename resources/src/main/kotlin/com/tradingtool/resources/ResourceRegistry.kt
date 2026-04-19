@@ -18,4 +18,6 @@ val ALL_RESOURCE_CLASSES: List<Class<*>> = listOf(
     ScreenerResource::class.java,
     TechnicalContextResource::class.java,
     LiveMarketResource::class.java,
+    AnalysisResource::class.java,
+    CorporateEventResource::class.java,
 )

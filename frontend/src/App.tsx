@@ -1,8 +1,9 @@
-import { ApartmentOutlined, BookOutlined, FundOutlined, ThunderboltOutlined, UnorderedListOutlined } from "@ant-design/icons";
+import { ApartmentOutlined, BookOutlined, FundOutlined, ThunderboltOutlined, UnorderedListOutlined, DownloadOutlined } from "@ant-design/icons";
 import { ConfigProvider, Layout, Menu } from "antd";
 import type { MenuProps } from "antd";
 import { useState } from "react";
 import { GraphPage } from "./pages/GraphPage";
+import { SwingAnalysisPage } from "./pages/SwingAnalysisPage";
 import { RemoraPage } from "./pages/RemoraPage";
 import { TradePage } from "./pages/TradePage";
 import { WatchlistPage } from "./pages/WatchlistPage";
@@ -14,21 +15,30 @@ import RsiMomentumSafePage from "./pages/RsiMomentumSafePage";
 import { RsiMomentumBasePage } from "./pages/RsiMomentumBasePage";
 import { WeeklySwingPage } from "./pages/WeeklySwingPage";
 import { S4VolumeSpikePage } from "./pages/S4VolumeSpikePage";
+import { MomentumDataPrepPage } from "./pages/MomentumDataPrepPage";
+import { SimpleBacktestPage } from "./pages/SimpleBacktestPage";
+import { RsiMomentumLeadersDrawdownPage } from "./pages/RsiMomentumLeadersDrawdownPage";
+import { CorporateResultsPage } from "./pages/CorporateResultsPage";
 
-type PageKey = "watchlist" | "graph" | "trade" | "trade-ready" | "remora" | "screener" | "rsi-momentum" | "rsi-momentum-base" | "rsi-momentum-safe" | "weekly-swing" | "s4-volume-spike";
+type PageKey = "watchlist" | "graph" | "swing-analysis" | "trade" | "trade-ready" | "remora" | "screener" | "rsi-momentum" | "rsi-momentum-base" | "rsi-momentum-safe" | "weekly-swing" | "s4-volume-spike" | "momentum-data-prep" | "simple-backtest" | "rsi-momentum-drawdown" | "corporate-results";
 
 const menuItems: MenuProps["items"] = [
   { key: "watchlist", label: "Watchlist", icon: <UnorderedListOutlined /> },
   { key: "graph", label: "Graph", icon: <ApartmentOutlined /> },
+  { key: "swing-analysis", label: "Swing Visualizer", icon: <BarChartOutlined /> },
   { key: "trade", label: "Trade Journal", icon: <BookOutlined /> },
   { key: "trade-ready", label: "Trade Ready", icon: <ThunderboltOutlined /> },
   { key: "remora", label: "Remora", icon: <FundOutlined /> },
   { key: "rsi-momentum", label: "RSI Momentum", icon: <FundOutlined /> },
   { key: "rsi-momentum-base", label: "RSI Momentum Base", icon: <FundOutlined /> },
   { key: "rsi-momentum-safe", label: "RSI Safe", icon: <ThunderboltOutlined /> },
+  { key: "rsi-momentum-drawdown", label: "RSI Drawdown", icon: <FundOutlined /> },
+  { key: "simple-backtest", label: "Simple Backtest", icon: <FundOutlined /> },
+  { key: "momentum-data-prep", label: "Momentum Data Prep", icon: <FundOutlined /> },
   { key: "weekly-swing", label: "Weekly Swing", icon: <BarChartOutlined /> },
   { key: "s4-volume-spike", label: "S4 Volume Spike", icon: <FundOutlined /> },
   { key: "screener", label: "Weekly Screener", icon: <BarChartOutlined /> },
+  { key: "corporate-results", label: "Results Export", icon: <DownloadOutlined /> },
 ];
 
 export default function App() {
@@ -39,7 +49,7 @@ export default function App() {
     const internalPath = path.startsWith(baseUrl) ? path.slice(baseUrl.length) : path;
     const cleanPath = internalPath.replace(/^\//, "");
     
-    const validPages: PageKey[] = ["watchlist", "graph", "trade", "trade-ready", "remora", "screener", "rsi-momentum", "rsi-momentum-base", "rsi-momentum-safe", "weekly-swing", "s4-volume-spike"];
+    const validPages: PageKey[] = ["watchlist", "graph", "swing-analysis", "trade", "trade-ready", "remora", "screener", "rsi-momentum", "rsi-momentum-base", "rsi-momentum-safe", "weekly-swing", "s4-volume-spike", "momentum-data-prep", "simple-backtest", "rsi-momentum-drawdown", "corporate-results"];
     if (validPages.includes(cleanPath as PageKey)) {
         return cleanPath as PageKey;
     }
@@ -78,17 +88,23 @@ export default function App() {
         <Layout.Content>
           {page === "watchlist" && <WatchlistPage />}
           {page === "graph" && <GraphPage />}
+          {page === "swing-analysis" && <SwingAnalysisPage />}
           { page === "trade" && <TradePage /> }
           { page === "trade-ready" && <TradeReadyPage /> }
           { page === "remora" && <RemoraPage /> }
           { page === "rsi-momentum" && <RsiMomentumPage /> }
           { page === "rsi-momentum-base" && <RsiMomentumBasePage /> }
           { page === "rsi-momentum-safe" && <RsiMomentumSafePage /> }
+          { page === "rsi-momentum-drawdown" && <RsiMomentumLeadersDrawdownPage /> }
+          { page === "simple-backtest" && <SimpleBacktestPage /> }
+          { page === "momentum-data-prep" && <MomentumDataPrepPage /> }
           { page === "weekly-swing" && <WeeklySwingPage /> }
           { page === "s4-volume-spike" && <S4VolumeSpikePage /> }
           { page === "screener" && <ScreenerPage /> }
+          { page === "corporate-results" && <CorporateResultsPage /> }
         </Layout.Content>
       </Layout>
     </ConfigProvider>
   );
 }
+

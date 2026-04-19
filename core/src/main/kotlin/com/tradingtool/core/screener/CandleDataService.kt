@@ -31,6 +31,17 @@ class CandleDataService(
 ) {
     private val log = LoggerFactory.getLogger(CandleDataService::class.java)
     private val ist = ZoneId.of("Asia/Kolkata")
+    private val kiteDelayMs = 350L
+
+    data class DailyCandleSyncResult(
+        val fromDate: String,
+        val toDate: String,
+        val totalSymbols: Int,
+        val symbolsSynced: Int,
+        val symbolsFailed: Int,
+        val failedSymbols: List<String>,
+        val dailyCandlesUpserted: Int,
+    )
 
     /**
      * Syncs candle data for all given [symbols] from Kite.
@@ -68,7 +79,7 @@ class CandleDataService(
                     candleHandler.write { it.upsertDailyCandles(dailyCandles) }
                     log.info("  → {} daily candles upserted for {}", dailyCandles.size, symbol)
                 }
-                delay(350)
+                delay(kiteDelayMs)
 
                 // Fetch + store 15-minute intraday candles (Shorter lookback)
                 val intradayRaw = withContext(Dispatchers.IO) {
@@ -81,7 +92,7 @@ class CandleDataService(
                     candleHandler.write { it.upsertIntradayCandles(intradayCandles) }
                     log.info("  → {} intraday candles upserted for {}", intradayCandles.size, symbol)
                 }
-                delay(350)
+                delay(kiteDelayMs)
 
                 synced++
             } catch (e: Exception) {
@@ -92,6 +103,76 @@ class CandleDataService(
 
         log.info("Candle sync complete: {}/{} symbols synced", synced, symbols.size)
         return synced
+    }
+
+    /**
+     * Syncs daily candles for [symbols] in [fromDate, toDate] and upserts into `daily_candles`.
+     * Uses full-range fetch + upsert for reliability (fills gaps and refreshes stale rows).
+     */
+    suspend fun syncDailyRange(
+        symbols: List<String>,
+        fromDate: LocalDate,
+        toDate: LocalDate,
+        kiteClient: KiteConnectClient,
+    ): DailyCandleSyncResult {
+        require(!fromDate.isAfter(toDate)) { "fromDate must be on or before toDate." }
+        ensureInstrumentCacheLoaded(kiteClient)
+
+        val uniqueSymbols = symbols
+            .map { symbol -> symbol.trim().uppercase() }
+            .filter { symbol -> symbol.isNotEmpty() }
+            .distinct()
+
+        var synced = 0
+        var upsertedCandles = 0
+        val failedSymbols = mutableListOf<String>()
+        val toJavaDate = toDate.toJavaDate()
+
+        for (symbol in uniqueSymbols) {
+            val stock = stockHandler.read { dao -> dao.getBySymbol(symbol, "NSE") }
+            val token = stock?.instrumentToken ?: instrumentCache.token("NSE", symbol)
+            if (token == null || token <= 0) {
+                failedSymbols += symbol
+                log.warn("Skipping daily sync for {} — no instrument token available", symbol)
+                continue
+            }
+
+            runCatching {
+                val tokenStr = token.toString()
+                val dailyRaw = withContext(Dispatchers.IO) {
+                    kiteClient.client().getHistoricalData(fromDate.toJavaDate(), toJavaDate, tokenStr, "day", false, false)
+                }
+                val dailyCandles = dailyRaw.dataArrayList.mapNotNull { bar ->
+                    parseDailyCandle(bar, token, symbol)
+                }
+                if (dailyCandles.isNotEmpty()) {
+                    candleHandler.write { dao -> dao.upsertDailyCandles(dailyCandles) }
+                    upsertedCandles += dailyCandles.size
+                }
+                synced++
+            }.onFailure { error ->
+                failedSymbols += symbol
+                log.warn(
+                    "Daily range sync failed for {} in {}..{}: {}",
+                    symbol,
+                    fromDate,
+                    toDate,
+                    error.message,
+                )
+            }
+
+            delay(kiteDelayMs)
+        }
+
+        return DailyCandleSyncResult(
+            fromDate = fromDate.toString(),
+            toDate = toDate.toString(),
+            totalSymbols = uniqueSymbols.size,
+            symbolsSynced = synced,
+            symbolsFailed = failedSymbols.size,
+            failedSymbols = failedSymbols.sorted(),
+            dailyCandlesUpserted = upsertedCandles,
+        )
     }
 
     private fun parseDailyCandle(bar: Any?, token: Long, symbol: String): DailyCandle? {

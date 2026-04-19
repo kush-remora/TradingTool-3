@@ -3,12 +3,13 @@ import { useInstrumentSearch } from "../hooks/useInstrumentSearch";
 import type { InstrumentSearchResult } from "../types";
 
 interface Props {
-  existingStockTokens: Set<number>;
+  existingStockTokens?: Set<number>;
   onSelect: (instrument: InstrumentSearchResult | null) => void;
   value?: InstrumentSearchResult | null;
+  placeholder?: string;
 }
 
-export function InstrumentSearch({ existingStockTokens, onSelect, value }: Props) {
+export function InstrumentSearch({ existingStockTokens = new Set(), onSelect, value, placeholder }: Props) {
   const { allInstruments, loading, error } = useInstrumentSearch();
 
   if (loading) {
@@ -44,7 +45,7 @@ export function InstrumentSearch({ existingStockTokens, onSelect, value }: Props
       }}
       onClear={() => onSelect(null)}
       allowClear
-      placeholder="Search eg: infy, reliance..."
+      placeholder={placeholder || "Search eg: infy, reliance..."}
       size="small"
       notFoundContent={availableInstruments.length === 0 ? "All stocks already added" : null}
       filterOption={(inputValue, option) =>

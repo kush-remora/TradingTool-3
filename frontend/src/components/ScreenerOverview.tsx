@@ -125,6 +125,7 @@ interface StoredRankState {
 }
 
 interface ScreenerRow extends WeeklyPatternResult {
+  bucketTags: string[];
   buyZoneMetrics: BuyZoneMetrics;
   bucketLabel: string;
   customRankScore: number;
@@ -175,6 +176,8 @@ interface ColumnMeta {
   defaultVisible: boolean;
   defaultPin: ColumnPin;
   getFilterValue: (row: ScreenerRow) => string;
+  getFilterValues?: (row: ScreenerRow) => string[];
+  matchesFilter?: (row: ScreenerRow, selected: string) => boolean;
   compare: (a: ScreenerRow, b: ScreenerRow) => number;
   render?: (row: ScreenerRow) => React.ReactNode;
 }
@@ -212,8 +215,16 @@ const COLUMN_META: ColumnMeta[] = [
     defaultVisible: true,
     defaultPin: "none",
     getFilterValue: (row) => row.bucketLabel,
+    getFilterValues: (row) => row.bucketTags,
+    matchesFilter: (row, selected) => row.bucketTags.includes(selected),
     compare: (a, b) => a.bucketLabel.localeCompare(b.bucketLabel),
-    render: (row) => <Text style={{ fontSize: 12 }}>{row.bucketLabel}</Text>,
+    render: (row) => (
+      <Space size={[4, 4]} wrap>
+        {row.bucketTags.map((tag) => (
+          <Tag key={`${row.symbol}_${tag}`} style={{ marginInlineEnd: 0 }}>{tag}</Tag>
+        ))}
+      </Space>
+    ),
   },
   {
     key: "buyDay",
@@ -412,7 +423,7 @@ const DEFAULT_TRADE_PLANNER: TradePlannerState = {
 };
 
 interface ScreenerOverviewProps {
-  onSelectSymbol?: (symbol: string) => void;
+  onSelectSymbol: (symbol: string) => void;
 }
 
 function compareNullableNumber(a: number | null | undefined, b: number | null | undefined): number {
@@ -683,6 +694,7 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
 
       return {
         ...row,
+        bucketTags: row.sourceBuckets && row.sourceBuckets.length > 0 ? row.sourceBuckets : ["Watchlist"],
         buyZoneMetrics: metrics,
         bucketLabel: row.sourceBuckets && row.sourceBuckets.length > 0 ? row.sourceBuckets.join(", ") : "Watchlist",
         customRankScore: 0,
@@ -749,7 +761,13 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
         const meta = metaByKey.get(config.key as ColumnKey);
         if (!meta || !config.visible) return null;
 
-        const options = Array.from(new Set(allRowsForFilterValues.map((row) => meta.getFilterValue(row)))).sort();
+        const options = Array.from(
+          new Set(
+            allRowsForFilterValues.flatMap((row) =>
+              meta.getFilterValues ? meta.getFilterValues(row) : [meta.getFilterValue(row)],
+            ),
+          ),
+        ).sort();
         const filteredValue = tableFilters[meta.key] ?? null;
 
         return {
@@ -764,7 +782,12 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
           filterMultiple: true,
           filterSearch: true,
           filteredValue,
-          onFilter: (value: boolean | React.Key, record: ScreenerRow) => meta.getFilterValue(record) === String(value),
+          onFilter: (value: boolean | React.Key, record: ScreenerRow) => {
+            const selected = String(value);
+            if (meta.matchesFilter) return meta.matchesFilter(record, selected);
+            const values = meta.getFilterValues ? meta.getFilterValues(record) : [meta.getFilterValue(record)];
+            return values.includes(selected);
+          },
           render: (_: unknown, record: ScreenerRow) => (meta.render ? meta.render(record) : meta.getFilterValue(record)),
         };
       })
@@ -1198,6 +1221,7 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
           onRow={(record) => ({
             onClick: () => {
               void openDetails(record.symbol);
+              onSelectSymbol(record.symbol);
             },
             style: { cursor: "pointer" },
           })}

@@ -681,3 +681,329 @@ Implement the full weekly screener UX enhancement set on the existing `ScreenerO
   - `npm --prefix frontend run -s build` passed.
   - `mvn -q -pl core,resources,service -DskipTests compile` passed.
   - `cd frontend && npx tsc --noEmit` still fails due pre-existing unrelated repo issues; no new type errors from this feature slice remain.
+
+---
+
+# Documentation Plan: Monday-Low Median Buy Zone Review (No Code Change)
+
+## Overview
+Prepare a decision-review document for proposed buy-zone formula change: use Monday lows from the last 10 completed weeks, take bottom-3 lows, and use median as robust zone floor. Do not implement code in this step.
+
+## Implementation Steps
+- [x] Capture current as-is calculation and impacted UI semantics.
+- [x] Document proposed formula in plain language with numerical example.
+- [x] Provide risk/impact review and fallback behavior options.
+- [x] Recommend implementation option and rollout checklist.
+
+## Review
+- Added decision-review doc:
+  - `docs/features/weekly-scanner/2026-04-18-buy-zone-monday-median-review.md`
+- Scope respected:
+  - Documentation only; no backend/frontend behavior changes made in this step.
+
+---
+
+# Implementation Plan: Simple Momentum Top-5 / Exit-on-Top-10 Backtest
+
+## Overview
+Add one simple momentum backtest mode with exact user rules: evaluate a chosen profile over a one-year window, buy top 5 ranked momentum stocks with equal capital allocation from ₹2,00,000, keep positions while rank <= 10, and exit immediately when rank > 10.
+
+## Implementation Steps
+- [x] Add dedicated request/response models for the simple momentum backtest (capital, topN buy count, hold threshold).
+- [x] Implement backtest engine in `RsiMomentumHistoryService` using snapshot prices and share-quantity accounting.
+- [x] Add API endpoint in `StrategyResource` for the new simple backtest.
+- [x] Add frontend types and a hook to call the new endpoint.
+- [x] Add a compact UI panel in `BacktestTab` to run this strategy with defaults.
+- [ ] Add/extend Kotlin tests for strategy rules (entry count, exit-on-rank-drop, open-position mark-to-market).
+- [x] Run backend/frontend compile checks.
+- [x] Run Kotlin reviewer pass and capture review verdict.
+
+## Review
+- Backend:
+  - Added `SimpleMomentumBacktestRequest`, `SimpleMomentumTrade`, `SimpleMomentumBacktestSummary`, and `SimpleMomentumBacktestResult`.
+  - Added `runSimpleMomentumBacktest(...)` in `RsiMomentumHistoryService` with:
+    - default one-year window,
+    - top-5 entry (`entryRankMax=5`),
+    - exit when rank leaves top-10 (`holdRankMax=10`),
+    - ₹2,00,000 default capital,
+    - equal-value position sizing using integer share quantities,
+    - mark-to-market handling for open positions.
+  - Added endpoint: `POST /api/strategy/rsi-momentum/backtest/simple`.
+- Frontend:
+  - Added `useSimpleMomentumBacktest` hook.
+  - Added types for simple momentum request/result/trades in `frontend/src/types.ts`.
+  - Added a dedicated runner card and result journal table in `BacktestTab`.
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm --prefix frontend run -s build` passed.
+- Kotlin reviewer pass:
+  - CRITICAL: 0
+  - HIGH: 0
+  - MEDIUM: 0
+  - LOW: 0
+  - Verdict: APPROVE for this slice.
+- Remaining gap:
+  - No new focused Kotlin unit tests were added yet for the simple momentum engine path.
+
+---
+
+# Bugfix Plan: Simple Momentum Backtest Zero-PnL Exit Pricing
+
+## Overview
+Fix zero-PnL bug in simple momentum backtest where exits for symbols missing from the current ranked snapshot incorrectly reused entry price instead of exit-day market close.
+
+## Implementation Steps
+- [x] Reproduce and identify wrong fallback path in `runSimpleMomentumBacktest`.
+- [x] Add candle-close fallback lookup for exit-day pricing when rank row is missing.
+- [x] Add candle-close fallback lookup for open-position mark-to-market.
+- [x] Update DI wiring for new `CandleJdbiHandler` dependency in history service.
+- [x] Run backend compile check.
+- [x] Run review pass (code-reviewer + kotlin-reviewer).
+
+## Review
+- Root cause:
+  - Exit pricing fallback used `entryPrice` when a symbol dropped out of ranked snapshot rows, forcing P&L to 0 in these exits.
+- Fix:
+  - Added `instrumentToken` in open position state for simple momentum backtest.
+  - Added `loadClosePriceForDate(token, date)` using `daily_candles`.
+  - Exit price now resolves as: ranked close -> candle close on exit date -> entry price fallback.
+  - Open mark-to-market price now resolves as: ranked close -> candle close on `toDate` -> entry price fallback.
+  - Updated `ServiceModule` provider to pass `CandleJdbiHandler` into `RsiMomentumHistoryService`.
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+- Reviewer verdict:
+  - code-reviewer: no blocking findings for this diff.
+  - kotlin-reviewer: CRITICAL 0, HIGH 0, MEDIUM 0, LOW 0; verdict APPROVE.
+
+---
+
+# Bugfix Plan: Simple Momentum Date Coverage Transparency
+
+## Overview
+Fix inconsistency in simple momentum backtest presentation where requested date window was shown without indicating actual snapshot coverage, causing confusion when first trade appears much later.
+
+## Implementation Steps
+- [x] Add actual snapshot coverage fields in simple momentum backtest response.
+- [x] Populate coverage fields from available snapshots in backend service.
+- [x] Update frontend types and journal title to display requested vs snapshot coverage.
+- [x] Add warning banner when first snapshot date is after requested start date.
+- [x] Run backend/frontend build checks.
+- [x] Run review pass (code-reviewer + kotlin-reviewer).
+
+## Review
+- Backend:
+  - Added `firstSnapshotDate` and `lastSnapshotDate` to `SimpleMomentumBacktestResult`.
+  - Populated these fields as `null` when no snapshots and with first/last snapshot dates when data exists.
+- Frontend:
+  - Updated result type and simple backtest panel.
+  - Journal header now shows:
+    - requested range,
+    - actual snapshot coverage,
+    - snapshot day count.
+  - Added warning alert when requested start is earlier than first available snapshot.
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm --prefix frontend run -s build` passed.
+- Reviewer verdict:
+  - code-reviewer: no blocking findings.
+  - kotlin-reviewer: CRITICAL 0, HIGH 0, MEDIUM 0, LOW 0; verdict APPROVE.
+
+---
+
+# Implementation Plan: Dedicated Simple Momentum Backtest Page
+
+## Overview
+Add a standalone Simple Backtest page with per-profile tabs, date-range-based prepare flow (daily candle sync from Kite + snapshot backfill), capital input, and simple backtest execution.
+
+## Implementation Steps
+- [x] Add date-range daily candle sync support in `CandleDataService`.
+- [x] Add simple backtest prepare service + request/response models in RSI momentum strategy module.
+- [x] Add strategy API endpoint: `POST /api/strategy/rsi-momentum/backtest/simple/prepare`.
+- [x] Wire DI providers for the new prepare service.
+- [x] Add frontend types and dedicated page UI with profile tabs.
+- [x] Add route/menu entry for the new page.
+- [x] Add frontend tests for page render and actions.
+- [x] Run backend/frontend compile/tests.
+- [x] Run review pass (`code-reviewer`, `kotlin-reviewer`) and record verdict.
+
+## Review
+- Backend:
+  - Added `syncDailyRange(...)` in `CandleDataService` with full-range daily fetch + upsert for selected range and symbol-level failure tracking.
+  - Added `SimpleMomentumBacktestPrepService` with:
+    - request validation,
+    - profile/base-universe symbol resolution,
+    - date-range candle sync via Kite,
+    - snapshot backfill (`skipExisting=true`),
+    - consolidated warnings.
+  - Added endpoint `POST /api/strategy/rsi-momentum/backtest/simple/prepare` in `StrategyResource`.
+- Frontend:
+  - Added standalone `SimpleBacktestPage` with:
+    - profile tabs,
+    - date-range picker,
+    - capital input,
+    - `Prepare Data`,
+    - `Run Backtest`,
+    - prepare summary + result table.
+  - Added new menu/route key `simple-backtest` in `App.tsx`.
+  - Added shared types for simple prepare response in `frontend/src/types.ts`.
+  - Added test file `frontend/src/pages/SimpleBacktestPage.test.tsx` (render + action flows).
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm --prefix frontend run -s build` passed.
+  - `npm --prefix frontend run -s test:run -- src/pages/SimpleBacktestPage.test.tsx` passed (2 tests).
+- Reviewer verdict:
+  - code-reviewer: no CRITICAL/HIGH findings on this diff.
+  - kotlin-reviewer: CRITICAL 0, HIGH 0, MEDIUM 0, LOW 0; verdict APPROVE.
+
+---
+
+# Implementation Plan: Simple Backtest Entry Band + Sell Threshold Controls
+
+## Overview
+Allow configurable entry rank band (inclusive min-max) and configurable sell threshold rank on the dedicated Simple Backtest page.
+
+## Implementation Steps
+- [x] Add backend request/response support for `entryRankMin` in simple momentum backtest.
+- [x] Update simple backtest engine to use inclusive entry rank band and correct target slot count from band width.
+- [x] Add UI controls for entry rank min/max and hold rank max on the dedicated Simple Backtest page.
+- [x] Update frontend types/tests for new request field.
+- [x] Run backend compile + frontend test/build checks.
+
+## Review
+- Backend:
+  - Added `entryRankMin` to simple momentum request/response models.
+  - Updated simple backtest engine to:
+    - enter only when `rank in entryRankMin..entryRankMax`,
+    - cap simultaneous positions by band width (`entryRankMax - entryRankMin + 1`) instead of raw max rank.
+  - Kept sell rule configurable with `holdRankMax` and existing exit behavior (`rank > holdRankMax`).
+- Frontend:
+  - Added controls on dedicated page for:
+    - entry rank min,
+    - entry rank max,
+    - sell threshold rank.
+  - Wired values to run payload.
+  - Added result summary cards showing active entry band and sell threshold.
+  - Updated page test assertion to include `entryRankMin`.
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm --prefix frontend run -s test:run -- src/pages/SimpleBacktestPage.test.tsx` passed.
+  - `npm --prefix frontend run -s build` passed.
+
+---
+
+# Implementation Plan: Simple Backtest Drawdown Guard V1 (10-Day High)
+
+## Overview
+Add a fixed entry guard in simple momentum backtest: skip entry if entry-day close is more than 5% below the highest close in the last 10 trading days.
+
+## Implementation Steps
+- [x] Add backend constants and guard logic in simple momentum backtest flow.
+- [x] Compute recent high from daily candles over 10-day lookback ending on entry date.
+- [x] Skip guarded stocks and reallocate capital among remaining eligible entries on that day.
+- [x] Expose guard diagnostics in response summary for transparency.
+- [x] Update frontend types/UI summary to display guard impact.
+- [x] Run backend/frontend compile + targeted tests.
+
+## Review
+- Backend:
+  - Added fixed drawdown guard constants in simple backtest engine:
+    - lookback days: `10`
+    - threshold: `5%`
+  - Entry guard rule:
+    - compute recent high as max `close` in `daily_candles` for `[entryDate-9, entryDate]`.
+    - compute drawdown as `((recentHigh - entryPrice) / recentHigh) * 100`.
+    - skip entry when drawdown is greater than `5%`.
+  - Added cache for `(instrumentToken, asOfDate)` recent-high lookups in run scope.
+  - Added summary diagnostic: `entriesSkippedByDrawdownGuard`.
+  - Added result metadata: `drawdownGuardLookbackDays`, `drawdownGuardThresholdPct`.
+- Frontend:
+  - Updated simple backtest result/summary types for guard diagnostics.
+  - Added summary cards showing drawdown guard config and skip count.
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm --prefix frontend run -s test:run -- src/pages/SimpleBacktestPage.test.tsx` passed.
+  - `npm --prefix frontend run -s build` passed.
+
+---
+
+# Implementation Plan: Simple Backtest OR Exit with 8% Trailing Stop
+
+## Overview
+Add an OR exit condition in simple momentum backtest: exit when rank leaves hold threshold OR price falls 8% from post-entry peak close.
+
+## Implementation Steps
+- [x] Add fixed trailing-stop constants in simple backtest engine (`8%`).
+- [x] Track per-position peak close since entry.
+- [x] Add OR exit logic with trailing-stop priority when both conditions are true.
+- [x] Include trailing-stop metadata and diagnostics in API response.
+- [x] Update frontend types and summary cards.
+- [x] Run compile/build/tests for touched modules.
+
+## Review
+- Backend:
+  - Added `TRAILING_STOP_PCT = 8.0` constant.
+  - For each open position, peak close is updated daily from current close/candle close.
+  - Exit triggers when:
+    - `currentRank > holdRankMax` OR
+    - `currentClose <= peakCloseSinceEntry * 0.92`
+  - Exit reason precedence:
+    - trailing stop first (`TRAILING_STOP_8_PCT`), then rank (`LEFT_TOP_{holdRankMax}`).
+  - Added response diagnostics:
+    - `trailingStopPct`
+    - `summary.exitsByTrailingStop`
+    - per-trade `peakCloseSinceEntry`
+    - per-trade `trailingStopPriceAtExit`
+- Frontend:
+  - Updated `SimpleMomentumBacktestResult`/`Summary`/`Trade` types.
+  - Added summary cards in dedicated Simple Backtest page:
+    - trailing stop config
+    - trailing-stop exit count
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm --prefix frontend run -s test:run -- src/pages/SimpleBacktestPage.test.tsx` passed.
+  - `npm --prefix frontend run -s build` passed.
+# Implementation Plan: RSI Momentum Leaders Drawdown Dashboard
+
+## Overview
+Implement a new separate frontend page and backend API that analyzes last-1-year RSI momentum snapshots, extracts daily top-10 leaders, builds unique-company sets per profile and combined, and computes drawdown buckets using today close and 20-day minimum close.
+
+## Implementation Steps
+- [x] Add backend DTOs for leaders rows, bucket summaries, per-profile and combined response sections, and response metadata.
+- [x] Add `RsiMomentumHistoryService` read path for leaders aggregation + drawdown computation + bucket summaries.
+- [x] Add `GET /api/strategy/rsi-momentum/leaders-drawdown` endpoint with defaults and query-param handling.
+- [x] Wire DI updates needed for the new service dependencies.
+- [x] Add frontend types + hook for leaders drawdown API.
+- [x] Add new separate page in top menu with KPI cards, filters, and combined/profile tabs.
+- [x] Add backend unit tests for aggregation and drawdown bucket boundary behavior.
+- [x] Add frontend tests for rendering, mode switch, and filtering.
+- [x] Run compile/tests for touched backend and frontend modules.
+- [x] Run required Kotlin review pass and document findings.
+
+## Review
+- Backend:
+  - Added leaders drawdown DTO contracts in RSI momentum models.
+  - Implemented `getLeadersDrawdown(from, to, requestedProfileIds, topN)` in `RsiMomentumHistoryService`.
+  - Added drawdown helper logic for:
+    - `ddTodayPct` from 1Y high close to latest close in window.
+    - `dd20dMinPct` from 1Y high close to latest 20-session minimum close.
+  - Added bucket flags and summaries for 20/30/40/50/60% thresholds.
+  - Added API endpoint: `GET /api/strategy/rsi-momentum/leaders-drawdown`.
+  - Updated DI provider so `RsiMomentumHistoryService` receives candle + config services.
+- Frontend:
+  - Added new types: leaders row, bucket summaries/flags, profile section, combined section, full response.
+  - Added new hook: `useRsiMomentumLeadersDrawdown`.
+  - Added new page: `RsiMomentumLeadersDrawdownPage` with:
+    - date-range apply + refresh,
+    - mode switch (Today DD / 20D Min DD),
+    - threshold/search/profile filters,
+    - combined tab + profile tabs,
+    - KPI cards and result table.
+  - Added new top menu route key: `rsi-momentum-drawdown`.
+- Tests and verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm --prefix frontend run -s test:run -- src/pages/RsiMomentumLeadersDrawdownPage.test.tsx` passed.
+  - `npm --prefix frontend run -s build` passed.
+  - `mvn -q -pl core -Dtest=RsiMomentumLeadersDrawdownLogicTest test` could not run because `core` test compilation currently fails on pre-existing unrelated test errors (`RsiMomentumHistoryServiceTest`, `RsiMomentumRankerTest`).
+- Kotlin reviewer pass:
+  - Completed review of Kotlin diff using `kotlin-reviewer` checklist.
+  - No CRITICAL/HIGH issues found in the new leaders-drawdown Kotlin changes.
