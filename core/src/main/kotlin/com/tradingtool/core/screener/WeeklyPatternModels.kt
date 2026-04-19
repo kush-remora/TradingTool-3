@@ -36,6 +36,7 @@ data class WeeklyPatternResult(
     val setupQualityScore: Int,
     val expectedSwingPct: Double,
     val baselineDistancePct: Double?,
+    val sma200: Double? = null,
     val swingSetup: SwingSetup? = null,
 )
 

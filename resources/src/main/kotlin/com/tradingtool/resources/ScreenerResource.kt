@@ -124,8 +124,11 @@ class ScreenerResource @Inject constructor(
      */
     @POST
     @Path("/sync")
-    fun sync(@QueryParam("symbols") symbolsParam: String?): CompletableFuture<Response> = ioScope.endpoint {
-        val universe = resolveWeeklyUniverse(symbolsParam)
+    fun sync(
+        @QueryParam("symbols") symbolsParam: String?,
+        @QueryParam("universe") universeParam: String?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val universe = resolveWeeklyPatternUniverse(symbolsParam, universeParam)
         if (universe.symbols.isEmpty()) return@endpoint badRequest("No symbols found. Check weekly scanner index universe config.")
 
         val synced = candleDataService.sync(universe.symbols, kiteClient)
@@ -138,8 +141,11 @@ class ScreenerResource @Inject constructor(
      */
     @GET
     @Path("/weekly-pattern")
-    fun weeklyPattern(@QueryParam("symbols") symbolsParam: String?): CompletableFuture<Response> = ioScope.endpoint {
-        val universe = resolveWeeklyUniverse(symbolsParam)
+    fun weeklyPattern(
+        @QueryParam("symbols") symbolsParam: String?,
+        @QueryParam("universe") universeParam: String?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val universe = resolveWeeklyPatternUniverse(symbolsParam, universeParam)
         if (universe.symbols.isEmpty()) return@endpoint badRequest("No symbols found. Check weekly scanner index universe config.")
 
         val results = weeklyPatternService.analyze(universe.symbols).map { row ->
@@ -152,6 +158,32 @@ class ScreenerResource @Inject constructor(
             universeSourceTags = universe.sourceTags,
             results = results
         ))
+    }
+
+    private suspend fun resolveWeeklyPatternUniverse(symbolsParam: String?, universeParam: String?): ResolvedWeeklyUniverse {
+        if (!symbolsParam.isNullOrBlank()) {
+            return resolveWeeklyUniverse(symbolsParam)
+        }
+
+        val mode = WeeklyPatternUniverseMode.fromRaw(universeParam)
+        if (mode == WeeklyPatternUniverseMode.WATCHLIST) {
+            val symbols = stockService.listAll()
+                .asSequence()
+                .filter { stock -> stock.exchange.equals("NSE", ignoreCase = true) }
+                .map { stock -> stock.symbol.trim().uppercase() }
+                .filter { symbol -> symbol.isNotEmpty() }
+                .distinct()
+                .sorted()
+                .toList()
+
+            return ResolvedWeeklyUniverse(
+                symbols = symbols,
+                sourceTags = listOf("WATCHLIST"),
+                symbolBuckets = symbols.associateWith { listOf("WATCHLIST") },
+            )
+        }
+
+        return resolveWeeklyUniverse(null)
     }
 
     @GET
@@ -168,10 +200,17 @@ class ScreenerResource @Inject constructor(
         @QueryParam("weeks") weeksParam: Int?,
         @QueryParam("highLowPct") highLowPctParam: Double?,
         @QueryParam("rocPct") rocPctParam: Double?,
+        @QueryParam("stableBaseDriftPct") stableBaseDriftPctParam: Double?,
         @QueryParam("prepare") prepareParam: String?,
     ): CompletableFuture<Response> = ioScope.endpoint {
-        val request = WeeklyCycleSuccessRequest.fromQuery(universeParam, weeksParam, highLowPctParam, rocPctParam, prepareParam)
-            ?: return@endpoint badRequest("Invalid query params. weeks must be 1..52, thresholds must be >= 0.")
+        val request = WeeklyCycleSuccessRequest.fromQuery(
+            universeRaw = universeParam,
+            weeksRaw = weeksParam,
+            highLowPctRaw = highLowPctParam,
+            rocPctRaw = rocPctParam,
+            stableBaseDriftPctRaw = stableBaseDriftPctParam,
+            prepareRaw = prepareParam,
+        ) ?: return@endpoint badRequest("Invalid query params. weeks must be 1..52, thresholds must be >= 0.")
 
         val universe = resolveWeeklyCycleUniverse(request.universe)
         if (universe.symbols.isEmpty()) {
@@ -208,6 +247,7 @@ class ScreenerResource @Inject constructor(
             weeksRequested = request.weeks,
             highLowThresholdPct = request.highLowPct,
             rocThresholdPct = request.rocPct,
+            stableBaseMaxDriftPct = request.stableBaseDriftPct,
         )
 
         ok(
@@ -218,6 +258,7 @@ class ScreenerResource @Inject constructor(
                 weeksEvaluated = scan.weeksEvaluated,
                 highLowThresholdPct = request.highLowPct,
                 rocThresholdPct = request.rocPct,
+                stableBaseMaxDriftPct = request.stableBaseDriftPct,
                 results = scan.results,
             ),
         )
@@ -397,10 +438,21 @@ class ScreenerResource @Inject constructor(
     }
 
     private suspend fun resolveWeeklyCycleUniverse(universe: WeeklyCycleUniverse): ResolvedWeeklyUniverse = coroutineScope {
+        val includeWatchlist = universe == WeeklyCycleUniverse.WATCHLIST || universe == WeeklyCycleUniverse.ALL
+
         val selectedIndexes = when (universe) {
+            WeeklyCycleUniverse.ALL -> listOf(
+                INDEX_NIFTY_50,
+                INDEX_NIFTY_100,
+                INDEX_NIFTY_MIDCAP_250,
+                INDEX_NIFTY_SMALLCAP_250,
+            )
             WeeklyCycleUniverse.MIDCAP_250 -> listOf(INDEX_NIFTY_MIDCAP_250)
             WeeklyCycleUniverse.SMALLCAP_250 -> listOf(INDEX_NIFTY_SMALLCAP_250)
             WeeklyCycleUniverse.BOTH -> listOf(INDEX_NIFTY_MIDCAP_250, INDEX_NIFTY_SMALLCAP_250)
+            WeeklyCycleUniverse.NIFTY_50 -> listOf(INDEX_NIFTY_50)
+            WeeklyCycleUniverse.NIFTY_150 -> listOf(INDEX_NIFTY_150, INDEX_NIFTY_MIDCAP_150)
+            WeeklyCycleUniverse.WATCHLIST -> emptyList()
         }
 
         val fetches = selectedIndexes.map { indexName ->
@@ -409,14 +461,6 @@ class ScreenerResource @Inject constructor(
             }
         }
         val byIndex = fetches.awaitAll()
-
-        val symbols = byIndex.asSequence()
-            .flatMap { (_, members) -> members.asSequence() }
-            .map { symbol -> symbol.trim().uppercase() }
-            .filter { symbol -> symbol.isNotEmpty() }
-            .distinct()
-            .sorted()
-            .toList()
 
         val symbolBuckets = mutableMapOf<String, MutableSet<String>>()
         byIndex.forEach { (indexName, members) ->
@@ -428,14 +472,37 @@ class ScreenerResource @Inject constructor(
             }
         }
 
+        val watchlistBucket = "WATCHLIST"
+        val watchlistSymbols = if (includeWatchlist) {
+            stockService.listAll()
+                .asSequence()
+                .filter { stock -> stock.exchange.equals("NSE", ignoreCase = true) }
+                .map { stock -> stock.symbol.trim().uppercase() }
+                .filter { symbol -> symbol.isNotEmpty() }
+                .distinct()
+                .toList()
+        } else {
+            emptyList()
+        }
+        watchlistSymbols.forEach { symbol ->
+            symbolBuckets.getOrPut(symbol) { linkedSetOf() }.add(watchlistBucket)
+        }
+
         val missingIndexes = byIndex.filter { (_, members) -> members.isEmpty() }.map { (indexName, _) -> indexName }
         if (missingIndexes.isNotEmpty()) {
             log.warn("Weekly cycle success universe fetch returned zero members for indexes={}", missingIndexes)
         }
 
+        val symbols = symbolBuckets.keys.sorted()
+        val sourceTags = if (includeWatchlist) {
+            selectedIndexes + watchlistBucket
+        } else {
+            selectedIndexes
+        }
+
         ResolvedWeeklyUniverse(
             symbols = symbols,
-            sourceTags = selectedIndexes,
+            sourceTags = sourceTags,
             symbolBuckets = symbolBuckets.mapValues { (_, buckets) -> buckets.toList() },
         )
     }
@@ -630,7 +697,27 @@ class ScreenerResource @Inject constructor(
         }
     }
 
+    private enum class WeeklyPatternUniverseMode {
+        ALL,
+        WATCHLIST,
+        ;
+
+        companion object {
+            fun fromRaw(raw: String?): WeeklyPatternUniverseMode {
+                if (raw.isNullOrBlank()) return ALL
+                return when (raw.trim().uppercase()) {
+                    "WATCHLIST", "WATCHLIST_ONLY" -> WATCHLIST
+                    else -> ALL
+                }
+            }
+        }
+    }
+
     private companion object {
+        private const val INDEX_NIFTY_50 = "NIFTY 50"
+        private const val INDEX_NIFTY_100 = "NIFTY 100"
+        private const val INDEX_NIFTY_150 = "NIFTY 150"
+        private const val INDEX_NIFTY_MIDCAP_150 = "NIFTY MIDCAP 150"
         private const val INDEX_NIFTY_MIDCAP_250 = "NIFTY MIDCAP 250"
         private const val INDEX_NIFTY_SMALLCAP_250 = "NIFTY SMALLCAP 250"
         private val WEEKLY_SCANNER_INDEX_NAMES: List<String> = listOf(

@@ -1109,3 +1109,59 @@ Replace fixed % stoploss in RSI rank-drift backtest with ATR-based dynamic stop 
   - `npm --prefix frontend run -s build` passed.
 - Kotlin reviewer pass:
   - No CRITICAL/HIGH findings in this change set.
+
+---
+
+# Implementation Plan: Pattern Refresh Honors Universe Mode
+
+## Overview
+Fix Pattern Screener `Refresh patterns` so sync respects the currently selected universe mode. If UI is `Watchlist only`, sync only watchlist symbols; if `All universe`, keep current full-universe behavior.
+
+## Implementation Steps
+- [x] Trace current refresh flow and confirm sync endpoint ignores selected universe mode.
+- [x] Add backend support for `universe` query param in `POST /api/screener/sync`.
+- [x] Update frontend `Refresh patterns` call to pass selected universe mode.
+- [x] Run backend compile and frontend build checks.
+- [x] Add review notes and assumptions.
+
+## Review
+- Backend:
+  - Updated `POST /api/screener/sync` to accept `universe` and resolve symbols via `resolveWeeklyPatternUniverse(symbols, universe)`.
+  - This keeps `symbols` override behavior intact, while allowing watchlist-scoped sync.
+- Frontend:
+  - `Refresh patterns` now posts to `/api/screener/sync?universe=WATCHLIST` when `Watchlist only` is selected.
+  - `All universe` continues using `/api/screener/sync`.
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm run build` (frontend) passed.
+- Assumptions:
+  - `Watchlist only` means NSE watchlist symbols used by existing weekly pattern resolver.
+
+# Implementation Plan: Weekly Cycle Success Stable Base Filter
+
+## Overview
+Add a stable-base guardrail to Weekly Cycle Success Scanner so stocks pass only when recent weekly swing base remains in a tight band (not stair-stepping upward/downward).
+
+## Implementation Steps
+- [ ] Extend weekly cycle request parsing to accept optional stable-base max drift % threshold (default 4.0).
+- [ ] Add backend weekly-cycle evaluation fields for stable-base metrics and pass/fail reason.
+- [ ] Apply stable-base filter using last 4 completed weekly start lows; include metrics in API response rows.
+- [ ] Update Weekly Cycle Success frontend page with threshold input and new columns/visual tags.
+- [ ] Update backend/frontend tests for new request param, filter behavior, and query building.
+- [ ] Run compile/test checks for touched modules.
+- [ ] Run kotlin-reviewer pass and record outcome (including note if no Kotlin-specific findings).
+
+## Review
+- Pending implementation.
+
+## Update: Weekly Cycle Success Column Simplification (Execution Toggle)
+- [x] Merge `Success` and `Success Rate` into one composite column (`Success (x/y | %)`).
+- [x] Add `Execution Mode` toggle for compact vs detailed table columns.
+- [x] Keep compact mode at 5 columns (Stock, Success, Stable Base, Base Range, Last Cycle).
+- [x] Preserve full diagnostics in non-execution mode.
+- [x] Add frontend test coverage for mode toggle and run page tests.
+
+### Review Notes
+- `Execution Mode = ON` (default): only the 5 execution columns are shown.
+- `Execution Mode = OFF`: shows expanded columns including Universe and Failed Start Weeks.
+- Frontend tests: `npm --prefix frontend run -s test -- src/pages/WeeklyCycleSuccessPage.test.tsx` passed (4/4).

@@ -266,6 +266,7 @@ export interface WeeklyPatternResult {
   setupQualityScore?: number;
   expectedSwingPct?: number;
   baselineDistancePct?: number | null;
+  sma200?: number | null;
   swingSetup?: SwingSetup | null;
 }
 
@@ -299,15 +300,22 @@ export interface WeeklyCycleSuccessRow {
   successRatePct: number;
   failedStartWeeks: string[];
   lastCycleMetrics: WeeklyCycleMetrics | null;
+  stableBasePass: boolean;
+  stableBaseReason: string | null;
+  stableBaseDriftPct: number | null;
+  stableBaseLowMin: number | null;
+  stableBaseLowMax: number | null;
+  stableBaseWeeksCount: number;
 }
 
 export interface WeeklyCycleSuccessResponse {
   runAt: string;
-  universe: "MIDCAP_250" | "SMALLCAP_250" | "BOTH" | string;
+  universe: "ALL" | "MIDCAP_250" | "SMALLCAP_250" | "BOTH" | "NIFTY_50" | "WATCHLIST" | "NIFTY_150" | string;
   weeksRequested: number;
   weeksEvaluated: number;
   highLowThresholdPct: number;
   rocThresholdPct: number;
+  stableBaseMaxDriftPct: number;
   results: WeeklyCycleSuccessRow[];
 }
 

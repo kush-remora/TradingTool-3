@@ -388,7 +388,8 @@ class ServiceModule(
     fun provideWeeklyCycleSuccessService(
         stockHandler: StockJdbiHandler,
         candleCache: CandleCacheService,
-    ): WeeklyCycleSuccessService = WeeklyCycleSuccessService(stockHandler, candleCache)
+        instrumentCache: InstrumentCache,
+    ): WeeklyCycleSuccessService = WeeklyCycleSuccessService(stockHandler, candleCache, instrumentCache)
 
     @Provides @Singleton
     fun provideTechnicalContextService(

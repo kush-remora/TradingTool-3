@@ -7,6 +7,7 @@ data class WeeklyCycleSuccessScanResponse(
     val weeksEvaluated: Int,
     val highLowThresholdPct: Double,
     val rocThresholdPct: Double,
+    val stableBaseMaxDriftPct: Double,
     val results: List<WeeklyCycleSuccessRow>,
 )
 
@@ -20,6 +21,12 @@ data class WeeklyCycleSuccessRow(
     val successRatePct: Double,
     val failedStartWeeks: List<String>,
     val lastCycleMetrics: WeeklyCycleMetrics?,
+    val stableBasePass: Boolean,
+    val stableBaseReason: String?,
+    val stableBaseDriftPct: Double?,
+    val stableBaseLowMin: Double?,
+    val stableBaseLowMax: Double?,
+    val stableBaseWeeksCount: Int,
 )
 
 data class WeeklyCycleMetrics(

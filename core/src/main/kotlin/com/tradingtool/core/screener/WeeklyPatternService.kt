@@ -182,6 +182,11 @@ class WeeklyPatternService(
         val latestDate = allYearCandles.last().candleDate
         val latestRsi = rsiMap[latestDate] ?: rsiMap.values.lastOrNull()
         val latestClose = allYearCandles.lastOrNull()?.close ?: 0.0
+        val sma200 = if (allYearCandles.size >= 200) {
+            allYearCandles.takeLast(200).map { candle -> candle.close }.average().roundTo2()
+        } else {
+            null
+        }
         val baselineDistancePct = calculateBaselineDistancePct(completedWeeks, latestClose)
         val swingSetup = buildSwingSetup(
             bestPair = bestPair,
@@ -231,6 +236,7 @@ class WeeklyPatternService(
             setupQualityScore = bestPair.compositeScore,
             expectedSwingPct = expectedSwingPct,
             baselineDistancePct = baselineDistancePct,
+            sma200 = sma200,
             swingSetup = swingSetup,
         )
     }
@@ -1046,6 +1052,7 @@ class WeeklyPatternService(
         setupQualityScore = 0,
         expectedSwingPct = 0.0,
         baselineDistancePct = null,
+        sma200 = null,
         swingSetup = null,
     )
 

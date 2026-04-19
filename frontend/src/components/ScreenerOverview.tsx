@@ -63,6 +63,7 @@ const { CheckableTag } = Tag;
 const { Text, Title, Paragraph } = Typography;
 
 type PatternFilter = "All stocks" | "Weekly pattern" | "Strong (score > 70)" | "No pattern";
+type WeeklyUniverseMode = "ALL" | "WATCHLIST";
 type RankMode = "system" | "custom";
 type PlannerTargetProfile = "safe" | "recommended" | "aggressive";
 
@@ -129,6 +130,8 @@ interface ScreenerRow extends WeeklyPatternResult {
   buyZoneMetrics: BuyZoneMetrics;
   bucketLabel: string;
   customRankScore: number;
+  sma200Value: number | null;
+  ltpVsSma200Value: number | null;
   setupScoreValue: number;
   strikeRateValue: number | null;
   expectedSwingValue: number | null;
@@ -157,6 +160,8 @@ type ColumnKey =
   | "buyDay"
   | "cycleType"
   | "zoneStatus"
+  | "sma200"
+  | "ltpVsSma200"
   | "ltpVsMin"
   | "baselineDistance"
   | "zonePosition"
@@ -257,6 +262,34 @@ const COLUMN_META: ColumnMeta[] = [
     getFilterValue: (row) => buyZoneStatusLabel(row.buyZoneMetrics.status),
     compare: (a, b) => zoneSortValue(a.buyZoneMetrics.status) - zoneSortValue(b.buyZoneMetrics.status),
     render: (row) => <Tag color={buyZoneStatusColor(row.buyZoneMetrics.status)}>{buyZoneStatusLabel(row.buyZoneMetrics.status)}</Tag>,
+  },
+  {
+    key: "sma200",
+    title: "SMA 200",
+    width: 130,
+    defaultVisible: true,
+    defaultPin: "none",
+    getFilterValue: (row) => toFilterValue(row.sma200Value),
+    compare: (a, b) => compareNullableNumber(a.sma200Value, b.sma200Value),
+    render: (row) => {
+      if (row.sma200Value === null) return <Text type="secondary">-</Text>;
+      return <Text>{formatPrice(row.sma200Value)}</Text>;
+    },
+  },
+  {
+    key: "ltpVsSma200",
+    title: "LTP vs SMA 200 %",
+    width: 150,
+    defaultVisible: true,
+    defaultPin: "none",
+    getFilterValue: (row) => toFilterValue(row.ltpVsSma200Value),
+    compare: (a, b) => compareNullableNumber(a.ltpVsSma200Value, b.ltpVsSma200Value),
+    render: (row) => {
+      const value = row.ltpVsSma200Value;
+      if (value === null) return <Text type="secondary">-</Text>;
+      const color = value >= 0 ? "#389e0d" : "#cf1322";
+      return <Text strong style={{ color }}>{formatSignedPercent(value)}</Text>;
+    },
   },
   {
     key: "ltpVsMin",
@@ -543,6 +576,7 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
   const [data, setData] = useState<WeeklyPatternListResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [universeMode, setUniverseMode] = useState<WeeklyUniverseMode>("WATCHLIST");
   const [patternFilter, setPatternFilter] = useState<PatternFilter>("All stocks");
   const [buyZoneFilter, setBuyZoneFilter] = useState<BuyZoneFilter>("All");
   const [quickChips, setQuickChips] = useState<QuickChipState>(DEFAULT_QUICK_CHIPS);
@@ -569,7 +603,9 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
   const fetchData = async (forceRefresh = false) => {
     setLoading(true);
     try {
-      const path = "/api/screener/weekly-pattern";
+      const path = universeMode === "WATCHLIST"
+        ? "/api/screener/weekly-pattern?universe=WATCHLIST"
+        : "/api/screener/weekly-pattern";
       if (forceRefresh) clearCache(path);
       const json = await getJson<WeeklyPatternListResponse>(path);
       setData(json);
@@ -582,8 +618,6 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
   };
 
   useEffect(() => {
-    void fetchData();
-
     const storedColumns = parseJsonSafely<WeeklyScreenerColumnConfig[]>(localStorage.getItem(STORAGE_KEYS.columns));
     const storedFilters = parseJsonSafely<StoredFilterState>(localStorage.getItem(STORAGE_KEYS.filters));
     const storedSort = parseJsonSafely<WeeklyScreenerSortState>(localStorage.getItem(STORAGE_KEYS.sort));
@@ -617,6 +651,10 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
     }
     if (storedPlanner) setTradePlannerState(storedPlanner);
   }, []);
+
+  useEffect(() => {
+    void fetchData();
+  }, [universeMode]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.columns, JSON.stringify(columnConfigs));
@@ -655,7 +693,10 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      await postJson("/api/screener/sync", {});
+      const syncPath = universeMode === "WATCHLIST"
+        ? "/api/screener/sync?universe=WATCHLIST"
+        : "/api/screener/sync";
+      await postJson(syncPath, {});
       message.success("Sync complete");
       await fetchData(true);
     } catch {
@@ -686,6 +727,10 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
         buyDayLowMin: row.buyDayLowMin,
         buyDayLowMax: row.buyDayLowMax,
       });
+      const sma200 = row.sma200 ?? null;
+      const ltpVsSma200 = quote?.ltp !== undefined && quote?.ltp !== null && sma200 !== null && sma200 > 0
+        ? Number((((quote.ltp - sma200) / sma200) * 100).toFixed(2))
+        : null;
       const strikeRate = row.mondayStrikeRatePct ?? (row.reboundConsistency > 0 ? (row.swingConsistency / row.reboundConsistency) * 100 : null);
       const expectedSwing = row.expectedSwingPct ?? row.swingSetup?.expectedSwingPct ?? row.targetRecommendation?.expectedSwingPct ?? row.swingAvgPct;
       const baselineDistance = row.baselineDistancePct ?? metrics.ltpVsMinLowPct;
@@ -698,6 +743,8 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
         buyZoneMetrics: metrics,
         bucketLabel: row.sourceBuckets && row.sourceBuckets.length > 0 ? row.sourceBuckets.join(", ") : "Watchlist",
         customRankScore: 0,
+        sma200Value: sma200,
+        ltpVsSma200Value: ltpVsSma200,
         strikeRateValue: strikeRate,
         expectedSwingValue: expectedSwing,
         baselineDistanceValue: baselineDistance,
@@ -1150,6 +1197,14 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
         </div>
 
         <div style={{ marginBottom: 12, display: "flex", flexWrap: "wrap", gap: 12 }}>
+          <Segmented
+            options={[
+              { label: "All universe", value: "ALL" },
+              { label: "Watchlist only", value: "WATCHLIST" },
+            ]}
+            value={universeMode}
+            onChange={(value) => setUniverseMode(value as WeeklyUniverseMode)}
+          />
           <Segmented
             options={["All stocks", "Weekly pattern", "Strong (score > 70)", "No pattern"]}
             value={patternFilter}

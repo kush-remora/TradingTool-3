@@ -1,5 +1,5 @@
 import { ReloadOutlined } from "@ant-design/icons";
-import { Alert, Button, Card, Empty, InputNumber, Select, Space, Spin, Statistic, Table, Tag, Typography, message } from "antd";
+import { Alert, Button, Card, Empty, InputNumber, Select, Space, Spin, Statistic, Switch, Table, Tag, Typography, message } from "antd";
 import type { TableColumnsType } from "antd";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { StockBadge } from "../components/StockBadge";
@@ -8,10 +8,14 @@ import { clearCache, getJson } from "../utils/api";
 
 const { Text, Title } = Typography;
 
-type UniverseOption = "MIDCAP_250" | "SMALLCAP_250" | "BOTH";
+type UniverseOption = "ALL" | "MIDCAP_250" | "SMALLCAP_250" | "BOTH" | "NIFTY_50" | "WATCHLIST" | "NIFTY_150";
 
 const UNIVERSE_OPTIONS: Array<{ value: UniverseOption; label: string }> = [
+  { value: "ALL", label: "All (50+100+Mid250+Small250+Watchlist)" },
   { value: "BOTH", label: "Midcap + Smallcap" },
+  { value: "NIFTY_50", label: "Nifty 50" },
+  { value: "NIFTY_150", label: "Nifty 150" },
+  { value: "WATCHLIST", label: "Watchlist" },
   { value: "MIDCAP_250", label: "Nifty Midcap 250" },
   { value: "SMALLCAP_250", label: "Nifty Smallcap 250" },
 ];
@@ -24,6 +28,9 @@ export function WeeklyCycleSuccessPage() {
   const [weeks, setWeeks] = useState<number>(8);
   const [highLowPct, setHighLowPct] = useState<number>(10);
   const [rocPct, setRocPct] = useState<number>(2);
+  const [stableBaseDriftPct, setStableBaseDriftPct] = useState<number>(4);
+  const [stableBaseOnly, setStableBaseOnly] = useState<boolean>(true);
+  const [executionMode, setExecutionMode] = useState<boolean>(true);
   const [messageApi, contextHolder] = message.useMessage();
 
   const buildPath = useCallback((prepareMissingDaily: boolean) => {
@@ -32,12 +39,13 @@ export function WeeklyCycleSuccessPage() {
       weeks: String(weeks),
       highLowPct: String(highLowPct),
       rocPct: String(rocPct),
+      stableBaseDriftPct: String(stableBaseDriftPct),
     });
     if (prepareMissingDaily) {
       params.set("prepare", "true");
     }
     return `/api/screener/weekly-cycle-success?${params.toString()}`;
-  }, [universe, weeks, highLowPct, rocPct]);
+  }, [universe, weeks, highLowPct, rocPct, stableBaseDriftPct]);
 
   const fetchScan = useCallback(async (forceRefresh = false) => {
     const path = buildPath(forceRefresh);
@@ -60,15 +68,19 @@ export function WeeklyCycleSuccessPage() {
     void fetchScan();
   }, [fetchScan]);
 
-  const rows = data?.results ?? [];
+  const allRows = data?.results ?? [];
+  const rows = useMemo(
+    () => (stableBaseOnly ? allRows.filter((row) => row.stableBasePass) : allRows),
+    [allRows, stableBaseOnly],
+  );
   const avgSuccessRate = useMemo(() => {
     if (rows.length === 0) return 0;
     return rows.reduce((sum, row) => sum + row.successRatePct, 0) / rows.length;
   }, [rows]);
   const topPerformers = useMemo(() => rows.filter((row) => row.successRatePct >= 60).length, [rows]);
+  const stableBasePassCount = useMemo(() => allRows.filter((row) => row.stableBasePass).length, [allRows]);
 
-  const columns: TableColumnsType<WeeklyCycleSuccessRow> = [
-    {
+  const stockColumn: TableColumnsType<WeeklyCycleSuccessRow>[number] = {
       title: "Stock",
       dataIndex: "symbol",
       key: "symbol",
@@ -78,8 +90,9 @@ export function WeeklyCycleSuccessPage() {
       render: (symbol: string, row) => (
         <StockBadge symbol={symbol} instrumentToken={row.instrumentToken} companyName={row.companyName} fontSize={14} />
       ),
-    },
-    {
+    };
+
+  const universeColumn: TableColumnsType<WeeklyCycleSuccessRow>[number] = {
       title: "Universe",
       dataIndex: "universeBuckets",
       key: "universeBuckets",
@@ -89,28 +102,58 @@ export function WeeklyCycleSuccessPage() {
           {buckets.length === 0 ? <Text type="secondary">-</Text> : buckets.map((bucket) => <Tag key={bucket}>{bucket}</Tag>)}
         </Space>
       ),
-    },
-    {
-      title: "Success",
-      dataIndex: "successCount",
-      key: "successCount",
-      width: 110,
-      sorter: (a, b) => a.successCount - b.successCount,
-      render: (value: number, row) => (row.cycleCount === 0 ? "No Data" : `${value}/${row.cycleCount}`),
-    },
-    {
-      title: "Success Rate",
-      dataIndex: "successRatePct",
-      key: "successRatePct",
-      width: 140,
+    };
+
+  const successColumn: TableColumnsType<WeeklyCycleSuccessRow>[number] = {
+      title: "Success (x/y | %)",
+      key: "successComposite",
+      width: 190,
       defaultSortOrder: "descend",
       sorter: (a, b) => a.successRatePct - b.successRatePct,
-      render: (value: number) => {
-        const color = value >= 70 ? "success" : value >= 50 ? "warning" : "default";
-        return <Tag color={color}>{value.toFixed(2)}%</Tag>;
+      render: (_, row) => {
+        if (row.cycleCount === 0) {
+          return <Text type="secondary">No Data</Text>;
+        }
+        const color = row.successRatePct >= 70 ? "success" : row.successRatePct >= 50 ? "warning" : "default";
+        return (
+          <Space size={6}>
+            <Text strong>{row.successCount}/{row.cycleCount}</Text>
+            <Tag color={color}>{row.successRatePct.toFixed(2)}%</Tag>
+          </Space>
+        );
       },
-    },
-    {
+    };
+
+  const stableBaseColumn: TableColumnsType<WeeklyCycleSuccessRow>[number] = {
+      title: "Stable Base",
+      key: "stableBase",
+      width: 190,
+      sorter: (a, b) => {
+        const left = a.stableBaseDriftPct ?? Number.POSITIVE_INFINITY;
+        const right = b.stableBaseDriftPct ?? Number.POSITIVE_INFINITY;
+        return left - right;
+      },
+      render: (_, row) => {
+        if (row.stableBasePass) {
+          return <Tag color="success">PASS ({(row.stableBaseDriftPct ?? 0).toFixed(2)}%)</Tag>;
+        }
+        return <Tag color="error">{row.stableBaseReason ?? "FAIL"}</Tag>;
+      },
+    };
+
+  const baseRangeColumn: TableColumnsType<WeeklyCycleSuccessRow>[number] = {
+      title: "Base Range",
+      key: "baseRange",
+      width: 160,
+      render: (_, row) => {
+        if (row.stableBaseLowMin == null || row.stableBaseLowMax == null) {
+          return <Text type="secondary">-</Text>;
+        }
+        return <Text strong>{row.stableBaseLowMin.toFixed(2)} - {row.stableBaseLowMax.toFixed(2)}</Text>;
+      },
+    };
+
+  const lastCycleColumn: TableColumnsType<WeeklyCycleSuccessRow>[number] = {
       title: "Last Cycle (HL / ROC)",
       key: "lastCycleMetrics",
       width: 210,
@@ -124,15 +167,25 @@ export function WeeklyCycleSuccessPage() {
           </Space>
         );
       },
-    },
-    {
+    };
+
+  const failedStartWeeksColumn: TableColumnsType<WeeklyCycleSuccessRow>[number] = {
       title: "Failed Start Weeks",
       dataIndex: "failedStartWeeks",
       key: "failedStartWeeks",
       width: 220,
       render: (failed: string[]) => (failed.length === 0 ? "-" : failed.join(", ")),
+    };
+
+  const columns = useMemo<TableColumnsType<WeeklyCycleSuccessRow>>(
+    () => {
+      if (executionMode) {
+        return [stockColumn, successColumn, stableBaseColumn, baseRangeColumn, lastCycleColumn];
+      }
+      return [stockColumn, universeColumn, successColumn, stableBaseColumn, baseRangeColumn, lastCycleColumn, failedStartWeeksColumn];
     },
-  ];
+    [executionMode],
+  );
 
   return (
     <div style={{ padding: 24, background: "#f5f7fa", minHeight: "calc(100vh - 48px)" }}>
@@ -140,7 +193,7 @@ export function WeeklyCycleSuccessPage() {
       <Space orientation="vertical" size={16} style={{ width: "100%" }}>
         <div>
           <Title level={4} style={{ margin: 0 }}>Weekly Cycle Success Scanner</Title>
-          <Text type="secondary">Scan Midcap 250 and Smallcap 250 by Mon/Tue low to week high and ROC cycle rules.</Text>
+          <Text type="secondary">Scan selected universe by Mon/Tue low to week high and ROC cycle rules.</Text>
         </div>
 
         <Card size="small">
@@ -165,6 +218,21 @@ export function WeeklyCycleSuccessPage() {
               <br />
               <InputNumber data-testid="roc-input" min={0} value={rocPct} onChange={(value) => setRocPct(value ?? 2)} />
             </div>
+            <div>
+              <Text type="secondary">Stable Base Drift %</Text>
+              <br />
+              <InputNumber data-testid="stable-base-drift-input" min={0} value={stableBaseDriftPct} onChange={(value) => setStableBaseDriftPct(value ?? 4)} />
+            </div>
+            <div>
+              <Text type="secondary">Stable Base Only</Text>
+              <br />
+              <Switch data-testid="stable-base-only-switch" checked={stableBaseOnly} onChange={setStableBaseOnly} />
+            </div>
+            <div>
+              <Text type="secondary">Execution Mode</Text>
+              <br />
+              <Switch data-testid="execution-mode-switch" checked={executionMode} onChange={setExecutionMode} />
+            </div>
             <Button type="primary" icon={<ReloadOutlined />} onClick={() => void fetchScan(true)} loading={loading}>
               Run Scan
             </Button>
@@ -178,6 +246,7 @@ export function WeeklyCycleSuccessPage() {
             <Statistic title="Stocks Scanned" value={rows.length} />
             <Statistic title="Avg Success Rate" value={avgSuccessRate} precision={2} suffix="%" />
             <Statistic title="Top Performers (>=60%)" value={topPerformers} />
+            <Statistic title="Stable Base Pass" value={stableBasePassCount} suffix={`/ ${allRows.length}`} />
             <Statistic title="Weeks Evaluated" value={data?.weeksEvaluated ?? 0} suffix={`/ ${data?.weeksRequested ?? weeks}`} />
           </Space>
         </Card>

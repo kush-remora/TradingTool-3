@@ -4,6 +4,8 @@ import com.tradingtool.core.candle.DailyCandle
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import java.time.LocalDate
 
 class WeeklyCycleSuccessServiceTest {
@@ -124,6 +126,42 @@ class WeeklyCycleSuccessServiceTest {
         assertEquals(2.0, evaluated[0].rocPct)
     }
 
+    @Test
+    fun `evaluateStableBase passes when recent start lows are tight`() {
+        val stable = evaluateStableBase(
+            cycles = listOf(
+                metrics("2026-W11", 100.0),
+                metrics("2026-W12", 101.0),
+                metrics("2026-W13", 102.0),
+                metrics("2026-W14", 103.0),
+            ),
+            maxDriftPct = 4.0,
+        )
+
+        assertTrue(stable.pass)
+        assertEquals(3.0, stable.driftPct)
+        assertEquals(100.0, stable.lowMin)
+        assertEquals(103.0, stable.lowMax)
+        assertNull(stable.reason)
+    }
+
+    @Test
+    fun `evaluateStableBase fails when recent start lows drift too much`() {
+        val unstable = evaluateStableBase(
+            cycles = listOf(
+                metrics("2026-W11", 100.0),
+                metrics("2026-W12", 120.0),
+                metrics("2026-W13", 140.0),
+                metrics("2026-W14", 160.0),
+            ),
+            maxDriftPct = 4.0,
+        )
+
+        assertFalse(unstable.pass)
+        assertEquals(60.0, unstable.driftPct)
+        assertTrue(unstable.reason?.contains("Base drift") == true)
+    }
+
     private fun week(year: Int, isoWeek: Int, candles: Map<Int, DailyCandle>): WeeklyCycleWeek {
         return WeeklyCycleWeek(
             isoYear = year,
@@ -142,6 +180,20 @@ class WeeklyCycleSuccessServiceTest {
             low = low,
             close = close,
             volume = 1000,
+        )
+    }
+
+    private fun metrics(weekLabel: String, startLow: Double): WeeklyCycleMetrics {
+        return WeeklyCycleMetrics(
+            weekLabel = weekLabel,
+            startDay = "Mon",
+            endDay = "Fri",
+            startLow = startLow,
+            endClose = startLow,
+            weekHigh = startLow,
+            highLowPct = 0.0,
+            rocPct = 0.0,
+            success = false,
         )
     }
 }
