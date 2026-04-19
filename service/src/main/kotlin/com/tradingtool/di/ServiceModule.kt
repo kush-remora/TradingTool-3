@@ -41,6 +41,7 @@ import com.tradingtool.core.delivery.config.DeliveryUniverseService
 import com.tradingtool.core.delivery.reconciliation.DeliveryReconciliationService
 import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
 import com.tradingtool.core.screener.CandleDataService
+import com.tradingtool.core.screener.WeeklyCycleSuccessService
 import com.tradingtool.core.screener.WeeklyPatternConfigService
 import com.tradingtool.core.screener.WeeklyPatternService
 import com.tradingtool.core.strategy.remora.RemoraService
@@ -89,6 +90,7 @@ class ServiceModule(
         bind(StockService::class.java).`in`(Singleton::class.java)
         bind(TradeService::class.java).`in`(Singleton::class.java)
         bind(TradeReadinessService::class.java).`in`(Singleton::class.java)
+        bind(com.tradingtool.core.screener.DrawdownScannerService::class.java).`in`(Singleton::class.java)
         bind(HttpRequestExecutor::class.java).to(JdkHttpRequestExecutor::class.java).`in`(Singleton::class.java)
 
         ALL_RESOURCE_CLASSES.forEach { bind(it).`in`(Singleton::class.java) }
@@ -147,11 +149,13 @@ class ServiceModule(
         stockHandler: StockJdbiHandler,
         redis: RedisHandler,
         kiteClient: KiteConnectClient,
+        instrumentCache: InstrumentCache,
     ): IndicatorService = IndicatorService(
         candleHandler = candleHandler,
         stockHandler = stockHandler,
         redis = redis,
         kiteClient = kiteClient,
+        instrumentCache = instrumentCache,
         config = IndicatorConfig.DEFAULT,
     )
 
@@ -347,7 +351,18 @@ class ServiceModule(
     fun provideCandleJdbiHandler(config: DatabaseConfig): CandleJdbiHandler =
         handler<CandleReadDao, CandleWriteDao>(config)
     
-    @Provides @Singleton
+    @Provides
+    @Singleton
+    fun provideObjectMapper(): com.fasterxml.jackson.databind.ObjectMapper {
+        val mapper = com.fasterxml.jackson.databind.ObjectMapper()
+        mapper.registerModule(com.fasterxml.jackson.module.kotlin.KotlinModule.Builder().build())
+        mapper.registerModule(com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
+        mapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+        return mapper
+    }
+
+    @Provides
+    @Singleton
     fun provideCandleCacheService(
         candleHandler: CandleJdbiHandler,
         redis: RedisHandler,
@@ -368,6 +383,12 @@ class ServiceModule(
         patternConfigService: WeeklyPatternConfigService,
         instrumentCache: InstrumentCache,
     ): WeeklyPatternService = WeeklyPatternService(stockHandler, candleCache, patternConfigService, instrumentCache)
+
+    @Provides @Singleton
+    fun provideWeeklyCycleSuccessService(
+        stockHandler: StockJdbiHandler,
+        candleCache: CandleCacheService,
+    ): WeeklyCycleSuccessService = WeeklyCycleSuccessService(stockHandler, candleCache)
 
     @Provides @Singleton
     fun provideTechnicalContextService(

@@ -277,6 +277,40 @@ export interface WeeklyPatternListResponse {
   results: WeeklyPatternResult[];
 }
 
+export interface WeeklyCycleMetrics {
+  weekLabel: string;
+  startDay: string;
+  endDay: string;
+  startLow: number;
+  endClose: number;
+  weekHigh: number;
+  highLowPct: number;
+  rocPct: number;
+  success: boolean;
+}
+
+export interface WeeklyCycleSuccessRow {
+  symbol: string;
+  companyName: string;
+  instrumentToken: number;
+  universeBuckets: string[];
+  successCount: number;
+  cycleCount: number;
+  successRatePct: number;
+  failedStartWeeks: string[];
+  lastCycleMetrics: WeeklyCycleMetrics | null;
+}
+
+export interface WeeklyCycleSuccessResponse {
+  runAt: string;
+  universe: "MIDCAP_250" | "SMALLCAP_250" | "BOTH" | string;
+  weeksRequested: number;
+  weeksEvaluated: number;
+  highLowThresholdPct: number;
+  rocThresholdPct: number;
+  results: WeeklyCycleSuccessRow[];
+}
+
 export interface FundamentalsTableRow {
   symbol: string;
   companyName: string;
@@ -661,6 +695,42 @@ export interface RsiMomentumBacktestReport {
   blockedEntryDays: string[];
   exitMode: RsiBacktestExitMode;
   rsiExitThreshold: number;
+}
+
+export interface RsiRankDriftBacktestRequest {
+  profileId: string;
+  fromDate?: string;
+  toDate?: string;
+  initialCapital: number;
+  targetPct: number;
+  atrStopMultiplier: number;
+  entryRankMin: number;
+  entryRankMax: number;
+  priorBetterRankLookbackDays?: number;
+  runBackfill?: boolean;
+}
+
+export interface RsiRankDriftBacktestReport {
+  profileId: string;
+  fromDate: string;
+  toDate: string;
+  initialCapital: number;
+  finalCapital: number;
+  totalProfit: number;
+  totalProfitPct: number;
+  totalTrades: number;
+  winningTrades: number;
+  losingTrades: number;
+  winRate: number;
+  avgHoldingDays: number;
+  trades: BacktestTrade[];
+  entryRankMin: number;
+  entryRankMax: number;
+  targetPct: number;
+  atrStopMultiplier: number;
+  atrPeriod: number;
+  priorBetterRankLookbackDays: number;
+  entriesSkippedByPriorBetterRankRule: number;
 }
 
 // ─── RSI Momentum Backtest ───────────────────────────────────────────────────

@@ -1007,3 +1007,105 @@ Implement a new separate frontend page and backend API that analyzes last-1-year
 - Kotlin reviewer pass:
   - Completed review of Kotlin diff using `kotlin-reviewer` checklist.
   - No CRITICAL/HIGH issues found in the new leaders-drawdown Kotlin changes.
+
+---
+
+# Implementation Plan: RSI Rank Drift Backtest Screen
+
+## Overview
+Add a dedicated RSI backtest screen with simple controls for universe, date range, target, stoploss, rank band, and capital. Implement one extra filter rule: if entry rank start is `S`, exclude symbols that had rank `< S` at any point in the last 40 snapshot days.
+
+## Product Spec (product-manager)
+- **Problem Statement**
+  Existing RSI backtests don't expose a clean, focused workflow for ranking-drift style entries. You want a fast way to test “enter from rank band, but reject stocks that were recently above the band”.
+- **User Story**
+  As a trader, I want to pick a universe, backtest window, target/stoploss, rank band, and capital, then run a simple RSI rank-drift backtest that excludes symbols that recently had stronger ranks than my entry-start rank.
+- **Acceptance Criteria**
+  - [x] New screen is accessible from top navigation.
+  - [x] Screen supports inputs: universe, date range, target %, stoploss %, rank start/end, capital.
+  - [x] Backend rule is enforced: for entry start `S`, if symbol had rank `< S` in prior 40 snapshot days, skip that candidate for that day.
+  - [x] Backtest response includes summary metrics and trade list.
+  - [x] UI shows requested range and returned result stats.
+- **Technical Considerations**
+  - Reuse existing RSI momentum snapshots and profile config (profile maps to universe).
+  - Keep endpoint under `/api/strategy/rsi-momentum/*`.
+  - Keep logic single-position sequential trade flow (consistent with current sniper backtest behavior).
+- **Out of Scope**
+  - Multi-position portfolio sizing.
+  - Slippage/fees modeling.
+  - New persistence tables.
+- **Complexity Estimate**
+  - ~6-10 hours including backend, frontend screen, wiring, and compile/build checks.
+
+## Skill Invocation Notes
+- `coding-standards`: Active baseline for naming/readability and minimal-diff implementation.
+- `backend-architect`: Reuse existing strategy resource/service boundaries; add one endpoint without new layers.
+- `kotlin-patterns`: Keep service logic cohesive and request normalization explicit.
+- `frontend-patterns`: Compose a focused page with typed request/result flow.
+- `kotlin-reviewer`: Run final Kotlin review pass after code edits.
+
+## Implementation Steps
+- [x] Add Kotlin request/result models for rank-drift backtest.
+- [x] Add service logic with 40-day prior-better-rank exclusion rule.
+- [x] Add strategy resource endpoint.
+- [x] Add frontend types + hook for rank-drift endpoint.
+- [x] Add new `RsiRankDriftBacktestPage` UI and controls.
+- [x] Wire page into `App.tsx` menu/routes.
+- [x] Run backend compile and frontend build checks.
+- [x] Run Kotlin reviewer pass and document findings.
+
+## Review
+- Backend:
+  - Added `RsiRankDriftBacktestRequest` and `RsiRankDriftBacktestReport` models.
+  - Added `runRankDriftBacktest(...)` in `RsiMomentumBacktestService`.
+  - Implemented the rule: for entry-rank start `S`, skip candidate when it had prior rank `< S` in previous 40 snapshots (configurable in request, UI-fixed at 40).
+  - Added endpoint: `POST /api/strategy/rsi-momentum/backtest/rank-drift`.
+- Frontend:
+  - Added new types for rank-drift request/report.
+  - Added hook `useRsiRankDriftBacktest`.
+  - Added page `RsiRankDriftBacktestPage` with controls:
+    - universe (profile/universe preset),
+    - date range,
+    - capital,
+    - target,
+    - stoploss,
+    - rank start-end.
+  - Added new top menu route `rsi-rank-drift` with label `RSI Rank Drift`.
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm --prefix frontend run -s build` passed.
+- Kotlin reviewer pass:
+  - Reviewed Kotlin changes with `kotlin-reviewer` checklist.
+  - No CRITICAL/HIGH issues found in this diff.
+
+---
+
+# Implementation Plan: RSI Rank Drift ATR Stop + Rank Priority Clarification
+
+## Overview
+Replace fixed % stoploss in RSI rank-drift backtest with ATR-based dynamic stop (`Entry - ATR14 * multiplier`) and make entry-priority behavior explicit for rank bands.
+
+## Implementation Steps
+- [x] Replace `stopLossPct` with `atrStopMultiplier` in rank-drift request/report contracts.
+- [x] Compute ATR14 on entry date and derive dynamic stop price.
+- [x] Keep single active trade flow and explicit rank-priority scan from rank-start upward.
+- [x] Update frontend controls from Stoploss% to ATR multiplier.
+- [x] Update UI copy to clarify single-stock rank-priority behavior.
+- [x] Run backend compile + frontend build.
+- [x] Run Kotlin review pass.
+
+## Review
+- Backend:
+  - Rank-drift request now accepts `atrStopMultiplier`.
+  - Stop price is now dynamic per stock: `entryPrice - (ATR14 * atrStopMultiplier)`.
+  - Rank-band entry scan is explicit and ordered by rank ascending; only one active trade at a time.
+  - Added response fields `atrStopMultiplier` and `atrPeriod`.
+- Frontend:
+  - Replaced Stoploss% input with ATR multiplier input (supports values like `1`, `1.25`).
+  - Added explicit help text for rank-band selection behavior.
+  - Updated summary text to show ATR stop formula.
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm --prefix frontend run -s build` passed.
+- Kotlin reviewer pass:
+  - No CRITICAL/HIGH findings in this change set.

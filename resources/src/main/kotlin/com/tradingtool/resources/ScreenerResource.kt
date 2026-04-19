@@ -11,6 +11,8 @@ import com.tradingtool.core.stock.service.StockService
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.screener.CandleDataService
+import com.tradingtool.core.screener.WeeklyCycleSuccessScanResponse
+import com.tradingtool.core.screener.WeeklyCycleSuccessService
 import com.tradingtool.core.screener.WeeklyPatternService
 import com.tradingtool.core.watchlist.WatchlistService
 import com.tradingtool.resources.common.badRequest
@@ -32,6 +34,7 @@ import org.slf4j.LoggerFactory
 import java.time.Instant
 import com.tradingtool.core.screener.WeeklyPatternListResponse
 import java.time.LocalDate
+import java.time.ZoneId
 import java.util.concurrent.CompletableFuture
 
 data class FundamentalsFilterOverrides(
@@ -94,6 +97,8 @@ class ScreenerResource @Inject constructor(
     private val nseIndexConstituentsService: NseIndexConstituentsService,
     private val fundamentalsFilterConfigService: FundamentalsFilterConfigService,
     private val fundamentalsHandler: StockFundamentalsJdbiHandler,
+    private val drawdownScannerService: com.tradingtool.core.screener.DrawdownScannerService,
+    private val weeklyCycleSuccessService: WeeklyCycleSuccessService,
     private val watchlistService: WatchlistService,
     private val stockService: StockService,
     private val kiteClient: KiteConnectClient,
@@ -147,6 +152,75 @@ class ScreenerResource @Inject constructor(
             universeSourceTags = universe.sourceTags,
             results = results
         ))
+    }
+
+    @GET
+    @Path("/drawdown")
+    fun drawdownScanner(@QueryParam("universe") universe: String?): CompletableFuture<Response> = ioScope.endpoint {
+        val selectedUniverse = universe?.trim()?.uppercase()?.takeIf { it.isNotBlank() } ?: "WATCHLIST"
+        ok(drawdownScannerService.scanUniverse(selectedUniverse))
+    }
+
+    @GET
+    @Path("/weekly-cycle-success")
+    fun weeklyCycleSuccess(
+        @QueryParam("universe") universeParam: String?,
+        @QueryParam("weeks") weeksParam: Int?,
+        @QueryParam("highLowPct") highLowPctParam: Double?,
+        @QueryParam("rocPct") rocPctParam: Double?,
+        @QueryParam("prepare") prepareParam: String?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val request = WeeklyCycleSuccessRequest.fromQuery(universeParam, weeksParam, highLowPctParam, rocPctParam, prepareParam)
+            ?: return@endpoint badRequest("Invalid query params. weeks must be 1..52, thresholds must be >= 0.")
+
+        val universe = resolveWeeklyCycleUniverse(request.universe)
+        if (universe.symbols.isEmpty()) {
+            return@endpoint badRequest("No symbols found for selected universe: ${request.universe.name}")
+        }
+
+        if (request.prepareMissingDaily) {
+            val today = LocalDate.now(ZoneId.of("Asia/Kolkata"))
+            val fromDate = today.minusWeeks((request.weeks + 12).toLong())
+            val syncResult = candleDataService.syncDailyRange(
+                symbols = universe.symbols,
+                fromDate = fromDate,
+                toDate = today,
+                kiteClient = kiteClient,
+            )
+            universe.symbols.forEach { symbol ->
+                // Ensure scanner reads freshly synced candles, not stale cached payloads.
+                runCatching { weeklyCycleSuccessService.invalidateDailyCache(symbol) }
+                    .onFailure { error ->
+                        log.warn("Failed to invalidate daily candle cache for {}: {}", symbol, error.message)
+                    }
+            }
+            log.info(
+                "Weekly cycle success daily prep complete: synced={} failed={} upserted={}",
+                syncResult.symbolsSynced,
+                syncResult.symbolsFailed,
+                syncResult.dailyCandlesUpserted,
+            )
+        }
+
+        val scan = weeklyCycleSuccessService.scan(
+            symbols = universe.symbols,
+            symbolBuckets = universe.symbolBuckets,
+            weeksRequested = request.weeks,
+            highLowThresholdPct = request.highLowPct,
+            rocThresholdPct = request.rocPct,
+        )
+
+        ok(
+            WeeklyCycleSuccessScanResponse(
+                runAt = Instant.now().toString(),
+                universe = request.universe.name,
+                weeksRequested = request.weeks,
+                weeksEvaluated = scan.weeksEvaluated,
+                highLowThresholdPct = request.highLowPct,
+                rocThresholdPct = request.rocPct,
+                results = scan.results,
+            ),
+        )
     }
 
     /**
@@ -318,6 +392,50 @@ class ScreenerResource @Inject constructor(
         log.info("Weekly scanner resolved {} symbols from {} indexes", symbols.size, WEEKLY_SCANNER_INDEX_NAMES.size)
         WeeklyIndexUniverse(
             symbols = symbols,
+            symbolBuckets = symbolBuckets.mapValues { (_, buckets) -> buckets.toList() },
+        )
+    }
+
+    private suspend fun resolveWeeklyCycleUniverse(universe: WeeklyCycleUniverse): ResolvedWeeklyUniverse = coroutineScope {
+        val selectedIndexes = when (universe) {
+            WeeklyCycleUniverse.MIDCAP_250 -> listOf(INDEX_NIFTY_MIDCAP_250)
+            WeeklyCycleUniverse.SMALLCAP_250 -> listOf(INDEX_NIFTY_SMALLCAP_250)
+            WeeklyCycleUniverse.BOTH -> listOf(INDEX_NIFTY_MIDCAP_250, INDEX_NIFTY_SMALLCAP_250)
+        }
+
+        val fetches = selectedIndexes.map { indexName ->
+            async {
+                indexName to nseIndexConstituentsService.fetchSymbols(indexName)
+            }
+        }
+        val byIndex = fetches.awaitAll()
+
+        val symbols = byIndex.asSequence()
+            .flatMap { (_, members) -> members.asSequence() }
+            .map { symbol -> symbol.trim().uppercase() }
+            .filter { symbol -> symbol.isNotEmpty() }
+            .distinct()
+            .sorted()
+            .toList()
+
+        val symbolBuckets = mutableMapOf<String, MutableSet<String>>()
+        byIndex.forEach { (indexName, members) ->
+            members.forEach { symbol ->
+                val normalized = symbol.trim().uppercase()
+                if (normalized.isNotEmpty()) {
+                    symbolBuckets.getOrPut(normalized) { linkedSetOf() }.add(indexName)
+                }
+            }
+        }
+
+        val missingIndexes = byIndex.filter { (_, members) -> members.isEmpty() }.map { (indexName, _) -> indexName }
+        if (missingIndexes.isNotEmpty()) {
+            log.warn("Weekly cycle success universe fetch returned zero members for indexes={}", missingIndexes)
+        }
+
+        ResolvedWeeklyUniverse(
+            symbols = symbols,
+            sourceTags = selectedIndexes,
             symbolBuckets = symbolBuckets.mapValues { (_, buckets) -> buckets.toList() },
         )
     }
@@ -513,6 +631,8 @@ class ScreenerResource @Inject constructor(
     }
 
     private companion object {
+        private const val INDEX_NIFTY_MIDCAP_250 = "NIFTY MIDCAP 250"
+        private const val INDEX_NIFTY_SMALLCAP_250 = "NIFTY SMALLCAP 250"
         private val WEEKLY_SCANNER_INDEX_NAMES: List<String> = listOf(
             "NIFTY 50",
             "NIFTY 100",

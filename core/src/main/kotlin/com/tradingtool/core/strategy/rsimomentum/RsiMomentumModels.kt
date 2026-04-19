@@ -249,6 +249,19 @@ data class RsiMomentumBacktestRequest(
     val rsiExitThreshold: Double = 60.0,
 )
 
+data class RsiRankDriftBacktestRequest(
+    val profileId: String,
+    val fromDate: String? = null,
+    val toDate: String? = null,
+    val initialCapital: Double = 100000.0,
+    val targetPct: Double = 10.0,
+    val atrStopMultiplier: Double = 1.0,
+    val entryRankMin: Int = 5,
+    val entryRankMax: Int = 10,
+    val priorBetterRankLookbackDays: Int = 40,
+    val runBackfill: Boolean = true,
+)
+
 data class BacktestTrade(
     val symbol: String,
     val companyName: String,
@@ -294,6 +307,29 @@ data class RsiMomentumBacktestReport(
     val blockedEntryDays: List<String>,
     val exitMode: RsiBacktestExitMode,
     val rsiExitThreshold: Double,
+)
+
+data class RsiRankDriftBacktestReport(
+    val profileId: String,
+    val fromDate: String,
+    val toDate: String,
+    val initialCapital: Double,
+    val finalCapital: Double,
+    val totalProfit: Double,
+    val totalProfitPct: Double,
+    val totalTrades: Int,
+    val winningTrades: Int,
+    val losingTrades: Int,
+    val winRate: Double,
+    val avgHoldingDays: Double,
+    val trades: List<BacktestTrade>,
+    val entryRankMin: Int,
+    val entryRankMax: Int,
+    val targetPct: Double,
+    val atrStopMultiplier: Double,
+    val atrPeriod: Int,
+    val priorBetterRankLookbackDays: Int,
+    val entriesSkippedByPriorBetterRankRule: Int,
 )
 
 data class RsiMomentumMultiSnapshot(

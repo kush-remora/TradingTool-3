@@ -6,6 +6,7 @@ import com.google.inject.Inject
 import com.google.inject.Singleton
 import com.tradingtool.core.database.CandleJdbiHandler
 import com.tradingtool.core.database.RsiMomentumSnapshotJdbiHandler
+import com.tradingtool.core.technical.calculateAtr
 import com.tradingtool.core.technical.calculateEma
 import com.tradingtool.core.technical.calculateRsi
 import com.tradingtool.core.technical.getDoubleValue
@@ -86,6 +87,7 @@ class RsiMomentumBacktestService @Inject constructor(
                         entryPrice = entryPrice,
                         targetPrice = targetPrice,
                         stopLossPrice = stopLossPrice,
+                        peakCloseSinceEntry = entryPrice,
                         entryRank = candidate.rank,
                         entryRankImprovement = candidate.rankImprovement,
                         entryRsi22 = candidate.rsi22,
@@ -182,6 +184,215 @@ class RsiMomentumBacktestService @Inject constructor(
             blockedEntryDays = normalized.blockedEntryDays,
             exitMode = normalized.exitMode,
             rsiExitThreshold = normalized.rsiExitThreshold,
+        )
+    }
+
+    suspend fun runRankDriftBacktest(request: RsiRankDriftBacktestRequest): RsiRankDriftBacktestReport {
+        val from = request.fromDate?.let { LocalDate.parse(it) } ?: LocalDate.now().minusMonths(3)
+        val to = request.toDate?.let { LocalDate.parse(it) } ?: LocalDate.now()
+        val normalized = request.normalize()
+
+        if (normalized.runBackfill) {
+            backfillService.backfill(
+                BackfillRequest(
+                    profileId = normalized.profileId,
+                    fromDate = from.toString(),
+                    toDate = to.toString(),
+                    skipExisting = true,
+                ),
+            )
+        }
+
+        val snapshots = snapshotHandler.read { dao ->
+            dao.listByProfileAndDateRange(normalized.profileId, from, to)
+        }.mapNotNull { record ->
+            val snapshot = runCatching {
+                mapper.readValue(record.snapshotJson, RsiMomentumSnapshot::class.java)
+            }.getOrNull() ?: return@mapNotNull null
+            val asOfDate = snapshot.asOfDate?.let { LocalDate.parse(it) } ?: record.asOfDate
+            asOfDate to snapshot
+        }.sortedBy { it.first }
+
+        if (snapshots.isEmpty()) {
+            return emptyRankDriftReport(normalized, from, to)
+        }
+
+        var currentCapital = normalized.initialCapital
+        var activeTrade: ActiveBacktestTrade? = null
+        val trades = mutableListOf<BacktestTrade>()
+        var entriesSkippedByPriorBetterRankRule = 0
+
+        snapshots.forEachIndexed { index, (asOfDate, snapshot) ->
+            if (activeTrade == null) {
+                val rankedRows = (snapshot.holdings + snapshot.topCandidates)
+                    .groupBy { row -> row.symbol.uppercase() }
+                    .mapNotNull { (_, rows) -> rows.minByOrNull { row -> row.rank } }
+                    .sortedBy { row -> row.rank }
+
+                var candidate: RsiMomentumRankedStock? = null
+                var candidateAtr14: Double? = null
+                for (row in rankedRows) {
+                    if (row.rank !in normalized.entryRankMin..normalized.entryRankMax) continue
+                    val blocked = hasPriorBetterRank(
+                        snapshots = snapshots,
+                        currentIndex = index,
+                        symbol = row.symbol,
+                        rankStart = normalized.entryRankMin,
+                        lookbackDays = normalized.priorBetterRankLookbackDays,
+                    )
+                    if (blocked) {
+                        entriesSkippedByPriorBetterRankRule++
+                        continue
+                    }
+
+                    val atr14 = loadAtrForDate(
+                        instrumentToken = row.instrumentToken,
+                        asOfDate = asOfDate,
+                        period = ATR_PERIOD,
+                    )
+                    if (atr14 == null || atr14 <= 0.0) {
+                        continue
+                    }
+                    candidate = row
+                    candidateAtr14 = atr14
+                    break
+                }
+
+                if (candidate != null && candidateAtr14 != null) {
+                    val entryPrice = candidate.close.roundTo2()
+                    val targetPrice = (entryPrice * (1.0 + normalized.targetPct / 100.0)).roundTo2()
+                    val stopLossPrice = (entryPrice - (candidateAtr14 * normalized.atrStopMultiplier)).coerceAtLeast(0.01).roundTo2()
+
+                    activeTrade = ActiveBacktestTrade(
+                        symbol = candidate.symbol,
+                        companyName = candidate.companyName,
+                        instrumentToken = candidate.instrumentToken,
+                        entryDate = asOfDate,
+                        entrySnapshotIndex = index,
+                        entryPrice = entryPrice,
+                        targetPrice = targetPrice,
+                        stopLossPrice = stopLossPrice,
+                        peakCloseSinceEntry = entryPrice,
+                        entryRank = candidate.rank,
+                        entryRankImprovement = candidate.rankImprovement,
+                        entryRsi22 = candidate.rsi22,
+                        entryFarthestRankInLookback = null,
+                        entryJumpFromFarthest = null,
+                    )
+                }
+                return@forEachIndexed
+            }
+
+            val trade = activeTrade ?: return@forEachIndexed
+            val candle = candleHandler.read { dao ->
+                dao.getDailyCandles(trade.instrumentToken, asOfDate, asOfDate)
+            }.firstOrNull() ?: return@forEachIndexed
+
+            val exitPrice = candle.close.roundTo2()
+            if (exitPrice > trade.peakCloseSinceEntry) {
+                trade.peakCloseSinceEntry = exitPrice
+            }
+            val atr14 = loadAtrForDate(
+                instrumentToken = trade.instrumentToken,
+                asOfDate = asOfDate,
+                period = ATR_PERIOD,
+            )
+            if (atr14 != null && atr14 > 0.0) {
+                val candidateTrailingStop = (trade.peakCloseSinceEntry - (atr14 * normalized.atrStopMultiplier)).coerceAtLeast(0.01).roundTo2()
+                trade.stopLossPrice = maxOf(trade.stopLossPrice, candidateTrailingStop)
+            }
+            val targetHit = exitPrice >= trade.targetPrice
+            val stopLossHit = exitPrice <= trade.stopLossPrice
+            if (!targetHit && !stopLossHit) {
+                return@forEachIndexed
+            }
+
+            val profitPct = (((exitPrice / trade.entryPrice) - 1.0) * 100.0).roundTo2()
+            val profitAmount = (currentCapital * (profitPct / 100.0)).roundTo2()
+            currentCapital += profitAmount
+
+            trades += BacktestTrade(
+                symbol = trade.symbol,
+                companyName = trade.companyName,
+                entryDate = trade.entryDate.toString(),
+                exitDate = asOfDate.toString(),
+                entryPrice = trade.entryPrice,
+                exitPrice = exitPrice,
+                targetPrice = trade.targetPrice,
+                stopLossPrice = trade.stopLossPrice,
+                result = if (profitPct >= 0.0) "PROFIT" else "LOSS",
+                profitPct = profitPct,
+                profitAmount = profitAmount,
+                holdingDays = ChronoUnit.DAYS.between(trade.entryDate, asOfDate).toInt().coerceAtLeast(1),
+                entryRank = trade.entryRank,
+                entryRankImprovement = trade.entryRankImprovement,
+                entryRsi22 = trade.entryRsi22,
+                exitRsi22 = null,
+                entryFarthestRankInLookback = null,
+                entryJumpFromFarthest = null,
+                exitReason = if (targetHit) "TARGET_HIT" else "ATR_TRAILING_STOP_HIT",
+            )
+            activeTrade = null
+        }
+
+        val pendingTrade = activeTrade
+        if (pendingTrade != null) {
+            val (lastDate, _) = snapshots.last()
+            val finalClose = candleHandler.read { dao ->
+                dao.getDailyCandles(pendingTrade.instrumentToken, lastDate, lastDate)
+            }.firstOrNull()?.close?.roundTo2() ?: pendingTrade.entryPrice
+            val profitPct = (((finalClose / pendingTrade.entryPrice) - 1.0) * 100.0).roundTo2()
+            val profitAmount = (currentCapital * (profitPct / 100.0)).roundTo2()
+            currentCapital += profitAmount
+
+            trades += BacktestTrade(
+                symbol = pendingTrade.symbol,
+                companyName = pendingTrade.companyName,
+                entryDate = pendingTrade.entryDate.toString(),
+                exitDate = lastDate.toString(),
+                entryPrice = pendingTrade.entryPrice,
+                exitPrice = finalClose,
+                targetPrice = pendingTrade.targetPrice,
+                stopLossPrice = pendingTrade.stopLossPrice,
+                result = if (profitPct >= 0.0) "PROFIT" else "LOSS",
+                profitPct = profitPct,
+                profitAmount = profitAmount,
+                holdingDays = ChronoUnit.DAYS.between(pendingTrade.entryDate, lastDate).toInt().coerceAtLeast(1),
+                entryRank = pendingTrade.entryRank,
+                entryRankImprovement = pendingTrade.entryRankImprovement,
+                entryRsi22 = pendingTrade.entryRsi22,
+                exitRsi22 = null,
+                entryFarthestRankInLookback = null,
+                entryJumpFromFarthest = null,
+                exitReason = "END_OF_WINDOW",
+            )
+        }
+
+        val winningTrades = trades.count { it.result == "PROFIT" }
+        val losingTrades = trades.count { it.result == "LOSS" }
+        val totalProfit = (currentCapital - normalized.initialCapital).roundTo2()
+
+        return RsiRankDriftBacktestReport(
+            profileId = normalized.profileId,
+            fromDate = from.toString(),
+            toDate = to.toString(),
+            initialCapital = normalized.initialCapital,
+            finalCapital = currentCapital.roundTo2(),
+            totalProfit = totalProfit,
+            totalProfitPct = ((totalProfit / normalized.initialCapital) * 100.0).roundTo2(),
+            totalTrades = trades.size,
+            winningTrades = winningTrades,
+            losingTrades = losingTrades,
+            winRate = if (trades.isNotEmpty()) ((winningTrades.toDouble() / trades.size) * 100.0).roundTo2() else 0.0,
+            avgHoldingDays = if (trades.isNotEmpty()) trades.map { it.holdingDays.toDouble() }.average().roundTo2() else 0.0,
+            trades = trades,
+            entryRankMin = normalized.entryRankMin,
+            entryRankMax = normalized.entryRankMax,
+            targetPct = normalized.targetPct,
+            atrStopMultiplier = normalized.atrStopMultiplier,
+            atrPeriod = ATR_PERIOD,
+            priorBetterRankLookbackDays = normalized.priorBetterRankLookbackDays,
+            entriesSkippedByPriorBetterRankRule = entriesSkippedByPriorBetterRankRule,
         )
     }
 
@@ -283,6 +494,22 @@ class RsiMomentumBacktestService @Inject constructor(
         return series.calculateEma(20).getDoubleValue(series.endIndex, candles.last().close).roundTo2()
     }
 
+    private suspend fun loadAtrForDate(
+        instrumentToken: Long,
+        asOfDate: LocalDate,
+        period: Int,
+    ): Double? {
+        val lookbackFrom = asOfDate.minusDays(100)
+        val candles = candleHandler.read { dao ->
+            dao.getDailyCandles(instrumentToken, lookbackFrom, asOfDate)
+        }.sortedBy { candle -> candle.candleDate }
+        if (candles.size < period + 1) {
+            return null
+        }
+        val series = candles.toTa4jSeries(instrumentToken.toString())
+        return series.calculateAtr(period).getDoubleValue(series.endIndex, 0.0).roundTo2()
+    }
+
     private fun emptyReport(request: RsiMomentumBacktestRequest, from: LocalDate, to: LocalDate) = RsiMomentumBacktestReport(
         profileId = request.profileId,
         logicType = request.logicType,
@@ -308,6 +535,33 @@ class RsiMomentumBacktestService @Inject constructor(
         rsiExitThreshold = request.rsiExitThreshold,
     )
 
+    private fun emptyRankDriftReport(
+        request: RsiRankDriftBacktestRequest,
+        from: LocalDate,
+        to: LocalDate,
+    ) = RsiRankDriftBacktestReport(
+        profileId = request.profileId,
+        fromDate = from.toString(),
+        toDate = to.toString(),
+        initialCapital = request.initialCapital,
+        finalCapital = request.initialCapital,
+        totalProfit = 0.0,
+        totalProfitPct = 0.0,
+        totalTrades = 0,
+        winningTrades = 0,
+        losingTrades = 0,
+        winRate = 0.0,
+        avgHoldingDays = 0.0,
+        trades = emptyList(),
+        entryRankMin = request.entryRankMin,
+        entryRankMax = request.entryRankMax,
+        targetPct = request.targetPct,
+        atrStopMultiplier = request.atrStopMultiplier,
+        atrPeriod = ATR_PERIOD,
+        priorBetterRankLookbackDays = request.priorBetterRankLookbackDays,
+        entriesSkippedByPriorBetterRankRule = 0,
+    )
+
     private fun RsiMomentumBacktestRequest.normalize(): RsiMomentumBacktestRequest {
         val normalizedRankMin = entryRankMin.coerceAtLeast(1)
         val normalizedRankMax = entryRankMax.coerceAtLeast(normalizedRankMin)
@@ -325,6 +579,50 @@ class RsiMomentumBacktestService @Inject constructor(
         )
     }
 
+    private fun RsiRankDriftBacktestRequest.normalize(): RsiRankDriftBacktestRequest {
+        val safeCapital = initialCapital.takeIf { it > 0.0 } ?: 100000.0
+        val safeTargetPct = targetPct.coerceAtLeast(0.1)
+        val safeAtrStopMultiplier = atrStopMultiplier.coerceIn(0.5, 5.0)
+        val safeRankMin = entryRankMin.coerceAtLeast(1)
+        val safeRankMax = entryRankMax.coerceAtLeast(safeRankMin)
+        val safeLookback = priorBetterRankLookbackDays.coerceIn(1, 120)
+        return copy(
+            initialCapital = safeCapital,
+            targetPct = safeTargetPct,
+            atrStopMultiplier = safeAtrStopMultiplier,
+            entryRankMin = safeRankMin,
+            entryRankMax = safeRankMax,
+            priorBetterRankLookbackDays = safeLookback,
+        )
+    }
+
+    private fun hasPriorBetterRank(
+        snapshots: List<Pair<LocalDate, RsiMomentumSnapshot>>,
+        currentIndex: Int,
+        symbol: String,
+        rankStart: Int,
+        lookbackDays: Int,
+    ): Boolean {
+        if (currentIndex <= 0) return false
+        val upperSymbol = symbol.uppercase()
+        val startIndex = (currentIndex - lookbackDays).coerceAtLeast(0)
+        for (index in startIndex until currentIndex) {
+            val priorRank = bestRankForSymbol(snapshots[index].second, upperSymbol) ?: continue
+            if (priorRank < rankStart) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun bestRankForSymbol(snapshot: RsiMomentumSnapshot, symbol: String): Int? {
+        val upperSymbol = symbol.uppercase()
+        return (snapshot.holdings + snapshot.topCandidates)
+            .asSequence()
+            .filter { row -> row.symbol.equals(upperSymbol, ignoreCase = true) }
+            .minOfOrNull { row -> row.rank }
+    }
+
     private data class CandidateContext(
         val stock: RsiMomentumRankedStock,
         val farthestRankInLookback: Int,
@@ -339,7 +637,8 @@ class RsiMomentumBacktestService @Inject constructor(
         val entrySnapshotIndex: Int,
         val entryPrice: Double,
         val targetPrice: Double,
-        val stopLossPrice: Double,
+        var stopLossPrice: Double,
+        var peakCloseSinceEntry: Double,
         val entryRank: Int,
         val entryRankImprovement: Int?,
         val entryRsi22: Double?,
@@ -350,5 +649,6 @@ class RsiMomentumBacktestService @Inject constructor(
     companion object {
         private const val ENTRY_RSI22_MIN = 50.0
         private const val ENTRY_RSI22_MAX = 55.0
+        private const val ATR_PERIOD = 14
     }
 }

@@ -18,9 +18,12 @@ import { S4VolumeSpikePage } from "./pages/S4VolumeSpikePage";
 import { MomentumDataPrepPage } from "./pages/MomentumDataPrepPage";
 import { SimpleBacktestPage } from "./pages/SimpleBacktestPage";
 import { RsiMomentumLeadersDrawdownPage } from "./pages/RsiMomentumLeadersDrawdownPage";
+import { DrawdownScannerPage } from "./pages/DrawdownScannerPage";
 import { CorporateResultsPage } from "./pages/CorporateResultsPage";
+import { RsiRankDriftBacktestPage } from "./pages/RsiRankDriftBacktestPage";
+import { WeeklyCycleSuccessPage } from "./pages/WeeklyCycleSuccessPage";
 
-type PageKey = "watchlist" | "graph" | "swing-analysis" | "trade" | "trade-ready" | "remora" | "screener" | "rsi-momentum" | "rsi-momentum-base" | "rsi-momentum-safe" | "weekly-swing" | "s4-volume-spike" | "momentum-data-prep" | "simple-backtest" | "rsi-momentum-drawdown" | "corporate-results";
+type PageKey = "watchlist" | "graph" | "swing-analysis" | "trade" | "trade-ready" | "remora" | "screener" | "rsi-momentum" | "rsi-momentum-base" | "rsi-momentum-safe" | "weekly-swing" | "weekly-cycle-success" | "s4-volume-spike" | "momentum-data-prep" | "simple-backtest" | "rsi-momentum-drawdown" | "drawdown-scanner" | "corporate-results" | "rsi-rank-drift";
 
 const menuItems: MenuProps["items"] = [
   { key: "watchlist", label: "Watchlist", icon: <UnorderedListOutlined /> },
@@ -33,9 +36,12 @@ const menuItems: MenuProps["items"] = [
   { key: "rsi-momentum-base", label: "RSI Momentum Base", icon: <FundOutlined /> },
   { key: "rsi-momentum-safe", label: "RSI Safe", icon: <ThunderboltOutlined /> },
   { key: "rsi-momentum-drawdown", label: "RSI Drawdown", icon: <FundOutlined /> },
+  { key: "drawdown-scanner", label: "Drawdown Scanner", icon: <FundOutlined /> },
   { key: "simple-backtest", label: "Simple Backtest", icon: <FundOutlined /> },
+  { key: "rsi-rank-drift", label: "RSI Rank Drift", icon: <FundOutlined /> },
   { key: "momentum-data-prep", label: "Momentum Data Prep", icon: <FundOutlined /> },
   { key: "weekly-swing", label: "Weekly Swing", icon: <BarChartOutlined /> },
+  { key: "weekly-cycle-success", label: "Weekly Cycle Success", icon: <BarChartOutlined /> },
   { key: "s4-volume-spike", label: "S4 Volume Spike", icon: <FundOutlined /> },
   { key: "screener", label: "Weekly Screener", icon: <BarChartOutlined /> },
   { key: "corporate-results", label: "Results Export", icon: <DownloadOutlined /> },
@@ -49,7 +55,7 @@ export default function App() {
     const internalPath = path.startsWith(baseUrl) ? path.slice(baseUrl.length) : path;
     const cleanPath = internalPath.replace(/^\//, "");
     
-    const validPages: PageKey[] = ["watchlist", "graph", "swing-analysis", "trade", "trade-ready", "remora", "screener", "rsi-momentum", "rsi-momentum-base", "rsi-momentum-safe", "weekly-swing", "s4-volume-spike", "momentum-data-prep", "simple-backtest", "rsi-momentum-drawdown", "corporate-results"];
+    const validPages: PageKey[] = ["watchlist", "graph", "swing-analysis", "trade", "trade-ready", "remora", "screener", "rsi-momentum", "rsi-momentum-base", "rsi-momentum-safe", "weekly-swing", "weekly-cycle-success", "s4-volume-spike", "momentum-data-prep", "simple-backtest", "rsi-momentum-drawdown", "drawdown-scanner", "corporate-results", "rsi-rank-drift"];
     if (validPages.includes(cleanPath as PageKey)) {
         return cleanPath as PageKey;
     }
@@ -96,9 +102,12 @@ export default function App() {
           { page === "rsi-momentum-base" && <RsiMomentumBasePage /> }
           { page === "rsi-momentum-safe" && <RsiMomentumSafePage /> }
           { page === "rsi-momentum-drawdown" && <RsiMomentumLeadersDrawdownPage /> }
+          { page === "drawdown-scanner" && <DrawdownScannerPage /> }
           { page === "simple-backtest" && <SimpleBacktestPage /> }
+          { page === "rsi-rank-drift" && <RsiRankDriftBacktestPage /> }
           { page === "momentum-data-prep" && <MomentumDataPrepPage /> }
           { page === "weekly-swing" && <WeeklySwingPage /> }
+          { page === "weekly-cycle-success" && <WeeklyCycleSuccessPage /> }
           { page === "s4-volume-spike" && <S4VolumeSpikePage /> }
           { page === "screener" && <ScreenerPage /> }
           { page === "corporate-results" && <CorporateResultsPage /> }
@@ -107,4 +116,3 @@ export default function App() {
     </ConfigProvider>
   );
 }
-

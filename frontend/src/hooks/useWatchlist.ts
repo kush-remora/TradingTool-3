@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import type { WatchlistRow } from "../types";
-import { apiBaseUrl } from "../utils/api";
+import { getJson, postJson } from "../utils/api";
 
 export function useWatchlist(tag: string = "") {
   const [rows, setRows] = useState<WatchlistRow[]>([]);
@@ -8,49 +8,39 @@ export function useWatchlist(tag: string = "") {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRows = async (showLoading = false) => {
+  const fetchRows = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
       const queryParams = tag ? `?tag=${encodeURIComponent(tag)}` : "";
-      const response = await fetch(`${apiBaseUrl}/api/watchlist/rows${queryParams}`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch watchlist: ${response.statusText}`);
-      }
-      const data = await response.json();
-      setRows(data);
+      const data = await getJson<WatchlistRow[]>(`/api/watchlist/rows${queryParams}`, { useCache: false });
+      setRows(data || []);
       setError(null);
     } catch (err: any) {
       setError(err.message || "Failed to load watchlist data");
     } finally {
       if (showLoading) setLoading(false);
     }
-  };
+  }, [tag]);
 
   useEffect(() => {
     fetchRows(true);
-    return undefined;
-  }, [tag]);
+  }, [fetchRows]);
 
   const refreshIndicators = async (): Promise<string> => {
     setRefreshing(true);
     try {
-      const response = await fetch(`${apiBaseUrl}/api/watchlist/refresh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tags: tag ? [tag] : [] })
+      const payload = await postJson<{ message?: string }>(`/api/watchlist/refresh`, {
+        tags: tag ? [tag] : []
       });
 
-      if (!response.ok) {
-        throw new Error(`Refresh failed: ${response.statusText}`);
-      }
-
-      const payload = await response.json().catch(() => ({} as { message?: string }));
       await fetchRows(false);
       return payload.message ?? "All stocks refreshed successfully.";
+    } catch (err: any) {
+      throw err;
     } finally {
       setRefreshing(false);
     }
   };
 
-  return { rows, loading, refreshing, error, refreshIndicators };
+  return { rows, loading, refreshing, error, fetchRows, refreshIndicators };
 }

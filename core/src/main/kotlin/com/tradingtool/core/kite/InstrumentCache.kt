@@ -15,17 +15,21 @@ import com.zerodhatech.models.Instrument
 class InstrumentCache {
 
     @Volatile
-    private var index: Map<String, Instrument> = emptyMap()
+    private var symbolIndex: Map<String, Instrument> = emptyMap()
+
+    @Volatile
+    private var tokenIndex: Map<Long, Instrument> = emptyMap()
 
     /** True if the cache has been populated at least once. */
-    fun isEmpty(): Boolean = index.isEmpty()
+    fun isEmpty(): Boolean = symbolIndex.isEmpty()
 
     /**
      * Replace the cache with a fresh instruments list for the given [exchanges].
      * Call this at startup and then once daily ~8:30 AM IST before markets open.
      */
     fun refresh(instruments: List<Instrument>) {
-        index = instruments.associateBy { inst -> "${inst.exchange}:${inst.tradingsymbol}" }
+        symbolIndex = instruments.associateBy { inst -> "${inst.exchange}:${inst.tradingsymbol}" }
+        tokenIndex = instruments.associateBy { it.instrument_token }
     }
 
     /**
@@ -37,11 +41,15 @@ class InstrumentCache {
 
     /** Full instrument record lookup by exchange + symbol. */
     fun find(exchange: String, symbol: String): Instrument? =
-        index["$exchange:$symbol"]
+        symbolIndex["$exchange:$symbol"]
+
+    /** Full instrument record lookup by numeric token. */
+    fun find(token: Long): Instrument? =
+        tokenIndex[token]
 
     /** All instruments currently in the cache. */
-    fun all(): Collection<Instrument> = index.values
+    fun all(): Collection<Instrument> = symbolIndex.values
 
     /** Number of instruments currently cached. */
-    fun size(): Int = index.size
+    fun size(): Int = symbolIndex.size
 }

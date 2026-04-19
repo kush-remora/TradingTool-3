@@ -28,8 +28,4 @@ class CoreHttpModule : AbstractModule() {
         httpClient: SuspendHttpClient,
         objectMapper: ObjectMapper,
     ): JsonHttpClient = JsonHttpClient(httpClient, objectMapper)
-
-    @Provides
-    @Singleton
-    fun provideObjectMapper(): ObjectMapper = ObjectMapper().registerKotlinModule()
 }

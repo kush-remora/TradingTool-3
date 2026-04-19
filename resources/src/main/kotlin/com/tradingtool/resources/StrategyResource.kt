@@ -11,6 +11,7 @@ import com.tradingtool.core.strategy.rsimomentum.MomentumDataPrepService
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumBacktestRequest
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumBackfillService
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumBacktestService
+import com.tradingtool.core.strategy.rsimomentum.RsiRankDriftBacktestRequest
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumHistoryService
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumService
 import com.tradingtool.core.strategy.rsimomentum.SimpleMomentumBacktestPrepService
@@ -140,6 +141,13 @@ class StrategyResource @Inject constructor(
     @Consumes(MediaType.APPLICATION_JSON)
     fun runRsiMomentumSniperBacktest(request: RsiMomentumBacktestRequest): CompletableFuture<Response> = ioScope.endpoint {
         ok(rsiMomentumBacktestService.runBacktest(request))
+    }
+
+    @POST
+    @Path("/rsi-momentum/backtest/rank-drift")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runRsiRankDriftBacktest(request: RsiRankDriftBacktestRequest): CompletableFuture<Response> = ioScope.endpoint {
+        ok(rsiMomentumBacktestService.runRankDriftBacktest(request))
     }
 
     @POST

@@ -45,6 +45,7 @@ class IndicatorService(
     private val stockHandler: StockJdbiHandler,
     private val redis: RedisHandler,
     private val kiteClient: KiteConnectClient,
+    private val instrumentCache: com.tradingtool.core.kite.InstrumentCache,
     private val config: IndicatorConfig = IndicatorConfig.DEFAULT,
 ) {
     private val log = LoggerFactory.getLogger(IndicatorService::class.java)
@@ -308,7 +309,22 @@ class IndicatorService(
     suspend fun loadIndicatorsForTokens(tokens: List<Long>): List<ComputedIndicators> {
         val stocks = coroutineScope {
             tokens.map { token ->
-                async { stockHandler.read { it.getByInstrumentToken(token) } }
+                async {
+                    val dbStock = stockHandler.read { it.getByInstrumentToken(token) }
+                    if (dbStock != null) return@async dbStock
+
+                    // Create virtual stock for scanner (if not in watchlist)
+                    val inst = instrumentCache.find(token) ?: return@async null
+                    com.tradingtool.core.model.stock.Stock(
+                        id = -1,
+                        symbol = inst.tradingsymbol,
+                        instrumentToken = inst.instrument_token,
+                        companyName = inst.name ?: inst.tradingsymbol,
+                        exchange = inst.exchange,
+                        createdAt = java.time.Instant.now().toString(),
+                        updatedAt = java.time.Instant.now().toString()
+                    )
+                }
             }.awaitAll().filterNotNull()
         }
         return loadAndComputeIndicators(stocks)

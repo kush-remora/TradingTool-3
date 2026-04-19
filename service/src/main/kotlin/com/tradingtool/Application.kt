@@ -120,9 +120,13 @@ class DropwizardApplication : Application<DropwizardConfig>() {
         // Create Guice injector
         val injector = Guice.createInjector(ServiceModule(appConfig))
 
-        // Register Jackson module for Kotlin
-        val objectMapper: ObjectMapper = environment.objectMapper
-        objectMapper.registerModule(com.fasterxml.jackson.module.kotlin.KotlinModule.Builder().build())
+        // Sync Dropwizard's ObjectMapper with the one from Guice (which has JavaTimeModule)
+        val guiceObjectMapper = injector.getInstance(ObjectMapper::class.java)
+        environment.objectMapper.apply {
+            registerModule(com.fasterxml.jackson.module.kotlin.KotlinModule.Builder().build())
+            registerModule(com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
+            disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+        }
 
         // Note: ResourceScope is injected as a singleton into resources.
         // Coroutines will be cleaned up automatically when the JVM shuts down.
