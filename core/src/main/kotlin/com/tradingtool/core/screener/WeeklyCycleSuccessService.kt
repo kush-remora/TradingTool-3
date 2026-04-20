@@ -86,6 +86,9 @@ class WeeklyCycleSuccessService @Inject constructor(
                             stableBaseLowMin = null,
                             stableBaseLowMax = null,
                             stableBaseWeeksCount = 0,
+                            lastWeekMondayDipPct = null,
+                            avg8wMondayDipPct = null,
+                            mondayDipSamples8w = 0,
                         )
                     }
 
@@ -95,11 +98,16 @@ class WeeklyCycleSuccessService @Inject constructor(
                         from = fromDate,
                         to = today,
                     )
-                    val completedWeeks = selectCompletedWeeks(candles, today).takeLast(weeksRequested)
+                    val completedWeeksAll = selectCompletedWeeks(candles, today)
+                    val completedWeeks = completedWeeksAll.takeLast(weeksRequested)
                     val (evaluatedCycles, failedStartWeeks) = evaluateWeeks(
                         weeks = completedWeeks,
                         highLowThresholdPct = highLowThresholdPct,
                         rocThresholdPct = rocThresholdPct,
+                    )
+                    val mondayDipMetrics = computeMondayDipMetrics(
+                        completedWeeks = completedWeeksAll,
+                        lookbackWeeks = 8,
                     )
                     val stableBase = evaluateStableBase(
                         cycles = evaluatedCycles,
@@ -130,6 +138,9 @@ class WeeklyCycleSuccessService @Inject constructor(
                         stableBaseLowMin = stableBase.lowMin,
                         stableBaseLowMax = stableBase.lowMax,
                         stableBaseWeeksCount = stableBase.weeksCount,
+                        lastWeekMondayDipPct = mondayDipMetrics.lastWeekMondayDipPct,
+                        avg8wMondayDipPct = mondayDipMetrics.avg8wMondayDipPct,
+                        mondayDipSamples8w = mondayDipMetrics.mondayDipSamples8w,
                     )
                 }
             }
@@ -189,11 +200,69 @@ internal data class StableBaseEvaluation(
     val weeksCount: Int,
 )
 
+internal data class MondayDipMetrics(
+    val lastWeekMondayDipPct: Double?,
+    val avg8wMondayDipPct: Double?,
+    val mondayDipSamples8w: Int,
+)
+
 internal data class WeeklyCycleWeek(
     val isoYear: Int,
     val isoWeek: Int,
     val dailyCandles: Map<Int, DailyCandle>,
 )
+
+internal fun computeMondayDipPct(candle: DailyCandle?): Double? {
+    if (candle == null || candle.open <= 0.0) {
+        return null
+    }
+    return (((candle.open - candle.low) / candle.open) * 100.0).roundTo2()
+}
+
+internal fun computeMondayDipMetrics(
+    completedWeeks: List<WeeklyCycleWeek>,
+    lookbackWeeks: Int,
+): MondayDipMetrics {
+    return computeMondayDipMetricsFromCandles(
+        weeklyCandles = completedWeeks.map { week -> week.dailyCandles },
+        lookbackWeeks = lookbackWeeks,
+    )
+}
+
+internal fun computeMondayDipMetricsFromCandles(
+    weeklyCandles: List<Map<Int, DailyCandle>>,
+    lookbackWeeks: Int,
+): MondayDipMetrics {
+    val lastWeek = weeklyCandles.lastOrNull()
+    val lastWeekStartCandle = when {
+        lastWeek?.containsKey(1) == true -> lastWeek[1]
+        lastWeek?.containsKey(2) == true -> lastWeek[2]
+        else -> null
+    }
+
+    val windowDips = weeklyCandles
+        .takeLast(lookbackWeeks)
+        .mapNotNull { candles ->
+            val startCandle = when {
+                candles.containsKey(1) -> candles[1]
+                candles.containsKey(2) -> candles[2]
+                else -> null
+            }
+            computeMondayDipPct(startCandle)
+        }
+
+    val avg8wMondayDipPct = if (windowDips.isEmpty()) {
+        null
+    } else {
+        windowDips.average().roundTo2()
+    }
+
+    return MondayDipMetrics(
+        lastWeekMondayDipPct = computeMondayDipPct(lastWeekStartCandle),
+        avg8wMondayDipPct = avg8wMondayDipPct,
+        mondayDipSamples8w = windowDips.size,
+    )
+}
 
 internal fun selectCompletedWeeks(candles: List<DailyCandle>, today: LocalDate): List<WeeklyCycleWeek> {
     val currentWeekStart = today.minusDays((today.dayOfWeek.value - DayOfWeek.MONDAY.value).toLong())

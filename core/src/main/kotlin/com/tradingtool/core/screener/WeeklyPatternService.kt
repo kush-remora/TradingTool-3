@@ -178,6 +178,10 @@ class WeeklyPatternService(
             }
             (successes.toDouble() / mondayWeeks.size * 100.0).roundTo2()
         } else 0.0
+        val mondayDipMetrics = computeMondayDipMetricsFromCandles(
+            weeklyCandles = completedWeeks.map { week -> week.dailyCandles },
+            lookbackWeeks = 8,
+        )
 
         val latestDate = allYearCandles.last().candleDate
         val latestRsi = rsiMap[latestDate] ?: rsiMap.values.lastOrNull()
@@ -233,6 +237,9 @@ class WeeklyPatternService(
             vcpTightnessPct = vcpTightness,
             volumeSignatureRatio = volumeSignature,
             mondayStrikeRatePct = mondayStrikeRate,
+            lastWeekMondayDipPct = mondayDipMetrics.lastWeekMondayDipPct,
+            avg8wMondayDipPct = mondayDipMetrics.avg8wMondayDipPct,
+            mondayDipSamples8w = mondayDipMetrics.mondayDipSamples8w,
             setupQualityScore = bestPair.compositeScore,
             expectedSwingPct = expectedSwingPct,
             baselineDistancePct = baselineDistancePct,
@@ -927,6 +934,10 @@ class WeeklyPatternService(
             }
             (successes.toDouble() / mondayWeeks.size * 100.0).roundTo2()
         } else 0.0
+        val mondayDipMetrics = computeMondayDipMetricsFromCandles(
+            weeklyCandles = completedWeeks.map { week -> week.dailyCandles },
+            lookbackWeeks = 8,
+        )
 
         val heatmap = bestPair.allWeeks.mapIndexed { idx, w ->
             fun getOpenClosePct(day: Int): Double? {
@@ -985,6 +996,9 @@ class WeeklyPatternService(
             vcpTightnessPct = vcpTightness,
             volumeSignatureRatio = volumeSignature,
             mondayStrikeRatePct = mondayStrikeRate,
+            lastWeekMondayDipPct = mondayDipMetrics.lastWeekMondayDipPct,
+            avg8wMondayDipPct = mondayDipMetrics.avg8wMondayDipPct,
+            mondayDipSamples8w = mondayDipMetrics.mondayDipSamples8w,
             dayOfWeekProfile = profile,
             autocorrelation = autocorrel,
             patternSummary = summary,
@@ -1049,6 +1063,9 @@ class WeeklyPatternService(
         reason = reason,
         buyDayLowMin = 0.0,
         buyDayLowMax = 0.0,
+        lastWeekMondayDipPct = null,
+        avg8wMondayDipPct = null,
+        mondayDipSamples8w = 0,
         setupQualityScore = 0,
         expectedSwingPct = 0.0,
         baselineDistancePct = null,

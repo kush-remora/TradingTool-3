@@ -1,3 +1,23 @@
+# Implementation Plan: Remora RSI Floor Console (All NSE)
+
+## Overview
+Build a minimal backend scanner console endpoint for the Remora sub-slice that scans all NSE equity symbols and returns stocks where:
+- current RSI(14) is at or below its 1-year RSI low, OR
+- current RSI(14) is at or below 20.
+
+Also attach a practical market-cap bucket (`LARGE`, `MID`, `SMALL`, `UNKNOWN`) to each hit.
+
+## Implementation Steps
+- [ ] Add RSI-floor scanner models for response rows/envelope and cap-bucket classification.
+- [ ] Add RSI-floor scanner service that reads NSE EQ symbols, computes RSI conditions, and filters hits.
+- [ ] Add Screener API endpoint to trigger this scanner from a console/API call.
+- [ ] Wire dependency injection for the new scanner service.
+- [ ] Run compile/tests for changed modules.
+- [ ] Run Kotlin reviewer pass and record findings.
+
+## Review
+- Pending
+
 # Implementation Plan: Fundamentals Universe + Profile Filter APIs and UI
 
 ## Overview
@@ -130,6 +150,100 @@ Document the agreed RSI momentum research structure in plain language while refl
 - Added `docs/strategies/rsi-momentum-research-framework.md` as the canonical research-organization and explainability note.
 - Linked it in `docs/strategies/README.md`.
 - Added pointer in `docs/strategies/rsi-momentum-v1.md` to separate implementation history from current research framework.
+
+---
+
+# Implementation Plan: V2 Dashboard Bulk Analyze + UI Performance
+
+## Overview
+Improve V2 Dashboard responsiveness and API efficiency by replacing sequential Analyze All calls with one bulk endpoint and reducing symbol-search render cost.
+
+## Implementation Steps
+- [x] Added backend bulk API contract and endpoint for profit lookback analyze-all.
+- [x] Implemented bounded-concurrency row execution with partial success response model.
+- [x] Added bulk request validation with per-row normalization/errors.
+- [x] Updated frontend Analyze All to single bulk call with row-level error display.
+- [x] Refactored symbol search to query-scoped top-N options and deferred input.
+- [x] Kept single-row Analyze path unchanged.
+- [x] Updated and extended V2 page tests for bulk and partial-failure behavior.
+- [x] Ran focused compile/build checks.
+
+## Review
+- Backend:
+  - Added `POST /api/strategy/profit-lookback/bulk` in `StrategyResource`.
+  - Added bulk models in `core` and `analyzeBulk` orchestration in `ProfitLookbackService`.
+  - Bulk behavior:
+    - validates global inputs once,
+    - validates row fields per row,
+    - returns partial success without failing full response,
+    - dedupes duplicate `(symbol, token, sellDate)` rows within one request.
+- Frontend:
+  - `Analyze All` now calls bulk API once and performs single-pass state merge.
+  - Added per-row error message under Analyze action when a row fails in bulk.
+  - `InstrumentSearch` now uses:
+    - query-scoped matching,
+    - max-options cap (default 50),
+    - deferred input,
+    - optional pre-supplied instruments to avoid repeated hook fetch/state overhead per row.
+  - Added table virtualization toggles for larger datasets.
+- Verification:
+  - `npm --prefix frontend run -s test:run -- src/pages/V2DashboardPage.test.tsx` passed (7 tests).
+  - `npm --prefix frontend run -s build` passed.
+  - `mvn -q -pl core -DskipTests compile` passed.
+  - `mvn -q -pl resources test -Dtest=ProfitLookbackRequestValidationTest` fails due large pre-existing unresolved references in `resources` (unrelated baseline issue).
+  - `mvn -q -pl core test -Dtest=ProfitLookbackServiceTest` hit Kotlin daemon EOF crash in this environment.
+
+---
+
+# Implementation Plan: V2 Profit Lookback Drawdown Context
+
+## Overview
+Add drawdown context for each achieved target in V2 dashboard so users can judge whether the target gain came via a clean rally or through a painful interim dip.
+
+## Implementation Steps
+- [x] Sharpen drawdown definition for this feature slice.
+- [x] Extend profit-lookback backend model and computation.
+- [x] Add/adjust backend unit tests for drawdown percentage and drawdown-days.
+- [x] Extend frontend types and V2 results table columns.
+- [x] Add/update frontend test coverage for drawdown visibility.
+- [x] Run focused backend/frontend verification checks.
+- [x] Run final Kotlin review gate and document verdict.
+
+## Working Definition (for this implementation)
+- Buy/sell return remains Open-to-Open (existing behavior).
+- Drawdown is measured from selected buy open to the **lowest daily low** between buy date and resolved sell date.
+- `maxDrawdownPercent` = `((minLow - buyOpen) / buyOpen) * 100` (0 or negative).
+- `maxDrawdownDays` = calendar days between buy date and the date of that min-low candle.
+- For `NOT_ACHIEVABLE`, drawdown fields remain `null`.
+
+## Review
+- Backend:
+  - Extended `ProfitLookbackTargetResult` with:
+    - `maxDrawdownPercent`
+    - `maxDrawdownDays`
+  - Updated candle model to include `low` so drawdown uses true downside excursion from buy open.
+  - Implemented `calculateMaxDrawdown(...)` over `[buyDate, resolvedSellDate]`.
+  - Kept return logic unchanged as Open-to-Open.
+- Frontend:
+  - Added drawdown fields to `ProfitLookbackTargetResult` TS type.
+  - V2 results table now shows:
+    - `Max DD %`
+    - `DD Days`
+  - Search/export now includes these drawdown fields.
+- Tests:
+  - Added/updated backend unit tests in profit-lookback service for:
+    - achieved path with drawdown values
+    - non-achievable path with null drawdown fields
+    - explicit low-based drawdown calculation
+  - Updated V2 page tests to include drawdown fields in mocked responses.
+- Verification:
+  - `mvn -q -pl core -DskipTests compile` passed.
+  - `npm --prefix frontend run -s test:run -- src/pages/V2DashboardPage.test.tsx` passed (6 tests).
+  - `npm --prefix frontend run -s build` passed.
+  - `mvn -q -pl resources -DskipTests compile` failed due large pre-existing unresolved references in `ScreenerResource`/`AnalysisResource` and related imports, not introduced by this drawdown change.
+- Kotlin Reviewer Gate:
+  - Reviewed changed Kotlin files (`ProfitLookbackModels.kt`, `ProfitLookbackService.kt`, `ProfitLookbackServiceTest.kt`).
+  - No CRITICAL/HIGH findings for this feature slice.
 
 ---
 
@@ -1171,3 +1285,45 @@ Add a stable-base guardrail to Weekly Cycle Success Scanner so stocks pass only 
 - `Execution Mode = ON` (default): only the 5 execution columns are shown.
 - `Execution Mode = OFF`: shows expanded columns including Universe and Failed Start Weeks.
 - Frontend tests: `npm --prefix frontend run -s test -- src/pages/WeeklyCycleSuccessPage.test.tsx` passed (4/4).
+
+---
+
+# Implementation Plan: V2 Dashboard Profit Lookback
+
+## Overview
+Add a new V2 Dashboard tab with an input table for symbol + sell date and a profit lookback analyzer that finds the latest buy date within lookback to hit target profits using Open-to-Open prices.
+
+## Implementation Steps
+- [x] Add backend profit lookback models and service logic with previous-trading-day fallback.
+- [x] Add strategy API endpoint `POST /api/strategy/profit-lookback` with strict request validation.
+- [x] Wire new service in DI.
+- [x] Add backend unit tests for buy-date selection, not-achievable status, fallback behavior, and days-before calculation.
+- [x] Add frontend hook/types for profit lookback API.
+- [x] Add `V2 Dashboard` navigation tab and new `V2DashboardPage` UI with empty input table by default.
+- [x] Add frontend tests for render, CSV parsing validation, API call behavior, and multi-row results.
+- [x] Run targeted backend + frontend test commands.
+- [x] Add final review notes and assumptions.
+
+## Review
+- Added backend endpoint `POST /api/strategy/profit-lookback` in `StrategyResource` with request normalization and validation:
+  - uppercase/trim symbol
+  - ISO date check
+  - lookback range `1..1000`
+  - positive/finite target list, distinct + sorted
+- Added `ProfitLookbackService` (core) using Open-to-Open logic:
+  - fetches day candles from Kite over `[sellDate - (lookback + buffer), sellDate + 1 day)`
+  - resolves sell date to latest available candle on or before requested date
+  - picks latest buy date meeting each target
+  - computes calendar day distance and achieved return
+- Added frontend V2 UI:
+  - top controls for target CSV + lookback days
+  - empty-by-default input table with add row
+  - row-level analyze action and remove
+  - result table flattened per target
+  - symbol selector reuses `InstrumentSearch`
+- Verification run:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed
+  - `npm --prefix frontend run -s test:run -- src/pages/V2DashboardPage.test.tsx` passed (4 tests)
+  - `npm --prefix frontend run -s build` passed
+- Note:
+  - Running Maven tests in `core` currently fails due pre-existing unrelated test-compile errors in RSI momentum test files; this is not introduced by this change.

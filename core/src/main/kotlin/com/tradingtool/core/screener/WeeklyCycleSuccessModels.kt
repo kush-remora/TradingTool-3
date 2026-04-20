@@ -27,6 +27,9 @@ data class WeeklyCycleSuccessRow(
     val stableBaseLowMin: Double?,
     val stableBaseLowMax: Double?,
     val stableBaseWeeksCount: Int,
+    val lastWeekMondayDipPct: Double?,
+    val avg8wMondayDipPct: Double?,
+    val mondayDipSamples8w: Int,
 )
 
 data class WeeklyCycleMetrics(

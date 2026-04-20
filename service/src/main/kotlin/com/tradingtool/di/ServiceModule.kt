@@ -49,6 +49,7 @@ import com.tradingtool.core.strategy.remora.RemoraSignalReadDao
 import com.tradingtool.core.strategy.remora.RemoraSignalWriteDao
 import com.tradingtool.core.strategy.s4.S4ConfigService
 import com.tradingtool.core.strategy.s4.S4Service
+import com.tradingtool.core.strategy.profitlookback.ProfitLookbackService
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumBackfillService
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumConfigService
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumHistoryService
@@ -91,6 +92,7 @@ class ServiceModule(
         bind(TradeService::class.java).`in`(Singleton::class.java)
         bind(TradeReadinessService::class.java).`in`(Singleton::class.java)
         bind(com.tradingtool.core.screener.DrawdownScannerService::class.java).`in`(Singleton::class.java)
+        bind(ProfitLookbackService::class.java).`in`(Singleton::class.java)
         bind(HttpRequestExecutor::class.java).to(JdkHttpRequestExecutor::class.java).`in`(Singleton::class.java)
 
         ALL_RESOURCE_CLASSES.forEach { bind(it).`in`(Singleton::class.java) }

@@ -194,6 +194,74 @@ class WeeklyCycleSuccessServiceTest {
         assertNull(insufficient.driftPct)
     }
 
+    @Test
+    fun `computeMondayDipPct returns null when open is invalid`() {
+        val invalid = candle(date = LocalDate.of(2026, 4, 13), open = 0.0, low = 100.0, high = 105.0, close = 102.0)
+        assertNull(computeMondayDipPct(invalid))
+    }
+
+    @Test
+    fun `computeMondayDipMetrics uses monday then tuesday fallback and averages last 8 weeks`() {
+        val weeks = (1..9).map { offset ->
+            val mondayDate = LocalDate.of(2026, 1, 5).plusWeeks(offset.toLong())
+            val mondayCandle = candle(
+                date = mondayDate,
+                open = 100.0 + offset,
+                low = 98.0 + offset,
+                high = 104.0 + offset,
+                close = 101.0 + offset,
+            )
+            val tuesdayCandle = candle(
+                date = mondayDate.plusDays(1),
+                open = 200.0 + offset,
+                low = 190.0 + offset,
+                high = 205.0 + offset,
+                close = 200.0 + offset,
+            )
+            val candles = if (offset == 9) {
+                mapOf(2 to tuesdayCandle)
+            } else {
+                mapOf(1 to mondayCandle, 2 to tuesdayCandle)
+            }
+            week(year = mondayDate.year, isoWeek = mondayDate.dayOfYear, candles = candles)
+        }
+
+        val metrics = computeMondayDipMetrics(weeks, lookbackWeeks = 8)
+        val expectedAverage = listOf(
+            ((102.0 - 100.0) / 102.0) * 100.0,
+            ((103.0 - 101.0) / 103.0) * 100.0,
+            ((104.0 - 102.0) / 104.0) * 100.0,
+            ((105.0 - 103.0) / 105.0) * 100.0,
+            ((106.0 - 104.0) / 106.0) * 100.0,
+            ((107.0 - 105.0) / 107.0) * 100.0,
+            ((108.0 - 106.0) / 108.0) * 100.0,
+            ((209.0 - 199.0) / 209.0) * 100.0,
+        ).average()
+
+        assertEquals(4.78, metrics.lastWeekMondayDipPct)
+        assertEquals(Math.round(expectedAverage * 100.0) / 100.0, metrics.avg8wMondayDipPct)
+        assertEquals(8, metrics.mondayDipSamples8w)
+    }
+
+    @Test
+    fun `computeMondayDipMetrics returns nulls when no monday or tuesday candles`() {
+        val weeks = listOf(
+            week(
+                year = 2026,
+                isoWeek = 20,
+                candles = mapOf(
+                    3 to candle(LocalDate.of(2026, 5, 13), open = 100.0, low = 99.0, high = 102.0, close = 101.0),
+                ),
+            ),
+        )
+
+        val metrics = computeMondayDipMetrics(weeks, lookbackWeeks = 8)
+
+        assertNull(metrics.lastWeekMondayDipPct)
+        assertNull(metrics.avg8wMondayDipPct)
+        assertEquals(0, metrics.mondayDipSamples8w)
+    }
+
     private fun week(year: Int, isoWeek: Int, candles: Map<Int, DailyCandle>): WeeklyCycleWeek {
         return WeeklyCycleWeek(
             isoYear = year,
@@ -202,12 +270,18 @@ class WeeklyCycleSuccessServiceTest {
         )
     }
 
-    private fun candle(date: LocalDate, low: Double, high: Double, close: Double): DailyCandle {
+    private fun candle(
+        date: LocalDate,
+        low: Double,
+        high: Double,
+        close: Double,
+        open: Double = close,
+    ): DailyCandle {
         return DailyCandle(
             instrumentToken = 1,
             symbol = "TEST",
             candleDate = date,
-            open = close,
+            open = open,
             high = high,
             low = low,
             close = close,

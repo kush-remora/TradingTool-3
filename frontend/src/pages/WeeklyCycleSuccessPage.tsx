@@ -1,5 +1,5 @@
 import { ReloadOutlined } from "@ant-design/icons";
-import { Alert, Button, Card, Empty, InputNumber, Select, Space, Spin, Statistic, Switch, Table, Tag, Typography, message } from "antd";
+import { Alert, Button, Card, Empty, InputNumber, Select, Space, Spin, Statistic, Switch, Table, Tag, Tooltip, Typography, message } from "antd";
 import type { TableColumnsType } from "antd";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { StockBadge } from "../components/StockBadge";
@@ -169,6 +169,29 @@ export function WeeklyCycleSuccessPage() {
       },
     };
 
+  const lastMondayDipColumn: TableColumnsType<WeeklyCycleSuccessRow>[number] = {
+      title: <Tooltip title="Uses Monday open-low dip. If Monday is missing, Tuesday is used as fallback.">Mon Dip (Last Wk %)</Tooltip>,
+      key: "lastWeekMondayDipPct",
+      width: 170,
+      sorter: (a, b) => (a.lastWeekMondayDipPct ?? Number.NEGATIVE_INFINITY) - (b.lastWeekMondayDipPct ?? Number.NEGATIVE_INFINITY),
+      render: (_, row) => {
+        if (row.lastWeekMondayDipPct == null) return <Text type="secondary">-</Text>;
+        return <Text strong>{row.lastWeekMondayDipPct.toFixed(2)}%</Text>;
+      },
+    };
+
+  const avg8wMondayDipColumn: TableColumnsType<WeeklyCycleSuccessRow>[number] = {
+      title: <Tooltip title="Average of up to last 8 completed weeks. Monday preferred, Tuesday fallback if Monday is missing.">Mon Dip (8W Avg %)</Tooltip>,
+      key: "avg8wMondayDipPct",
+      width: 170,
+      sorter: (a, b) => (a.avg8wMondayDipPct ?? Number.NEGATIVE_INFINITY) - (b.avg8wMondayDipPct ?? Number.NEGATIVE_INFINITY),
+      render: (_, row) => {
+        if (row.avg8wMondayDipPct == null) return <Text type="secondary">-</Text>;
+        const samples = row.mondayDipSamples8w ?? 0;
+        return <Text strong>{row.avg8wMondayDipPct.toFixed(2)}% ({samples})</Text>;
+      },
+    };
+
   const failedStartWeeksColumn: TableColumnsType<WeeklyCycleSuccessRow>[number] = {
       title: "Failed Start Weeks",
       dataIndex: "failedStartWeeks",
@@ -180,9 +203,9 @@ export function WeeklyCycleSuccessPage() {
   const columns = useMemo<TableColumnsType<WeeklyCycleSuccessRow>>(
     () => {
       if (executionMode) {
-        return [stockColumn, successColumn, stableBaseColumn, baseRangeColumn, lastCycleColumn];
+        return [stockColumn, successColumn, stableBaseColumn, lastMondayDipColumn, avg8wMondayDipColumn, baseRangeColumn, lastCycleColumn];
       }
-      return [stockColumn, universeColumn, successColumn, stableBaseColumn, baseRangeColumn, lastCycleColumn, failedStartWeeksColumn];
+      return [stockColumn, universeColumn, successColumn, stableBaseColumn, lastMondayDipColumn, avg8wMondayDipColumn, baseRangeColumn, lastCycleColumn, failedStartWeeksColumn];
     },
     [executionMode],
   );

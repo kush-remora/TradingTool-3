@@ -20,6 +20,7 @@ import {
   Table,
   Tabs,
   Tag,
+  Tooltip,
   Timeline,
   Typography,
   message,
@@ -99,6 +100,8 @@ interface FilterPreset {
   name: string;
   patternFilter: PatternFilter;
   buyZoneFilter: BuyZoneFilter;
+  minLastMondayDipPct: number | null;
+  minAvg8wMondayDipPct: number | null;
   quickChips: QuickChipState;
   columnFilters: Record<string, string[]>;
 }
@@ -114,6 +117,8 @@ interface StoredFilterState {
   activePresetId: string | null;
   patternFilter: PatternFilter;
   buyZoneFilter: BuyZoneFilter;
+  minLastMondayDipPct: number | null;
+  minAvg8wMondayDipPct: number | null;
   quickChips: QuickChipState;
   tableFilters: Record<string, string[]>;
 }
@@ -134,6 +139,8 @@ interface ScreenerRow extends WeeklyPatternResult {
   ltpVsSma200Value: number | null;
   setupScoreValue: number;
   strikeRateValue: number | null;
+  lastMondayDipValue: number | null;
+  avg8wMondayDipValue: number | null;
   expectedSwingValue: number | null;
   baselineDistanceValue: number | null;
   reboundConsistencyPct: number;
@@ -169,6 +176,8 @@ type ColumnKey =
   | "vcpTightness"
   | "volumeSignature"
   | "strikeRate"
+  | "lastMondayDip"
+  | "avg8wMondayDip"
   | "reboundConsistency"
   | "setupScore"
   | "systemScore"
@@ -385,6 +394,39 @@ const COLUMN_META: ColumnMeta[] = [
     render: (row) => renderPct(row.strikeRateValue),
   },
   {
+    key: "lastMondayDip",
+    title: (
+      <Tooltip title="Uses Monday open-low dip. If Monday is missing, Tuesday is used as fallback.">
+        Mon Dip (Last Wk %)
+      </Tooltip>
+    ),
+    width: 140,
+    defaultVisible: true,
+    defaultPin: "none",
+    getFilterValue: (row) => toFilterValue(row.lastMondayDipValue),
+    compare: (a, b) => compareNullableNumber(a.lastMondayDipValue, b.lastMondayDipValue),
+    render: (row) => renderPct(row.lastMondayDipValue),
+  },
+  {
+    key: "avg8wMondayDip",
+    title: (
+      <Tooltip title="Average of up to last 8 completed weeks. Monday preferred, Tuesday fallback if Monday is missing.">
+        Mon Dip (8W Avg %)
+      </Tooltip>
+    ),
+    width: 150,
+    defaultVisible: true,
+    defaultPin: "none",
+    getFilterValue: (row) => toFilterValue(row.avg8wMondayDipValue),
+    compare: (a, b) => compareNullableNumber(a.avg8wMondayDipValue, b.avg8wMondayDipValue),
+    render: (row) => {
+      const value = row.avg8wMondayDipValue;
+      if (value === null) return <Text type="secondary">-</Text>;
+      const samples = row.mondayDipSamples8w ?? 0;
+      return <Text>{value.toFixed(2)}% ({samples})</Text>;
+    },
+  },
+  {
     key: "reboundConsistency",
     title: "Rebound Consistency %",
     width: 170,
@@ -579,6 +621,8 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
   const [universeMode, setUniverseMode] = useState<WeeklyUniverseMode>("WATCHLIST");
   const [patternFilter, setPatternFilter] = useState<PatternFilter>("All stocks");
   const [buyZoneFilter, setBuyZoneFilter] = useState<BuyZoneFilter>("All");
+  const [minLastMondayDipPct, setMinLastMondayDipPct] = useState<number | null>(null);
+  const [minAvg8wMondayDipPct, setMinAvg8wMondayDipPct] = useState<number | null>(null);
   const [quickChips, setQuickChips] = useState<QuickChipState>(DEFAULT_QUICK_CHIPS);
   const [columnConfigs, setColumnConfigs] = useState<WeeklyScreenerColumnConfig[]>(defaultColumnConfig);
   const [tableFilters, setTableFilters] = useState<Record<string, string[]>>({});
@@ -635,10 +679,18 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
       if (sanitized.length > 0) setColumnConfigs([...sanitized, ...missing]);
     }
     if (storedFilters) {
-      setFilterPresets(storedFilters.presets);
+      setFilterPresets(
+        storedFilters.presets.map((preset) => ({
+          ...preset,
+          minLastMondayDipPct: preset.minLastMondayDipPct ?? null,
+          minAvg8wMondayDipPct: preset.minAvg8wMondayDipPct ?? null,
+        })),
+      );
       setActiveFilterPresetId(storedFilters.activePresetId);
       setPatternFilter(storedFilters.patternFilter);
       setBuyZoneFilter(storedFilters.buyZoneFilter);
+      setMinLastMondayDipPct(storedFilters.minLastMondayDipPct ?? null);
+      setMinAvg8wMondayDipPct(storedFilters.minAvg8wMondayDipPct ?? null);
       setQuickChips(storedFilters.quickChips);
       setTableFilters(storedFilters.tableFilters);
     }
@@ -666,11 +718,13 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
       activePresetId: activeFilterPresetId,
       patternFilter,
       buyZoneFilter,
+      minLastMondayDipPct,
+      minAvg8wMondayDipPct,
       quickChips,
       tableFilters,
     };
     localStorage.setItem(STORAGE_KEYS.filters, JSON.stringify(payload));
-  }, [activeFilterPresetId, buyZoneFilter, filterPresets, patternFilter, quickChips, tableFilters]);
+  }, [activeFilterPresetId, buyZoneFilter, filterPresets, minAvg8wMondayDipPct, minLastMondayDipPct, patternFilter, quickChips, tableFilters]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.sort, JSON.stringify(sortState));
@@ -732,6 +786,8 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
         ? Number((((quote.ltp - sma200) / sma200) * 100).toFixed(2))
         : null;
       const strikeRate = row.mondayStrikeRatePct ?? (row.reboundConsistency > 0 ? (row.swingConsistency / row.reboundConsistency) * 100 : null);
+      const lastMondayDip = row.lastWeekMondayDipPct ?? null;
+      const avg8wMondayDip = row.avg8wMondayDipPct ?? null;
       const expectedSwing = row.expectedSwingPct ?? row.swingSetup?.expectedSwingPct ?? row.targetRecommendation?.expectedSwingPct ?? row.swingAvgPct;
       const baselineDistance = row.baselineDistancePct ?? metrics.ltpVsMinLowPct;
       const setupScore = row.setupQualityScore ?? row.compositeScore;
@@ -746,6 +802,8 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
         sma200Value: sma200,
         ltpVsSma200Value: ltpVsSma200,
         strikeRateValue: strikeRate,
+        lastMondayDipValue: lastMondayDip,
+        avg8wMondayDipValue: avg8wMondayDip,
         expectedSwingValue: expectedSwing,
         baselineDistanceValue: baselineDistance,
         setupScoreValue: setupScore,
@@ -776,13 +834,15 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
   const chipFilteredRows = useMemo(() => {
     return rowsWithBuyZone.filter((row) => {
       if (!matchesBuyZoneFilter(row.buyZoneMetrics, buyZoneFilter)) return false;
+      if (minLastMondayDipPct !== null && (row.lastMondayDipValue ?? Number.NEGATIVE_INFINITY) < minLastMondayDipPct) return false;
+      if (minAvg8wMondayDipPct !== null && (row.avg8wMondayDipValue ?? Number.NEGATIVE_INFINITY) < minAvg8wMondayDipPct) return false;
       if (quickChips.insideZone && row.buyZoneMetrics.status !== "inside") return false;
       if (quickChips.nearZone && !matchesBuyZoneFilter(row.buyZoneMetrics, "Near (<=5% above min)")) return false;
       if (quickChips.strongScore && row.setupScoreValue < 70) return false;
       if (quickChips.buyDayToday && row.buyDay !== todayIst) return false;
       return true;
     });
-  }, [rowsWithBuyZone, buyZoneFilter, quickChips, todayIst]);
+  }, [rowsWithBuyZone, buyZoneFilter, minAvg8wMondayDipPct, minLastMondayDipPct, quickChips, todayIst]);
 
   const tableRows = useMemo(() => {
     if (sortState.columnKey !== null || sortState.order !== null) return chipFilteredRows;
@@ -1100,6 +1160,8 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
       name,
       patternFilter,
       buyZoneFilter,
+      minLastMondayDipPct,
+      minAvg8wMondayDipPct,
       quickChips,
       columnFilters: tableFilters,
     };
@@ -1114,6 +1176,8 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
     if (!preset) return;
     setPatternFilter(preset.patternFilter);
     setBuyZoneFilter(preset.buyZoneFilter);
+    setMinLastMondayDipPct(preset.minLastMondayDipPct ?? null);
+    setMinAvg8wMondayDipPct(preset.minAvg8wMondayDipPct ?? null);
     setQuickChips(preset.quickChips);
     setTableFilters(preset.columnFilters);
     setActiveFilterPresetId(id);
@@ -1214,6 +1278,22 @@ export function ScreenerOverview({ onSelectSymbol }: ScreenerOverviewProps) {
             options={["All", "Inside zone", "Near (<=5% above min)", "Below zone"]}
             value={buyZoneFilter}
             onChange={(value) => setBuyZoneFilter(value as BuyZoneFilter)}
+          />
+          <InputNumber
+            placeholder="Min Last Mon Dip %"
+            value={minLastMondayDipPct}
+            min={0}
+            step={0.1}
+            onChange={(value) => setMinLastMondayDipPct(value == null ? null : Number(value))}
+            style={{ width: 170 }}
+          />
+          <InputNumber
+            placeholder="Min 8W Avg Mon Dip %"
+            value={minAvg8wMondayDipPct}
+            min={0}
+            step={0.1}
+            onChange={(value) => setMinAvg8wMondayDipPct(value == null ? null : Number(value))}
+            style={{ width: 180 }}
           />
           <Segmented
             options={[

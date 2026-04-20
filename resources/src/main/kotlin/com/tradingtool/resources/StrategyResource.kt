@@ -3,6 +3,12 @@ package com.tradingtool.resources
 import com.google.inject.Inject
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.strategy.s4.S4Service
+import com.tradingtool.core.strategy.profitlookback.ProfitLookbackRequest
+import com.tradingtool.core.strategy.profitlookback.ProfitLookbackBulkRequest
+import com.tradingtool.core.strategy.profitlookback.ProfitLookbackBulkRowRequest
+import com.tradingtool.core.strategy.profitlookback.ProfitLookbackBulkRowResponse
+import com.tradingtool.core.strategy.profitlookback.ProfitLookbackBulkResponse
+import com.tradingtool.core.strategy.profitlookback.ProfitLookbackService
 import com.tradingtool.core.strategy.rsimomentum.BackfillRequest
 import com.tradingtool.core.strategy.rsimomentum.BackfillFreshRequest
 import com.tradingtool.core.strategy.rsimomentum.BacktestRequest
@@ -20,6 +26,7 @@ import com.tradingtool.core.strategy.rsimomentum.SimpleMomentumBacktestRequest
 import com.tradingtool.resources.common.badRequest
 import com.tradingtool.resources.common.endpoint
 import com.tradingtool.resources.common.ok
+import com.tradingtool.resources.common.serviceUnavailable
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.GET
 import jakarta.ws.rs.POST
@@ -42,6 +49,8 @@ class StrategyResource @Inject constructor(
     private val simpleMomentumBacktestPrepService: SimpleMomentumBacktestPrepService,
     private val momentumDataPrepService: MomentumDataPrepService,
     private val s4Service: S4Service,
+    private val profitLookbackService: ProfitLookbackService,
+    private val kiteClient: com.tradingtool.core.kite.KiteConnectClient,
     resourceScope: ResourceScope,
 ) {
     private val ioScope = resourceScope.ioScope
@@ -219,6 +228,100 @@ class StrategyResource @Inject constructor(
             )
     }
 
+    @POST
+    @Path("/profit-lookback")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun analyzeProfitLookback(request: ProfitLookbackRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        if (!kiteClient.isAuthenticated) {
+            return@endpoint serviceUnavailable("Kite is not authenticated")
+        }
+
+        val validatedRequest = runCatching {
+            validateProfitLookbackRequest(request)
+        }.getOrElse { error ->
+            if (error is IllegalArgumentException) {
+                return@endpoint badRequest(error.message ?: "Invalid request.")
+            }
+            throw error
+        }
+
+        runCatching { profitLookbackService.analyze(validatedRequest) }
+            .fold(
+                onSuccess = { result -> ok(result) },
+                onFailure = { error ->
+                    if (error is IllegalArgumentException) badRequest(error.message ?: "Invalid request.")
+                    else throw error
+                },
+            )
+    }
+
+    @POST
+    @Path("/profit-lookback/bulk")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun analyzeProfitLookbackBulk(request: ProfitLookbackBulkRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        if (!kiteClient.isAuthenticated) {
+            return@endpoint serviceUnavailable("Kite is not authenticated")
+        }
+
+        val validatedRequest = runCatching {
+            validateProfitLookbackBulkRequest(request)
+        }.getOrElse { error ->
+            if (error is IllegalArgumentException) {
+                return@endpoint badRequest(error.message ?: "Invalid request.")
+            }
+            throw error
+        }
+
+        val successfulRows = validatedRequest.rows.filter { item -> item.error == null }.mapNotNull { item -> item.request }
+        val validationErrors = validatedRequest.rows.filter { item -> item.error != null }.map { item ->
+            ProfitLookbackBulkRowResponse(
+                rowId = item.rowId,
+                ok = false,
+                data = null,
+                error = item.error,
+            )
+        }
+
+        if (successfulRows.isEmpty()) {
+            return@endpoint ok(ProfitLookbackBulkResponse(rows = validationErrors))
+        }
+
+        val bulkRequest = ProfitLookbackBulkRequest(
+            lookbackDays = validatedRequest.lookbackDays,
+            targetPercents = validatedRequest.targetPercents,
+            rows = successfulRows,
+        )
+
+        runCatching { profitLookbackService.analyzeBulk(bulkRequest) }
+            .fold(
+                onSuccess = { result ->
+                    val resultByRowId = result.rows.associateBy { item -> item.rowId }
+                    val orderedRows = validatedRequest.rows.map { item ->
+                        if (item.error != null) {
+                            ProfitLookbackBulkRowResponse(
+                                rowId = item.rowId,
+                                ok = false,
+                                data = null,
+                                error = item.error,
+                            )
+                        } else {
+                            resultByRowId[item.rowId] ?: ProfitLookbackBulkRowResponse(
+                                rowId = item.rowId,
+                                ok = false,
+                                data = null,
+                                error = "Missing bulk result for row ${item.rowId}",
+                            )
+                        }
+                    }
+                    ok(ProfitLookbackBulkResponse(rows = orderedRows))
+                },
+                onFailure = { error ->
+                    if (error is IllegalArgumentException) badRequest(error.message ?: "Invalid request.")
+                    else throw error
+                },
+            )
+    }
+
     @GET
     @Path("/momentum-data/export/range")
     fun exportMomentumRange(
@@ -277,3 +380,115 @@ class StrategyResource @Inject constructor(
         ok(s4Service.refreshLatest())
     }
 }
+
+internal fun validateProfitLookbackRequest(request: ProfitLookbackRequest?): ProfitLookbackRequest {
+    val body = request ?: throw IllegalArgumentException("Request body is required.")
+    val symbol = body.symbol.trim().uppercase()
+    if (symbol.isEmpty()) {
+        throw IllegalArgumentException("symbol is required.")
+    }
+    if (body.instrumentToken <= 0) {
+        throw IllegalArgumentException("instrumentToken must be positive.")
+    }
+    val sellDate = runCatching { LocalDate.parse(body.sellDate) }.getOrNull()
+        ?: throw IllegalArgumentException("sellDate must be in YYYY-MM-DD format.")
+    if (body.lookbackDays !in 1..1000) {
+        throw IllegalArgumentException("lookbackDays must be between 1 and 1000.")
+    }
+
+    val targetPercents = body.targetPercents
+        .filter { value -> value.isFinite() && value > 0.0 }
+        .distinct()
+        .sorted()
+
+    if (targetPercents.isEmpty()) {
+        throw IllegalArgumentException("targetPercents must contain at least one positive value.")
+    }
+
+    return ProfitLookbackRequest(
+        symbol = symbol,
+        instrumentToken = body.instrumentToken,
+        sellDate = sellDate.toString(),
+        lookbackDays = body.lookbackDays,
+        targetPercents = targetPercents,
+    )
+}
+
+internal fun validateProfitLookbackBulkRequest(request: ProfitLookbackBulkRequest?): ValidatedProfitLookbackBulkRequest {
+    val body = request ?: throw IllegalArgumentException("Request body is required.")
+    if (body.lookbackDays !in 1..1000) {
+        throw IllegalArgumentException("lookbackDays must be between 1 and 1000.")
+    }
+
+    val targetPercents = body.targetPercents
+        .filter { value -> value.isFinite() && value > 0.0 }
+        .distinct()
+        .sorted()
+
+    if (targetPercents.isEmpty()) {
+        throw IllegalArgumentException("targetPercents must contain at least one positive value.")
+    }
+
+    if (body.rows.isEmpty()) {
+        throw IllegalArgumentException("rows must contain at least one row.")
+    }
+
+    val normalizedRows = body.rows.mapIndexed { index, row ->
+        val normalizedRowId = row.rowId.trim().ifEmpty { "row-${index + 1}" }
+        val normalizedSymbol = row.symbol.trim().uppercase()
+        val sellDate = runCatching { LocalDate.parse(row.sellDate) }.getOrNull()
+        val rowError = when {
+            normalizedSymbol.isEmpty() -> "symbol is required."
+            row.instrumentToken <= 0 -> "instrumentToken must be positive."
+            sellDate == null -> "sellDate must be in YYYY-MM-DD format."
+            else -> null
+        }
+
+        if (rowError != null) {
+            ValidatedProfitLookbackBulkRow(
+                rowId = normalizedRowId,
+                request = null,
+                error = rowError,
+            )
+        } else {
+            ValidatedProfitLookbackBulkRow(
+                rowId = normalizedRowId,
+                request = ProfitLookbackBulkRowRequest(
+                    rowId = normalizedRowId,
+                    symbol = normalizedSymbol,
+                    instrumentToken = row.instrumentToken,
+                    sellDate = sellDate.toString(),
+                ),
+                error = null,
+            )
+        }
+    }
+
+    val duplicateRowIds = normalizedRows
+        .groupingBy { item -> item.rowId }
+        .eachCount()
+        .filterValues { count -> count > 1 }
+        .keys
+
+    if (duplicateRowIds.isNotEmpty()) {
+        throw IllegalArgumentException("rows contain duplicate rowId values.")
+    }
+
+    return ValidatedProfitLookbackBulkRequest(
+        lookbackDays = body.lookbackDays,
+        targetPercents = targetPercents,
+        rows = normalizedRows,
+    )
+}
+
+internal data class ValidatedProfitLookbackBulkRequest(
+    val lookbackDays: Int,
+    val targetPercents: List<Double>,
+    val rows: List<ValidatedProfitLookbackBulkRow>,
+)
+
+internal data class ValidatedProfitLookbackBulkRow(
+    val rowId: String,
+    val request: ProfitLookbackBulkRowRequest?,
+    val error: String?,
+)

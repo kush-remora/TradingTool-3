@@ -55,6 +55,9 @@ describe("WeeklyCycleSuccessPage", () => {
           stableBaseLowMin: 100,
           stableBaseLowMax: 102.5,
           stableBaseWeeksCount: 4,
+          lastWeekMondayDipPct: 3.25,
+          avg8wMondayDipPct: 2.15,
+          mondayDipSamples8w: 8,
         },
       ],
     });
@@ -71,6 +74,10 @@ describe("WeeklyCycleSuccessPage", () => {
     expect(screen.getByText("ABC")).toBeInTheDocument();
     expect(screen.getByText("6/8")).toBeInTheDocument();
     expect(screen.getByText("75.00%")).toBeInTheDocument();
+    expect(screen.getAllByText("Mon Dip (Last Wk %)").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Mon Dip (8W Avg %)").length).toBeGreaterThan(0);
+    expect(screen.getByText("3.25%")).toBeInTheDocument();
+    expect(screen.getByText("2.15% (8)")).toBeInTheDocument();
   });
 
   it("runs scan with updated numeric params", async () => {
@@ -167,6 +174,9 @@ describe("WeeklyCycleSuccessPage", () => {
           stableBaseLowMin: 100,
           stableBaseLowMax: 102.5,
           stableBaseWeeksCount: 4,
+          lastWeekMondayDipPct: 3.25,
+          avg8wMondayDipPct: 2.15,
+          mondayDipSamples8w: 8,
         },
       ],
     });

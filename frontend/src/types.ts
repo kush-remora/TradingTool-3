@@ -160,6 +160,60 @@ export interface StockQuoteSnapshot {
   updated_at: string;
 }
 
+// ==================== Profit Lookback ====================
+
+export interface ProfitLookbackRequest {
+  symbol: string;
+  instrumentToken: number;
+  sellDate: string;
+  lookbackDays: number;
+  targetPercents: number[];
+}
+
+export interface ProfitLookbackBulkRowRequest {
+  rowId: string;
+  symbol: string;
+  instrumentToken: number;
+  sellDate: string;
+}
+
+export interface ProfitLookbackBulkRequest {
+  lookbackDays: number;
+  targetPercents: number[];
+  rows: ProfitLookbackBulkRowRequest[];
+}
+
+export interface ProfitLookbackTargetResult {
+  targetPercent: number;
+  status: "ACHIEVED" | "NOT_ACHIEVABLE" | string;
+  suggestedBuyDate: string | null;
+  buyOpenPrice: number | null;
+  daysBefore: number | null;
+  returnPercent: number | null;
+  maxDrawdownPercent: number | null;
+  maxDrawdownDays: number | null;
+}
+
+export interface ProfitLookbackResponse {
+  symbol: string;
+  instrumentToken: number;
+  requestedSellDate: string;
+  resolvedSellDate: string;
+  sellOpenPrice: number;
+  results: ProfitLookbackTargetResult[];
+}
+
+export interface ProfitLookbackBulkRowResponse {
+  rowId: string;
+  ok: boolean;
+  data: ProfitLookbackResponse | null;
+  error: string | null;
+}
+
+export interface ProfitLookbackBulkResponse {
+  rows: ProfitLookbackBulkRowResponse[];
+}
+
 // ==================== Remora Strategy ====================
 
 export interface RemoraSignal {
@@ -263,6 +317,9 @@ export interface WeeklyPatternResult {
   vcpTightnessPct: number | null;
   volumeSignatureRatio: number | null;
   mondayStrikeRatePct: number | null;
+  lastWeekMondayDipPct?: number | null;
+  avg8wMondayDipPct?: number | null;
+  mondayDipSamples8w?: number;
   setupQualityScore?: number;
   expectedSwingPct?: number;
   baselineDistancePct?: number | null;
@@ -306,6 +363,9 @@ export interface WeeklyCycleSuccessRow {
   stableBaseLowMin: number | null;
   stableBaseLowMax: number | null;
   stableBaseWeeksCount: number;
+  lastWeekMondayDipPct?: number | null;
+  avg8wMondayDipPct?: number | null;
+  mondayDipSamples8w?: number;
 }
 
 export interface WeeklyCycleSuccessResponse {
