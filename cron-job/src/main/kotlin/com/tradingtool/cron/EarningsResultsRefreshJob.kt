@@ -31,17 +31,19 @@ import kotlin.system.exitProcess
 private val log = LoggerFactory.getLogger("EarningsResultsRefreshJob")
 
 fun main(args: Array<String>) {
-    val cli = parseArgs(args)
     val runtime = EarningsResultsRuntime.fromEnvironment()
+
+    val from = LocalDate.now()
+    val to = from.plusMonths(1)
 
     val exitCode = runBlocking {
         runCatching {
             val result = runtime.service.refresh(
                 EarningsRefreshRequest(
-                    from = cli.from,
-                    to = cli.to,
-                    pastDays = cli.pastDays,
-                    chunkDays = cli.chunkDays,
+                    from = from,
+                    to = to,
+                    pastDays = 30,
+                    chunkDays = 5,
                 ),
             )
             val outputDir = writeArtifacts(result)
@@ -98,47 +100,6 @@ private data class EarningsResultsRuntime(
             return EarningsResultsRuntime(service = service)
         }
     }
-}
-
-private data class EarningsResultsCliArgs(
-    val from: LocalDate? = null,
-    val to: LocalDate? = null,
-    val pastDays: Int = 30,
-    val chunkDays: Int = 5,
-)
-
-private fun parseArgs(args: Array<String>): EarningsResultsCliArgs {
-    val values = args
-        .mapNotNull { arg ->
-            if (!arg.startsWith("--") || !arg.contains("=")) {
-                null
-            } else {
-                val key = arg.substringAfter("--").substringBefore("=")
-                val value = arg.substringAfter("=")
-                key to value
-            }
-        }
-        .toMap()
-
-    val from = values["from"]?.let { value ->
-        runCatching { LocalDate.parse(value) }.getOrElse {
-            error("Invalid --from value '$value'. Expected YYYY-MM-DD.")
-        }
-    }
-    val to = values["to"]?.let { value ->
-        runCatching { LocalDate.parse(value) }.getOrElse {
-            error("Invalid --to value '$value'. Expected YYYY-MM-DD.")
-        }
-    }
-    val pastDays = values["pastDays"]?.toIntOrNull() ?: 30
-    val chunkDays = values["chunkDays"]?.toIntOrNull() ?: 5
-
-    return EarningsResultsCliArgs(
-        from = from,
-        to = to,
-        pastDays = pastDays,
-        chunkDays = chunkDays,
-    )
 }
 
 private fun writeArtifacts(result: EarningsRefreshResult): Path {
