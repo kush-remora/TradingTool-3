@@ -24,8 +24,7 @@ class RsiMomentumRankerTest {
             boardDisplayCount = 3,
             replacementPoolCount = 3,
             holdingCount = 2,
-            maxExtensionAboveSma20ForNewEntry = 0.20,
-            maxExtensionAboveSma20ForSkipNewEntry = 0.30,
+            maxMoveFrom30DayLowPct = 20.0,
         )
 
         assertEquals(listOf("AAA", "BBB", "CCC"), result.topCandidates.map { it.symbol })
@@ -53,8 +52,7 @@ class RsiMomentumRankerTest {
             boardDisplayCount = 2,
             replacementPoolCount = 2,
             holdingCount = 2,
-            maxExtensionAboveSma20ForNewEntry = 0.20,
-            maxExtensionAboveSma20ForSkipNewEntry = 0.30,
+            maxMoveFrom30DayLowPct = 20.0,
         )
 
         assertEquals(listOf("BBB", "AAA"), result.holdings.map { it.symbol })
@@ -80,20 +78,19 @@ class RsiMomentumRankerTest {
             boardDisplayCount = 3,
             replacementPoolCount = 3,
             holdingCount = 2,
-            maxExtensionAboveSma20ForNewEntry = 0.20,
-            maxExtensionAboveSma20ForSkipNewEntry = 0.30,
+            maxMoveFrom30DayLowPct = 20.0,
         )
 
         assertEquals(listOf("AAA", "BBB", "CCC"), result.topCandidates.map { it.symbol })
-        assertEquals(listOf("BBB", "CCC"), result.holdings.map { it.symbol })
+        assertEquals(listOf("CCC"), result.holdings.map { it.symbol })
         assertTrue(result.topCandidates.first { it.symbol == "AAA" }.entryBlocked)
         assertEquals(
-            "PRICE_EXTENSION_IN_PULLBACK_ZONE",
+            "VERTICAL_MOVE_EXHAUSTED",
             result.topCandidates.first { it.symbol == "AAA" }.entryBlockReason,
         )
-        assertEquals("WATCH_PULLBACK", result.topCandidates.first { it.symbol == "AAA" }.entryAction)
-        assertFalse(result.topCandidates.first { it.symbol == "BBB" }.entryBlocked)
-        assertEquals("ENTRY", result.topCandidates.first { it.symbol == "BBB" }.entryAction)
+        assertEquals("SKIP", result.topCandidates.first { it.symbol == "AAA" }.entryAction)
+        assertTrue(result.topCandidates.first { it.symbol == "BBB" }.entryBlocked)
+        assertEquals("WATCH_PULLBACK", result.topCandidates.first { it.symbol == "BBB" }.entryAction)
         assertEquals("ENTRY", result.topCandidates.first { it.symbol == "CCC" }.entryAction)
     }
 
@@ -111,8 +108,7 @@ class RsiMomentumRankerTest {
             boardDisplayCount = 2,
             replacementPoolCount = 2,
             holdingCount = 1,
-            maxExtensionAboveSma20ForNewEntry = 0.20,
-            maxExtensionAboveSma20ForSkipNewEntry = 0.30,
+            maxMoveFrom30DayLowPct = 20.0,
         )
 
         assertEquals(listOf("AAA"), result.holdings.map { it.symbol })
@@ -136,14 +132,13 @@ class RsiMomentumRankerTest {
             boardDisplayCount = 2,
             replacementPoolCount = 4,
             holdingCount = 2,
-            maxExtensionAboveSma20ForNewEntry = 0.20,
-            maxExtensionAboveSma20ForSkipNewEntry = 0.30,
+            maxMoveFrom30DayLowPct = 20.0,
         )
 
         assertEquals(listOf("AAA", "BBB"), result.topCandidates.map { it.symbol })
         assertEquals(listOf("CCC", "DDD"), result.holdings.map { it.symbol })
-        assertEquals("WATCH_PULLBACK", result.topCandidates.first { it.symbol == "AAA" }.entryAction)
-        assertEquals("WATCH_PULLBACK", result.topCandidates.first { it.symbol == "BBB" }.entryAction)
+        assertEquals("SKIP", result.topCandidates.first { it.symbol == "AAA" }.entryAction)
+        assertEquals("SKIP", result.topCandidates.first { it.symbol == "BBB" }.entryAction)
     }
 
     @Test
@@ -163,8 +158,7 @@ class RsiMomentumRankerTest {
             boardDisplayCount = 4,
             replacementPoolCount = 4,
             holdingCount = 2,
-            maxExtensionAboveSma20ForNewEntry = 0.20,
-            maxExtensionAboveSma20ForSkipNewEntry = 0.30,
+            maxMoveFrom30DayLowPct = 20.0,
         )
 
         assertEquals(listOf("AAA", "BBB", "CCC", "DDD"), result.topCandidates.map { it.symbol })
@@ -186,14 +180,13 @@ class RsiMomentumRankerTest {
             boardDisplayCount = 2,
             replacementPoolCount = 2,
             holdingCount = 2,
-            maxExtensionAboveSma20ForNewEntry = 0.20,
-            maxExtensionAboveSma20ForSkipNewEntry = 0.30,
+            maxMoveFrom30DayLowPct = 20.0,
         )
 
-        assertFalse(result.topCandidates.first { it.symbol == "AAA" }.entryBlocked)
+        assertTrue(result.topCandidates.first { it.symbol == "AAA" }.entryBlocked)
         assertTrue(result.topCandidates.first { it.symbol == "BBB" }.entryBlocked)
-        assertEquals("ENTRY", result.topCandidates.first { it.symbol == "AAA" }.entryAction)
-        assertEquals("WATCH_PULLBACK", result.topCandidates.first { it.symbol == "BBB" }.entryAction)
+        assertEquals("WATCH_PULLBACK", result.topCandidates.first { it.symbol == "AAA" }.entryAction)
+        assertEquals("SKIP", result.topCandidates.first { it.symbol == "BBB" }.entryAction)
     }
 
     @Test
@@ -210,13 +203,12 @@ class RsiMomentumRankerTest {
             boardDisplayCount = 2,
             replacementPoolCount = 2,
             holdingCount = 2,
-            maxExtensionAboveSma20ForNewEntry = 0.20,
-            maxExtensionAboveSma20ForSkipNewEntry = 0.30,
+            maxMoveFrom30DayLowPct = 20.0,
         )
 
         assertEquals("SKIP", result.topCandidates.first { it.symbol == "AAA" }.entryAction)
         assertEquals(
-            "PRICE_EXTENSION_ABOVE_SKIP_THRESHOLD",
+            "VERTICAL_MOVE_EXHAUSTED",
             result.topCandidates.first { it.symbol == "AAA" }.entryBlockReason,
         )
     }
@@ -230,6 +222,7 @@ class RsiMomentumRankerTest {
         buyZoneHigh10w: Double = 110.0,
         lowestRsi50d: Double = 35.0,
         highestRsi50d: Double = 75.0,
+        lowestLow30d: Double = 100.0,
     ): SecurityMetrics = SecurityMetrics(
         member = UniverseMember(
             symbol = symbol,
@@ -251,5 +244,6 @@ class RsiMomentumRankerTest {
         lowestRsi50d = lowestRsi50d,
         highestRsi50d = highestRsi50d,
         avgTradedValueCr = 25.0,
+        lowestLow30d = lowestLow30d,
     )
 }

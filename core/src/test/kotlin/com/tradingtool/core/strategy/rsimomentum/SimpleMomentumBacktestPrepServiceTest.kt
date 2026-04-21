@@ -10,9 +10,9 @@ class SimpleMomentumBacktestPrepServiceTest {
 
     private val service = SimpleMomentumBacktestPrepService(
         configService = RsiMomentumConfigService(),
-        candleDataService = null as CandleDataService,
-        backfillService = null as RsiMomentumBackfillService,
-        kiteClient = null as KiteConnectClient,
+        candleDataService = allocateWithoutConstructor(),
+        backfillService = allocateWithoutConstructor(),
+        kiteClient = allocateWithoutConstructor(),
     )
 
     @Test
@@ -43,5 +43,13 @@ class SimpleMomentumBacktestPrepServiceTest {
                 )
             }
         }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private inline fun <reified T : Any> allocateWithoutConstructor(): T {
+        val unsafeField = sun.misc.Unsafe::class.java.getDeclaredField("theUnsafe")
+        unsafeField.isAccessible = true
+        val unsafe = unsafeField.get(null) as sun.misc.Unsafe
+        return unsafe.allocateInstance(T::class.java) as T
     }
 }

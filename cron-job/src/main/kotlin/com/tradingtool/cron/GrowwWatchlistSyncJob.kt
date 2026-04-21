@@ -58,6 +58,23 @@ private data class GrowwWatchlistSyncCliArgs(
     val watchlistId: String? = "GWL_1729712098800",
 )
 
+private fun parseArgs(args: Array<String>): GrowwWatchlistSyncCliArgs {
+    val values = args
+        .mapNotNull { arg ->
+            if (!arg.startsWith("--") || !arg.contains("=")) {
+                null
+            } else {
+                val key = arg.substringAfter("--").substringBefore("=")
+                val value = arg.substringAfter("=")
+                key to value
+            }
+        }
+        .toMap()
+
+    val watchlistId = values["watchlistId"]?.takeIf { value -> value.isNotBlank() }
+    return GrowwWatchlistSyncCliArgs(watchlistId = watchlistId ?: GrowwWatchlistSyncCliArgs().watchlistId)
+}
+
 
 private data class GrowwWatchlistSyncRuntime(
     val watchlistId: String,

@@ -2,6 +2,7 @@ package com.tradingtool.core.strategy.profitlookback
 
 import com.tradingtool.core.kite.KiteConfig
 import com.tradingtool.core.kite.KiteConnectClient
+import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -125,7 +126,7 @@ class ProfitLookbackServiceTest {
     }
 
     @Test
-    fun `bulk analysis returns partial success and preserves row order`() {
+    fun `bulk analysis returns partial success and preserves row order`() = runBlocking {
         val response = service.analyzeBulkWithExecutor(
             request = ProfitLookbackBulkRequest(
                 lookbackDays = 120,
@@ -159,7 +160,7 @@ class ProfitLookbackServiceTest {
     }
 
     @Test
-    fun `bulk analysis deduplicates repeated symbol token date requests`() {
+    fun `bulk analysis deduplicates repeated symbol token date requests`() = runBlocking {
         val callCount = AtomicInteger(0)
         val response = service.analyzeBulkWithExecutor(
             request = ProfitLookbackBulkRequest(

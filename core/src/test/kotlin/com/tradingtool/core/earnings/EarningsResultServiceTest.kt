@@ -78,7 +78,7 @@ class EarningsResultServiceTest {
 
         val tradingDays = generateTradingDays(
             from = LocalDate.parse("2026-04-10"),
-            count = 18,
+            count = 30,
         )
         val eventIndex = tradingDays.indexOf(eventDate)
         check(eventIndex >= 14)

@@ -16,8 +16,9 @@ class GrowwCorporateEventAdapter(
         val response = jsonHttpClient.get<GrowwCorporateEventsResponse>(url, defaultHeaders())
         val payload = response.getOrNull()
         if (payload == null) {
-            log.error("Failed to fetch Groww corporate events for {}..{}: {}", from, to, response.errorOrNull())
-            return emptyList()
+            val message = "Failed to fetch Groww corporate events for $from..$to: ${response.errorOrNull()}"
+            log.error(message)
+            throw IllegalStateException(message)
         }
 
         return payload.exdateEvents.orEmpty()

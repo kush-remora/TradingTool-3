@@ -17,11 +17,16 @@ class GrowwWatchlistAdapter(
         val url = "$BASE_URL/${request.watchlistId}/details?include_index_fno=true"
         val response = jsonHttpClient.getRaw(url, defaultHeaders() + extraHeaders)
         val payload = response.getOrNull() ?: run {
-            log.error("Groww watchlist fetch failed for {}: {}", request.watchlistId, response.errorOrNull())
-            return emptyList()
+            val message = "Groww watchlist fetch failed for ${request.watchlistId}: ${response.errorOrNull()}"
+            log.error(message)
+            throw IllegalStateException(message)
         }
 
-        val root = runCatching { objectMapper.readTree(payload) }.getOrNull() ?: return emptyList()
+        val root = runCatching { objectMapper.readTree(payload) }.getOrElse { error ->
+            val message = "Groww watchlist response parse failed for ${request.watchlistId}: ${error.message}"
+            log.error(message, error)
+            throw IllegalStateException(message, error)
+        }
         val rawRows = mutableListOf<GrowwWatchlistStock>()
         collectStocks(root, rawRows)
 

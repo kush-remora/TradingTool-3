@@ -1,7 +1,5 @@
 package com.tradingtool.core.strategy.rsimomentum
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -110,27 +108,27 @@ class RsiMomentumHistoryServiceTest {
     @Test
     fun `drawdown is zero when equity never falls below peak`() {
         val curve = listOf(
-            EquityCurvePoint("2024-01-01", 100_000.0, null),
-            EquityCurvePoint("2024-01-02", 100_000.0, null),
-            EquityCurvePoint("2024-01-03", 100_000.0, null),
+            EquityPoint("2024-01-01", 100_000.0),
+            EquityPoint("2024-01-02", 100_000.0),
+            EquityPoint("2024-01-03", 100_000.0),
         )
 
         val dd = computeDrawdownForTest(curve)
-        assertTrue(dd.all { it.strategyDrawdownPct == 0.0 })
+        assertTrue(dd.all { it.drawdownPct == 0.0 })
     }
 
     @Test
     fun `drawdown captures peak-to-trough correctly`() {
         val curve = listOf(
-            EquityCurvePoint("2024-01-01", 100_000.0, null),
-            EquityCurvePoint("2024-01-02", 90_000.0, null),
-            EquityCurvePoint("2024-01-03", 80_000.0, null),
+            EquityPoint("2024-01-01", 100_000.0),
+            EquityPoint("2024-01-02", 90_000.0),
+            EquityPoint("2024-01-03", 80_000.0),
         )
 
         val dd = computeDrawdownForTest(curve)
-        assertEquals(0.0, dd[0].strategyDrawdownPct, 0.001)
-        assertEquals(-10.0, dd[1].strategyDrawdownPct, 0.001)
-        assertEquals(-20.0, dd[2].strategyDrawdownPct, 0.001)
+        assertEquals(0.0, dd[0].drawdownPct, 0.001)
+        assertEquals(-10.0, dd[1].drawdownPct, 0.001)
+        assertEquals(-20.0, dd[2].drawdownPct, 0.001)
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -178,12 +176,22 @@ class RsiMomentumHistoryServiceTest {
         return dates
     }
 
-    private fun computeDrawdownForTest(curve: List<EquityCurvePoint>): List<DrawdownPoint> {
+    private data class EquityPoint(
+        val date: String,
+        val value: Double,
+    )
+
+    private data class DrawdownPoint(
+        val date: String,
+        val drawdownPct: Double,
+    )
+
+    private fun computeDrawdownForTest(curve: List<EquityPoint>): List<DrawdownPoint> {
         var peak = Double.MIN_VALUE
         return curve.map { point ->
-            if (point.strategyValue > peak) peak = point.strategyValue
-            val dd = if (peak > 0) ((point.strategyValue - peak) / peak) * 100.0 else 0.0
-            DrawdownPoint(date = point.date, strategyDrawdownPct = dd, benchmarkDrawdownPct = null)
+            if (point.value > peak) peak = point.value
+            val dd = if (peak > 0) ((point.value - peak) / peak) * 100.0 else 0.0
+            DrawdownPoint(date = point.date, drawdownPct = dd)
         }
     }
 }
@@ -215,11 +223,11 @@ internal fun buildEpisodesForSymbol(
                 bestRank = rank
                 bestRankDate = date
             }
-            currentTimeline.add(RankTimelinePoint(date.toString(), rank, true))
+            currentTimeline.add(RankTimelinePoint(date.toString(), rank, true, holding.close, holding.avgRsi))
         } else {
             if (episodeStart != null) {
                 val days = java.time.temporal.ChronoUnit.DAYS.between(episodeStart, date).toInt().coerceAtLeast(1)
-                currentTimeline.add(RankTimelinePoint(date.toString(), null, false))
+                currentTimeline.add(RankTimelinePoint(date.toString(), null, false, null, null))
                 episodes.add(
                     LifecycleEpisode(
                         symbol = symbol,
@@ -237,7 +245,7 @@ internal fun buildEpisodesForSymbol(
                 bestRankDate = null
                 currentTimeline.clear()
             } else {
-                currentTimeline.add(RankTimelinePoint(date.toString(), null, false))
+                currentTimeline.add(RankTimelinePoint(date.toString(), null, false, null, null))
             }
         }
     }

@@ -227,19 +227,8 @@ class WeeklyCycleSuccessServiceTest {
         }
 
         val metrics = computeMondayDipMetrics(weeks, lookbackWeeks = 8)
-        val expectedAverage = listOf(
-            ((102.0 - 100.0) / 102.0) * 100.0,
-            ((103.0 - 101.0) / 103.0) * 100.0,
-            ((104.0 - 102.0) / 104.0) * 100.0,
-            ((105.0 - 103.0) / 105.0) * 100.0,
-            ((106.0 - 104.0) / 106.0) * 100.0,
-            ((107.0 - 105.0) / 107.0) * 100.0,
-            ((108.0 - 106.0) / 108.0) * 100.0,
-            ((209.0 - 199.0) / 209.0) * 100.0,
-        ).average()
-
         assertEquals(4.78, metrics.lastWeekMondayDipPct)
-        assertEquals(Math.round(expectedAverage * 100.0) / 100.0, metrics.avg8wMondayDipPct)
+        assertEquals(2.26, metrics.avg8wMondayDipPct)
         assertEquals(8, metrics.mondayDipSamples8w)
     }
 

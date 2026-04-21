@@ -24,3 +24,4 @@
 ## 2026-04-21
 
 - For earnings-event tracking in this single-user tool, prefer a single-table JSONB payload (`earnings_results.behavior_payload`) over a separate snapshot-history table unless the user explicitly asks for normalized history tables.
+- For cron-backed external data sync (Groww earnings/watchlist), never swallow upstream HTTP/parse failures as empty lists; fail fast so scheduler health checks catch freshness/auth regressions.
