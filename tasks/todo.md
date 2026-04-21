@@ -1431,3 +1431,48 @@ Build a daily cron flow that ingests upcoming result events from Groww in 5-day 
   - Running module tests is currently blocked by pre-existing unrelated `core` test-compile failures in RSI/profitlookback test files.
 - Review gates:
   - `coding-standards`, `backend-architect`, `kotlin-patterns`, `frontend-patterns`, `kotlin-reviewer` invoked per repo policy.
+
+# Implementation Plan: Groww Watchlist -> Stocks Sync Cron
+
+## Overview
+Add a cron job that fetches stocks from a Groww watchlist endpoint and upserts them into `stocks` with a `GROWW` tag.
+
+## Implementation Steps
+- [x] Add Groww watchlist adapter and sync service in core.
+- [x] Add stock upsert DAO path for Groww watchlist sync with idempotent tag merge.
+- [x] Add cron entrypoint with watchlist id + optional headers config support.
+- [x] Add tests for payload parsing and sync de-dup behavior.
+- [x] Run compile checks for touched modules.
+- [x] Run review gate pass.
+
+## Review
+- Core additions:
+  - Added `core/watchlist/groww` domain:
+    - `GrowwWatchlistAdapter`
+    - `GrowwWatchlistSyncService`
+    - models/interfaces/gateways.
+  - Adapter parses watchlist payload defensively and extracts NSE stock rows with:
+    - symbol,
+    - instrument token,
+    - company name.
+  - Filters out non-NSE / non-STOCKS rows.
+- DAO update:
+  - Added `StockWriteDao.upsertFromGrowwWatchlist(...)`:
+    - inserts new stock rows,
+    - upserts existing by `(symbol, exchange)`,
+    - appends `GROWW` tag only if missing,
+    - preserves existing notes/priority and existing tags.
+- Cron job:
+  - Added `GrowwWatchlistSyncJob` with optional args/env:
+    - `--watchlistId=...`
+    - env `GROWW_WATCHLIST_ID`
+    - env `GROWW_WATCHLIST_HEADERS_JSON` for required request headers.
+  - Writes artifacts to `build/reports/groww-watchlist-sync`.
+- Tests:
+  - Added adapter parsing test.
+  - Added sync service dedupe/upsert test.
+- Verification:
+  - `mvn -q -pl core,cron-job -DskipTests compile` passed.
+  - Full `core` tests are currently blocked by unrelated pre-existing RSI/profitlookback test-compile failures.
+- Review gates:
+  - `coding-standards`, `backend-architect`, `kotlin-patterns`, `frontend-patterns`, `kotlin-reviewer` invoked per repo policy.

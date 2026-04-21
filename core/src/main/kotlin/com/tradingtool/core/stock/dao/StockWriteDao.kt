@@ -71,4 +71,33 @@ interface StockWriteDao {
         @Bind("instrumentToken") instrumentToken: Long,
         @Bind("needsRefresh") needsRefresh: Boolean
     ): Int
+
+    @SqlUpdate(
+        """
+        INSERT INTO public.${Tables.STOCKS}
+            (${StockColumns.SYMBOL}, ${StockColumns.INSTRUMENT_TOKEN}, ${StockColumns.COMPANY_NAME},
+             ${StockColumns.EXCHANGE}, ${StockColumns.TAGS})
+        VALUES (:symbol, :instrumentToken, :companyName, :exchange, CAST(:growwTagJson AS jsonb))
+        ON CONFLICT (${StockColumns.SYMBOL}, ${StockColumns.EXCHANGE}) DO UPDATE SET
+            ${StockColumns.INSTRUMENT_TOKEN} = EXCLUDED.${StockColumns.INSTRUMENT_TOKEN},
+            ${StockColumns.COMPANY_NAME} = EXCLUDED.${StockColumns.COMPANY_NAME},
+            ${StockColumns.TAGS} = CASE
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM jsonb_array_elements(public.${Tables.STOCKS}.${StockColumns.TAGS}) AS elem
+                    WHERE elem->>'name' = :growwTagName
+                ) THEN public.${Tables.STOCKS}.${StockColumns.TAGS}
+                ELSE public.${Tables.STOCKS}.${StockColumns.TAGS} || CAST(:growwTagJson AS jsonb)
+            END,
+            ${StockColumns.UPDATED_AT} = NOW()
+        """
+    )
+    fun upsertFromGrowwWatchlist(
+        @Bind("symbol") symbol: String,
+        @Bind("instrumentToken") instrumentToken: Long,
+        @Bind("companyName") companyName: String,
+        @Bind("exchange") exchange: String,
+        @Bind("growwTagName") growwTagName: String,
+        @Bind("growwTagJson") growwTagJson: String,
+    ): Int
 }
