@@ -10,18 +10,14 @@ import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.earnings.EarningsRefreshRequest
 import com.tradingtool.core.earnings.EarningsRefreshResult
 import com.tradingtool.core.earnings.EarningsResultService
-import com.tradingtool.core.earnings.GrowwCorporateEventAdapter
+import com.tradingtool.core.earnings.FileCorporateEventAdapter
 import com.tradingtool.core.earnings.JdbiCandleGateway
 import com.tradingtool.core.earnings.JdbiEarningsResultGateway
 import com.tradingtool.core.earnings.dao.EarningsResultReadDao
 import com.tradingtool.core.earnings.dao.EarningsResultWriteDao
-import com.tradingtool.core.http.HttpClientConfig
-import com.tradingtool.core.http.JdkHttpClientImpl
-import com.tradingtool.core.http.JsonHttpClient
 import com.tradingtool.core.model.DatabaseConfig
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
-import java.net.http.HttpClient as JdkHttpClient
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -31,10 +27,12 @@ import kotlin.system.exitProcess
 private val log = LoggerFactory.getLogger("EarningsResultsRefreshJob")
 
 fun main(args: Array<String>) {
-    val runtime = EarningsResultsRuntime.fromEnvironment()
+    val cli = parseArgs(args)
+    val runtime = EarningsResultsRuntime.fromEnvironment(cli)
 
-    val from = LocalDate.now()
-    val to = from.plusMonths(1)
+    val today = LocalDate.now()
+    val from = cli.from ?: today
+    val to = cli.to ?: from.plusMonths(1)
 
     val exitCode = runBlocking {
         runCatching {
@@ -42,8 +40,8 @@ fun main(args: Array<String>) {
                 EarningsRefreshRequest(
                     from = from,
                     to = to,
-                    pastDays = 30,
-                    chunkDays = 5,
+                    pastDays = cli.pastDays,
+                    chunkDays = cli.chunkDays,
                 ),
             )
             val outputDir = writeArtifacts(result)
@@ -68,29 +66,59 @@ fun main(args: Array<String>) {
     exitProcess(exitCode)
 }
 
+private data class EarningsResultsRefreshCliArgs(
+    val from: LocalDate? = null,
+    val to: LocalDate? = null,
+    val pastDays: Int = 30,
+    val chunkDays: Int = 5,
+    val eventsFile: String = DEFAULT_EARNINGS_EVENTS_FILE,
+)
+
+private fun parseArgs(args: Array<String>): EarningsResultsRefreshCliArgs {
+    val values = args
+        .mapNotNull { arg ->
+            if (!arg.startsWith("--") || !arg.contains("=")) {
+                null
+            } else {
+                val key = arg.substringAfter("--").substringBefore("=")
+                val value = arg.substringAfter("=")
+                key to value
+            }
+        }
+        .toMap()
+
+    val from = values["from"]?.let { value -> runCatching { LocalDate.parse(value) }.getOrNull() }
+    val to = values["to"]?.let { value -> runCatching { LocalDate.parse(value) }.getOrNull() }
+    val pastDays = values["pastDays"]?.toIntOrNull() ?: 30
+    val chunkDays = values["chunkDays"]?.toIntOrNull() ?: 5
+    val eventsFile = values["eventsFile"]?.takeIf { value -> value.isNotBlank() } ?: DEFAULT_EARNINGS_EVENTS_FILE
+
+    return EarningsResultsRefreshCliArgs(
+        from = from,
+        to = to,
+        pastDays = pastDays,
+        chunkDays = chunkDays,
+        eventsFile = eventsFile,
+    )
+}
+
 private data class EarningsResultsRuntime(
     val service: EarningsResultService,
 ) {
     companion object {
-        fun fromEnvironment(): EarningsResultsRuntime {
+        fun fromEnvironment(cli: EarningsResultsRefreshCliArgs): EarningsResultsRuntime {
             val databaseConfig = DatabaseConfig(
                 jdbcUrl = ConfigLoader.get("SUPABASE_DB_URL", "supabase.dbUrl"),
             )
             val objectMapper = buildObjectMapper()
-            val httpClient = JdkHttpClientImpl(
-                JdkHttpClient.newBuilder().build(),
-                HttpClientConfig(),
-            )
 
             val earningsHandler = JdbiHandler(databaseConfig, EarningsResultReadDao::class.java, EarningsResultWriteDao::class.java)
             val candleHandler = JdbiHandler(databaseConfig, CandleReadDao::class.java, CandleWriteDao::class.java)
 
             val service = EarningsResultService(
-                corporateEventSource = GrowwCorporateEventAdapter(
-                    jsonHttpClient = JsonHttpClient(
-                        httpClient = httpClient,
-                        objectMapper = objectMapper,
-                    ),
+                corporateEventSource = FileCorporateEventAdapter(
+                    filePath = Paths.get(cli.eventsFile),
+                    objectMapper = objectMapper,
                 ),
                 earningsGateway = JdbiEarningsResultGateway(earningsHandler),
                 candleGateway = JdbiCandleGateway(candleHandler),
@@ -134,3 +162,5 @@ private fun buildObjectMapper(): ObjectMapper {
         .registerKotlinModule()
         .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
 }
+
+private const val DEFAULT_EARNINGS_EVENTS_FILE = "manual-input/groww-corporate-events.json"

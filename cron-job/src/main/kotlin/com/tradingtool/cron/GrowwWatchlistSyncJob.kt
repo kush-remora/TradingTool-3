@@ -1,25 +1,20 @@
 package com.tradingtool.cron
 
-import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.tradingtool.core.config.ConfigLoader
 import com.tradingtool.core.database.JdbiHandler
-import com.tradingtool.core.http.HttpClientConfig
-import com.tradingtool.core.http.JdkHttpClientImpl
-import com.tradingtool.core.http.JsonHttpClient
 import com.tradingtool.core.model.DatabaseConfig
 import com.tradingtool.core.stock.dao.StockReadDao
 import com.tradingtool.core.stock.dao.StockWriteDao
-import com.tradingtool.core.watchlist.groww.GrowwWatchlistAdapter
+import com.tradingtool.core.watchlist.groww.FileGrowwWatchlistAdapter
 import com.tradingtool.core.watchlist.groww.GrowwWatchlistSyncRequest
 import com.tradingtool.core.watchlist.groww.GrowwWatchlistSyncResult
 import com.tradingtool.core.watchlist.groww.GrowwWatchlistSyncService
 import com.tradingtool.core.watchlist.groww.JdbiGrowwWatchlistStockGateway
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
-import java.net.http.HttpClient as JdkHttpClient
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -56,6 +51,7 @@ fun main(args: Array<String>) {
 
 private data class GrowwWatchlistSyncCliArgs(
     val watchlistId: String? = "GWL_1729712098800",
+    val watchlistFile: String = DEFAULT_WATCHLIST_FILE,
 )
 
 private fun parseArgs(args: Array<String>): GrowwWatchlistSyncCliArgs {
@@ -72,7 +68,11 @@ private fun parseArgs(args: Array<String>): GrowwWatchlistSyncCliArgs {
         .toMap()
 
     val watchlistId = values["watchlistId"]?.takeIf { value -> value.isNotBlank() }
-    return GrowwWatchlistSyncCliArgs(watchlistId = watchlistId ?: GrowwWatchlistSyncCliArgs().watchlistId)
+    val watchlistFile = values["watchlistFile"]?.takeIf { value -> value.isNotBlank() } ?: DEFAULT_WATCHLIST_FILE
+    return GrowwWatchlistSyncCliArgs(
+        watchlistId = watchlistId ?: GrowwWatchlistSyncCliArgs().watchlistId,
+        watchlistFile = watchlistFile,
+    )
 }
 
 
@@ -87,26 +87,17 @@ private data class GrowwWatchlistSyncRuntime(
                 jdbcUrl = ConfigLoader.get("SUPABASE_DB_URL", "supabase.dbUrl"),
             )
             val stockHandler = JdbiHandler(databaseConfig, StockReadDao::class.java, StockWriteDao::class.java)
-            val httpClient = JdkHttpClientImpl(
-                JdkHttpClient.newBuilder().build(),
-                HttpClientConfig(),
-            )
 
             val watchlistId = cli.watchlistId
+                ?.takeIf { value -> value.isNotBlank() }
                 ?: ConfigLoader.getOptional("GROWW_WATCHLIST_ID", "groww.watchlistId")
+                    ?.takeIf { value -> value.isNotBlank() }
                 ?: DEFAULT_WATCHLIST_ID
 
-            val headerJson = ConfigLoader.getOptional("GROWW_WATCHLIST_HEADERS_JSON", "groww.watchlistHeadersJson")
-            val extraHeaders = parseHeaders(headerJson, objectMapper)
-
             val service = GrowwWatchlistSyncService(
-                source = GrowwWatchlistAdapter(
-                    jsonHttpClient = JsonHttpClient(
-                        httpClient = httpClient,
-                        objectMapper = objectMapper,
-                    ),
+                source = FileGrowwWatchlistAdapter(
+                    filePath = Paths.get(cli.watchlistFile),
                     objectMapper = objectMapper,
-                    extraHeaders = extraHeaders,
                 ),
                 stockGateway = JdbiGrowwWatchlistStockGateway(
                     stockHandler = stockHandler,
@@ -119,19 +110,6 @@ private data class GrowwWatchlistSyncRuntime(
                 service = service,
             )
         }
-
-        private fun parseHeaders(raw: String?, objectMapper: ObjectMapper): Map<String, String> {
-            if (raw.isNullOrBlank()) {
-                return emptyMap()
-            }
-            return runCatching {
-                objectMapper.readValue(raw, HEADER_MAP_TYPE)
-            }.getOrElse {
-                error("Invalid GROWW_WATCHLIST_HEADERS_JSON. Expected a JSON object of string headers.")
-            }
-        }
-
-        private val HEADER_MAP_TYPE = object : TypeReference<Map<String, String>>() {}
         private const val DEFAULT_WATCHLIST_ID = "GWL_1729712098800"
     }
 }
@@ -162,3 +140,5 @@ private fun buildObjectMapper(): ObjectMapper {
         .registerKotlinModule()
         .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
 }
+
+private const val DEFAULT_WATCHLIST_FILE = "manual-input/groww-watchlist.json"
