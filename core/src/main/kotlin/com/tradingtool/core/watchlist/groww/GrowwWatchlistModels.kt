@@ -24,3 +24,7 @@ interface GrowwWatchlistSource {
 interface GrowwWatchlistStockGateway {
     suspend fun upsertGrowwStock(stock: GrowwWatchlistStock): Int
 }
+
+interface GrowwWatchlistInstrumentTokenResolver {
+    suspend fun resolve(exchange: String, symbol: String): Long?
+}

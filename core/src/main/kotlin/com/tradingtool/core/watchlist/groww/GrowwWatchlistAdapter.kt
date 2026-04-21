@@ -47,12 +47,12 @@ class GrowwWatchlistAdapter(
     }
 
     private fun parseStockNode(node: JsonNode): GrowwWatchlistStock? {
-        val symbol = firstText(node, listOf("nseSymbol", "tradingSymbol", "symbol"))
+        val symbol = firstText(node, listOf("nseSymbol", "nseScripCode", "tradingSymbol", "symbol"))
             ?.uppercase()
             ?.takeIf { value -> value.isNotBlank() }
             ?: return null
 
-        val instrumentType = firstText(node, listOf("instrumentType", "securityType"))
+        val instrumentType = firstText(node, listOf("instrumentType", "securityType", "equityType"))
         if (instrumentType != null && instrumentType.equals("STOCKS", ignoreCase = true).not()) {
             return null
         }
@@ -62,8 +62,7 @@ class GrowwWatchlistAdapter(
             return null
         }
 
-        val instrumentToken = firstLong(node, listOf("instrumentToken", "instrument_token", "token"))
-            ?: return null
+        val instrumentToken = firstLong(node, listOf("instrumentToken", "instrument_token", "token")) ?: 0L
 
         val companyName = firstText(node, listOf("companyName", "companyShortName", "name", "displayName"))
             ?.trim()

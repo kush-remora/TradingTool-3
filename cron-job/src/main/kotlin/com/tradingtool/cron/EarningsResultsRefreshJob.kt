@@ -27,12 +27,11 @@ import kotlin.system.exitProcess
 private val log = LoggerFactory.getLogger("EarningsResultsRefreshJob")
 
 fun main(args: Array<String>) {
-    val cli = parseArgs(args)
-    val runtime = EarningsResultsRuntime.fromEnvironment(cli)
+    val runtime = EarningsResultsRuntime.fromEnvironment()
 
     val today = LocalDate.now()
-    val from = cli.from ?: today
-    val to = cli.to ?: from.plusMonths(1)
+    val from = today
+    val to = from.plusMonths(1)
 
     val exitCode = runBlocking {
         runCatching {
@@ -40,8 +39,8 @@ fun main(args: Array<String>) {
                 EarningsRefreshRequest(
                     from = from,
                     to = to,
-                    pastDays = cli.pastDays,
-                    chunkDays = cli.chunkDays,
+                    pastDays = DEFAULT_PAST_DAYS,
+                    chunkDays = DEFAULT_CHUNK_DAYS,
                 ),
             )
             val outputDir = writeArtifacts(result)
@@ -66,47 +65,11 @@ fun main(args: Array<String>) {
     exitProcess(exitCode)
 }
 
-private data class EarningsResultsRefreshCliArgs(
-    val from: LocalDate? = null,
-    val to: LocalDate? = null,
-    val pastDays: Int = 30,
-    val chunkDays: Int = 5,
-    val eventsFile: String = DEFAULT_EARNINGS_EVENTS_FILE,
-)
-
-private fun parseArgs(args: Array<String>): EarningsResultsRefreshCliArgs {
-    val values = args
-        .mapNotNull { arg ->
-            if (!arg.startsWith("--") || !arg.contains("=")) {
-                null
-            } else {
-                val key = arg.substringAfter("--").substringBefore("=")
-                val value = arg.substringAfter("=")
-                key to value
-            }
-        }
-        .toMap()
-
-    val from = values["from"]?.let { value -> runCatching { LocalDate.parse(value) }.getOrNull() }
-    val to = values["to"]?.let { value -> runCatching { LocalDate.parse(value) }.getOrNull() }
-    val pastDays = values["pastDays"]?.toIntOrNull() ?: 30
-    val chunkDays = values["chunkDays"]?.toIntOrNull() ?: 5
-    val eventsFile = values["eventsFile"]?.takeIf { value -> value.isNotBlank() } ?: DEFAULT_EARNINGS_EVENTS_FILE
-
-    return EarningsResultsRefreshCliArgs(
-        from = from,
-        to = to,
-        pastDays = pastDays,
-        chunkDays = chunkDays,
-        eventsFile = eventsFile,
-    )
-}
-
 private data class EarningsResultsRuntime(
     val service: EarningsResultService,
 ) {
     companion object {
-        fun fromEnvironment(cli: EarningsResultsRefreshCliArgs): EarningsResultsRuntime {
+        fun fromEnvironment(): EarningsResultsRuntime {
             val databaseConfig = DatabaseConfig(
                 jdbcUrl = ConfigLoader.get("SUPABASE_DB_URL", "supabase.dbUrl"),
             )
@@ -117,7 +80,7 @@ private data class EarningsResultsRuntime(
 
             val service = EarningsResultService(
                 corporateEventSource = FileCorporateEventAdapter(
-                    filePath = Paths.get(cli.eventsFile),
+                    filePath = Paths.get(DEFAULT_EARNINGS_EVENTS_FILE),
                     objectMapper = objectMapper,
                 ),
                 earningsGateway = JdbiEarningsResultGateway(earningsHandler),
@@ -164,3 +127,5 @@ private fun buildObjectMapper(): ObjectMapper {
 }
 
 private const val DEFAULT_EARNINGS_EVENTS_FILE = "manual-input/groww-corporate-events.json"
+private const val DEFAULT_PAST_DAYS = 30
+private const val DEFAULT_CHUNK_DAYS = 5

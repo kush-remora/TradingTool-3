@@ -1,0 +1,1721 @@
+{
+  "watchlistId": "GWL_1729712098800",
+  "responseSymbolDtoList": [
+    {
+      "growwContractId": "GSTK544277",
+      "addedPrice": 3478.2,
+      "addedDate": "2026-04-21T14:40:42",
+      "notesId": null,
+      "score": -1.776762642225E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK544277",
+        "symbolIsin": "INE377N01017",
+        "searchId": "waaree-energies-ltd",
+        "companyName": "Waaree Energies",
+        "companyShortName": "Waaree Energies",
+        "bseScripCode": "544277",
+        "nseScripCode": "WAAREEENER",
+        "equityType": "STOCKS",
+        "yearLowPrice": 2345.1,
+        "yearHighPrice": 3865.0
+      }
+    },
+    {
+      "growwContractId": "GSTK500463",
+      "addedPrice": 527.6,
+      "addedDate": "2026-04-21T14:40:27",
+      "notesId": null,
+      "score": -1.776762627119E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK500463",
+        "symbolIsin": "INE676A01027",
+        "searchId": "agc-networks-ltd",
+        "companyName": "Black Box",
+        "companyShortName": "Black Bo",
+        "bseScripCode": "500463",
+        "nseScripCode": "BBOX",
+        "equityType": "STOCKS",
+        "yearLowPrice": 357.35,
+        "yearHighPrice": 613.8
+      }
+    },
+    {
+      "growwContractId": "GSTK533179",
+      "addedPrice": 5307.3,
+      "addedDate": "2026-04-21T14:40:22",
+      "notesId": null,
+      "score": -1.77676262171E12,
+      "holdingV2Dto": {
+        "symbolIsin": "INE262H01021",
+        "symbolName": "Persistent Systems",
+        "companyShortName": "Persistent Systems",
+        "searchId": "persistent-systems-ltd",
+        "bseScripCode": "533179",
+        "nseScripCode": "PERSISTENT",
+        "logoUrl": "https://assets-netstorage.groww.in/stock-assets/logos2/Persistent.webp",
+        "holdingPrice": 551200,
+        "holdingQty": 2,
+        "holdingContext": {
+          "LOCKED": 0,
+          "PLEDGED": 0,
+          "INPROGRESS_UNPLEDGE": 0
+        },
+        "holdingTxnList": [],
+        "positions": {
+          "symbolIsin": "INE262H01021",
+          "contractId": null,
+          "netQuantity": null,
+          "netPriceValue": null,
+          "netCfQuantity": null,
+          "netCfPriceValue": null,
+          "exchangePosition": {
+            "BSE": {
+              "creditQty": 0,
+              "creditPrice": 0,
+              "debitQty": 0,
+              "debitPrice": 0,
+              "cfCreditQty": 0,
+              "cfCreditPrice": 0,
+              "cfDebitQty": 0,
+              "cfDebitPrice": 0,
+              "longPosition": true,
+              "valid": false
+            },
+            "NSE": {
+              "creditQty": 0,
+              "creditPrice": 0,
+              "debitQty": 0,
+              "debitPrice": 0,
+              "cfCreditQty": 0,
+              "cfCreditPrice": 0,
+              "cfDebitQty": 0,
+              "cfDebitPrice": 0,
+              "longPosition": true,
+              "valid": false
+            }
+          }
+        },
+        "netQuantity": 2,
+        "netPriceValue": 551200,
+        "t1HoldingQty": 0,
+        "eventText": "",
+        "dummyQty": 0.0,
+        "futureAdditionalQty": 0.0,
+        "holdingEventList": []
+      },
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK533179",
+        "symbolIsin": "INE262H01021",
+        "searchId": "persistent-systems-ltd",
+        "companyName": "Persistent Systems",
+        "companyShortName": "Persistent Systems",
+        "bseScripCode": "533179",
+        "nseScripCode": "PERSISTENT",
+        "equityType": "STOCKS",
+        "yearLowPrice": 4449.1,
+        "yearHighPrice": 6599.0
+      }
+    },
+    {
+      "growwContractId": "GSTK504132",
+      "addedPrice": 850.0,
+      "addedDate": "2026-04-21T14:40:19",
+      "notesId": null,
+      "score": -1.776762618915E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK504132",
+        "symbolIsin": "INE418E01018",
+        "searchId": "permanent-magnets-ltd",
+        "companyName": "Permanent Magnets",
+        "companyShortName": "Permanent Magnets",
+        "bseScripCode": "504132",
+        "equityType": "STOCKS",
+        "yearLowPrice": 618.6,
+        "yearHighPrice": 1229.9
+      }
+    },
+    {
+      "growwContractId": "GSTK532234",
+      "addedPrice": 423.8,
+      "addedDate": "2026-04-21T14:40:09",
+      "notesId": null,
+      "score": -1.776762609232E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK532234",
+        "symbolIsin": "INE139A01034",
+        "searchId": "national-aluminium-company-ltd",
+        "companyName": "National Aluminium Co",
+        "companyShortName": "NALCO",
+        "bseScripCode": "532234",
+        "nseScripCode": "NATIONALUM",
+        "equityType": "STOCKS",
+        "yearLowPrice": 149.0,
+        "yearHighPrice": 440.0
+      }
+    },
+    {
+      "growwContractId": "GSTK542141",
+      "addedPrice": 1257.45,
+      "addedDate": "2026-04-21T14:40:03",
+      "notesId": null,
+      "score": -1.776762602757E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK542141",
+        "symbolIsin": "INE285K01026",
+        "searchId": "techno-electric-engineering-company-ltd",
+        "companyName": "Techno Electric & Engineering Company",
+        "companyShortName": "Techno Electric",
+        "bseScripCode": "542141",
+        "nseScripCode": "TECHNOE",
+        "equityType": "STOCKS",
+        "yearLowPrice": 870.0,
+        "yearHighPrice": 1654.0
+      }
+    },
+    {
+      "growwContractId": "GSTK534139",
+      "addedPrice": 1070.0,
+      "addedDate": "2026-04-21T14:39:56",
+      "notesId": null,
+      "score": -1.776762595878E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK534139",
+        "symbolIsin": "INE839M01018",
+        "searchId": "schneider-electric-infrastructure-ltd",
+        "companyName": "Schneider Electric Infrastructure",
+        "companyShortName": "Schneider Electric",
+        "bseScripCode": "534139",
+        "nseScripCode": "SCHNEIDER",
+        "equityType": "STOCKS",
+        "yearLowPrice": 540.0,
+        "yearHighPrice": 1087.85
+      }
+    },
+    {
+      "growwContractId": "GSTK543972",
+      "addedPrice": 287.84,
+      "addedDate": "2026-04-21T14:39:50",
+      "notesId": null,
+      "score": -1.77676258955E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK543972",
+        "symbolIsin": "INE024001021",
+        "searchId": "aeroflex-industries-ltd",
+        "companyName": "Aeroflex Industries",
+        "companyShortName": "Aeroflex Industries",
+        "bseScripCode": "543972",
+        "nseScripCode": "AEROFLEX",
+        "equityType": "STOCKS",
+        "yearLowPrice": 152.1,
+        "yearHighPrice": 321.4
+      }
+    },
+    {
+      "growwContractId": "GSTK544606",
+      "addedPrice": 195.03,
+      "addedDate": "2026-04-21T14:39:10",
+      "notesId": null,
+      "score": -1.776762550205E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK544606",
+        "symbolIsin": "INE15B701018",
+        "searchId": "pine-labs-ltd",
+        "companyName": "Pine Labs",
+        "companyShortName": "Pine Labs",
+        "bseScripCode": "544606",
+        "nseScripCode": "PINELABS",
+        "equityType": "STOCKS",
+        "yearLowPrice": 151.12,
+        "yearHighPrice": 284.0
+      }
+    },
+    {
+      "growwContractId": "GSTK544600",
+      "addedPrice": 538.5,
+      "addedDate": "2026-04-21T14:39:02",
+      "notesId": null,
+      "score": -1.776762542275E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK544600",
+        "symbolIsin": "INE956O01016",
+        "searchId": "lenskart-solutions-ltd",
+        "companyName": "Lenskart Solutions",
+        "companyShortName": "Lenskart Solutions",
+        "bseScripCode": "544600",
+        "nseScripCode": "LENSKART",
+        "equityType": "STOCKS",
+        "yearLowPrice": 356.1,
+        "yearHighPrice": 557.65
+      }
+    },
+    {
+      "growwContractId": "GSTK544609",
+      "addedPrice": 109.72,
+      "addedDate": "2026-04-21T14:38:59",
+      "notesId": null,
+      "score": -1.776762538552E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK544609",
+        "symbolIsin": "INE0LP301011",
+        "searchId": "physicswallah-ltd",
+        "companyName": "Physicswallah",
+        "companyShortName": "Physicswallah",
+        "bseScripCode": "544609",
+        "nseScripCode": "PWL",
+        "equityType": "STOCKS",
+        "yearLowPrice": 77.72,
+        "yearHighPrice": 161.99
+      }
+    },
+    {
+      "growwContractId": "GSTK500033",
+      "addedPrice": 21913.0,
+      "addedDate": "2026-04-21T14:38:53",
+      "notesId": null,
+      "score": -1.776762532829E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK500033",
+        "symbolIsin": "INE451A01017",
+        "searchId": "force-motors-ltd",
+        "companyName": "Force Motors",
+        "companyShortName": "Force Motors",
+        "bseScripCode": "500033",
+        "nseScripCode": "FORCEMOT",
+        "equityType": "STOCKS",
+        "yearLowPrice": 8710.0,
+        "yearHighPrice": 26450.0
+      }
+    },
+    {
+      "growwContractId": "GSTK524816",
+      "addedPrice": 1059.5,
+      "addedDate": "2026-04-21T14:38:49",
+      "notesId": null,
+      "score": -1.776762529115E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK524816",
+        "symbolIsin": "INE987B01026",
+        "searchId": "natco-pharma-ltd",
+        "companyName": "Natco Pharma",
+        "companyShortName": "Natco Pharma",
+        "bseScripCode": "524816",
+        "nseScripCode": "NATCOPHARM",
+        "equityType": "STOCKS",
+        "yearLowPrice": 775.0,
+        "yearHighPrice": 1134.85
+      }
+    },
+    {
+      "growwContractId": "GSTK544465",
+      "addedPrice": 121.17,
+      "addedDate": "2026-04-21T14:38:46",
+      "notesId": null,
+      "score": -1.776762525607E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK544465",
+        "symbolIsin": "INE06WU01026",
+        "searchId": "laxmi-india-finance-ltd",
+        "companyName": "Laxmi India Finance",
+        "companyShortName": "Laxmi India Finance",
+        "bseScripCode": "544465",
+        "nseScripCode": "LAXMIINDIA",
+        "equityType": "STOCKS",
+        "yearLowPrice": 71.06,
+        "yearHighPrice": 180.9
+      }
+    },
+    {
+      "growwContractId": "GSTK543529",
+      "addedPrice": 472.85,
+      "addedDate": "2026-04-21T14:38:38",
+      "notesId": null,
+      "score": -1.776762517917E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK543529",
+        "symbolIsin": "INE148O01028",
+        "searchId": "delhivery-ltd",
+        "companyName": "Delhivery",
+        "companyShortName": "Delhivery",
+        "bseScripCode": "543529",
+        "nseScripCode": "DELHIVERY",
+        "equityType": "STOCKS",
+        "yearLowPrice": 284.0,
+        "yearHighPrice": 490.0
+      }
+    },
+    {
+      "growwContractId": "GSTK532454",
+      "addedPrice": 1858.6,
+      "addedDate": "2026-04-21T14:38:13",
+      "notesId": null,
+      "score": -1.77676249325E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK532454",
+        "symbolIsin": "INE397D01024",
+        "searchId": "bharti-airtel-ltd",
+        "companyName": "Bharti Airtel",
+        "companyShortName": "Bharti Airtel",
+        "bseScripCode": "532454",
+        "nseScripCode": "BHARTIARTL",
+        "equityType": "STOCKS",
+        "yearLowPrice": 1746.9,
+        "yearHighPrice": 2174.5
+      }
+    },
+    {
+      "growwContractId": "GSTK517569",
+      "addedPrice": 4865.8,
+      "addedDate": "2026-04-21T14:38:09",
+      "notesId": null,
+      "score": -1.776762489133E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK517569",
+        "symbolIsin": "INE878B01027",
+        "searchId": "kei-industries-ltd",
+        "companyName": "KEI Industries",
+        "companyShortName": "KEI Industries",
+        "bseScripCode": "517569",
+        "nseScripCode": "KEI",
+        "equityType": "STOCKS",
+        "yearLowPrice": 2791.0,
+        "yearHighPrice": 5303.0
+      }
+    },
+    {
+      "growwContractId": "GSTK543390",
+      "addedPrice": 1624.2,
+      "addedDate": "2026-04-21T14:38:06",
+      "notesId": null,
+      "score": -1.776762485769E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK543390",
+        "symbolIsin": "INE417T01026",
+        "searchId": "pb-fintech-ltd",
+        "companyName": "PolicyBazaar - PB Fintech Ltd.",
+        "companyShortName": "PolicyBazaar",
+        "bseScripCode": "543390",
+        "nseScripCode": "POLICYBZR",
+        "equityType": "STOCKS",
+        "yearLowPrice": 1364.0,
+        "yearHighPrice": 1978.0
+      }
+    },
+    {
+      "growwContractId": "GSTK512296",
+      "addedPrice": 214.85,
+      "addedDate": "2026-04-21T14:38:02",
+      "notesId": null,
+      "score": -1.776762481719E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK512296",
+        "symbolIsin": "INE458B01036",
+        "searchId": "bhagyanagar-india-ltd",
+        "companyName": "Bhagyanagar India",
+        "companyShortName": "Bhagyanagar India",
+        "bseScripCode": "512296",
+        "nseScripCode": "BHAGYANGR",
+        "equityType": "STOCKS",
+        "yearLowPrice": 65.0,
+        "yearHighPrice": 218.0
+      }
+    },
+    {
+      "growwContractId": "GSTK543981",
+      "addedPrice": 1459.3,
+      "addedDate": "2026-04-21T14:37:29",
+      "notesId": null,
+      "score": -1.776762448669E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK543981",
+        "symbolIsin": "INE777K01022",
+        "searchId": "rr-kabel-ltd",
+        "companyName": "RR Kabel",
+        "companyShortName": "RR Kabel",
+        "bseScripCode": "543981",
+        "nseScripCode": "RRKABEL",
+        "equityType": "STOCKS",
+        "yearLowPrice": 933.05,
+        "yearHighPrice": 1578.2
+      }
+    },
+    {
+      "growwContractId": "GSTK500477",
+      "addedPrice": 176.9,
+      "addedDate": "2026-04-21T14:37:24",
+      "notesId": null,
+      "score": -1.776762444043E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK500477",
+        "symbolIsin": "INE208A01029",
+        "searchId": "ashok-leyland-ltd",
+        "companyName": "Ashok Leyland",
+        "companyShortName": "Ashok Leyland",
+        "bseScripCode": "500477",
+        "nseScripCode": "ASHOKLEY",
+        "equityType": "STOCKS",
+        "yearLowPrice": 108.1,
+        "yearHighPrice": 215.42
+      }
+    },
+    {
+      "growwContractId": "GSTK543300",
+      "addedPrice": 581.5,
+      "addedDate": "2026-04-21T14:37:17",
+      "notesId": null,
+      "score": -1.776762436802E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK543300",
+        "symbolIsin": "INE073K01018",
+        "searchId": "sona-blw-precision-forgings-ltd",
+        "companyName": "Sona BLW Precision Forgings",
+        "companyShortName": "Sona BLW Precision",
+        "bseScripCode": "543300",
+        "nseScripCode": "SONACOMS",
+        "equityType": "STOCKS",
+        "yearLowPrice": 402.3,
+        "yearHighPrice": 596.95
+      }
+    },
+    {
+      "growwContractId": "GSTK500520",
+      "addedPrice": 3251.0,
+      "addedDate": "2026-04-21T14:37:11",
+      "notesId": null,
+      "score": -1.776762430623E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK500520",
+        "symbolIsin": "INE101A01026",
+        "searchId": "mahindra-mahindra-ltd",
+        "companyName": "Mahindra & Mahindra",
+        "companyShortName": "Mahindra & Mahindra",
+        "bseScripCode": "500520",
+        "nseScripCode": "M&M",
+        "equityType": "STOCKS",
+        "yearLowPrice": 2665.9,
+        "yearHighPrice": 3839.9
+      }
+    },
+    {
+      "growwContractId": "GSTK532539",
+      "addedPrice": 1150.2,
+      "addedDate": "2026-04-21T14:37:05",
+      "notesId": null,
+      "score": -1.776762425383E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK532539",
+        "symbolIsin": "INE405E01023",
+        "searchId": "minda-industries-ltd",
+        "companyName": "UNO Minda",
+        "companyShortName": "UNO Minda",
+        "bseScripCode": "532539",
+        "nseScripCode": "UNOMINDA",
+        "equityType": "STOCKS",
+        "yearLowPrice": 864.3,
+        "yearHighPrice": 1382.0
+      }
+    },
+    {
+      "growwContractId": "GSTK522275",
+      "addedPrice": 4254.0,
+      "addedDate": "2026-04-21T14:36:45",
+      "notesId": null,
+      "score": -1.776762404624E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK522275",
+        "symbolIsin": "INE200A01026",
+        "searchId": "ge-td-india-ltd",
+        "companyName": "GE Vernova T&D India",
+        "companyShortName": "GE Vernova T&D India",
+        "bseScripCode": "522275",
+        "nseScripCode": "GVT&D",
+        "equityType": "STOCKS",
+        "yearLowPrice": 1437.1,
+        "yearHighPrice": 4344.0
+      }
+    },
+    {
+      "growwContractId": "GSTK532555",
+      "addedPrice": 396.8,
+      "addedDate": "2026-04-21T14:36:32",
+      "notesId": null,
+      "score": -1.776762392407E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK532555",
+        "symbolIsin": "INE733E01010",
+        "searchId": "ntpc-ltd",
+        "companyName": "NTPC",
+        "companyShortName": "NTPC",
+        "bseScripCode": "532555",
+        "nseScripCode": "NTPC",
+        "equityType": "STOCKS",
+        "yearLowPrice": 315.55,
+        "yearHighPrice": 400.85
+      }
+    },
+    {
+      "growwContractId": "GSTK500510",
+      "addedPrice": 4073.3,
+      "addedDate": "2026-04-21T14:36:27",
+      "notesId": null,
+      "score": -1.776762386744E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK500510",
+        "symbolIsin": "INE018A01030",
+        "searchId": "larsen-toubro-ltd",
+        "companyName": "Larsen & Toubro",
+        "companyShortName": "L&T",
+        "bseScripCode": "500510",
+        "nseScripCode": "LT",
+        "equityType": "STOCKS",
+        "yearLowPrice": 3225.1,
+        "yearHighPrice": 4440.0
+      }
+    },
+    {
+      "growwContractId": "GSTK500400",
+      "addedPrice": 434.25,
+      "addedDate": "2026-04-21T14:36:20",
+      "notesId": null,
+      "score": -1.776762380107E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK500400",
+        "symbolIsin": "INE245A01021",
+        "searchId": "tata-power-company-ltd",
+        "companyName": "Tata Power Company",
+        "companyShortName": "Tata Power",
+        "bseScripCode": "500400",
+        "nseScripCode": "TATAPOWER",
+        "equityType": "STOCKS",
+        "yearLowPrice": 342.5,
+        "yearHighPrice": 438.5
+      }
+    },
+    {
+      "growwContractId": "GSTK532757",
+      "addedPrice": 10527.5,
+      "addedDate": "2026-04-21T14:36:05",
+      "notesId": null,
+      "score": -1.776762365398E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK532757",
+        "symbolIsin": "INE540H01012",
+        "searchId": "voltamp-transformers-ltd",
+        "companyName": "Voltamp Transformers",
+        "companyShortName": "Voltamp Transformers",
+        "bseScripCode": "532757",
+        "nseScripCode": "VOLTAMP",
+        "equityType": "STOCKS",
+        "yearLowPrice": 6666.0,
+        "yearHighPrice": 10599.5
+      }
+    },
+    {
+      "growwContractId": "GSTK532928",
+      "addedPrice": 334.0,
+      "addedDate": "2026-04-21T14:35:57",
+      "notesId": null,
+      "score": -1.776762357362E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK532928",
+        "symbolIsin": "INE763I01026",
+        "searchId": "transformers-rectifiers-india-ltd",
+        "companyName": "Transformers & Rectifiers (India)",
+        "companyShortName": "Transformers India",
+        "bseScripCode": "532928",
+        "nseScripCode": "TARIL",
+        "equityType": "STOCKS",
+        "yearLowPrice": 224.05,
+        "yearHighPrice": 594.0
+      }
+    },
+    {
+      "growwContractId": "GSTK507410",
+      "addedPrice": 190.6,
+      "addedDate": "2026-04-21T14:35:52",
+      "notesId": null,
+      "score": -1.776762351689E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK507410",
+        "symbolIsin": "INE711A01022",
+        "searchId": "walchandnagar-industries-ltd",
+        "companyName": "Walchandnagar Industries",
+        "companyShortName": "Walchandnagar Inds",
+        "bseScripCode": "507410",
+        "nseScripCode": "WALCHANNAG",
+        "equityType": "STOCKS",
+        "yearLowPrice": 131.15,
+        "yearHighPrice": 277.75
+      }
+    },
+    {
+      "growwContractId": "GSTK500295",
+      "addedPrice": 765.5,
+      "addedDate": "2026-04-21T14:35:42",
+      "notesId": null,
+      "score": -1.776762342E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK500295",
+        "symbolIsin": "INE205A01025",
+        "searchId": "vedanta-ltd",
+        "companyName": "Vedanta",
+        "companyShortName": "Vedanta",
+        "bseScripCode": "500295",
+        "nseScripCode": "VEDL",
+        "equityType": "STOCKS",
+        "yearLowPrice": 398.6,
+        "yearHighPrice": 791.15
+      }
+    },
+    {
+      "growwContractId": "GSTK532898",
+      "addedPrice": 319.9,
+      "addedDate": "2026-04-21T14:35:00",
+      "notesId": null,
+      "score": -1.77676229973E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK532898",
+        "symbolIsin": "INE752E01010",
+        "searchId": "power-grid-corporation-of-india-ltd",
+        "companyName": "Power Grid Corporation Of India",
+        "companyShortName": "Power Grid Corp",
+        "bseScripCode": "532898",
+        "nseScripCode": "POWERGRID",
+        "equityType": "STOCKS",
+        "yearLowPrice": 250.0,
+        "yearHighPrice": 323.05
+      }
+    },
+    {
+      "growwContractId": "GSTK543270",
+      "addedPrice": 5111.5,
+      "addedDate": "2026-04-21T14:34:53",
+      "notesId": null,
+      "score": -1.776762292827E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK543270",
+        "symbolIsin": "INE864I01014",
+        "searchId": "mtar-technologies-ltd",
+        "companyName": "MTAR Technologies",
+        "companyShortName": "MTAR Technologies",
+        "bseScripCode": "543270",
+        "nseScripCode": "MTARTECH",
+        "equityType": "STOCKS",
+        "yearLowPrice": 1358.0,
+        "yearHighPrice": 5070.0
+      }
+    },
+    {
+      "growwContractId": "GSTK543187",
+      "addedPrice": 30035.0,
+      "addedDate": "2026-04-21T14:34:48",
+      "notesId": null,
+      "score": -1.776762288431E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK543187",
+        "symbolIsin": "INE07Y701011",
+        "searchId": "abb-power-products-systems-india-ltd",
+        "companyName": "Hitachi Energy India",
+        "companyShortName": "Hitachi Energy",
+        "bseScripCode": "543187",
+        "nseScripCode": "POWERINDIA",
+        "equityType": "STOCKS",
+        "yearLowPrice": 13153.0,
+        "yearHighPrice": 29900.0
+      }
+    },
+    {
+      "growwContractId": "GSTK544569",
+      "addedPrice": 440.95,
+      "addedDate": "2026-04-21T14:34:43",
+      "notesId": null,
+      "score": -1.776762282654E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK544569",
+        "symbolIsin": "INE1TAE01010",
+        "searchId": "tata-motors-ltd-22",
+        "companyName": "Tata Motors",
+        "companyShortName": "Tata Motors Commercial",
+        "bseScripCode": "544569",
+        "nseScripCode": "TMCV",
+        "equityType": "STOCKS",
+        "yearLowPrice": 306.3,
+        "yearHighPrice": 509.0
+      }
+    },
+    {
+      "growwContractId": "GSTK532488",
+      "addedPrice": 6281.5,
+      "addedDate": "2026-04-21T14:34:34",
+      "notesId": null,
+      "score": -1.776762273888E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK532488",
+        "symbolIsin": "INE361B01024",
+        "searchId": "divis-laboratories-ltd",
+        "companyName": "Divi's Laboratories",
+        "companyShortName": "Divi's Labs",
+        "bseScripCode": "532488",
+        "nseScripCode": "DIVISLAB",
+        "equityType": "STOCKS",
+        "yearLowPrice": 5636.5,
+        "yearHighPrice": 7071.5
+      }
+    },
+    {
+      "growwContractId": "GSTK500480",
+      "addedPrice": 5120.0,
+      "addedDate": "2026-04-21T14:34:20",
+      "notesId": null,
+      "score": -1.77676225992E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK500480",
+        "symbolIsin": "INE298A01020",
+        "searchId": "cummins-india-ltd",
+        "companyName": "Cummins India",
+        "companyShortName": "Cummins India",
+        "bseScripCode": "500480",
+        "nseScripCode": "CUMMINSIND",
+        "equityType": "STOCKS",
+        "yearLowPrice": 2706.0,
+        "yearHighPrice": 5216.9
+      }
+    },
+    {
+      "growwContractId": "GSTK500493",
+      "addedPrice": 1902.9,
+      "addedDate": "2026-04-21T14:34:17",
+      "notesId": null,
+      "score": -1.776762256686E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK500493",
+        "symbolIsin": "INE465A01025",
+        "searchId": "bharat-forge-ltd",
+        "companyName": "Bharat Forge",
+        "companyShortName": "Bharat Forge",
+        "bseScripCode": "500493",
+        "nseScripCode": "BHARATFORG",
+        "equityType": "STOCKS",
+        "yearLowPrice": 1066.7,
+        "yearHighPrice": 1935.5
+      }
+    },
+    {
+      "growwContractId": "GSTK543945",
+      "addedPrice": 3932.2,
+      "addedDate": "2026-04-21T14:34:11",
+      "notesId": null,
+      "score": -1.776762251397E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK543945",
+        "symbolIsin": "INE0NT901020",
+        "searchId": "netweb-technologies-india-ltd",
+        "companyName": "Netweb Technologies India",
+        "companyShortName": "Netweb Technologies",
+        "bseScripCode": "543945",
+        "nseScripCode": "NETWEB",
+        "equityType": "STOCKS",
+        "yearLowPrice": 1397.1,
+        "yearHighPrice": 4479.0
+      }
+    },
+    {
+      "growwContractId": "GSTK540065",
+      "addedPrice": 320.55,
+      "addedDate": "2026-04-21T14:34:08",
+      "notesId": null,
+      "score": -1.776762247987E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK540065",
+        "symbolIsin": "INE976G01028",
+        "searchId": "rbl-bank-ltd",
+        "companyName": "RBL Bank",
+        "companyShortName": "RBL Bank",
+        "bseScripCode": "540065",
+        "nseScripCode": "RBLBANK",
+        "equityType": "STOCKS",
+        "yearLowPrice": 183.45,
+        "yearHighPrice": 340.4
+      }
+    },
+    {
+      "growwContractId": "GSTK532889",
+      "addedPrice": 923.15,
+      "addedDate": "2026-04-21T14:33:52",
+      "notesId": null,
+      "score": -1.776762232347E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK532889",
+        "symbolIsin": "INE930H01031",
+        "searchId": "kpr-mill-ltd",
+        "companyName": "K.P.R. Mill",
+        "companyShortName": "K.P.R. Mill",
+        "bseScripCode": "532889",
+        "nseScripCode": "KPRMILL",
+        "equityType": "STOCKS",
+        "yearLowPrice": 796.1,
+        "yearHighPrice": 1389.0
+      }
+    },
+    {
+      "growwContractId": "GSTK540692",
+      "addedPrice": 473.8,
+      "addedDate": "2026-04-21T14:33:47",
+      "notesId": null,
+      "score": -1.77676222686E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK540692",
+        "symbolIsin": "INE346W01013",
+        "searchId": "apex-frozen-foods-ltd",
+        "companyName": "Apex Frozen Foods",
+        "companyShortName": "Apex Frozen Foods",
+        "bseScripCode": "540692",
+        "nseScripCode": "APEX",
+        "equityType": "STOCKS",
+        "yearLowPrice": 198.0,
+        "yearHighPrice": 496.8
+      }
+    },
+    {
+      "growwContractId": "GSTK532504",
+      "addedPrice": 6399.0,
+      "addedDate": "2026-04-21T14:33:39",
+      "notesId": null,
+      "score": -1.776762218905E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK532504",
+        "symbolIsin": "INE048G01026",
+        "searchId": "navin-fluorine-international-ltd",
+        "companyName": "Navin Fluorine International",
+        "companyShortName": "Navin Fluorine Intl",
+        "bseScripCode": "532504",
+        "nseScripCode": "NAVINFLUOR",
+        "equityType": "STOCKS",
+        "yearLowPrice": 4189.4,
+        "yearHighPrice": 6965.0
+      }
+    },
+    {
+      "growwContractId": "GSTK500330",
+      "addedPrice": 448.1,
+      "addedDate": "2026-04-21T14:33:34",
+      "notesId": null,
+      "score": -1.77676221403E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK500330",
+        "symbolIsin": "INE301A01014",
+        "searchId": "raymond-ltd",
+        "companyName": "Raymond",
+        "companyShortName": "Raymond",
+        "bseScripCode": "500330",
+        "nseScripCode": "RAYMOND",
+        "equityType": "STOCKS",
+        "yearLowPrice": 320.0,
+        "yearHighPrice": 783.9
+      }
+    },
+    {
+      "growwContractId": "GSTK543990",
+      "addedPrice": 856.95,
+      "addedDate": "2026-04-21T14:33:28",
+      "notesId": null,
+      "score": -1.776762208255E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK543990",
+        "symbolIsin": "INE903U01023",
+        "searchId": "signatureglobal-india-ltd",
+        "companyName": "Signatureglobal (India)",
+        "companyShortName": "Signatureglobal Ind.",
+        "bseScripCode": "543990",
+        "nseScripCode": "SIGNATURE",
+        "equityType": "STOCKS",
+        "yearLowPrice": 705.2,
+        "yearHighPrice": 1309.5
+      }
+    },
+    {
+      "growwContractId": "GSTK512573",
+      "addedPrice": 1478.0,
+      "addedDate": "2026-04-21T14:33:23",
+      "notesId": null,
+      "score": -1.776762203094E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK512573",
+        "symbolIsin": "INE871C01038",
+        "searchId": "avanti-feeds-ltd",
+        "companyName": "Avanti Feeds",
+        "companyShortName": "Avanti Feeds",
+        "bseScripCode": "512573",
+        "nseScripCode": "AVANTIFEED",
+        "equityType": "STOCKS",
+        "yearLowPrice": 614.25,
+        "yearHighPrice": 1545.0
+      }
+    },
+    {
+      "growwContractId": "GSTK526729",
+      "addedPrice": 409.15,
+      "addedDate": "2026-04-21T14:33:16",
+      "notesId": null,
+      "score": -1.776762196124E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK526729",
+        "symbolIsin": "INE025B01025",
+        "searchId": "goldiam-international-ltd",
+        "companyName": "Goldiam International",
+        "companyShortName": "Goldiam Intl",
+        "bseScripCode": "526729",
+        "nseScripCode": "GOLDIAM",
+        "equityType": "STOCKS",
+        "yearLowPrice": 265.0,
+        "yearHighPrice": 444.0
+      }
+    },
+    {
+      "growwContractId": "GSTK540879",
+      "addedPrice": 286.88,
+      "addedDate": "2026-04-21T14:33:05",
+      "notesId": null,
+      "score": -1.776762185022E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK540879",
+        "symbolIsin": "INE713T01028",
+        "searchId": "apollo-micro-systems-ltd",
+        "companyName": "Apollo Micro Systems",
+        "companyShortName": "Apollo Micro Systems",
+        "bseScripCode": "540879",
+        "nseScripCode": "APOLLO",
+        "equityType": "STOCKS",
+        "yearLowPrice": 110.37,
+        "yearHighPrice": 354.7
+      }
+    },
+    {
+      "growwContractId": "GSTK543273",
+      "addedPrice": 1717.9,
+      "addedDate": "2026-04-21T14:33:00",
+      "notesId": null,
+      "score": -1.776762180218E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK543273",
+        "symbolIsin": "INE0CJD01029",
+        "searchId": "knowledge-marine-engineering-works-pvt-ltd",
+        "companyName": "Knowledge Marine & Engineering Works",
+        "companyShortName": "Knowledge Marine",
+        "bseScripCode": "543273",
+        "nseScripCode": "KMEW",
+        "equityType": "STOCKS",
+        "yearLowPrice": 650.5,
+        "yearHighPrice": 1959.3
+      }
+    },
+    {
+      "growwContractId": "GSTK523618",
+      "addedPrice": 997.05,
+      "addedDate": "2026-04-21T14:32:51",
+      "notesId": null,
+      "score": -1.776762170827E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK523618",
+        "symbolIsin": "INE506A01018",
+        "searchId": "dredging-corporation-of-india-ltd",
+        "companyName": "Dredging Corporation of India",
+        "companyShortName": "Dredging Corporation",
+        "bseScripCode": "523618",
+        "nseScripCode": "DREDGECORP",
+        "equityType": "STOCKS",
+        "yearLowPrice": 538.0,
+        "yearHighPrice": 1245.0
+      }
+    },
+    {
+      "growwContractId": "GSTK500300",
+      "addedPrice": 2783.1,
+      "addedDate": "2026-04-21T14:32:46",
+      "notesId": null,
+      "score": -1.776762165722E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK500300",
+        "symbolIsin": "INE047A01021",
+        "searchId": "grasim-industries-ltd",
+        "companyName": "Grasim Industries",
+        "companyShortName": "Grasim Industries",
+        "bseScripCode": "500300",
+        "nseScripCode": "GRASIM",
+        "equityType": "STOCKS",
+        "yearLowPrice": 2502.5,
+        "yearHighPrice": 2979.0
+      }
+    },
+    {
+      "growwContractId": "GSTK514043",
+      "addedPrice": 93.23,
+      "addedDate": "2026-04-21T14:32:41",
+      "notesId": null,
+      "score": -1.776762161177E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK514043",
+        "symbolIsin": "INE049A01027",
+        "searchId": "himatsingka-seide-ltd",
+        "companyName": "Himatsingka Seide",
+        "companyShortName": "Himatsingka Seide",
+        "bseScripCode": "514043",
+        "nseScripCode": "HIMATSEIDE",
+        "equityType": "STOCKS",
+        "yearLowPrice": 72.01,
+        "yearHighPrice": 168.66
+      }
+    },
+    {
+      "growwContractId": "GSTK532500",
+      "addedPrice": 13486.0,
+      "addedDate": "2026-04-21T14:32:18",
+      "notesId": null,
+      "score": -1.776762137698E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK532500",
+        "symbolIsin": "INE585B01010",
+        "searchId": "maruti-suzuki-india-ltd",
+        "companyName": "Maruti Suzuki India",
+        "companyShortName": "Maruti Suzuki",
+        "bseScripCode": "532500",
+        "nseScripCode": "MARUTI",
+        "equityType": "STOCKS",
+        "yearLowPrice": 11289.0,
+        "yearHighPrice": 17370.0
+      }
+    },
+    {
+      "growwContractId": "GSTK500407",
+      "addedPrice": 4034.4,
+      "addedDate": "2026-04-21T14:32:13",
+      "notesId": null,
+      "score": -1.776762133018E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK500407",
+        "symbolIsin": "INE277A01016",
+        "searchId": "swaraj-engines-ltd",
+        "companyName": "Swaraj Engines",
+        "companyShortName": "Swaraj Engines",
+        "bseScripCode": "500407",
+        "nseScripCode": "SWARAJENG",
+        "equityType": "STOCKS",
+        "yearLowPrice": 3301.3,
+        "yearHighPrice": 4720.0
+      }
+    },
+    {
+      "growwContractId": "GSTK532268",
+      "addedPrice": 1200.6,
+      "addedDate": "2026-04-21T14:32:10",
+      "notesId": null,
+      "score": -1.776762129543E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK532268",
+        "symbolIsin": "INE793A01012",
+        "searchId": "accelya-kale-solutions-ltd",
+        "companyName": "Accelya Solutions India",
+        "companyShortName": "Accelya Solutions",
+        "bseScripCode": "532268",
+        "nseScripCode": "ACCELYA",
+        "equityType": "STOCKS",
+        "yearLowPrice": 1012.4,
+        "yearHighPrice": 1527.0
+      }
+    },
+    {
+      "growwContractId": "GSTK543349",
+      "addedPrice": 2388.5,
+      "addedDate": "2026-04-21T14:31:58",
+      "notesId": null,
+      "score": -1.776762118289E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK543349",
+        "symbolIsin": "INE00FF01025",
+        "searchId": "ami-organics-ltd",
+        "companyName": "Acutaas Chemicals",
+        "companyShortName": "Acutaas Chemicals",
+        "bseScripCode": "543349",
+        "nseScripCode": "ACUTAAS",
+        "equityType": "STOCKS",
+        "yearLowPrice": 1040.5,
+        "yearHighPrice": 2634.8
+      }
+    },
+    {
+      "growwContractId": "GSTK543428",
+      "addedPrice": 3578.4,
+      "addedDate": "2026-04-21T14:31:50",
+      "notesId": null,
+      "score": -1.776762110182E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK543428",
+        "symbolIsin": "INE0IX101010",
+        "searchId": "data-patterns-india-ltd",
+        "companyName": "Data Patterns (India)",
+        "companyShortName": "Data Patterns (I)",
+        "bseScripCode": "543428",
+        "nseScripCode": "DATAPATTNS",
+        "equityType": "STOCKS",
+        "yearLowPrice": 1903.6,
+        "yearHighPrice": 3609.5
+      }
+    },
+    {
+      "growwContractId": "GSTK544466",
+      "addedPrice": 2235.1,
+      "addedDate": "2026-04-21T14:31:46",
+      "notesId": null,
+      "score": -1.776762105597E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK544466",
+        "symbolIsin": "INE819V01029",
+        "searchId": "aditya-infotech-ltd",
+        "companyName": "Aditya Infotech",
+        "companyShortName": "Aditya Infotech",
+        "bseScripCode": "544466",
+        "nseScripCode": "CPPLUS",
+        "equityType": "STOCKS",
+        "yearLowPrice": 1015.0,
+        "yearHighPrice": 2285.9
+      }
+    },
+    {
+      "growwContractId": "GSTK500116",
+      "addedPrice": 75.05,
+      "addedDate": "2026-04-21T14:31:38",
+      "notesId": null,
+      "score": -1.776762098091E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK500116",
+        "symbolIsin": "INE008A01015",
+        "searchId": "idbi-bank-ltd",
+        "companyName": "IDBI Bank",
+        "companyShortName": "IDBI Bank",
+        "bseScripCode": "500116",
+        "nseScripCode": "IDBI",
+        "equityType": "STOCKS",
+        "yearLowPrice": 61.01,
+        "yearHighPrice": 118.38
+      }
+    },
+    {
+      "growwContractId": "GSTK543474",
+      "addedPrice": 28.57,
+      "addedDate": "2026-04-21T14:31:35",
+      "notesId": null,
+      "score": -1.776762094831E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK543474",
+        "symbolIsin": "INF209KB19D1",
+        "searchId": "birla-sun-life-mutual-fund-birla-sun-life-nifty-etf-growth",
+        "companyName": "Aditya Birla Sun Life Nifty 50 ETF",
+        "companyShortName": "BSLNIFTY",
+        "bseScripCode": "543474",
+        "nseScripCode": "BSLNIFTY",
+        "equityType": "ETF",
+        "yearLowPrice": 25.7,
+        "yearHighPrice": 31.45
+      }
+    },
+    {
+      "growwContractId": "GSTK543415",
+      "addedPrice": 3647.9,
+      "addedDate": "2026-04-21T14:31:25",
+      "notesId": null,
+      "score": -1.776762085338E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK543415",
+        "symbolIsin": "INE463V01026",
+        "searchId": "anand-rathi-wealth-services-ltd",
+        "companyName": "Anand Rathi Wealth Ltd.",
+        "companyShortName": "Anand Rathi Weal",
+        "bseScripCode": "543415",
+        "nseScripCode": "ANANDRATHI",
+        "equityType": "STOCKS",
+        "yearLowPrice": 1641.0,
+        "yearHighPrice": 3735.0
+      }
+    },
+    {
+      "growwContractId": "GSTK515055",
+      "addedPrice": 517.45,
+      "addedDate": "2026-04-21T14:31:15",
+      "notesId": null,
+      "score": -1.776762074924E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK515055",
+        "symbolIsin": "INE242C01024",
+        "searchId": "anant-raj-ltd",
+        "companyName": "Anant Raj",
+        "companyShortName": "Anant Raj",
+        "bseScripCode": "515055",
+        "nseScripCode": "ANANTRAJ",
+        "equityType": "STOCKS",
+        "yearLowPrice": 403.0,
+        "yearHighPrice": 743.65
+      }
+    },
+    {
+      "growwContractId": "GSTK542726",
+      "addedPrice": 2170.8,
+      "addedDate": "2026-04-21T14:31:07",
+      "notesId": null,
+      "score": -1.776762067139E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK542726",
+        "symbolIsin": "INE933S01016",
+        "searchId": "indiamart-intermesh-ltd",
+        "companyName": "Indiamart Intermesh",
+        "companyShortName": "Indiamart Inter",
+        "bseScripCode": "542726",
+        "nseScripCode": "INDIAMART",
+        "equityType": "STOCKS",
+        "yearLowPrice": 1925.6,
+        "yearHighPrice": 2799.0
+      }
+    },
+    {
+      "growwContractId": "GSTK542652",
+      "addedPrice": 7999.0,
+      "addedDate": "2026-04-21T14:31:02",
+      "notesId": null,
+      "score": -1.776762062231E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK542652",
+        "symbolIsin": "INE455K01017",
+        "searchId": "polycab-india-ltd",
+        "companyName": "Polycab India",
+        "companyShortName": "Polycab India",
+        "bseScripCode": "542652",
+        "nseScripCode": "POLYCAB",
+        "equityType": "STOCKS",
+        "yearLowPrice": 5280.0,
+        "yearHighPrice": 8722.0
+      }
+    },
+    {
+      "growwContractId": "GSTK532667",
+      "addedPrice": 52.89,
+      "addedDate": "2026-04-21T14:30:58",
+      "notesId": null,
+      "score": -1.776762057803E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK532667",
+        "symbolIsin": "INE040H01021",
+        "searchId": "suzlon-energy-ltd",
+        "companyName": "Suzlon Energy",
+        "companyShortName": "Suzlon Energy",
+        "bseScripCode": "532667",
+        "nseScripCode": "SUZLON",
+        "equityType": "STOCKS",
+        "yearLowPrice": 38.19,
+        "yearHighPrice": 74.3
+      }
+    },
+    {
+      "growwContractId": "GSTK505790",
+      "addedPrice": 4142.0,
+      "addedDate": "2026-04-21T14:30:54",
+      "notesId": null,
+      "score": -1.776762054282E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK505790",
+        "symbolIsin": "INE513A01022",
+        "searchId": "schaeffler-india-ltd",
+        "companyName": "Schaeffler India",
+        "companyShortName": "Schaeffler India",
+        "bseScripCode": "505790",
+        "nseScripCode": "SCHAEFFLER",
+        "equityType": "STOCKS",
+        "yearLowPrice": 3158.4,
+        "yearHighPrice": 4467.7
+      }
+    },
+    {
+      "growwContractId": "GSTK544210",
+      "addedPrice": 1597.8,
+      "addedDate": "2026-04-21T14:30:48",
+      "notesId": null,
+      "score": -1.776762047606E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK544210",
+        "symbolIsin": "INE168P01015",
+        "searchId": "emcure-pharmaceuticals-ltd",
+        "companyName": "Emcure Pharmaceuticals",
+        "companyShortName": "Emcure Pharma",
+        "bseScripCode": "544210",
+        "nseScripCode": "EMCURE",
+        "equityType": "STOCKS",
+        "yearLowPrice": 983.0,
+        "yearHighPrice": 1688.0
+      }
+    },
+    {
+      "growwContractId": "GSTK505192",
+      "addedPrice": 4030.0,
+      "addedDate": "2026-04-21T14:30:42",
+      "notesId": null,
+      "score": -1.776762042445E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK505192",
+        "symbolIsin": "INE294B01019",
+        "searchId": "sml-isuzu-ltd",
+        "companyName": "SML Mahindra",
+        "companyShortName": "SML Mahindra",
+        "bseScripCode": "505192",
+        "nseScripCode": "SMLMAH",
+        "equityType": "STOCKS",
+        "yearLowPrice": 1520.0,
+        "yearHighPrice": 5348.0
+      }
+    },
+    {
+      "growwContractId": "GSTK532755",
+      "addedPrice": 1536.6,
+      "addedDate": "2026-02-13T06:15:39",
+      "notesId": null,
+      "score": 0.0,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK532755",
+        "symbolIsin": "INE669C01036",
+        "searchId": "tech-mahindra-ltd",
+        "companyName": "Tech Mahindra",
+        "companyShortName": "Tech Mahindra",
+        "bseScripCode": "532755",
+        "nseScripCode": "TECHM",
+        "equityType": "STOCKS",
+        "yearLowPrice": 1303.0,
+        "yearHighPrice": 1854.0
+      }
+    },
+    {
+      "growwContractId": "GSTK500209",
+      "addedPrice": 1386.0,
+      "addedDate": "2026-02-13T05:44:17",
+      "notesId": null,
+      "score": 1.0,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK500209",
+        "symbolIsin": "INE009A01021",
+        "searchId": "infosys-ltd",
+        "companyName": "Infosys",
+        "companyShortName": "Infosys",
+        "bseScripCode": "500209",
+        "nseScripCode": "INFY",
+        "equityType": "STOCKS",
+        "yearLowPrice": 1215.1,
+        "yearHighPrice": 1728.0
+      }
+    },
+    {
+      "growwContractId": "GSTK512599",
+      "addedPrice": 2236.6,
+      "addedDate": "2026-02-05T18:03:25",
+      "notesId": null,
+      "score": 2.0,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK512599",
+        "symbolIsin": "INE423A01024",
+        "searchId": "adani-enterprises-ltd",
+        "companyName": "Adani Enterprises",
+        "companyShortName": "Adani Enterprises",
+        "bseScripCode": "512599",
+        "nseScripCode": "ADANIENT",
+        "equityType": "STOCKS",
+        "yearLowPrice": 1753.0,
+        "yearHighPrice": 2612.78
+      }
+    },
+    {
+      "growwContractId": "GSTK543384",
+      "addedPrice": 237.5,
+      "addedDate": "2026-02-01T07:44:43",
+      "notesId": null,
+      "score": 3.0,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK543384",
+        "symbolIsin": "INE388Y01029",
+        "searchId": "fsn-ecommerce-ventures-ltd",
+        "companyName": "Nykaa - FSN E-Commerce Ventures Ltd.",
+        "companyShortName": "Nykaa",
+        "bseScripCode": "543384",
+        "nseScripCode": "NYKAA",
+        "equityType": "STOCKS",
+        "yearLowPrice": 186.84,
+        "yearHighPrice": 285.6
+      }
+    },
+    {
+      "growwContractId": "GSTK544026",
+      "addedPrice": 132.08,
+      "addedDate": "2026-01-31T14:45:48",
+      "notesId": null,
+      "score": 4.0,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK544026",
+        "symbolIsin": "INE202E01016",
+        "searchId": "indian-renewable-energy-development-agency-ltd-1569588972606",
+        "companyName": "Indian Renewable Energy Development Agency",
+        "companyShortName": "Indian Ren. Energy",
+        "bseScripCode": "544026",
+        "nseScripCode": "IREDA",
+        "equityType": "STOCKS",
+        "yearLowPrice": 108.65,
+        "yearHighPrice": 186.58
+      }
+    },
+    {
+      "growwContractId": "GSTK534618",
+      "addedPrice": 905.4,
+      "addedDate": "2026-01-31T14:42:15",
+      "notesId": null,
+      "score": 5.0,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK534618",
+        "symbolIsin": "INE299N01021",
+        "searchId": "sangam-renewables-ltd",
+        "companyName": "Waaree Renewables",
+        "companyShortName": "Waaree Renewables",
+        "bseScripCode": "534618",
+        "nseScripCode": "WAAREERTL",
+        "equityType": "STOCKS",
+        "yearLowPrice": 779.5,
+        "yearHighPrice": 1358.0
+      }
+    },
+    {
+      "growwContractId": "GSTK532493",
+      "addedPrice": 982.6,
+      "addedDate": "2026-01-31T14:41:06",
+      "notesId": null,
+      "score": 6.0,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK532493",
+        "symbolIsin": "INE386C01029",
+        "searchId": "astra-microwave-products-ltd",
+        "companyName": "Astra Micro Wave Products",
+        "companyShortName": "Astra Micro Wave",
+        "bseScripCode": "532493",
+        "nseScripCode": "ASTRAMICRO",
+        "equityType": "STOCKS",
+        "yearLowPrice": 769.65,
+        "yearHighPrice": 1195.9
+      }
+    },
+    {
+      "growwContractId": "GSTK543940",
+      "addedPrice": 255.2,
+      "addedDate": "2026-01-29T01:38:41",
+      "notesId": null,
+      "score": 7.0,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK543940",
+        "symbolIsin": "INE758E01017",
+        "searchId": "jio-financial-services-ltd",
+        "companyName": "JIO Financial Services",
+        "companyShortName": "JIO Financial Serv.",
+        "bseScripCode": "543940",
+        "nseScripCode": "JIOFIN",
+        "equityType": "STOCKS",
+        "yearLowPrice": 223.3,
+        "yearHighPrice": 338.6
+      }
+    },
+    {
+      "growwContractId": "GSTK500325",
+      "addedPrice": 1396.7,
+      "addedDate": "2026-01-29T01:38:23",
+      "notesId": null,
+      "score": 8.0,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK500325",
+        "symbolIsin": "INE002A01018",
+        "searchId": "reliance-industries-ltd",
+        "companyName": "Reliance Industries",
+        "companyShortName": "Reliance Industries",
+        "bseScripCode": "500325",
+        "nseScripCode": "RELIANCE",
+        "equityType": "STOCKS",
+        "yearLowPrice": 1267.0,
+        "yearHighPrice": 1611.8
+      }
+    },
+    {
+      "growwContractId": "GSTK532461",
+      "addedPrice": null,
+      "addedDate": null,
+      "notesId": null,
+      "score": 9.0,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK532461",
+        "symbolIsin": "INE160A01022",
+        "searchId": "punjab-national-bank",
+        "companyName": "Punjab National Bank",
+        "companyShortName": "PNB",
+        "bseScripCode": "532461",
+        "nseScripCode": "PNB",
+        "equityType": "STOCKS",
+        "yearLowPrice": 89.45,
+        "yearHighPrice": 135.15
+      }
+    },
+    {
+      "growwContractId": "GSTK500470",
+      "addedPrice": null,
+      "addedDate": null,
+      "notesId": null,
+      "score": 10.0,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK500470",
+        "symbolIsin": "INE081A01020",
+        "searchId": "tata-steel-ltd",
+        "companyName": "Tata Steel",
+        "companyShortName": "Tata Steel",
+        "bseScripCode": "500470",
+        "nseScripCode": "TATASTEEL",
+        "equityType": "STOCKS",
+        "yearLowPrice": 137.05,
+        "yearHighPrice": 216.45
+      }
+    },
+    {
+      "growwContractId": "GSTK500103",
+      "addedPrice": null,
+      "addedDate": null,
+      "notesId": null,
+      "score": 11.0,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK500103",
+        "symbolIsin": "INE257A01026",
+        "searchId": "bharat-heavy-electricals-ltd",
+        "companyName": "Bharat Heavy Electricals",
+        "companyShortName": "BHEL",
+        "bseScripCode": "500103",
+        "nseScripCode": "BHEL",
+        "equityType": "STOCKS",
+        "yearLowPrice": 205.12,
+        "yearHighPrice": 333.79
+      }
+    },
+    {
+      "growwContractId": "GSTK533098",
+      "addedPrice": null,
+      "addedDate": null,
+      "notesId": null,
+      "score": 12.0,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK533098",
+        "symbolIsin": "INE848E01016",
+        "searchId": "nhpc-ltd",
+        "companyName": "NHPC",
+        "companyShortName": "NHPC",
+        "bseScripCode": "533098",
+        "nseScripCode": "NHPC",
+        "equityType": "STOCKS",
+        "yearLowPrice": 71.62,
+        "yearHighPrice": 92.34
+      }
+    },
+    {
+      "growwContractId": "GSTK543320",
+      "addedPrice": null,
+      "addedDate": null,
+      "notesId": null,
+      "score": 13.0,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK543320",
+        "symbolIsin": "INE758T01015",
+        "searchId": "zomato-ltd",
+        "companyName": "Eternal",
+        "companyShortName": "Eternal (Zomato)",
+        "bseScripCode": "543320",
+        "nseScripCode": "ETERNAL",
+        "equityType": "STOCKS",
+        "yearLowPrice": 212.6,
+        "yearHighPrice": 368.45
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "from" : "2026-04-21",
+  "to" : "2026-05-21",
+  "pastFrom" : "2026-03-22",
+  "pastTo" : "2026-04-20",
+  "chunkDays" : 5,
+  "chunkCount" : 7,
+  "fetchedEvents" : 224,
+  "upsertedRows" : 224,
+  "pastRowsEvaluated" : 0,
+  "behaviorRowsUpdated" : 0,
+  "preResultUpdates" : 0,
+  "resultDayUpdates" : 0,
+  "nextDayUpdates" : 0,
+  "plus5dUpdates" : 0
+}
