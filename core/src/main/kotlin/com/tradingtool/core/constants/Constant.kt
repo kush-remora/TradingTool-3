@@ -13,6 +13,7 @@ object DatabaseConstants {
         const val INTRADAY_CANDLES = "intraday_candles"
         const val STOCK_DELIVERY_DAILY = "stock_delivery_daily"
         const val RSI_MOMENTUM_SNAPSHOT_DAILY = "rsi_momentum_snapshot_daily"
+        const val EARNINGS_RESULTS = "earnings_results"
     }
 
     object KiteTokenColumns {
@@ -99,5 +100,14 @@ object DatabaseConstants {
         const val SOURCE_NAME = "source_name"
         const val SOURCE_URL = "source_url"
         const val FETCHED_AT = "fetched_at"
+    }
+
+    object EarningsResultColumns {
+        const val ID = "id"
+        const val STOCK_SYMBOL = "stock_symbol"
+        const val RESULT_DATE = "result_date"
+        const val BEHAVIOR_PAYLOAD = "behavior_payload"
+        const val CREATED_AT = "created_at"
+        const val UPDATED_AT = "updated_at"
     }
 }

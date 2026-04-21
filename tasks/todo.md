@@ -1354,3 +1354,80 @@ Add a new V2 Dashboard tab with an input table for symbol + sell date and a prof
   - `npm --prefix frontend run -s build` passed
 - Note:
   - Running Maven tests in `core` currently fails due pre-existing unrelated test-compile errors in RSI momentum test files; this is not introduced by this change.
+
+# Implementation Plan: Earnings Result Move Tracker (DB foundation)
+
+## Overview
+Create minimal Postgres schema to track company result dates and later behavior snapshots for analysis windows (2 weeks before, result day, next day, 5 days after).
+
+## Implementation Steps
+- [x] Add `earnings_results` table with `id`, `stock_symbol`, `result_date`, timestamps, and uniqueness guard.
+- [x] Add `earnings_result_behavior_snapshots` table linked to `earnings_results` with JSONB snapshot payload and as-of date.
+- [x] Add indexes for fast lookup by stock/date and result id.
+- [x] Update reset script to drop new tables safely.
+- [x] Run a focused compile/smoke validation and document outcomes.
+- [x] Run required Kotlin review gate (no direct Kotlin changes expected) and record findings.
+
+## Review
+- Schema updates:
+  - Added `public.earnings_results` for minimal event registry (`id`, `stock_symbol`, `result_date`).
+  - Simplified behavior storage to inline `JSONB behavior_payload` column on `earnings_results` (removed separate snapshot table after product decision).
+  - Added indexes for stock/date lookups and JSONB payload querying.
+- Quality fix included:
+  - Corrected a broken declaration for `public.rsi_momentum_snapshot_daily` in `tables.sql` so schema bootstrap is syntactically valid.
+- Reset script:
+  - Added drop statement for `earnings_results`.
+  - Added missing drop for `rsi_momentum_snapshot_daily`.
+- Verification:
+  - `mvn -q -pl core -DskipTests compile` passed.
+- Review gates:
+  - `coding-standards`, `backend-architect`, `kotlin-patterns`, `frontend-patterns`, `kotlin-reviewer` were invoked per repo policy.
+  - `code-reviewer` pass completed; no CRITICAL/HIGH findings for this change set.
+
+# Implementation Plan: Earnings Results Daily Cron (Groww + Behavior Enrichment)
+
+## Overview
+Build a daily cron flow that ingests upcoming result events from Groww in 5-day chunks for a 30-day forward window, then enriches past events (last 30 days) with staged behavior metrics in `earnings_results.behavior_payload`.
+
+## Implementation Steps
+- [x] Add earnings core domain (`GrowwCorporateEventAdapter`, gateways, service, and DAO layer).
+- [x] Add DB constants and DAO SQL for `earnings_results` upsert + behavior payload update.
+- [x] Add candle DAO symbol/date query for behavior computation inputs.
+- [x] Implement behavior formulas for `pre_result`, `result_day`, `next_day`, `plus_5d` using trading-session indexing.
+- [x] Add new cron entrypoint `EarningsResultsRefreshJob` with CLI args and report artifacts.
+- [x] Add unit tests for adapter parsing and service chunking/behavior logic.
+- [x] Run compile checks for changed modules.
+- [x] Run required review gate pass.
+
+## Review
+- Core additions:
+  - Added earnings domain models/interfaces in `core/earnings`.
+  - Added `GrowwCorporateEventAdapter` filtering to `RESULTS` rows only, skipping entries missing `nseSymbol`, and mapping event date from `corporateEventPillDto.primaryDate`.
+  - Added `EarningsResultService` orchestration:
+    - chunked ingestion (`today..today+30`, default `chunkDays=5`),
+    - past-window enrichment (`today-30..today-1`) with staged payload updates.
+  - Added behavior payload staging with locked formulas:
+    - `pre_result`: event-day open vs D-14 close,
+    - `result_day`: open/high + open-to-close %,
+    - `next_day`: open/high + open-to-close %,
+    - `plus_5d`: +5 trading-day close vs event-day close, plus open/high metadata.
+- DAO/constants updates:
+  - Added earnings table/column constants.
+  - Added read/write DAOs for upsert, range fetch, and JSONB payload update.
+  - Added `getDailyCandlesBySymbol` query to candle read DAO for symbol-based behavior calculations.
+- Cron job:
+  - Added `cron-job/.../EarningsResultsRefreshJob.kt`.
+  - Supports optional CLI args:
+    - `--from=YYYY-MM-DD`
+    - `--to=YYYY-MM-DD`
+    - `--pastDays=30`
+    - `--chunkDays=5`
+  - Writes report artifacts under `build/reports/earnings-results-refresh`.
+- Tests:
+  - Added adapter parsing coverage for `RESULTS` filtering and symbol/date validation.
+  - Added service coverage for chunk slicing, idempotent upsert behavior, trading-session stage computation, and missing-stage handling.
+- Verification:
+  - `mvn -q -pl core,cron-job -DskipTests compile` passed.
+  - Running module tests is currently blocked by pre-existing unrelated `core` test-compile failures in RSI/profitlookback test files.
+- Review gates:
+  - `coding-standards`, `backend-architect`, `kotlin-patterns`, `frontend-patterns`, `kotlin-reviewer` invoked per repo policy.

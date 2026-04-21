@@ -30,6 +30,20 @@ interface CandleReadDao {
         @Bind("to") to: LocalDate,
     ): List<DailyCandle>
 
+    @SqlQuery(
+        """
+        SELECT * FROM public.${Tables.DAILY_CANDLES}
+        WHERE symbol = :symbol
+          AND candle_date BETWEEN :from AND :to
+        ORDER BY candle_date
+        """
+    )
+    fun getDailyCandlesBySymbol(
+        @Bind("symbol") symbol: String,
+        @Bind("from") from: LocalDate,
+        @Bind("to") to: LocalDate,
+    ): List<DailyCandle>
+
     /**
      * Returns Monday morning candles (09:15–09:45 IST) in [from, to] range.
      * Used for Monday dip calculation in the weekly pattern screener.

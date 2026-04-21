@@ -20,3 +20,7 @@
 - In backtests, never use `entryPrice` as the default fallback exit price when current-rank data is missing; first attempt exit-day candle close, otherwise clearly mark pricing as unavailable.
 - When result windows are user-selected but computed from sparse historical snapshots, always show both requested range and actual data-coverage range in UI to avoid false inconsistency.
 - When adding frontend universe filters, ensure all action endpoints (including refresh/sync) carry the same universe parameter; otherwise the UI selection and backend refresh scope drift.
+
+## 2026-04-21
+
+- For earnings-event tracking in this single-user tool, prefer a single-table JSONB payload (`earnings_results.behavior_payload`) over a separate snapshot-history table unless the user explicitly asks for normalized history tables.
