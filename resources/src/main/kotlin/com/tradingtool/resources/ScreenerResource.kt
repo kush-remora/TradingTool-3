@@ -11,6 +11,8 @@ import com.tradingtool.core.stock.service.StockService
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.screener.CandleDataService
+import com.tradingtool.core.screener.RsiFloorScannerRequest
+import com.tradingtool.core.screener.RsiFloorScannerService
 import com.tradingtool.core.screener.WeeklyCycleSuccessScanResponse
 import com.tradingtool.core.screener.WeeklyCycleSuccessService
 import com.tradingtool.core.screener.WeeklyPatternService
@@ -98,6 +100,7 @@ class ScreenerResource @Inject constructor(
     private val fundamentalsFilterConfigService: FundamentalsFilterConfigService,
     private val fundamentalsHandler: StockFundamentalsJdbiHandler,
     private val drawdownScannerService: com.tradingtool.core.screener.DrawdownScannerService,
+    private val rsiFloorScannerService: RsiFloorScannerService,
     private val weeklyCycleSuccessService: WeeklyCycleSuccessService,
     private val watchlistService: WatchlistService,
     private val stockService: StockService,
@@ -191,6 +194,14 @@ class ScreenerResource @Inject constructor(
     fun drawdownScanner(@QueryParam("universe") universe: String?): CompletableFuture<Response> = ioScope.endpoint {
         val selectedUniverse = universe?.trim()?.uppercase()?.takeIf { it.isNotBlank() } ?: "WATCHLIST"
         ok(drawdownScannerService.scanUniverse(selectedUniverse))
+    }
+
+    @POST
+    @Path("/remora-rsi-floor/scan")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun remoraRsiFloorScan(request: RsiFloorScannerRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val normalizedRequest = request ?: RsiFloorScannerRequest()
+        ok(rsiFloorScannerService.scan(normalizedRequest))
     }
 
     @GET

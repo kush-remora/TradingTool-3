@@ -5,13 +5,16 @@ import java.time.LocalDate
 
 data class RsiFloorScannerRequest(
     val universe: String = "ALL_NSE",
+    val freshScan: Boolean = false,
+    val lookbackMatchDays: Int = DEFAULT_LOOKBACK_MATCH_DAYS,
     val rsiPeriod: Int = DEFAULT_RSI_PERIOD,
-    val lookbackDays: Int = DEFAULT_LOOKBACK_DAYS,
+    val yearWindowDays: Int = DEFAULT_YEAR_WINDOW_DAYS,
     val hardRsiLimit: Double = DEFAULT_HARD_RSI_LIMIT,
 ) {
     companion object {
+        const val DEFAULT_LOOKBACK_MATCH_DAYS: Int = 14
         const val DEFAULT_RSI_PERIOD: Int = 14
-        const val DEFAULT_LOOKBACK_DAYS: Int = 252
+        const val DEFAULT_YEAR_WINDOW_DAYS: Int = 365
         const val DEFAULT_HARD_RSI_LIMIT: Double = 20.0
     }
 }
@@ -22,12 +25,17 @@ data class RsiFloorScannerRow(
     val exchange: String,
     val instrumentToken: Long,
     val currentRsi: Double,
-    val lowestRsiLookback: Double,
-    val matchedByLookbackLow: Boolean,
+    val yearLowRsiAtMatchedDay: Double,
+    val matchedByYearLow: Boolean,
     val matchedByHardLimit: Boolean,
-    val latestCandleDate: LocalDate,
+    val matchedDate: LocalDate,
+    val ltp: Double?,
+    val drawdownPct: Double?,
+    val high52w: Double?,
+    val low52w: Double?,
     val marketCapCr: Double?,
     val capBucket: MarketCapBucket,
+    val historyType: RsiHistoryType,
 )
 
 data class RsiFloorScannerResult(
@@ -37,11 +45,23 @@ data class RsiFloorScannerResult(
     val scannedSymbols: Int,
     val skippedInsufficientHistory: Int,
     val matchedCount: Int,
+    val lookbackMatchDays: Int,
     val rsiPeriod: Int,
-    val lookbackDays: Int,
+    val yearWindowDays: Int,
     val hardRsiLimit: Double,
+    val source: RsiFloorScanSource,
     val rows: List<RsiFloorScannerRow>,
 )
+
+enum class RsiFloorScanSource {
+    CACHE,
+    FRESH,
+}
+
+enum class RsiHistoryType {
+    FULL_1Y,
+    PARTIAL_IPO,
+}
 
 enum class MarketCapBucket {
     LARGE,
@@ -62,10 +82,10 @@ fun classifyMarketCapBucket(marketCapCr: Double?): MarketCapBucket {
 
 fun matchesRsiFloorCondition(
     currentRsi: Double,
-    lowestRsiLookback: Double,
+    yearLowRsiAtMatchedDay: Double,
     hardRsiLimit: Double,
 ): Boolean {
-    return currentRsi <= lowestRsiLookback || currentRsi <= hardRsiLimit
+    return currentRsi <= yearLowRsiAtMatchedDay || currentRsi <= hardRsiLimit
 }
 
 private const val LARGE_CAP_MIN_CR: Double = 20_000.0

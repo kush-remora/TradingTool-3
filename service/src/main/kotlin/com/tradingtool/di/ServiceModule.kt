@@ -41,6 +41,7 @@ import com.tradingtool.core.delivery.config.DeliveryUniverseService
 import com.tradingtool.core.delivery.reconciliation.DeliveryReconciliationService
 import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
 import com.tradingtool.core.screener.CandleDataService
+import com.tradingtool.core.screener.RsiFloorScannerService
 import com.tradingtool.core.screener.WeeklyCycleSuccessService
 import com.tradingtool.core.screener.WeeklyPatternConfigService
 import com.tradingtool.core.screener.WeeklyPatternService
@@ -92,6 +93,7 @@ class ServiceModule(
         bind(TradeService::class.java).`in`(Singleton::class.java)
         bind(TradeReadinessService::class.java).`in`(Singleton::class.java)
         bind(com.tradingtool.core.screener.DrawdownScannerService::class.java).`in`(Singleton::class.java)
+        bind(RsiFloorScannerService::class.java).`in`(Singleton::class.java)
         bind(ProfitLookbackService::class.java).`in`(Singleton::class.java)
         bind(HttpRequestExecutor::class.java).to(JdkHttpRequestExecutor::class.java).`in`(Singleton::class.java)
 

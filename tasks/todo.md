@@ -8,15 +8,42 @@ Build a minimal backend scanner console endpoint for the Remora sub-slice that s
 Also attach a practical market-cap bucket (`LARGE`, `MID`, `SMALL`, `UNKNOWN`) to each hit.
 
 ## Implementation Steps
-- [ ] Add RSI-floor scanner models for response rows/envelope and cap-bucket classification.
-- [ ] Add RSI-floor scanner service that reads NSE EQ symbols, computes RSI conditions, and filters hits.
-- [ ] Add Screener API endpoint to trigger this scanner from a console/API call.
-- [ ] Wire dependency injection for the new scanner service.
-- [ ] Run compile/tests for changed modules.
-- [ ] Run Kotlin reviewer pass and record findings.
+- [x] Add RSI-floor scanner models for response rows/envelope and cap-bucket classification.
+- [x] Add RSI-floor scanner service that reads NSE EQ symbols, computes RSI conditions, and filters hits.
+- [x] Add Screener API endpoint to trigger this scanner from a console/API call.
+- [x] Wire dependency injection for the new scanner service.
+- [x] Add Remora RSI Floor frontend page with universe dropdown + scan controls + sortable/filterable table.
+- [x] Run compile/build checks for changed modules.
+- [x] Run Kotlin reviewer pass and record findings.
 
 ## Review
-- Pending
+- Backend:
+  - Extended RSI floor request/response models to include:
+    - `freshScan`, `lookbackMatchDays`, `yearWindowDays`, `source`,
+    - row fields for matched-day RSI context, LTP, drawdown, and 52W levels.
+  - Added `RsiFloorScannerService`:
+    - supports universe dropdown presets (`ALL_NSE`, `ALL_CUSTOM_UNIVERSE`, `NIFTY_100`, `NIFTY_LARGEMIDCAP_250`, plus existing buckets),
+    - applies 14-session match window logic and latest-matched-day row selection,
+    - uses `Redis -> Postgres -> Kite` candle fallback,
+    - supports fresh scan cache clear (`result cache + yearly candle cache`) when `freshScan=true`.
+  - Added endpoint:
+    - `POST /api/screener/remora-rsi-floor/scan` in `ScreenerResource`.
+  - Added DI binding:
+    - `RsiFloorScannerService` in `ServiceModule`.
+- Frontend:
+  - Added new page: `RemoraRsiFloorPage`.
+  - Added menu/route entry in `App.tsx` (`remora-rsi-floor`).
+  - Added scanner request/response types in `frontend/src/types.ts`.
+  - Implemented:
+    - universe dropdown,
+    - `Scan` button,
+    - `Delete Redis + Scan Fresh` button,
+    - sortable/filterable table columns for symbol, cap bucket, match type, RSI, LTP, drawdown, 52W high/low, market cap.
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm --prefix frontend run -s build` passed.
+- Kotlin reviewer pass:
+  - No CRITICAL/HIGH issues identified in new Kotlin scanner/resource wiring.
 
 # Implementation Plan: Fundamentals Universe + Profile Filter APIs and UI
 

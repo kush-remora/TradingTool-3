@@ -273,6 +273,55 @@ export interface WatchlistRow {
   volumeVsAvg: number | null;
 }
 
+// ==================== Remora RSI Floor Scanner ====================
+
+export type MarketCapBucket = "LARGE" | "MID" | "SMALL" | "UNKNOWN";
+export type RsiFloorScanSource = "CACHE" | "FRESH";
+export type RsiHistoryType = "FULL_1Y" | "PARTIAL_IPO";
+
+export interface RsiFloorScannerRequest {
+  universe?: string;
+  freshScan?: boolean;
+  lookbackMatchDays?: number;
+  rsiPeriod?: number;
+  yearWindowDays?: number;
+  hardRsiLimit?: number;
+}
+
+export interface RsiFloorScannerRow {
+  symbol: string;
+  companyName: string;
+  exchange: string;
+  instrumentToken: number;
+  currentRsi: number;
+  yearLowRsiAtMatchedDay: number;
+  matchedByYearLow: boolean;
+  matchedByHardLimit: boolean;
+  matchedDate: string;
+  ltp: number | null;
+  drawdownPct: number | null;
+  high52w: number | null;
+  low52w: number | null;
+  marketCapCr: number | null;
+  capBucket: MarketCapBucket;
+  historyType: RsiHistoryType;
+}
+
+export interface RsiFloorScannerResult {
+  runAt: string;
+  universe: string;
+  requestedSymbols: number;
+  scannedSymbols: number;
+  skippedInsufficientHistory: number;
+  matchedCount: number;
+  lookbackMatchDays: number;
+  rsiPeriod: number;
+  yearWindowDays: number;
+  hardRsiLimit: number;
+  source: RsiFloorScanSource;
+  rows: RsiFloorScannerRow[];
+}
+
 // ==================== Weekly Screener ====================
 
 export interface SwingSetup {
