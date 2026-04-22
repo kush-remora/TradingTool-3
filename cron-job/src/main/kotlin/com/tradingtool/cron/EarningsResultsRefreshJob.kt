@@ -13,9 +13,12 @@ import com.tradingtool.core.earnings.EarningsResultService
 import com.tradingtool.core.earnings.FileCorporateEventAdapter
 import com.tradingtool.core.earnings.JdbiCandleGateway
 import com.tradingtool.core.earnings.JdbiEarningsResultGateway
+import com.tradingtool.core.earnings.JdbiEarningsStockTokenLookup
 import com.tradingtool.core.earnings.dao.EarningsResultReadDao
 import com.tradingtool.core.earnings.dao.EarningsResultWriteDao
 import com.tradingtool.core.model.DatabaseConfig
+import com.tradingtool.core.stock.dao.StockReadDao
+import com.tradingtool.core.stock.dao.StockWriteDao
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import java.nio.file.Files
@@ -45,12 +48,16 @@ fun main(args: Array<String>) {
             )
             val outputDir = writeArtifacts(result)
             log.info(
-                "Earnings refresh complete: from={} to={} chunks={} fetched={} upserted={} pastRows={} behaviorUpdated={} output={}",
+                "Earnings refresh complete: from={} to={} chunks={} fetched={} unique={} upserted={} unresolved={} nullAfter={} notNullEnforced={} pastRows={} behaviorUpdated={} output={}",
                 result.from,
                 result.to,
                 result.chunkCount,
                 result.fetchedEvents,
+                result.uniqueEvents,
                 result.upsertedRows,
+                result.unresolvedTokenCount,
+                result.nullInstrumentTokenRowsAfterRefresh,
+                result.instrumentTokenNotNullEnforced,
                 result.pastRowsEvaluated,
                 result.behaviorRowsUpdated,
                 outputDir.toAbsolutePath(),
@@ -77,6 +84,7 @@ private data class EarningsResultsRuntime(
 
             val earningsHandler = JdbiHandler(databaseConfig, EarningsResultReadDao::class.java, EarningsResultWriteDao::class.java)
             val candleHandler = JdbiHandler(databaseConfig, CandleReadDao::class.java, CandleWriteDao::class.java)
+            val stockHandler = JdbiHandler(databaseConfig, StockReadDao::class.java, StockWriteDao::class.java)
 
             val service = EarningsResultService(
                 corporateEventSource = FileCorporateEventAdapter(
@@ -85,6 +93,7 @@ private data class EarningsResultsRuntime(
                 ),
                 earningsGateway = JdbiEarningsResultGateway(earningsHandler),
                 candleGateway = JdbiCandleGateway(candleHandler),
+                stockTokenLookup = JdbiEarningsStockTokenLookup(stockHandler),
                 objectMapper = objectMapper,
             )
 
@@ -111,7 +120,14 @@ private fun EarningsRefreshResult.toMarkdown(): String {
         appendLine("- Chunk days: `${chunkDays}`")
         appendLine("- Chunk count: `${chunkCount}`")
         appendLine("- Fetched events: `${fetchedEvents}`")
+        appendLine("- Unique events: `${uniqueEvents}`")
         appendLine("- Upserted rows: `${upsertedRows}`")
+        appendLine("- Unresolved tokens: `${unresolvedTokenCount}`")
+        appendLine("- Null instrument_token rows after refresh: `${nullInstrumentTokenRowsAfterRefresh}`")
+        appendLine("- instrument_token NOT NULL enforced: `${instrumentTokenNotNullEnforced}`")
+        if (unresolvedSymbolsSample.isNotEmpty()) {
+            appendLine("- Unresolved symbol sample: `${unresolvedSymbolsSample.joinToString(", ")}`")
+        }
         appendLine("- Past behavior window: `${pastFrom}` → `${pastTo}`")
         appendLine("- Past rows evaluated: `${pastRowsEvaluated}`")
         appendLine("- Behavior rows updated: `${behaviorRowsUpdated}`")

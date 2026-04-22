@@ -214,6 +214,58 @@ export interface ProfitLookbackBulkResponse {
   rows: ProfitLookbackBulkRowResponse[];
 }
 
+// ==================== Earnings Dashboard ====================
+
+export interface EarningsDashboardRow {
+  symbol: string;
+  instrumentToken: number;
+  resultDate: string;
+  daysToResult: number;
+  isGrowwWatchlist: boolean;
+  pre15dReturnPct: number | null;
+  pre10dReturnPct: number | null;
+  pre15dMaxDrawdownPct: number | null;
+  eventDayOcPct: number | null;
+  eventDayOhPct: number | null;
+  nextDayOcPct: number | null;
+  nextDayOhPct: number | null;
+  latestClose: number | null;
+  latestVolume: number | null;
+  candleCoverage20d: number;
+}
+
+export interface EarningsDashboardResponse {
+  asOfDate: string;
+  daysAhead: number;
+  growwOnly: boolean;
+  rows: EarningsDashboardRow[];
+}
+
+export interface EarningsDashboardRawCandleBlock {
+  symbol: string;
+  instrumentToken: number;
+  candles: Array<{
+    candleDate: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+  }>;
+}
+
+export interface EarningsDashboardExportFilters {
+  daysAhead: number;
+  growwOnly: boolean;
+}
+
+export interface EarningsDashboardExportDocument {
+  generated_at: string;
+  filters: EarningsDashboardExportFilters;
+  calculated_rows: EarningsDashboardRow[];
+  raw_daily_candles_20d: EarningsDashboardRawCandleBlock[];
+}
+
 // ==================== Remora Strategy ====================
 
 export interface RemoraSignal {

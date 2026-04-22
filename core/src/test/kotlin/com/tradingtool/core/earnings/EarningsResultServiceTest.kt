@@ -41,7 +41,12 @@ class EarningsResultServiceTest {
         )
         val gateway = FakeEarningsGateway()
         val candles = FakeCandleGateway(emptyMap())
-        val service = buildService(source, gateway, candles)
+        val service = buildService(
+            source = source,
+            gateway = gateway,
+            candleGateway = candles,
+            stockLookup = FakeStockLookup(mapOf("INFY" to 1L)),
+        )
 
         repeat(2) {
             service.refresh(
@@ -70,6 +75,7 @@ class EarningsResultServiceTest {
                 EarningsResultRow(
                     id = 1L,
                     stockSymbol = symbol,
+                    instrumentToken = 1L,
                     resultDate = eventDate,
                     behaviorPayloadJson = "{}",
                 ),
@@ -97,7 +103,7 @@ class EarningsResultServiceTest {
         }
 
         val candleGateway = FakeCandleGateway(mapOf(symbol to candles))
-        val service = buildService(source, gateway, candleGateway, fixedClock(today))
+        val service = buildService(source, gateway, candleGateway, clock = fixedClock(today))
 
         val result = service.refresh(
             EarningsRefreshRequest(
@@ -137,6 +143,7 @@ class EarningsResultServiceTest {
                 EarningsResultRow(
                     id = 2L,
                     stockSymbol = symbol,
+                    instrumentToken = 2L,
                     resultDate = eventDate,
                     behaviorPayloadJson = "{}",
                 ),
@@ -181,7 +188,7 @@ class EarningsResultServiceTest {
         }
 
         val candleGateway = FakeCandleGateway(mapOf(symbol to candles))
-        val service = buildService(source, gateway, candleGateway, fixedClock(today))
+        val service = buildService(source, gateway, candleGateway, clock = fixedClock(today))
 
         service.refresh(
             EarningsRefreshRequest(
@@ -199,16 +206,51 @@ class EarningsResultServiceTest {
         assertTrue(!updatedNode.has("plus_5d"))
     }
 
+    @Test
+    fun `refresh resolves token from stocks first and skips unresolved symbols`() = runBlocking {
+        val source = FakeCorporateEventSource(
+            eventsByRange = mapOf(
+                Pair(LocalDate.parse("2026-05-01"), LocalDate.parse("2026-05-05")) to listOf(
+                    EarningsResultEvent("INFY", LocalDate.parse("2026-05-04")),
+                    EarningsResultEvent("MISSING", LocalDate.parse("2026-05-04")),
+                ),
+            ),
+        )
+        val gateway = FakeEarningsGateway()
+        val lookup = FakeStockLookup(mapOf("INFY" to 408065L))
+        val service = buildService(
+            source = source,
+            gateway = gateway,
+            candleGateway = FakeCandleGateway(emptyMap()),
+            stockLookup = lookup,
+        )
+
+        val result = service.refresh(
+            EarningsRefreshRequest(
+                from = LocalDate.parse("2026-05-01"),
+                to = LocalDate.parse("2026-05-05"),
+                pastDays = 0,
+                chunkDays = 5,
+            ),
+        )
+
+        assertEquals(1, result.upsertedRows)
+        assertEquals(1, result.unresolvedTokenCount)
+        assertTrue(result.unresolvedSymbolsSample.contains("MISSING"))
+    }
+
     private fun buildService(
         source: EarningsCorporateEventSource,
         gateway: EarningsResultGateway,
         candleGateway: EarningsCandleGateway,
+        stockLookup: EarningsStockTokenLookup? = null,
         clock: Clock = fixedClock(LocalDate.parse("2026-05-20")),
     ): EarningsResultService {
         return EarningsResultService(
             corporateEventSource = source,
             earningsGateway = gateway,
             candleGateway = candleGateway,
+            stockTokenLookup = stockLookup,
             objectMapper = ObjectMapper().registerKotlinModule(),
             clock = clock,
         )
@@ -252,13 +294,13 @@ class EarningsResultServiceTest {
             }
         }
 
-        override suspend fun upsert(stockSymbol: String, resultDate: LocalDate): Int {
+        override suspend fun upsert(stockSymbol: String, instrumentToken: Long, resultDate: LocalDate): Int {
             upsertCalls += 1
             val key = stockSymbol to resultDate
             val existing = rowsByKey[key]
             if (existing == null) {
                 val nextId = (rowsByKey.values.maxOfOrNull { row -> row.id } ?: 0L) + 1L
-                rowsByKey[key] = EarningsResultRow(nextId, stockSymbol, resultDate, "{}")
+                rowsByKey[key] = EarningsResultRow(nextId, stockSymbol, instrumentToken, resultDate, "{}")
             }
             return 1
         }
@@ -273,6 +315,16 @@ class EarningsResultServiceTest {
             rowsByKey[entry.key] = entry.value.copy(behaviorPayloadJson = behaviorPayloadJson)
             return 1
         }
+
+        override suspend fun backfillInstrumentTokenFromStocks(): Int = 0
+
+        override suspend fun findRowsMissingInstrumentToken(limit: Int): List<EarningsMissingTokenRow> = emptyList()
+
+        override suspend fun updateInstrumentToken(id: Long, instrumentToken: Long): Int = 0
+
+        override suspend fun countRowsMissingInstrumentToken(): Int = 0
+
+        override suspend fun enforceInstrumentTokenNotNull(): Boolean = true
     }
 
     private class FakeCandleGateway(
@@ -284,4 +336,11 @@ class EarningsResultServiceTest {
             }
         }
     }
+
+    private class FakeStockLookup(
+        private val bySymbol: Map<String, Long>,
+    ) : EarningsStockTokenLookup {
+        override suspend fun findInstrumentTokenBySymbol(symbol: String): Long? = bySymbol[symbol.uppercase()]
+    }
+
 }

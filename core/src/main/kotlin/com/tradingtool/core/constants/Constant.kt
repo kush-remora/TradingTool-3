@@ -105,6 +105,7 @@ object DatabaseConstants {
     object EarningsResultColumns {
         const val ID = "id"
         const val STOCK_SYMBOL = "stock_symbol"
+        const val INSTRUMENT_TOKEN = "instrument_token"
         const val RESULT_DATE = "result_date"
         const val BEHAVIOR_PAYLOAD = "behavior_payload"
         const val CREATED_AT = "created_at"

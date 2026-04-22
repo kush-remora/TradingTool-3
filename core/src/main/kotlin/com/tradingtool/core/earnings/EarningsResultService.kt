@@ -14,6 +14,7 @@ class EarningsResultService(
     private val corporateEventSource: EarningsCorporateEventSource,
     private val earningsGateway: EarningsResultGateway,
     private val candleGateway: EarningsCandleGateway,
+    private val stockTokenLookup: EarningsStockTokenLookup? = null,
     private val objectMapper: ObjectMapper,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Kolkata")),
 ) {
@@ -29,15 +30,34 @@ class EarningsResultService(
 
         val chunks = splitDateRange(from, to, request.chunkDays)
         var fetchedEvents = 0
+        val uniqueEvents = linkedMapOf<Pair<String, LocalDate>, EarningsResultEvent>()
         var upsertedRows = 0
+        val unresolvedSymbols = linkedSetOf<String>()
 
         for (chunk in chunks) {
             val events = corporateEventSource.fetchResultEvents(chunk.from, chunk.to)
             fetchedEvents += events.size
-            val uniqueEvents = events.distinctBy { event -> event.stockSymbol to event.resultDate }
-            for (event in uniqueEvents) {
-                upsertedRows += earningsGateway.upsert(event.stockSymbol, event.resultDate)
+            for (event in events) {
+                uniqueEvents[event.stockSymbol to event.resultDate] = event
             }
+        }
+
+        for (event in uniqueEvents.values) {
+            val token = resolveInstrumentToken(event.stockSymbol, event.instrumentToken)
+            if (token == null) {
+                unresolvedSymbols += event.stockSymbol
+                continue
+            }
+            upsertedRows += earningsGateway.upsert(event.stockSymbol, token, event.resultDate)
+        }
+
+        earningsGateway.backfillInstrumentTokenFromStocks()
+        resolveMissingInstrumentTokens(unresolvedSymbols)
+        val nullInstrumentTokenRowsAfterRefresh = earningsGateway.countRowsMissingInstrumentToken()
+        val instrumentTokenNotNullEnforced = if (nullInstrumentTokenRowsAfterRefresh == 0) {
+            earningsGateway.enforceInstrumentTokenNotNull()
+        } else {
+            false
         }
 
         val pastFrom = today.minusDays(request.pastDays.toLong())
@@ -77,7 +97,12 @@ class EarningsResultService(
             chunkDays = request.chunkDays,
             chunkCount = chunks.size,
             fetchedEvents = fetchedEvents,
+            uniqueEvents = uniqueEvents.size,
             upsertedRows = upsertedRows,
+            unresolvedTokenCount = unresolvedSymbols.size,
+            unresolvedSymbolsSample = unresolvedSymbols.take(UNRESOLVED_SYMBOLS_SAMPLE_LIMIT),
+            nullInstrumentTokenRowsAfterRefresh = nullInstrumentTokenRowsAfterRefresh,
+            instrumentTokenNotNullEnforced = instrumentTokenNotNullEnforced,
             pastRowsEvaluated = pastRows.size,
             behaviorRowsUpdated = behaviorRowsUpdated,
             preResultUpdates = preResultUpdates,
@@ -85,6 +110,29 @@ class EarningsResultService(
             nextDayUpdates = nextDayUpdates,
             plus5dUpdates = plus5dUpdates,
         )
+    }
+
+    private suspend fun resolveMissingInstrumentTokens(unresolvedSymbols: MutableSet<String>) {
+        val rows = earningsGateway.findRowsMissingInstrumentToken(MISSING_TOKEN_SCAN_LIMIT)
+        for (row in rows) {
+            val token = resolveInstrumentToken(row.stockSymbol, null)
+            if (token == null) {
+                unresolvedSymbols += row.stockSymbol
+                continue
+            }
+            earningsGateway.updateInstrumentToken(row.id, token)
+        }
+    }
+
+    private suspend fun resolveInstrumentToken(symbol: String, seededToken: Long?): Long? {
+        if (seededToken != null && seededToken > 0L) {
+            return seededToken
+        }
+        val fromStocks = stockTokenLookup?.findInstrumentTokenBySymbol(symbol)
+        if (fromStocks != null && fromStocks > 0L) {
+            return fromStocks
+        }
+        return null
     }
 
     private suspend fun buildBehaviorPayloadUpdate(
@@ -268,6 +316,8 @@ class EarningsResultService(
 
     companion object {
         private val PAYLOAD_TYPE_REF = object : TypeReference<Map<String, Any>>() {}
+        private const val MISSING_TOKEN_SCAN_LIMIT: Int = 5000
+        private const val UNRESOLVED_SYMBOLS_SAMPLE_LIMIT: Int = 50
 
         internal fun splitDateRange(from: LocalDate, to: LocalDate, chunkDays: Int): List<DateChunk> {
             require(chunkDays > 0) { "chunkDays must be > 0" }

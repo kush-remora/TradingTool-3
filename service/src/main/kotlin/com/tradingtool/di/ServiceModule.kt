@@ -7,6 +7,7 @@ import com.google.inject.name.Named
 import com.tradingtool.config.AppConfig
 import com.tradingtool.core.config.IndicatorConfig
 import com.tradingtool.core.database.CandleJdbiHandler
+import com.tradingtool.core.database.EarningsResultJdbiHandler
 import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.database.KiteTokenJdbiHandler
 import com.tradingtool.core.database.RedisHandler
@@ -40,6 +41,8 @@ import com.tradingtool.core.delivery.config.DeliveryConfigService
 import com.tradingtool.core.delivery.config.DeliveryUniverseService
 import com.tradingtool.core.delivery.reconciliation.DeliveryReconciliationService
 import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
+import com.tradingtool.core.earnings.dao.EarningsResultReadDao
+import com.tradingtool.core.earnings.dao.EarningsResultWriteDao
 import com.tradingtool.core.screener.CandleDataService
 import com.tradingtool.core.screener.RsiFloorScannerService
 import com.tradingtool.core.screener.WeeklyCycleSuccessService
@@ -354,6 +357,10 @@ class ServiceModule(
     @Provides @Singleton
     fun provideCandleJdbiHandler(config: DatabaseConfig): CandleJdbiHandler =
         handler<CandleReadDao, CandleWriteDao>(config)
+
+    @Provides @Singleton
+    fun provideEarningsResultJdbiHandler(config: DatabaseConfig): EarningsResultJdbiHandler =
+        handler<EarningsResultReadDao, EarningsResultWriteDao>(config)
     
     @Provides
     @Singleton
