@@ -10,15 +10,19 @@ import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.earnings.EarningsRefreshRequest
 import com.tradingtool.core.earnings.EarningsRefreshResult
 import com.tradingtool.core.earnings.EarningsResultService
+import com.tradingtool.core.earnings.EarningsStockTokenLookup
 import com.tradingtool.core.earnings.FileCorporateEventAdapter
 import com.tradingtool.core.earnings.JdbiCandleGateway
 import com.tradingtool.core.earnings.JdbiEarningsResultGateway
-import com.tradingtool.core.earnings.JdbiEarningsStockTokenLookup
 import com.tradingtool.core.earnings.dao.EarningsResultReadDao
 import com.tradingtool.core.earnings.dao.EarningsResultWriteDao
+import com.tradingtool.core.kite.InstrumentCache
+import com.tradingtool.core.kite.KiteConfig
+import com.tradingtool.core.kite.KiteConnectClient
+import com.tradingtool.core.kite.KiteTokenReadDao
+import com.tradingtool.core.kite.KiteTokenWriteDao
 import com.tradingtool.core.model.DatabaseConfig
-import com.tradingtool.core.stock.dao.StockReadDao
-import com.tradingtool.core.stock.dao.StockWriteDao
+import com.tradingtool.core.watchlist.groww.KiteInstrumentTokenResolver
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import java.nio.file.Files
@@ -84,7 +88,18 @@ private data class EarningsResultsRuntime(
 
             val earningsHandler = JdbiHandler(databaseConfig, EarningsResultReadDao::class.java, EarningsResultWriteDao::class.java)
             val candleHandler = JdbiHandler(databaseConfig, CandleReadDao::class.java, CandleWriteDao::class.java)
-            val stockHandler = JdbiHandler(databaseConfig, StockReadDao::class.java, StockWriteDao::class.java)
+            val tokenHandler = JdbiHandler(databaseConfig, KiteTokenReadDao::class.java, KiteTokenWriteDao::class.java)
+
+            val kiteTokenLookup = runCatching {
+                val resolver = KiteInstrumentTokenResolver(
+                    kiteClient = buildAuthenticatedKiteClient(tokenHandler),
+                    instrumentCache = InstrumentCache(),
+                )
+                KiteOnlyEarningsTokenLookup(resolver)
+            }.getOrElse { error ->
+                log.warn("Kite token resolver unavailable; earnings rows with unresolved symbols will be skipped: {}", error.message)
+                null
+            }
 
             val service = EarningsResultService(
                 corporateEventSource = FileCorporateEventAdapter(
@@ -93,13 +108,41 @@ private data class EarningsResultsRuntime(
                 ),
                 earningsGateway = JdbiEarningsResultGateway(earningsHandler),
                 candleGateway = JdbiCandleGateway(candleHandler),
-                stockTokenLookup = JdbiEarningsStockTokenLookup(stockHandler),
+                stockTokenLookup = kiteTokenLookup,
+                enableStockBackfill = false,
                 objectMapper = objectMapper,
             )
 
             return EarningsResultsRuntime(service = service)
         }
     }
+}
+
+private class KiteOnlyEarningsTokenLookup(
+    private val resolver: KiteInstrumentTokenResolver,
+) : EarningsStockTokenLookup {
+    override suspend fun findInstrumentTokenBySymbol(symbol: String): Long? {
+        return resolver.resolve("NSE", symbol.uppercase())
+    }
+}
+
+private fun buildAuthenticatedKiteClient(
+    tokenHandler: JdbiHandler<KiteTokenReadDao, KiteTokenWriteDao>,
+): KiteConnectClient {
+    val kiteClient = KiteConnectClient(
+        KiteConfig(
+            apiKey = ConfigLoader.get("KITE_API_KEY", "kite.apiKey"),
+            apiSecret = ConfigLoader.get("KITE_API_SECRET", "kite.apiSecret"),
+        ),
+    )
+
+    val latestToken = runBlocking {
+        tokenHandler.read { dao -> dao.getLatestToken() }
+    }?.takeIf { token -> token.isNotBlank() }
+        ?: error("Kite authentication required. No token found in kite_tokens table.")
+
+    kiteClient.applyAccessToken(latestToken)
+    return kiteClient
 }
 
 private fun writeArtifacts(result: EarningsRefreshResult): Path {

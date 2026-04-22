@@ -25,8 +25,9 @@ import { RsiRankDriftBacktestPage } from "./pages/RsiRankDriftBacktestPage";
 import { WeeklyCycleSuccessPage } from "./pages/WeeklyCycleSuccessPage";
 import { V2DashboardPage } from "./pages/V2DashboardPage";
 import { RemoraRsiFloorPage } from "./pages/RemoraRsiFloorPage";
+import { VolumeSpikeBacktestPage } from "./pages/VolumeSpikeBacktestPage";
 
-type PageKey = "watchlist" | "graph" | "swing-analysis" | "trade" | "trade-ready" | "remora" | "remora-rsi-floor" | "screener" | "rsi-momentum" | "rsi-momentum-base" | "rsi-momentum-safe" | "weekly-swing" | "weekly-cycle-success" | "s4-volume-spike" | "momentum-data-prep" | "simple-backtest" | "rsi-momentum-drawdown" | "drawdown-scanner" | "corporate-results" | "earnings-dashboard" | "rsi-rank-drift" | "v2-dashboard";
+type PageKey = "watchlist" | "graph" | "swing-analysis" | "trade" | "trade-ready" | "remora" | "remora-rsi-floor" | "screener" | "rsi-momentum" | "rsi-momentum-base" | "rsi-momentum-safe" | "weekly-swing" | "weekly-cycle-success" | "s4-volume-spike" | "volume-spike-backtest" | "momentum-data-prep" | "simple-backtest" | "rsi-momentum-drawdown" | "drawdown-scanner" | "corporate-results" | "earnings-dashboard" | "rsi-rank-drift" | "v2-dashboard";
 
 const menuItems: MenuProps["items"] = [
   { key: "watchlist", label: "Watchlist", icon: <UnorderedListOutlined /> },
@@ -47,6 +48,7 @@ const menuItems: MenuProps["items"] = [
   { key: "weekly-swing", label: "Weekly Swing", icon: <BarChartOutlined /> },
   { key: "weekly-cycle-success", label: "Weekly Cycle Success", icon: <BarChartOutlined /> },
   { key: "s4-volume-spike", label: "S4 Volume Spike", icon: <FundOutlined /> },
+  { key: "volume-spike-backtest", label: "Volume Backtest", icon: <FundOutlined /> },
   { key: "screener", label: "Weekly Screener", icon: <BarChartOutlined /> },
   { key: "corporate-results", label: "Results Export", icon: <DownloadOutlined /> },
   { key: "earnings-dashboard", label: "Earnings Dashboard", icon: <FundOutlined /> },
@@ -61,7 +63,7 @@ export default function App() {
     const internalPath = path.startsWith(baseUrl) ? path.slice(baseUrl.length) : path;
     const cleanPath = internalPath.replace(/^\//, "");
     
-    const validPages: PageKey[] = ["watchlist", "graph", "swing-analysis", "trade", "trade-ready", "remora", "remora-rsi-floor", "screener", "rsi-momentum", "rsi-momentum-base", "rsi-momentum-safe", "weekly-swing", "weekly-cycle-success", "s4-volume-spike", "momentum-data-prep", "simple-backtest", "rsi-momentum-drawdown", "drawdown-scanner", "corporate-results", "earnings-dashboard", "rsi-rank-drift", "v2-dashboard"];
+    const validPages: PageKey[] = ["watchlist", "graph", "swing-analysis", "trade", "trade-ready", "remora", "remora-rsi-floor", "screener", "rsi-momentum", "rsi-momentum-base", "rsi-momentum-safe", "weekly-swing", "weekly-cycle-success", "s4-volume-spike", "volume-spike-backtest", "momentum-data-prep", "simple-backtest", "rsi-momentum-drawdown", "drawdown-scanner", "corporate-results", "earnings-dashboard", "rsi-rank-drift", "v2-dashboard"];
     if (validPages.includes(cleanPath as PageKey)) {
         return cleanPath as PageKey;
     }
@@ -116,6 +118,7 @@ export default function App() {
           { page === "weekly-swing" && <WeeklySwingPage /> }
           { page === "weekly-cycle-success" && <WeeklyCycleSuccessPage /> }
           { page === "s4-volume-spike" && <S4VolumeSpikePage /> }
+          { page === "volume-spike-backtest" && <VolumeSpikeBacktestPage /> }
           { page === "screener" && <ScreenerPage /> }
           { page === "corporate-results" && <CorporateResultsPage /> }
           { page === "earnings-dashboard" && <EarningsDashboardPage /> }

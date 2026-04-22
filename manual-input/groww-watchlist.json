@@ -2,6 +2,106 @@
   "watchlistId": "GWL_1729712098800",
   "responseSymbolDtoList": [
     {
+      "growwContractId": "GSTK544603",
+      "addedPrice": 214.01,
+      "addedDate": "2026-04-22T08:29:25",
+      "notesId": null,
+      "score": -1.776826765024E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK544603",
+        "symbolIsin": "INE0HOQ01053",
+        "searchId": "billionbrains-garage-ventures-ltd",
+        "companyName": "Groww (Billionbrains Garage Ventures)",
+        "companyShortName": "Groww",
+        "bseScripCode": "544603",
+        "nseScripCode": "GROWW",
+        "equityType": "STOCKS",
+        "yearLowPrice": 112.0,
+        "yearHighPrice": 216.75
+      }
+    },
+    {
+      "growwContractId": "GSTK532514",
+      "addedPrice": 167.2,
+      "addedDate": "2026-04-22T08:28:32",
+      "notesId": null,
+      "score": -1.776826712391E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK532514",
+        "symbolIsin": "INE203G01027",
+        "searchId": "indraprastha-gas-ltd",
+        "companyName": "Indraprastha Gas",
+        "companyShortName": "Indraprastha Gas",
+        "bseScripCode": "532514",
+        "nseScripCode": "IGL",
+        "equityType": "STOCKS",
+        "yearLowPrice": 141.74,
+        "yearHighPrice": 229.0
+      }
+    },
+    {
+      "growwContractId": "GSTK500870",
+      "addedPrice": 182.4,
+      "addedDate": "2026-04-22T08:28:21",
+      "notesId": null,
+      "score": -1.776826700901E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK500870",
+        "symbolIsin": "INE172A01027",
+        "searchId": "castrol-india-ltd",
+        "companyName": "Castrol India",
+        "companyShortName": "Castrol India",
+        "bseScripCode": "500870",
+        "nseScripCode": "CASTROLIND",
+        "equityType": "STOCKS",
+        "yearLowPrice": 170.1,
+        "yearHighPrice": 232.43
+      }
+    },
+    {
+      "growwContractId": "GSTK505700",
+      "addedPrice": 471.55,
+      "addedDate": "2026-04-22T08:28:16",
+      "notesId": null,
+      "score": -1.776826696265E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK505700",
+        "symbolIsin": "INE205B01031",
+        "searchId": "elecon-engineering-company-ltd",
+        "companyName": "Elecon Engineering Company",
+        "companyShortName": "Elecon Engg Co",
+        "bseScripCode": "505700",
+        "nseScripCode": "ELECON",
+        "equityType": "STOCKS",
+        "yearLowPrice": 352.0,
+        "yearHighPrice": 716.25
+      }
+    },
+    {
+      "growwContractId": "GSTK543374",
+      "addedPrice": 1037.85,
+      "addedDate": "2026-04-22T08:27:52",
+      "notesId": null,
+      "score": -1.776826671967E12,
+      "holdingV2Dto": null,
+      "stocksMultiWatchlistDataDto": {
+        "growwContractId": "GSTK543374",
+        "symbolIsin": "INE404A01024",
+        "searchId": "aditya-birla-sun-life-amc-ltd",
+        "companyName": "Aditya Birla Sun Life AMC",
+        "companyShortName": "Aditya Birla Sun AMC",
+        "bseScripCode": "543374",
+        "nseScripCode": "ABSLAMC",
+        "equityType": "STOCKS",
+        "yearLowPrice": 593.85,
+        "yearHighPrice": 1082.25
+      }
+    },
+    {
       "growwContractId": "GSTK544277",
       "addedPrice": 3478.2,
       "addedDate": "2026-04-21T14:40:42",
@@ -65,7 +165,7 @@
         "holdingTxnList": [],
         "positions": {
           "symbolIsin": "INE262H01021",
-          "contractId": null,
+          "contractId": "INE262H01021",
           "netQuantity": null,
           "netPriceValue": null,
           "netCfQuantity": null,
@@ -194,7 +294,7 @@
         "nseScripCode": "SCHNEIDER",
         "equityType": "STOCKS",
         "yearLowPrice": 540.0,
-        "yearHighPrice": 1087.85
+        "yearHighPrice": 1108.0
       }
     },
     {
@@ -434,7 +534,7 @@
         "nseScripCode": "BHAGYANGR",
         "equityType": "STOCKS",
         "yearLowPrice": 65.0,
-        "yearHighPrice": 218.0
+        "yearHighPrice": 222.0
       }
     },
     {
@@ -574,7 +674,7 @@
         "nseScripCode": "NTPC",
         "equityType": "STOCKS",
         "yearLowPrice": 315.55,
-        "yearHighPrice": 400.85
+        "yearHighPrice": 402.7
       }
     },
     {
@@ -614,7 +714,7 @@
         "nseScripCode": "TATAPOWER",
         "equityType": "STOCKS",
         "yearLowPrice": 342.5,
-        "yearHighPrice": 438.5
+        "yearHighPrice": 439.05
       }
     },
     {
@@ -634,7 +734,7 @@
         "nseScripCode": "VOLTAMP",
         "equityType": "STOCKS",
         "yearLowPrice": 6666.0,
-        "yearHighPrice": 10599.5
+        "yearHighPrice": 10760.0
       }
     },
     {
@@ -694,7 +794,7 @@
         "nseScripCode": "VEDL",
         "equityType": "STOCKS",
         "yearLowPrice": 398.6,
-        "yearHighPrice": 791.15
+        "yearHighPrice": 795.0
       }
     },
     {
@@ -734,7 +834,7 @@
         "nseScripCode": "MTARTECH",
         "equityType": "STOCKS",
         "yearLowPrice": 1358.0,
-        "yearHighPrice": 5070.0
+        "yearHighPrice": 5165.9
       }
     },
     {
@@ -754,7 +854,7 @@
         "nseScripCode": "POWERINDIA",
         "equityType": "STOCKS",
         "yearLowPrice": 13153.0,
-        "yearHighPrice": 29900.0
+        "yearHighPrice": 30400.0
       }
     },
     {
@@ -814,7 +914,7 @@
         "nseScripCode": "CUMMINSIND",
         "equityType": "STOCKS",
         "yearLowPrice": 2706.0,
-        "yearHighPrice": 5216.9
+        "yearHighPrice": 5272.7
       }
     },
     {
@@ -914,7 +1014,7 @@
         "nseScripCode": "APEX",
         "equityType": "STOCKS",
         "yearLowPrice": 198.0,
-        "yearHighPrice": 496.8
+        "yearHighPrice": 514.5
       }
     },
     {
@@ -994,7 +1094,7 @@
         "nseScripCode": "AVANTIFEED",
         "equityType": "STOCKS",
         "yearLowPrice": 614.25,
-        "yearHighPrice": 1545.0
+        "yearHighPrice": 1593.8
       }
     },
     {
@@ -1214,7 +1314,7 @@
         "nseScripCode": "DATAPATTNS",
         "equityType": "STOCKS",
         "yearLowPrice": 1903.6,
-        "yearHighPrice": 3609.5
+        "yearHighPrice": 3699.0
       }
     },
     {
@@ -1234,7 +1334,7 @@
         "nseScripCode": "CPPLUS",
         "equityType": "STOCKS",
         "yearLowPrice": 1015.0,
-        "yearHighPrice": 2285.9
+        "yearHighPrice": 2365.0
       }
     },
     {
@@ -1255,26 +1355,6 @@
         "equityType": "STOCKS",
         "yearLowPrice": 61.01,
         "yearHighPrice": 118.38
-      }
-    },
-    {
-      "growwContractId": "GSTK543474",
-      "addedPrice": 28.57,
-      "addedDate": "2026-04-21T14:31:35",
-      "notesId": null,
-      "score": -1.776762094831E12,
-      "holdingV2Dto": null,
-      "stocksMultiWatchlistDataDto": {
-        "growwContractId": "GSTK543474",
-        "symbolIsin": "INF209KB19D1",
-        "searchId": "birla-sun-life-mutual-fund-birla-sun-life-nifty-etf-growth",
-        "companyName": "Aditya Birla Sun Life Nifty 50 ETF",
-        "companyShortName": "BSLNIFTY",
-        "bseScripCode": "543474",
-        "nseScripCode": "BSLNIFTY",
-        "equityType": "ETF",
-        "yearLowPrice": 25.7,
-        "yearHighPrice": 31.45
       }
     },
     {

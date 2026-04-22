@@ -30,6 +30,8 @@ export function EarningsDashboardPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [rows, setRows] = useState<EarningsDashboardRow[]>([]);
   const [asOfDate, setAsOfDate] = useState<string>("");
+  const [windowStartDate, setWindowStartDate] = useState<string>("");
+  const [windowEndDate, setWindowEndDate] = useState<string>("");
 
   const fetchRows = async (): Promise<void> => {
     setLoading(true);
@@ -39,6 +41,8 @@ export function EarningsDashboardPage() {
       );
       setRows(payload.rows ?? []);
       setAsOfDate(payload.asOfDate ?? "");
+      setWindowStartDate(payload.windowStartDate ?? "");
+      setWindowEndDate(payload.windowEndDate ?? "");
     } catch (error) {
       const text = error instanceof Error ? error.message : "Failed to load earnings dashboard.";
       messageApi.error(text);
@@ -221,7 +225,11 @@ export function EarningsDashboardPage() {
           type="info"
           showIcon
           message={`Earnings observation dashboard (${filteredRows.length} rows)${asOfDate ? ` • as of ${asOfDate}` : ""}`}
-          description="Default scope is Groww watchlist with upcoming result dates in the selected window."
+          description={
+            windowStartDate && windowEndDate
+              ? `Window: ${windowStartDate} to ${windowEndDate}. Default scope is Groww watchlist.`
+              : "Default scope is Groww watchlist with selected date window."
+          }
         />
 
         <Table<EarningsDashboardRow>

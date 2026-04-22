@@ -236,6 +236,8 @@ export interface EarningsDashboardRow {
 
 export interface EarningsDashboardResponse {
   asOfDate: string;
+  windowStartDate: string;
+  windowEndDate: string;
   daysAhead: number;
   growwOnly: boolean;
   rows: EarningsDashboardRow[];
@@ -1234,6 +1236,94 @@ export interface S4MultiSnapshot {
   profiles: S4Snapshot[];
   errors: S4ProfileError[];
   partialSuccess: boolean;
+}
+
+// ==================== Volume Spike Backtest ====================
+
+export type EarningsFilterMode = "OFF" | "CUSTOM_WINDOW" | "MANUAL_SYMBOL";
+
+export interface VolumeSpikeBacktestRequest {
+  fromDate?: string;
+  toDate?: string;
+  delayMinutes: number;
+  manualSymbols?: string[];
+  earningsFilterMode?: EarningsFilterMode;
+  earningsWindowStartOffsetDays?: number;
+  earningsWindowEndOffsetDays?: number;
+  rvolThreshold?: number;
+  targetPct?: number;
+  stopPct?: number;
+  positionSizeInr?: number;
+  feePerTradeInr?: number;
+}
+
+export interface VolumeSpikeBacktestTrade {
+  symbol: string;
+  instrumentToken: number;
+  signalTime: string;
+  entryTime: string;
+  exitTime: string;
+  entryPrice: number;
+  exitPrice: number;
+  quantity: number;
+  investedAmount: number;
+  targetPrice: number;
+  stopPrice: number;
+  rvolAtSignal: number;
+  vwapAtSignal: number;
+  prior30MinHigh: number;
+  exitReason: "TARGET_HIT" | "STOP_HIT" | "EOD" | string;
+  grossPnlInr: number;
+  feeInr: number;
+  netPnlInr: number;
+  netReturnPct: number;
+}
+
+export interface VolumeSpikeBacktestSummary {
+  symbolsConsidered: number;
+  totalTrades: number;
+  winningTrades: number;
+  losingTrades: number;
+  winRatePct: number;
+  grossPnlInr: number;
+  totalFeesInr: number;
+  netPnlInr: number;
+  avgNetReturnPct: number;
+  maxDrawdownInr: number;
+}
+
+export interface VolumeSpikeBacktestDiagnostics {
+  symbolsFromEarningsUniverse: number;
+  symbolsFromManualInput: number;
+  symbolsWithResolvedToken: number;
+  symbolsWithNoToken: string[];
+  symbolsWithNoIntradayData: string[];
+  symbolsSkippedByEarningsFilter: string[];
+  symbolsWithNoTrades: string[];
+  cacheHits: number;
+  cacheMisses: number;
+  kiteFetchFailures: string[];
+}
+
+export interface VolumeSpikeBacktestConfigSnapshot {
+  fromDate: string;
+  toDate: string;
+  delayMinutes: number;
+  earningsFilterMode: EarningsFilterMode;
+  earningsWindowStartOffsetDays: number | null;
+  earningsWindowEndOffsetDays: number | null;
+  rvolThreshold: number;
+  targetPct: number;
+  stopPct: number;
+  positionSizeInr: number;
+  feePerTradeInr: number;
+}
+
+export interface VolumeSpikeBacktestResponse {
+  config: VolumeSpikeBacktestConfigSnapshot;
+  summary: VolumeSpikeBacktestSummary;
+  diagnostics: VolumeSpikeBacktestDiagnostics;
+  trades: VolumeSpikeBacktestTrade[];
 }
 
 // ==================== Swing Analysis ====================

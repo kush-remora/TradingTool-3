@@ -67,6 +67,8 @@ data class EarningsDashboardRow(
 
 data class EarningsDashboardResponse(
     val asOfDate: String,
+    val windowStartDate: String,
+    val windowEndDate: String,
     val daysAhead: Int,
     val growwOnly: Boolean,
     val rows: List<EarningsDashboardRow>,
@@ -124,11 +126,16 @@ class CorporateEventResource @Inject constructor(
         val daysAhead = normalizeDaysAhead(daysAheadRaw)
             ?: return@endpoint badRequest("daysAhead must be between 1 and 60.")
         val growwOnly = growwOnlyRaw ?: true
+        val today = LocalDate.now(ist)
+        val fromDate = today.minusDays(1)
+        val toDate = today.plusDays(daysAhead.toLong())
         val rows = buildDashboardRows(daysAhead = daysAhead, growwOnly = growwOnly, includeCandles = false)
             .map { it.row }
         ok(
             EarningsDashboardResponse(
-                asOfDate = LocalDate.now(ist).toString(),
+                asOfDate = today.toString(),
+                windowStartDate = fromDate.toString(),
+                windowEndDate = toDate.toString(),
                 daysAhead = daysAhead,
                 growwOnly = growwOnly,
                 rows = rows,
@@ -292,9 +299,10 @@ class CorporateEventResource @Inject constructor(
         includeCandles: Boolean,
     ): List<DashboardComputedRow> {
         val today = LocalDate.now(ist)
+        val fromDate = today.minusDays(1)
         val endDate = today.plusDays(daysAhead.toLong())
         val earningsRows = earningsHandler.read { dao ->
-            dao.findByResultDateRange(today, endDate)
+            dao.findByResultDateRange(fromDate, endDate)
         }
         if (earningsRows.isEmpty()) {
             return emptyList()

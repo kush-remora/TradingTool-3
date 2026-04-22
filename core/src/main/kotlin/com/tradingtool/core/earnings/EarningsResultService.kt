@@ -15,6 +15,7 @@ class EarningsResultService(
     private val earningsGateway: EarningsResultGateway,
     private val candleGateway: EarningsCandleGateway,
     private val stockTokenLookup: EarningsStockTokenLookup? = null,
+    private val enableStockBackfill: Boolean = true,
     private val objectMapper: ObjectMapper,
     private val clock: Clock = Clock.system(ZoneId.of("Asia/Kolkata")),
 ) {
@@ -51,7 +52,9 @@ class EarningsResultService(
             upsertedRows += earningsGateway.upsert(event.stockSymbol, token, event.resultDate)
         }
 
-        earningsGateway.backfillInstrumentTokenFromStocks()
+        if (enableStockBackfill) {
+            earningsGateway.backfillInstrumentTokenFromStocks()
+        }
         resolveMissingInstrumentTokens(unresolvedSymbols)
         val nullInstrumentTokenRowsAfterRefresh = earningsGateway.countRowsMissingInstrumentToken()
         val instrumentTokenNotNullEnforced = if (nullInstrumentTokenRowsAfterRefresh == 0) {

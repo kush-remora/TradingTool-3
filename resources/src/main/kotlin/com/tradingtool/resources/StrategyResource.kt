@@ -3,6 +3,10 @@ package com.tradingtool.resources
 import com.google.inject.Inject
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.strategy.s4.S4Service
+import com.tradingtool.core.strategy.volume.EarningsFilterMode
+import com.tradingtool.core.strategy.volume.VolumeSpikeBacktestRequest
+import com.tradingtool.core.strategy.volume.VolumeSpikeBacktestRunConfig
+import com.tradingtool.core.strategy.volume.VolumeSpikeBacktestService
 import com.tradingtool.core.strategy.profitlookback.ProfitLookbackRequest
 import com.tradingtool.core.strategy.profitlookback.ProfitLookbackBulkRequest
 import com.tradingtool.core.strategy.profitlookback.ProfitLookbackBulkRowRequest
@@ -49,6 +53,7 @@ class StrategyResource @Inject constructor(
     private val simpleMomentumBacktestPrepService: SimpleMomentumBacktestPrepService,
     private val momentumDataPrepService: MomentumDataPrepService,
     private val s4Service: S4Service,
+    private val volumeSpikeBacktestService: VolumeSpikeBacktestService,
     private val profitLookbackService: ProfitLookbackService,
     private val kiteClient: com.tradingtool.core.kite.KiteConnectClient,
     resourceScope: ResourceScope,
@@ -379,6 +384,26 @@ class StrategyResource @Inject constructor(
     fun refreshS4(): CompletableFuture<Response> = ioScope.endpoint {
         ok(s4Service.refreshLatest())
     }
+
+    @POST
+    @Path("/volume-spike/backtest")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runVolumeSpikeBacktest(request: VolumeSpikeBacktestRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        if (!kiteClient.isAuthenticated) {
+            return@endpoint serviceUnavailable("Kite is not authenticated")
+        }
+
+        val validatedRequest = runCatching {
+            validateVolumeSpikeBacktestRequest(request)
+        }.getOrElse { error ->
+            if (error is IllegalArgumentException) {
+                return@endpoint badRequest(error.message ?: "Invalid request.")
+            }
+            throw error
+        }
+
+        ok(volumeSpikeBacktestService.runBacktest(validatedRequest))
+    }
 }
 
 internal fun validateProfitLookbackRequest(request: ProfitLookbackRequest?): ProfitLookbackRequest {
@@ -492,3 +517,90 @@ internal data class ValidatedProfitLookbackBulkRow(
     val request: ProfitLookbackBulkRowRequest?,
     val error: String?,
 )
+
+internal fun validateVolumeSpikeBacktestRequest(request: VolumeSpikeBacktestRequest?): VolumeSpikeBacktestRunConfig {
+    val body = request ?: throw IllegalArgumentException("Request body is required.")
+
+    val fromDate = body.fromDate?.let { value ->
+        runCatching { LocalDate.parse(value) }.getOrNull()
+            ?: throw IllegalArgumentException("fromDate must be in YYYY-MM-DD format.")
+    } ?: LocalDate.now().minusMonths(1)
+
+    val toDate = body.toDate?.let { value ->
+        runCatching { LocalDate.parse(value) }.getOrNull()
+            ?: throw IllegalArgumentException("toDate must be in YYYY-MM-DD format.")
+    } ?: LocalDate.now()
+
+    if (fromDate.isAfter(toDate)) {
+        throw IllegalArgumentException("fromDate must be on or before toDate.")
+    }
+
+    val delayMinutes = body.delayMinutes
+        ?: throw IllegalArgumentException("delayMinutes is required.")
+    if (delayMinutes !in 1..120) {
+        throw IllegalArgumentException("delayMinutes must be between 1 and 120.")
+    }
+
+    val normalizedManualSymbols = body.manualSymbols
+        .map { value -> value.trim().uppercase() }
+        .filter { value -> value.isNotEmpty() }
+        .distinct()
+
+    val rvolThreshold = body.rvolThreshold
+    if (!rvolThreshold.isFinite() || rvolThreshold <= 0.0) {
+        throw IllegalArgumentException("rvolThreshold must be a positive number.")
+    }
+
+    val targetPct = body.targetPct
+    if (!targetPct.isFinite() || targetPct <= 0.0) {
+        throw IllegalArgumentException("targetPct must be a positive number.")
+    }
+
+    val stopPct = body.stopPct
+    if (!stopPct.isFinite() || stopPct <= 0.0) {
+        throw IllegalArgumentException("stopPct must be a positive number.")
+    }
+
+    val positionSizeInr = body.positionSizeInr
+    if (!positionSizeInr.isFinite() || positionSizeInr <= 0.0) {
+        throw IllegalArgumentException("positionSizeInr must be a positive number.")
+    }
+
+    val feePerTradeInr = body.feePerTradeInr
+    if (!feePerTradeInr.isFinite() || feePerTradeInr < 0.0) {
+        throw IllegalArgumentException("feePerTradeInr must be a non-negative number.")
+    }
+
+    val earningsFilterMode = body.earningsFilterMode
+    val customWindowStart = body.earningsWindowStartOffsetDays
+    val customWindowEnd = body.earningsWindowEndOffsetDays
+
+    if (earningsFilterMode == EarningsFilterMode.CUSTOM_WINDOW) {
+        if (customWindowStart == null || customWindowEnd == null) {
+            throw IllegalArgumentException(
+                "earningsWindowStartOffsetDays and earningsWindowEndOffsetDays are required when earningsFilterMode=CUSTOM_WINDOW.",
+            )
+        }
+        if (customWindowStart > customWindowEnd) {
+            throw IllegalArgumentException("earningsWindowStartOffsetDays must be <= earningsWindowEndOffsetDays.")
+        }
+    }
+    if (earningsFilterMode == EarningsFilterMode.MANUAL_SYMBOL && normalizedManualSymbols.isEmpty()) {
+        throw IllegalArgumentException("manualSymbols must contain at least one symbol when earningsFilterMode=MANUAL_SYMBOL.")
+    }
+
+    return VolumeSpikeBacktestRunConfig(
+        fromDate = fromDate,
+        toDate = toDate,
+        delayMinutes = delayMinutes,
+        manualSymbols = normalizedManualSymbols,
+        earningsFilterMode = earningsFilterMode,
+        earningsWindowStartOffsetDays = if (earningsFilterMode == EarningsFilterMode.CUSTOM_WINDOW) customWindowStart else null,
+        earningsWindowEndOffsetDays = if (earningsFilterMode == EarningsFilterMode.CUSTOM_WINDOW) customWindowEnd else null,
+        rvolThreshold = rvolThreshold,
+        targetPct = targetPct,
+        stopPct = stopPct,
+        positionSizeInr = positionSizeInr,
+        feePerTradeInr = feePerTradeInr,
+    )
+}

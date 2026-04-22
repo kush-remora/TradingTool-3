@@ -45,6 +45,50 @@ Also attach a practical market-cap bucket (`LARGE`, `MID`, `SMALL`, `UNKNOWN`) t
 - Kotlin reviewer pass:
   - No CRITICAL/HIGH issues identified in new Kotlin scanner/resource wiring.
 
+# Implementation Plan: Volume Spike Backtest V1 (Redis Runtime + Kite Fallback)
+
+## Overview
+Implement a 5-minute volume-spike backtest flow with slot-based RVOL, Redis-first intraday candle cache, Kite fallback on cache miss, optional earnings window filter, manual symbol override, and a minimal frontend run/report panel.
+
+## Implementation Steps
+- [x] Add volume spike backtest request/response/config models in core strategy volume package.
+- [x] Add `VolumeSpikeBacktestService` with:
+  - slot-based RVOL baseline (same slot across prior 20 sessions),
+  - bullish context filter (above VWAP + prior 30m high breakout),
+  - delayed entry simulation with target/stop/EOD exits,
+  - flat fee deduction per completed trade.
+- [x] Add Redis keyspace for 5-minute candles with cache-aside pattern (`Redis -> Kite -> Redis`).
+- [x] Add Strategy API endpoint `POST /api/strategy/volume-spike/backtest`.
+- [x] Add endpoint validation for required delay, optional custom earnings window, and numeric thresholds.
+- [x] Add frontend types + hook + page for running the backtest and rendering summary/trades.
+- [x] Add a focused frontend page test and backend request-validation test.
+- [x] Run compile/build/test checks for touched slices.
+
+## Review
+- Backend:
+  - Added `VolumeSpikeBacktestModels.kt` and `VolumeSpikeBacktestService.kt`.
+  - Added `StrategyResource` endpoint wiring and `validateVolumeSpikeBacktestRequest`.
+  - Universe behavior:
+    - `OFF`: all NSE stocks + manual symbols
+    - `CUSTOM_WINDOW`: earnings-derived symbols + manual symbols
+  - Data flow:
+    - Redis hit returns cached 5m candles
+    - Redis miss fetches from Kite (chunked), then writes cache (48h TTL)
+  - Execution model:
+    - mandatory delay
+    - flat per-trade fee
+    - first-hit target/stop, otherwise EOD close
+- Frontend:
+  - Added `VolumeSpikeBacktestPage` route and menu item.
+  - Added `useVolumeSpikeBacktest` hook and request/result type contracts.
+  - Added `VolumeSpikeBacktestPage.test.tsx`.
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm --prefix frontend run -s test:run -- src/pages/VolumeSpikeBacktestPage.test.tsx` passed.
+  - `npm --prefix frontend run -s build` passed.
+  - `mvn -q -pl core test -Dtest=VolumeAnalyzerTest` passed.
+  - `mvn -q -pl resources test -Dtest=VolumeSpikeBacktestRequestValidationTest` fails due pre-existing unrelated `resources` module unresolved-reference baseline issues.
+
 # Implementation Plan: Fundamentals Universe + Profile Filter APIs and UI
 
 ## Overview
