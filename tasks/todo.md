@@ -1520,3 +1520,30 @@ Add a cron job that fetches stocks from a Groww watchlist endpoint and upserts t
   - Full `core` tests are currently blocked by unrelated pre-existing RSI/profitlookback test-compile failures.
 - Review gates:
   - `coding-standards`, `backend-architect`, `kotlin-patterns`, `frontend-patterns`, `kotlin-reviewer` invoked per repo policy.
+
+# Documentation Plan: Statistical Mean Reversion Waterfall
+
+## Overview
+Capture the current discussion about Bollinger Bands, Z-score / DMA, RSI, and VWAP as a durable strategy document that explains the step-by-step waterfall from a 100-stock watchlist down to trade-ready mean-reversion candidates.
+
+## Implementation Steps
+- [x] Review the existing strategy docs and current discussion context.
+- [x] Decide whether to extend the RSI mean-reversion note or add a separate statistical mean-reversion document.
+- [x] Write a new strategy document that explains the indicator roles, waterfall stages, and v1 operating rules.
+- [x] Link the new document from `docs/strategies/README.md`.
+- [x] Add a short review note summarizing what was documented and what remains open.
+
+## Review
+- Added `docs/strategies/statistical-mean-reversion-waterfall-v1.md` as the durable note for the broader mean-reversion discussion.
+- Kept the document separate from `rsi-mean-reversion-confirmation-v1.md` because this version starts from price deviation first, then uses RSI as a supporting filter.
+- Documented the 100-stock waterfall explicitly:
+  - universe filter,
+  - mean definition,
+  - statistical stretch,
+  - oversold check,
+  - footprint filter,
+  - optional VWAP check,
+  - confirmation layer,
+  - state assignment,
+  - exits.
+- Left threshold choices open where they should be settled by backtesting instead of opinion.

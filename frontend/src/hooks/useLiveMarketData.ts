@@ -13,8 +13,10 @@ class LiveMarketManager {
   private listeners = new Set<Listener>();
   private cache = new Map<string, LiveMarketUpdate>();
   private updateTimer: any = null;
+  private buyerDominancePct: number | null = null;
 
-  subscribe(symbol: string, listener: Listener) {
+  subscribe(symbol: string, buyerDominancePct: number | undefined, listener: Listener) {
+    this.buyerDominancePct = buyerDominancePct ?? null;
     this.subscribers.set(symbol, (this.subscribers.get(symbol) || 0) + 1);
     this.listeners.add(listener);
     
@@ -52,7 +54,11 @@ class LiveMarketManager {
     }
 
     const symbols = Array.from(this.subscribers.keys()).sort().join(",");
-    const url = `${apiBaseUrl}/api/market/live?symbols=${symbols}`;
+    const query = new URLSearchParams({ symbols });
+    if (this.buyerDominancePct != null) {
+      query.set("buyerDominancePct", String(this.buyerDominancePct));
+    }
+    const url = `${apiBaseUrl}/api/market/live?${query.toString()}`;
 
     // If already connected to the same set of symbols, do nothing
     if (this.eventSource) {
@@ -90,7 +96,7 @@ const manager = new LiveMarketManager();
  * Hook to subscribe to real-time market updates for a specific symbol.
  * Shares a single SSE connection across all components using this hook.
  */
-export function useLiveMarketData(symbol: string) {
+export function useLiveMarketData(symbol: string, buyerDominancePct?: number) {
   const [data, setData] = useState<LiveMarketUpdate | null>(null);
 
   useEffect(() => {
@@ -102,9 +108,9 @@ export function useLiveMarketData(symbol: string) {
       }
     };
 
-    manager.subscribe(symbol, listener);
+    manager.subscribe(symbol, buyerDominancePct, listener);
     return () => manager.unsubscribe(symbol, listener);
-  }, [symbol]);
+  }, [symbol, buyerDominancePct]);
 
   return data;
 }

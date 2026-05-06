@@ -1,4 +1,4 @@
-import { Alert, Card, Col, Empty, Row, Select, Space, Spin, Tag, Typography } from "antd";
+import { Alert, Card, Col, Empty, InputNumber, Row, Select, Space, Spin, Tag, Typography } from "antd";
 import { useMemo, useState } from "react";
 import { useLiveMarketData } from "../hooks/useLiveMarketData";
 import { useStocks } from "../hooks/useStocks";
@@ -10,6 +10,7 @@ const { Text } = Typography;
 export function TradeReadyPage() {
   const { stocks, loading: stocksLoading, error: stocksError } = useStocks();
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>([]);
+  const [buyerDominancePct, setBuyerDominancePct] = useState<number>(75);
   const { data, loading, error } = useTradeReadiness(selectedSymbols);
 
   const stockOptions = useMemo(
@@ -62,6 +63,17 @@ export function TradeReadyPage() {
             loading={stocksLoading}
             optionFilterProp="label"
           />
+          <div>
+            <Text style={{ fontWeight: 600, fontSize: 12 }}>Buyer Dominance %</Text>
+            <InputNumber
+              min={50}
+              max={99}
+              step={1}
+              value={buyerDominancePct}
+              onChange={(value) => setBuyerDominancePct(value ?? 75)}
+              style={{ width: "100%", marginTop: 4 }}
+            />
+          </div>
         </Space>
       </Card>
 
@@ -77,6 +89,7 @@ export function TradeReadyPage() {
                 <TradeReadyCard
                   symbol={symbol}
                   readiness={readinessBySymbol.get(symbol)}
+                  buyerDominancePct={buyerDominancePct}
                 />
               </Col>
             ))}
@@ -87,8 +100,10 @@ export function TradeReadyPage() {
   );
 }
 
-function TradeReadyCard({ symbol, readiness }: { symbol: string; readiness: TradeReadinessSymbol | undefined }) {
-  const live = useLiveMarketData(`NSE:${symbol}`);
+function TradeReadyCard(
+  { symbol, readiness, buyerDominancePct }: { symbol: string; readiness: TradeReadinessSymbol | undefined; buyerDominancePct: number },
+) {
+  const live = useLiveMarketData(`NSE:${symbol}`, buyerDominancePct);
 
   const reboundHit = useMemo(() => {
     if (!live || live.low <= 0) return false;
@@ -127,6 +142,16 @@ function TradeReadyCard({ symbol, readiness }: { symbol: string; readiness: Trad
           <MetricRow label="Sell Qty" value={live?.sellQuantity?.toLocaleString("en-IN") ?? "-"} />
           <MetricRow label="Buy %" value={formatPct(live?.buyPressurePct)} />
           <MetricRow label="Sell %" value={formatPct(live?.sellPressurePct)} />
+          <MetricRow
+            label={`Buyer Gate (>=${buyerDominancePct}%)`}
+            value={
+              live?.buyerDominancePass == null
+                ? "-"
+                : live.buyerDominancePass
+                  ? "PASS"
+                  : "FAIL"
+            }
+          />
           <div style={{ marginTop: 4 }}>
             <Tag color={
               live?.pressureSide === "BUYERS_AGGRESSIVE"
@@ -141,6 +166,11 @@ function TradeReadyCard({ symbol, readiness }: { symbol: string; readiness: Trad
                   ? "Sellers Aggressive"
                   : "Neutral"}
             </Tag>
+            {live?.buyerDominancePass != null && (
+              <Tag color={live.buyerDominancePass ? "green" : "red"}>
+                {live.buyerDominancePass ? "Buyer Gate Pass" : "Buyer Gate Fail"}
+              </Tag>
+            )}
           </div>
         </div>
 

@@ -18,6 +18,7 @@ data class LiveMarketUpdate(
     val sellQuantity: Long,
     val buyPressurePct: Double?,
     val sellPressurePct: Double?,
+    val buyerDominancePass: Boolean?,
     val pressureSide: String,
     val avgVol20d: Double?,
     val volumeHeat: Double?,

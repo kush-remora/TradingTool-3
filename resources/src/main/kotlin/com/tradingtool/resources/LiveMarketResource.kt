@@ -66,13 +66,15 @@ class LiveMarketResource @Inject constructor(
     fun stream(
         @Context sink: SseEventSink,
         @Context sse: Sse,
-        @QueryParam("symbols") symbolsStr: String?
+        @QueryParam("symbols") symbolsStr: String?,
+        @QueryParam("buyerDominancePct") buyerDominancePct: Double?,
     ) {
         val symbols = symbolsStr?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
         if (symbols.isEmpty()) {
             sink.close()
             return
         }
+        val buyerThresholdPct = resolveBuyerDominanceThresholdPct(buyerDominancePct)
 
         // 1. Resolve symbols to tokens and fetch avg volume context
         val symbolToToken = symbols.mapNotNull { s ->
@@ -93,7 +95,7 @@ class LiveMarketResource @Inject constructor(
         tokens.forEach { token ->
             tickStore.get(token)?.let { tick ->
                 val symbol = symbolToToken.entries.find { it.value == token }?.key ?: return@let
-                sendUpdate(sink, sse, symbol, tick, tokenToAvgVol[token])
+                sendUpdate(sink, sse, symbol, tick, tokenToAvgVol[token], buyerThresholdPct)
             }
         }
 
@@ -113,7 +115,7 @@ class LiveMarketResource @Inject constructor(
                 val symbol = symbolToToken.entries.find { it.value == tick.instrumentToken }?.key
                 if (symbol != null) {
                     try {
-                        sendUpdate(sink, sse, symbol, tick, tokenToAvgVol[tick.instrumentToken])
+                        sendUpdate(sink, sse, symbol, tick, tokenToAvgVol[tick.instrumentToken], buyerThresholdPct)
                     } catch (e: Exception) {
                         log.debug("Failed to send tick for $symbol: ${e.message}")
                         cleanup()
@@ -141,11 +143,13 @@ class LiveMarketResource @Inject constructor(
         sse: Sse,
         symbol: String,
         tick: TickSnapshot,
-        avgVol20d: Double?
+        avgVol20d: Double?,
+        buyerThresholdPct: Double,
     ) {
         val totalPressure = tick.buyQuantity + tick.sellQuantity
         val buyPressurePct = if (totalPressure > 0L) tick.buyQuantity * 100.0 / totalPressure else null
         val sellPressurePct = if (totalPressure > 0L) tick.sellQuantity * 100.0 / totalPressure else null
+        val buyerDominancePass = buyPressurePct?.let { it >= buyerThresholdPct }
         val pressureSide = when {
             buyPressurePct == null || sellPressurePct == null -> "NEUTRAL"
             kotlin.math.abs(buyPressurePct - sellPressurePct) < 4.0 -> "NEUTRAL"
@@ -169,6 +173,7 @@ class LiveMarketResource @Inject constructor(
             sellQuantity = tick.sellQuantity,
             buyPressurePct = buyPressurePct,
             sellPressurePct = sellPressurePct,
+            buyerDominancePass = buyerDominancePass,
             pressureSide = pressureSide,
             avgVol20d = avgVol20d,
             volumeHeat = volumeHeat
@@ -180,5 +185,26 @@ class LiveMarketResource @Inject constructor(
                 .mediaType(MediaType.APPLICATION_JSON_TYPE)
                 .build()
         )
+    }
+
+    private fun resolveBuyerDominanceThresholdPct(rawThresholdPct: Double?): Double {
+        if (rawThresholdPct == null) {
+            return DEFAULT_BUYER_DOMINANCE_THRESHOLD_PCT
+        }
+        if (!rawThresholdPct.isFinite() || rawThresholdPct < MIN_BUYER_DOMINANCE_THRESHOLD_PCT || rawThresholdPct > MAX_BUYER_DOMINANCE_THRESHOLD_PCT) {
+            log.warn(
+                "Invalid buyerDominancePct={} for /api/market/live. Falling back to default={}.",
+                rawThresholdPct,
+                DEFAULT_BUYER_DOMINANCE_THRESHOLD_PCT,
+            )
+            return DEFAULT_BUYER_DOMINANCE_THRESHOLD_PCT
+        }
+        return rawThresholdPct
+    }
+
+    private companion object {
+        const val DEFAULT_BUYER_DOMINANCE_THRESHOLD_PCT = 75.0
+        const val MIN_BUYER_DOMINANCE_THRESHOLD_PCT = 50.0
+        const val MAX_BUYER_DOMINANCE_THRESHOLD_PCT = 99.0
     }
 }

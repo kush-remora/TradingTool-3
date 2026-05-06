@@ -41,6 +41,7 @@ import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import java.time.LocalDate
+import java.time.LocalTime
 import java.util.concurrent.CompletableFuture
 
 @Path("/api/strategy")
@@ -551,6 +552,11 @@ internal fun validateVolumeSpikeBacktestRequest(request: VolumeSpikeBacktestRequ
         throw IllegalArgumentException("rvolThreshold must be a positive number.")
     }
 
+    val minDayMoveFromOpenPct = body.minDayMoveFromOpenPct
+    if (!minDayMoveFromOpenPct.isFinite() || minDayMoveFromOpenPct < 0.0) {
+        throw IllegalArgumentException("minDayMoveFromOpenPct must be a non-negative number.")
+    }
+
     val targetPct = body.targetPct
     if (!targetPct.isFinite() || targetPct <= 0.0) {
         throw IllegalArgumentException("targetPct must be a positive number.")
@@ -559,6 +565,21 @@ internal fun validateVolumeSpikeBacktestRequest(request: VolumeSpikeBacktestRequ
     val stopPct = body.stopPct
     if (!stopPct.isFinite() || stopPct <= 0.0) {
         throw IllegalArgumentException("stopPct must be a positive number.")
+    }
+
+    val minThirtyMinReturnPct = body.minThirtyMinReturnPct
+    if (!minThirtyMinReturnPct.isFinite() || minThirtyMinReturnPct < 0.0) {
+        throw IllegalArgumentException("minThirtyMinReturnPct must be a non-negative number.")
+    }
+
+    val latestEntryTime = body.latestEntryTime?.let { value ->
+        runCatching { LocalTime.parse(value) }.getOrNull()
+            ?: throw IllegalArgumentException("latestEntryTime must be in HH:MM format.")
+    } ?: LocalTime.of(14, 30)
+
+    val buyerDominancePct = body.buyerDominancePct
+    if (buyerDominancePct != null && (!buyerDominancePct.isFinite() || buyerDominancePct < 50.0 || buyerDominancePct > 99.0)) {
+        throw IllegalArgumentException("buyerDominancePct must be between 50 and 99 when provided.")
     }
 
     val positionSizeInr = body.positionSizeInr
@@ -598,8 +619,12 @@ internal fun validateVolumeSpikeBacktestRequest(request: VolumeSpikeBacktestRequ
         earningsWindowStartOffsetDays = if (earningsFilterMode == EarningsFilterMode.CUSTOM_WINDOW) customWindowStart else null,
         earningsWindowEndOffsetDays = if (earningsFilterMode == EarningsFilterMode.CUSTOM_WINDOW) customWindowEnd else null,
         rvolThreshold = rvolThreshold,
+        minDayMoveFromOpenPct = minDayMoveFromOpenPct,
         targetPct = targetPct,
         stopPct = stopPct,
+        minThirtyMinReturnPct = minThirtyMinReturnPct,
+        latestEntryTime = latestEntryTime,
+        buyerDominancePct = buyerDominancePct,
         positionSizeInr = positionSizeInr,
         feePerTradeInr = feePerTradeInr,
     )

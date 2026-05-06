@@ -26,6 +26,8 @@ const tradeColumns: ColumnsType<VolumeSpikeBacktestTrade> = [
   { title: "Entry", dataIndex: "entryPrice", key: "entryPrice", width: 90, render: (value: number) => value.toFixed(2) },
   { title: "Exit", dataIndex: "exitPrice", key: "exitPrice", width: 90, render: (value: number) => value.toFixed(2) },
   { title: "RVOL", dataIndex: "rvolAtSignal", key: "rvolAtSignal", width: 90, render: (value: number) => `${value.toFixed(2)}x` },
+  { title: "5m Vol", dataIndex: "signalCandleVolume", key: "signalCandleVolume", width: 120, render: (value: number) => value.toLocaleString("en-IN", { maximumFractionDigits: 0 }) },
+  { title: "20D Slot Avg", dataIndex: "avgSlotVolume20d", key: "avgSlotVolume20d", width: 130, render: (value: number) => value.toLocaleString("en-IN", { maximumFractionDigits: 0 }) },
   { title: "Net P&L", dataIndex: "netPnlInr", key: "netPnlInr", width: 120, render: (value: number) => `₹${value.toFixed(2)}` },
   { title: "Net %", dataIndex: "netReturnPct", key: "netReturnPct", width: 90, render: (value: number) => `${value.toFixed(2)}%` },
 ];
@@ -55,6 +57,8 @@ export function VolumeSpikeBacktestPage() {
   const [earningsWindowStartOffsetDays, setEarningsWindowStartOffsetDays] = useState<number>(-10);
   const [earningsWindowEndOffsetDays, setEarningsWindowEndOffsetDays] = useState<number>(-1);
   const [rvolThreshold, setRvolThreshold] = useState<number>(2.0);
+  const [minDayMoveFromOpenPct, setMinDayMoveFromOpenPct] = useState<number>(3.0);
+  const [buyerDominancePct, setBuyerDominancePct] = useState<number>(75);
   const [targetPct, setTargetPct] = useState<number>(5.0);
   const [stopPct, setStopPct] = useState<number>(2.0);
   const [positionSizeInr, setPositionSizeInr] = useState<number>(200000);
@@ -77,6 +81,8 @@ export function VolumeSpikeBacktestPage() {
       earningsWindowStartOffsetDays: earningsFilterMode === "CUSTOM_WINDOW" ? earningsWindowStartOffsetDays : undefined,
       earningsWindowEndOffsetDays: earningsFilterMode === "CUSTOM_WINDOW" ? earningsWindowEndOffsetDays : undefined,
       rvolThreshold,
+      minDayMoveFromOpenPct,
+      buyerDominancePct,
       targetPct,
       stopPct,
       positionSizeInr,
@@ -153,25 +159,36 @@ export function VolumeSpikeBacktestPage() {
                 <InputNumber min={0.1} step={0.1} style={{ width: "100%" }} value={rvolThreshold} onChange={(value) => setRvolThreshold(value ?? 2.0)} />
               </Col>
               <Col xs={24} md={6}>
+                <Typography.Text strong>Day Move From Open %</Typography.Text>
+                <InputNumber min={0} step={0.1} style={{ width: "100%" }} value={minDayMoveFromOpenPct} onChange={(value) => setMinDayMoveFromOpenPct(value ?? 3.0)} />
+              </Col>
+              <Col xs={24} md={6}>
                 <Typography.Text strong>Target %</Typography.Text>
                 <InputNumber min={0.1} step={0.1} style={{ width: "100%" }} value={targetPct} onChange={(value) => setTargetPct(value ?? 5.0)} />
               </Col>
               <Col xs={24} md={6}>
-                <Typography.Text strong>Stop %</Typography.Text>
-                <InputNumber min={0.1} step={0.1} style={{ width: "100%" }} value={stopPct} onChange={(value) => setStopPct(value ?? 2.0)} />
-              </Col>
-              <Col xs={24} md={6}>
-                <Typography.Text strong>Position Size (INR)</Typography.Text>
-                <InputNumber min={1000} step={1000} style={{ width: "100%" }} value={positionSizeInr} onChange={(value) => setPositionSizeInr(value ?? 200000)} />
+                <Typography.Text strong>Buyer Dominance %</Typography.Text>
+                <InputNumber min={50} max={99} step={1} style={{ width: "100%" }} value={buyerDominancePct} onChange={(value) => setBuyerDominancePct(value ?? 75)} />
               </Col>
             </Row>
 
             <Row gutter={12}>
               <Col xs={24} md={8}>
+                <Typography.Text strong>Stop %</Typography.Text>
+                <InputNumber min={0.1} step={0.1} style={{ width: "100%" }} value={stopPct} onChange={(value) => setStopPct(value ?? 2.0)} />
+              </Col>
+              <Col xs={24} md={8}>
+                <Typography.Text strong>Position Size (INR)</Typography.Text>
+                <InputNumber min={1000} step={1000} style={{ width: "100%" }} value={positionSizeInr} onChange={(value) => setPositionSizeInr(value ?? 200000)} />
+              </Col>
+              <Col xs={24} md={8}>
                 <Typography.Text strong>Fee Per Trade (INR)</Typography.Text>
                 <InputNumber min={0} step={50} style={{ width: "100%" }} value={feePerTradeInr} onChange={(value) => setFeePerTradeInr(value ?? 500)} />
               </Col>
-              <Col xs={24} md={16}>
+            </Row>
+
+            <Row gutter={12}>
+              <Col xs={24} md={24}>
                 <Typography.Text strong>Manual Symbols (optional)</Typography.Text>
                 <Input.TextArea
                   rows={2}
@@ -185,6 +202,7 @@ export function VolumeSpikeBacktestPage() {
             <Space>
               <Button type="primary" onClick={runBacktest} loading={loading}>Run Backtest</Button>
               <Typography.Text type="secondary">Manual symbols parsed: {manualSymbols.length}</Typography.Text>
+              <Typography.Text type="secondary">Simple mode: RVOL on 20-day slot average + day move from open confirmation.</Typography.Text>
             </Space>
           </Space>
         </Card>

@@ -7,9 +7,12 @@ import com.google.inject.Singleton
 import com.tradingtool.core.database.EarningsResultJdbiHandler
 import com.tradingtool.core.database.RedisHandler
 import com.tradingtool.core.database.StockJdbiHandler
+import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConnectClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
@@ -24,11 +27,13 @@ class VolumeSpikeBacktestService @Inject constructor(
     private val redis: RedisHandler,
     private val stockHandler: StockJdbiHandler,
     private val earningsHandler: EarningsResultJdbiHandler,
+    private val instrumentCache: InstrumentCache,
     private val kiteClient: KiteConnectClient,
     private val objectMapper: ObjectMapper,
 ) {
     private val log = LoggerFactory.getLogger(VolumeSpikeBacktestService::class.java)
     private val ist: ZoneId = ZoneId.of("Asia/Kolkata")
+    private val instrumentCacheMutex = Mutex()
 
     suspend fun runBacktest(request: VolumeSpikeBacktestRunConfig): VolumeSpikeBacktestResponse {
         val stocksBySymbol = stockHandler.read { dao ->
@@ -45,12 +50,8 @@ class VolumeSpikeBacktestService @Inject constructor(
 
         val candidateSymbols: List<String> = when (request.earningsFilterMode) {
             EarningsFilterMode.OFF -> (stocksBySymbol.keys + manualSymbols).sorted()
-            EarningsFilterMode.CUSTOM_WINDOW -> (earningsSymbolUniverse + manualSymbols)
-                .filter { symbol -> stocksBySymbol.containsKey(symbol) }
-                .sorted()
-            EarningsFilterMode.MANUAL_SYMBOL -> manualSymbols
-                .filter { symbol -> stocksBySymbol.containsKey(symbol) }
-                .sorted()
+            EarningsFilterMode.CUSTOM_WINDOW -> (earningsSymbolUniverse + manualSymbols).sorted()
+            EarningsFilterMode.MANUAL_SYMBOL -> manualSymbols.sorted()
         }
 
         val earningsBySymbol: Map<String, List<LocalDate>> = earningsRows
@@ -68,9 +69,11 @@ class VolumeSpikeBacktestService @Inject constructor(
         var cacheMisses = 0
         var symbolsWithResolvedToken = 0
 
+        ensureInstrumentCacheLoaded()
+
         for (symbol in candidateSymbols) {
-            val stock = stocksBySymbol[symbol]
-            if (stock == null || stock.instrumentToken <= 0L) {
+            val instrumentToken = resolveInstrumentToken(symbol)
+            if (instrumentToken == null || instrumentToken <= 0L) {
                 symbolsWithNoToken += symbol
                 continue
             }
@@ -79,7 +82,7 @@ class VolumeSpikeBacktestService @Inject constructor(
             symbolsWithResolvedToken += 1
             val cacheResult = loadIntradayCandles(
                 symbol = symbol,
-                instrumentToken = stock.instrumentToken,
+                instrumentToken = instrumentToken,
                 fromDate = baselineFetchFrom,
                 toDate = request.toDate,
             )
@@ -101,7 +104,7 @@ class VolumeSpikeBacktestService @Inject constructor(
 
             val symbolTrades = backtestSymbol(
                 symbol = symbol,
-                instrumentToken = stock.instrumentToken,
+                instrumentToken = instrumentToken,
                 bars = cacheResult.bars,
                 request = request,
                 earningsBySymbol = earningsBySymbol,
@@ -133,8 +136,12 @@ class VolumeSpikeBacktestService @Inject constructor(
                 earningsWindowStartOffsetDays = request.earningsWindowStartOffsetDays,
                 earningsWindowEndOffsetDays = request.earningsWindowEndOffsetDays,
                 rvolThreshold = request.rvolThreshold,
+                minDayMoveFromOpenPct = request.minDayMoveFromOpenPct,
                 targetPct = request.targetPct,
                 stopPct = request.stopPct,
+                minThirtyMinReturnPct = request.minThirtyMinReturnPct,
+                latestEntryTime = request.latestEntryTime.toString(),
+                buyerDominancePct = request.buyerDominancePct,
                 positionSizeInr = request.positionSizeInr,
                 feePerTradeInr = request.feePerTradeInr,
             ),
@@ -224,6 +231,11 @@ class VolumeSpikeBacktestService @Inject constructor(
                 continue
             }
 
+            val dayOpen = dayBars.first().open
+            if (dayOpen <= 0.0) {
+                continue
+            }
+
             val vwapByIndex = computeVwapByIndex(dayBars)
             var dayTrade: VolumeSpikeBacktestTrade? = null
 
@@ -254,11 +266,12 @@ class VolumeSpikeBacktestService @Inject constructor(
                     continue
                 }
 
-                val vwap = vwapByIndex[barIndex]
-                val bullishBreakout = currentBar.close > vwap && currentBar.close > prior30MinHigh
-                if (!bullishBreakout) {
+                val dayMoveFromOpenPct = ((currentBar.close / dayOpen) - 1.0) * 100.0
+                if (dayMoveFromOpenPct < request.minDayMoveFromOpenPct) {
                     continue
                 }
+
+                val vwap = vwapByIndex[barIndex]
 
                 if (!passesEarningsFilter(symbol, currentDate, request, earningsBySymbol)) {
                     skippedByEarningsFilter = true
@@ -303,6 +316,8 @@ class VolumeSpikeBacktestService @Inject constructor(
                     targetPrice = targetPrice,
                     stopPrice = stopPrice,
                     rvolAtSignal = rvol,
+                    signalCandleVolume = currentBar.volume,
+                    avgSlotVolume20d = avgBaseline,
                     vwapAtSignal = vwap,
                     prior30MinHigh = prior30MinHigh,
                     exitReason = exitDecision.reason,
@@ -409,6 +424,22 @@ class VolumeSpikeBacktestService @Inject constructor(
         }
         EarningsFilterMode.MANUAL_SYMBOL -> emptyList()
     }
+
+    private suspend fun ensureInstrumentCacheLoaded() {
+        if (!instrumentCache.isEmpty()) return
+        instrumentCacheMutex.withLock {
+            if (!instrumentCache.isEmpty()) return
+            log.info("Volume spike backtest: instrument cache empty, loading NSE instruments from Kite.")
+            val instruments = withContext(Dispatchers.IO) {
+                kiteClient.client().getInstruments("NSE")
+            }
+            instrumentCache.refresh(instruments)
+            log.info("Volume spike backtest: instrument cache loaded with {} NSE instruments.", instruments.size)
+        }
+    }
+
+    private fun resolveInstrumentToken(symbol: String): Long? =
+        instrumentCache.token("NSE", symbol.uppercase())
 
     private suspend fun loadIntradayCandles(
         symbol: String,

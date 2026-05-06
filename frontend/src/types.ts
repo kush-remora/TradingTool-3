@@ -24,6 +24,7 @@ export interface LiveMarketUpdate {
   sellQuantity: number;
   buyPressurePct: number | null;
   sellPressurePct: number | null;
+  buyerDominancePass: boolean | null;
   pressureSide: "BUYERS_AGGRESSIVE" | "SELLERS_AGGRESSIVE" | "NEUTRAL" | string;
   avgVol20d: number | null;
   volumeHeat: number | null;
@@ -1251,8 +1252,12 @@ export interface VolumeSpikeBacktestRequest {
   earningsWindowStartOffsetDays?: number;
   earningsWindowEndOffsetDays?: number;
   rvolThreshold?: number;
+  minDayMoveFromOpenPct?: number;
   targetPct?: number;
   stopPct?: number;
+  minThirtyMinReturnPct?: number;
+  latestEntryTime?: string;
+  buyerDominancePct?: number;
   positionSizeInr?: number;
   feePerTradeInr?: number;
 }
@@ -1270,6 +1275,8 @@ export interface VolumeSpikeBacktestTrade {
   targetPrice: number;
   stopPrice: number;
   rvolAtSignal: number;
+  signalCandleVolume: number;
+  avgSlotVolume20d: number;
   vwapAtSignal: number;
   prior30MinHigh: number;
   exitReason: "TARGET_HIT" | "STOP_HIT" | "EOD" | string;
@@ -1313,8 +1320,12 @@ export interface VolumeSpikeBacktestConfigSnapshot {
   earningsWindowStartOffsetDays: number | null;
   earningsWindowEndOffsetDays: number | null;
   rvolThreshold: number;
+  minDayMoveFromOpenPct: number;
   targetPct: number;
   stopPct: number;
+  minThirtyMinReturnPct: number;
+  latestEntryTime: string;
+  buyerDominancePct: number | null;
   positionSizeInr: number;
   feePerTradeInr: number;
 }
