@@ -1547,3 +1547,54 @@ Capture the current discussion about Bollinger Bands, Z-score / DMA, RSI, and VW
   - state assignment,
   - exits.
 - Left threshold choices open where they should be settled by backtesting instead of opinion.
+
+---
+
+# V2 Plan: Console UI — Groww Watchlist JSON Upload → Stocks Upsert
+
+## Overview
+Replace `cron-job/src/main/kotlin/com/tradingtool/cron/GrowwWatchlistSyncJob.kt` with a **Console V2 UI** where you can **upload a Groww watchlist JSON file** and submit it. The backend will parse the JSON and **upsert NSE stocks into the existing `stocks` table** (no new watchlist tables).
+
+We should reuse the proven building blocks:
+- `core/src/main/kotlin/com/tradingtool/core/watchlist/groww/*` (Groww JSON extraction + sync service)
+- `core/src/main/kotlin/com/tradingtool/core/stock/dao/StockWriteDao.kt` (`upsertFromGrowwWatchlist`)
+
+## Scope
+- **In**: Upload JSON → parse → upsert into `stocks` → show import summary.
+- **Out**: New watchlist tables, cron scheduling, backward compatibility.
+
+## Open decisions (I need answers)
+- **Import mode**:
+  - **Merge** only (current behavior: upsert + tag merge), or
+  - **Replace** semantics (also remove a tag from stocks not present in the uploaded JSON)?
+- **Tag to apply**:
+  - Keep using `GROWW`, or use a new tag like `WATCHLIST`, or apply both?
+- **Missing `instrumentToken` handling**:
+  - Best-effort resolve via Kite (when available), or
+  - Skip (safe default; matches current gateway behavior when resolver unavailable)?
+- **What counts as “watchlist created” for you**:
+  - Is “tagged in `stocks.tags`” sufficient, and everything else uses that tag as the watchlist filter?
+
+## Backend plan
+- Add endpoint (console-v2):
+  - `POST /api/console/v2/groww/watchlist/import`
+  - Accept `multipart/form-data` with a single JSON file field (e.g. `file`).
+- Implement a new `GrowwWatchlistSource` that reads JSON from the uploaded content (instead of a filesystem path).
+- Reuse `GrowwWatchlistSyncService` with `JdbiGrowwWatchlistStockGateway`.
+- Return a response with:
+  - `fetchedCount`, `syncedCount`, `skippedCount`
+  - `skippedMissingTokenCount`
+  - sample skipped symbols + reasons (bounded list)
+
+## Frontend plan
+- Add a new Console V2 page (route/menu):
+  - `frontend/src/pages/ConsoleV2GrowwWatchlistImportPage.tsx`
+- UI elements:
+  - JSON file upload control (accept `.json`)
+  - Submit button
+  - Result summary card (counts) + optional “skipped rows” table
+  - Error panel for invalid JSON / API failures
+
+## Verification
+- Backend: compile + focused unit test(s) for JSON parsing and dedupe behavior.
+- Frontend: page test ensuring upload → POST → renders success/error.
