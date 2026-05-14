@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.stocks (
     notes            TEXT,
     priority         INTEGER,
     tags                          JSONB       NOT NULL DEFAULT '[]',
+    watchlist_list   TEXT        NOT NULL DEFAULT 'RESEARCH' CHECK (watchlist_list IN ('EXECUTION', 'RESEARCH')),
     needs_refresh    BOOLEAN     NOT NULL DEFAULT false,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -26,7 +27,17 @@ CREATE INDEX IF NOT EXISTS idx_stocks_symbol           ON public.stocks(symbol);
 CREATE INDEX IF NOT EXISTS idx_stocks_instrument_token ON public.stocks(instrument_token);
 CREATE INDEX IF NOT EXISTS idx_stocks_exchange_symbol  ON public.stocks(exchange, symbol);
 CREATE INDEX IF NOT EXISTS idx_stocks_tags             ON public.stocks USING GIN (tags);
+CREATE INDEX IF NOT EXISTS idx_stocks_watchlist_list   ON public.stocks(watchlist_list);
 CREATE INDEX IF NOT EXISTS idx_stocks_created_at       ON public.stocks(created_at DESC);
+
+ALTER TABLE public.stocks
+    ADD COLUMN IF NOT EXISTS watchlist_list TEXT NOT NULL DEFAULT 'RESEARCH';
+
+ALTER TABLE public.stocks
+    DROP CONSTRAINT IF EXISTS stocks_watchlist_list_check;
+
+ALTER TABLE public.stocks
+    ADD CONSTRAINT stocks_watchlist_list_check CHECK (watchlist_list IN ('EXECUTION', 'RESEARCH'));
 
 -- Kite tokens: persists Kite Connect access tokens across service restarts.
 CREATE TABLE IF NOT EXISTS public.kite_tokens (

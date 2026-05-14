@@ -4,6 +4,7 @@ import jakarta.ws.rs.core.Response
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.future.asCompletableFuture
+import org.slf4j.LoggerFactory
 import java.util.concurrent.CompletableFuture
 
 /**
@@ -21,5 +22,10 @@ import java.util.concurrent.CompletableFuture
 fun CoroutineScope.endpoint(block: suspend () -> Response): CompletableFuture<Response> =
     async {
         runCatching { block() }
-            .getOrElse { e -> internalError(e.message ?: "Unexpected error") }
+            .getOrElse { e ->
+                log.error("Unhandled API exception in endpoint", e)
+                internalError(e.message ?: "Unexpected error")
+            }
     }.asCompletableFuture()
+
+private val log = LoggerFactory.getLogger("AsyncEndpoint")

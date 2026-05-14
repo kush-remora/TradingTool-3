@@ -1,8 +1,8 @@
-import { Table, Typography, Tag, Space, Progress, Button, Tooltip, message } from "antd";
+import { Table, Typography, Tag, Space, Progress, Button, Tooltip, message, Segmented, Switch } from "antd";
 import { SyncOutlined } from "@ant-design/icons";
 import { useEffect, useMemo, useState } from "react";
 import { useStocks } from "../hooks/useStocks";
-import { useWatchlist } from "../hooks/useWatchlist";
+import { useWatchlist, type WatchlistList } from "../hooks/useWatchlist";
 import { StockDetailDrawer } from "./StockDetailDrawer";
 import type { WeeklyPatternListResponse, WeeklyPatternResult, WatchlistRow } from "../types";
 import { StockBadge } from "./StockBadge";
@@ -20,7 +20,11 @@ interface WatchlistDashboardProps {
 }
 
 export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: WatchlistDashboardProps) {
-  const { rows, loading, refreshing, refreshIndicators } = useWatchlist(tag);
+  const [selectedList, setSelectedList] = useState<WatchlistList>("EXECUTION");
+  const [showResearchFallback, setShowResearchFallback] = useState(false);
+  const effectiveList: WatchlistList =
+    selectedList === "EXECUTION" && showResearchFallback ? "RESEARCH" : selectedList;
+  const { rows, loading, refreshing, refreshIndicators } = useWatchlist(tag, effectiveList);
   const { stocks } = useStocks();
   const [detailSymbol, setDetailSymbol] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<string[]>([]);
@@ -229,19 +233,6 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
             return <Text style={{ color, fontWeight: 600 }}>{sign}{pct.toFixed(2)}%</Text>;
           },
         },
-        {
-          title: "Distance ₹",
-          key: "distanceFromMin",
-          width: 120,
-          render: (_: unknown, record: WatchlistRow) => {
-            const metrics = getBuyZoneMetrics(record);
-            if (!metrics || metrics.distanceFromMin === null) return <Text type="secondary">-</Text>;
-            const distance = metrics.distanceFromMin;
-            const color = distance <= 0 ? "#52c41a" : "#8c8c8c";
-            const sign = distance > 0 ? "+" : "";
-            return <Text style={{ color, fontWeight: 500 }}>₹{sign}{distance.toFixed(2)}</Text>;
-          },
-        },
       ],
     },
     {
@@ -274,20 +265,6 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
         const color = score > 70 ? "#52c41a" : score > 40 ? "#faad14" : "#8c8c8c";
         return <Text style={{ color, fontWeight: 700 }}>{score}</Text>;
       },
-    },
-    {
-      title: "SMA 50",
-      dataIndex: "sma50",
-      key: "sma50",
-      width: 100,
-      render: (v: number | null) => <Text>{formatMoney(v)}</Text>
-    },
-    {
-      title: "SMA 200",
-      dataIndex: "sma200",
-      key: "sma200",
-      width: 100,
-      render: (v: number | null) => <Text>{formatMoney(v)}</Text>
     },
     {
       title: "TREND STATE",
@@ -351,6 +328,20 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
           </Tooltip>
         );
       }
+    },
+    {
+      title: "LTP VS SMA50 %",
+      dataIndex: "priceVs50maPct",
+      key: "priceVs50maPct",
+      width: 130,
+      render: (v: number | null) => renderColorValue(v, "", "%")
+    },
+    {
+      title: "LTP VS SMA200 %",
+      dataIndex: "priceVs200maPct",
+      key: "priceVs200maPct",
+      width: 140,
+      render: (v: number | null) => renderColorValue(v, "", "%")
     },
     {
       title: "RSI (14)",
@@ -423,6 +414,12 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
       }
     },
     {
+      title: "EVENT",
+      key: "event",
+      width: 100,
+      render: () => <Text type="secondary">-</Text>,
+    },
+    {
       title: "",
       key: "action",
       width: 120,
@@ -445,6 +442,29 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
       ),
     }
   ];
+
+  const compactExecutionKeys = new Set([
+    "symbol",
+    "ltp",
+    "trendState",
+    "rangePosition60dPct",
+    "volumeVsAvg",
+    "drawdownPct",
+    "rsi14",
+    "priceVs200maPct",
+    "event",
+    "action",
+  ]);
+
+  const tableColumns = useMemo(() => {
+    if (selectedList === "EXECUTION") {
+      return columns.filter((column) => {
+        const key = String((column as { key?: string; dataIndex?: string }).key ?? (column as { dataIndex?: string }).dataIndex ?? "");
+        return compactExecutionKeys.has(key);
+      });
+    }
+    return columns;
+  }, [columns, selectedList]);
 
   const handleRefreshIndicators = async () => {
     const key = "watchlist-refresh";
@@ -479,6 +499,25 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div>
           <Text strong style={{ fontSize: 18, letterSpacing: 0.5 }}>WATCHLIST {tag ? `: ${tag.toUpperCase()}` : ""}</Text>
+          <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 12 }}>
+            <Segmented
+              options={[
+                { label: "Execution", value: "EXECUTION" },
+                { label: "Research", value: "RESEARCH" },
+              ]}
+              value={selectedList}
+              onChange={(value) => {
+                setSelectedList(value as WatchlistList);
+                setShowResearchFallback(false);
+              }}
+            />
+            {selectedList === "EXECUTION" && rows.length === 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Text type="secondary" style={{ fontSize: 12 }}>Execution empty, show Research</Text>
+                <Switch size="small" checked={showResearchFallback} onChange={setShowResearchFallback} />
+              </div>
+            )}
+          </div>
         </div>
         <Space>
           <Tooltip title="Refresh all stock indicators and wait for completion">
@@ -496,7 +535,7 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
       
       <Table
         dataSource={rows}
-        columns={columns}
+        columns={tableColumns}
         rowKey="symbol"
         loading={loading}
         pagination={false}

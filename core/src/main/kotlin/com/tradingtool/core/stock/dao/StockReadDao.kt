@@ -6,6 +6,7 @@ import com.tradingtool.core.constants.DatabaseConstants.StockColumns
 import com.tradingtool.core.constants.DatabaseConstants.Tables
 import com.tradingtool.core.model.stock.Stock
 import com.tradingtool.core.model.stock.StockTag
+import com.tradingtool.core.model.stock.WatchlistList
 import org.jdbi.v3.core.mapper.RowMapper
 import org.jdbi.v3.core.statement.StatementContext
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper
@@ -41,6 +42,16 @@ interface StockReadDao {
         """
         SELECT ${StockColumns.ALL_WITH_TAGS}
         FROM public.${Tables.STOCKS}
+        WHERE ${StockColumns.WATCHLIST_LIST} = :watchlistList
+        ORDER BY ${StockColumns.CREATED_AT} DESC
+        """
+    )
+    fun listByWatchlist(@Bind("watchlistList") watchlistList: String): List<Stock>
+
+    @SqlQuery(
+        """
+        SELECT ${StockColumns.ALL_WITH_TAGS}
+        FROM public.${Tables.STOCKS}
         WHERE EXISTS (
             SELECT 1 FROM jsonb_array_elements(${StockColumns.TAGS}) AS elem
             WHERE elem->>'name' = :tagName
@@ -49,6 +60,23 @@ interface StockReadDao {
         """
     )
     fun listByTagName(@Bind("tagName") tagName: String): List<Stock>
+
+    @SqlQuery(
+        """
+        SELECT ${StockColumns.ALL_WITH_TAGS}
+        FROM public.${Tables.STOCKS}
+        WHERE ${StockColumns.WATCHLIST_LIST} = :watchlistList
+          AND EXISTS (
+            SELECT 1 FROM jsonb_array_elements(${StockColumns.TAGS}) AS elem
+            WHERE elem->>'name' = :tagName
+          )
+        ORDER BY ${StockColumns.CREATED_AT} DESC
+        """
+    )
+    fun listByWatchlistAndTagName(
+        @Bind("watchlistList") watchlistList: String,
+        @Bind("tagName") tagName: String,
+    ): List<Stock>
 
     @SqlQuery(
         """
@@ -88,6 +116,7 @@ class StockMapper : RowMapper<Stock> {
             notes = rs.getString(StockColumns.NOTES),
             priority = rs.getObject(StockColumns.PRIORITY, Int::class.javaObjectType),
             tags = tags,
+            watchlistList = WatchlistList.valueOf(rs.getString(StockColumns.WATCHLIST_LIST)),
             createdAt = toUtcString(rs.getObject(StockColumns.CREATED_AT, OffsetDateTime::class.java)),
             updatedAt = toUtcString(rs.getObject(StockColumns.UPDATED_AT, OffsetDateTime::class.java)),
         )

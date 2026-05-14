@@ -16,10 +16,11 @@ class JdbiGrowwWatchlistStockGateway(
         val existing = stockHandler.read { dao ->
             dao.getBySymbol(stock.symbol, stock.exchange)
         }
+        val resolvedBySymbol = instrumentTokenResolver?.resolve(stock.exchange, stock.symbol)
         val resolvedToken = when {
-            stock.instrumentToken > 0L -> stock.instrumentToken
+            resolvedBySymbol != null && resolvedBySymbol > 0L -> resolvedBySymbol
             existing?.instrumentToken != null && existing.instrumentToken > 0L -> existing.instrumentToken
-            instrumentTokenResolver != null -> instrumentTokenResolver.resolve(stock.exchange, stock.symbol)
+            stock.instrumentToken > 0L -> stock.instrumentToken
             else -> null
         }
         if (resolvedToken == null) {

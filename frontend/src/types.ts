@@ -67,6 +67,7 @@ export interface Stock {
   notes: string | null;
   priority: number | null;
   tags: StockTag[];
+  watchlist_list: "EXECUTION" | "RESEARCH";
   created_at: string;
   updated_at: string;
 }
@@ -301,6 +302,7 @@ export interface WatchlistRow {
   instrumentToken: number;
   companyName: string;
   exchange: string;
+  watchlistList: "EXECUTION" | "RESEARCH";
   sector: string | null;
   ltp: number | null;
   changePercent: number | null;
@@ -316,6 +318,7 @@ export interface WatchlistRow {
   rsiAtLow60d: number | null;
   volumeAtHigh60d: number | null;
   volumeAtLow60d: number | null;
+  priceVs50maPct: number | null;
   priceVs200maPct: number | null;
   rsi14: number | null;
   atr14: number | null;

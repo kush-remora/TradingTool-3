@@ -98,18 +98,6 @@ function InstrumentSearchCore({
     setInputValue(value?.trading_symbol ?? "");
   }, [value?.instrument_token, value?.trading_symbol]);
 
-  if (loading) {
-    return <Spin size="small" style={{ display: "flex", justifyContent: "center", padding: "8px 0" }} />;
-  }
-
-  if (error) {
-    return (
-      <div style={{ fontSize: 12, color: "#ff4d4f", padding: "8px" }}>
-        {error}
-      </div>
-    );
-  }
-
   const availableInstruments = useMemo(
     () =>
       instruments.filter(
@@ -140,6 +128,18 @@ function InstrumentSearchCore({
       instrument: inst,
     }));
   }, [availableInstruments, deferredInputValue, maxOptions]);
+
+  if (loading) {
+    return <Spin size="small" style={{ display: "flex", justifyContent: "center", padding: "8px 0" }} />;
+  }
+
+  if (error) {
+    return (
+      <div style={{ fontSize: 12, color: "#ff4d4f", padding: "8px" }}>
+        {error}
+      </div>
+    );
+  }
 
   return (
     <AutoComplete

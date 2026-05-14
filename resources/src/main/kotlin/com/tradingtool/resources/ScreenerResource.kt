@@ -558,7 +558,7 @@ class ScreenerResource @Inject constructor(
             .filter { stock -> stock.exchange.equals("NSE", ignoreCase = true) }
             .associateBy { stock -> stock.symbol.uppercase() }
 
-        val watchlistRowsBySymbol = watchlistService.getRows(null)
+        val watchlistRowsBySymbol = watchlistService.getRowsAll(null)
             .associateBy { row -> row.symbol.uppercase() }
 
         val fundamentalsBySymbol = fundamentalsHandler.read { dao ->

@@ -31,13 +31,14 @@ object DatabaseConstants {
         const val NOTES = "notes"
         const val PRIORITY = "priority"
         const val TAGS = "tags"
+        const val WATCHLIST_LIST = "watchlist_list"
         const val NEEDS_REFRESH = "needs_refresh"
         const val CREATED_AT = "created_at"
         const val UPDATED_AT = "updated_at"
 
         // tags cast to text so the JDBC driver returns a plain String (not PGobject)
         const val ALL_WITH_TAGS =
-            "$ID, $SYMBOL, $INSTRUMENT_TOKEN, $COMPANY_NAME, $EXCHANGE, $NOTES, $PRIORITY, $TAGS::text AS $TAGS, $CREATED_AT, $UPDATED_AT"
+            "$ID, $SYMBOL, $INSTRUMENT_TOKEN, $COMPANY_NAME, $EXCHANGE, $NOTES, $PRIORITY, $TAGS::text AS $TAGS, $WATCHLIST_LIST, $CREATED_AT, $UPDATED_AT"
     }
 
     object StockIndicatorColumns {

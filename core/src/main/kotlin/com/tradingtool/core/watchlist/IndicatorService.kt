@@ -10,6 +10,7 @@ import com.tradingtool.core.database.RedisHandler
 import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.model.stock.Stock
+import com.tradingtool.core.model.stock.WatchlistList
 import com.tradingtool.core.model.watchlist.ComputedIndicators
 import com.tradingtool.core.technical.toTa4jSeries
 import kotlinx.coroutines.CancellationException
@@ -23,6 +24,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.slf4j.LoggerFactory
 import java.time.Instant
 import java.time.LocalDate
@@ -58,6 +60,7 @@ class IndicatorService(
     private val stockWorkSemaphore = Semaphore(config.stockParallelism.coerceAtLeast(1))
     private val kiteRequestMutex = Mutex()
     private var nextKiteRequestAtMs: Long = 0L
+    private val kiteHistoryTimeoutMs: Long = 20_000L
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -156,6 +159,20 @@ class IndicatorService(
         log.info("Indicator sync complete for tag=$tag: ${results.size}/${stocks.size} stocks succeeded")
     }
 
+    suspend fun refreshByList(kiteClient: KiteConnectClient, watchlistList: WatchlistList) {
+        val stocks = stockHandler.read { it.listByWatchlist(watchlistList.name) }
+        log.info("Starting indicator sync for list={} ({} stocks)", watchlistList, stocks.size)
+        refreshStocksAndCaches(kiteClient, stocks)
+        log.info("Indicator sync complete for list={}", watchlistList)
+    }
+
+    suspend fun refreshByListAndTag(kiteClient: KiteConnectClient, watchlistList: WatchlistList, tag: String) {
+        val stocks = stockHandler.read { it.listByWatchlistAndTagName(watchlistList.name, tag) }
+        log.info("Starting indicator sync for list={} and tag={} ({} stocks)", watchlistList, tag, stocks.size)
+        refreshStocksAndCaches(kiteClient, stocks)
+        log.info("Indicator sync complete for list={} and tag={}", watchlistList, tag)
+    }
+
     /** Refreshes indicators for a single stock by instrument token. */
     suspend fun refreshStock(kiteClient: KiteConnectClient, instrumentToken: Long) {
         val stock = stockHandler.read { it.getByInstrumentToken(instrumentToken) }
@@ -179,23 +196,42 @@ class IndicatorService(
         
         stocks.map { stock ->
             async {
-                stockWorkSemaphore.withPermit {
-                    var candles = candleHandler.read { it.getDailyCandles(stock.instrumentToken, from, today) }
+                try {
+                    stockWorkSemaphore.withPermit {
+                        var candles = candleHandler.read { it.getDailyCandles(stock.instrumentToken, from, today) }
 
-                    // If missing or potentially stale (last candle not today/yesterday depending on time)
-                    if (candles.isEmpty() || isCandleDataStale(candles)) {
-                        log.info("Candles for ${stock.symbol} are missing or stale. Fetching from Kite.")
-                        syncStockCandles(kiteClient, stock)
-                        candles = candleHandler.read { it.getDailyCandles(stock.instrumentToken, from, today) }
+                        // If missing or potentially stale (last candle not today/yesterday depending on time)
+                        if (candles.isEmpty() || isCandleDataStale(candles)) {
+                            log.info("Candles for ${stock.symbol} are missing or stale. Fetching from Kite.")
+                            syncStockCandles(kiteClient, stock)
+                            candles = candleHandler.read { it.getDailyCandles(stock.instrumentToken, from, today) }
+                        }
+
+                        if (candles.isEmpty()) return@withPermit null
+
+                        val series = candles.toTa4jSeries(stock.symbol)
+                        Ta4jIndicatorCalculator.calculate(series).copy(instrumentToken = stock.instrumentToken)
                     }
-
-                    if (candles.isEmpty()) return@withPermit null
-
-                    val series = candles.toTa4jSeries(stock.symbol)
-                    Ta4jIndicatorCalculator.calculate(series).copy(instrumentToken = stock.instrumentToken)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Error) {
+                    throw e
+                } catch (e: Throwable) {
+                    log.warn("Skipping indicator compute for {} (token={}): {}", stock.symbol, stock.instrumentToken, e.message)
+                    null
                 }
             }
         }.awaitAll().filterNotNull()
+    }
+
+    private suspend fun refreshStocksAndCaches(
+        kiteClient: KiteConnectClient,
+        stocks: List<Stock>,
+    ) {
+        if (stocks.isEmpty()) return
+        syncStocksInParallel(kiteClient, stocks)
+        val results = loadAndComputeIndicators(stocks)
+        pushTagIndicatorsToRedis(stocks, results)
     }
 
     private fun isCandleDataStale(candles: List<DailyCandle>): Boolean {
@@ -220,7 +256,9 @@ class IndicatorService(
                         stockHandler.write { it.setNeedsRefresh(stock.instrumentToken, false) }
                     } catch (e: CancellationException) {
                         throw e
-                    } catch (e: Exception) {
+                    } catch (e: Error) {
+                        throw e
+                    } catch (e: Throwable) {
                         log.warn("Failed to sync ${stock.symbol}: ${e.message}")
                     }
                 }
@@ -239,8 +277,10 @@ class IndicatorService(
 
         // Kite SDK uses a blocking HTTP client — dispatch on IO
         val history = withContext(Dispatchers.IO) {
-            kiteClient.client()
-                .getHistoricalData(fromDate, toDate, stock.instrumentToken.toString(), "day", false, false)
+            withTimeout(kiteHistoryTimeoutMs) {
+                kiteClient.client()
+                    .getHistoricalData(fromDate, toDate, stock.instrumentToken.toString(), "day", false, false)
+            }
         }
 
         // Cache raw OHLCV in Redis

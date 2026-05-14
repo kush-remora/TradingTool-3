@@ -2,6 +2,7 @@ package com.tradingtool.core.watchlist
 
 import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.kite.TickStore
+import com.tradingtool.core.model.stock.WatchlistList
 import com.tradingtool.core.model.watchlist.ComputedIndicators
 import com.tradingtool.core.model.watchlist.WatchlistRow
 import kotlinx.coroutines.async
@@ -21,12 +22,21 @@ class WatchlistService(
     private val indicatorService: IndicatorService,
     private val tickStore: TickStore,
 ) {
-    suspend fun getRows(tag: String?): List<WatchlistRow> {
+    suspend fun getRowsAll(tag: String?): List<WatchlistRow> {
+        val executionRows = getRows(WatchlistList.EXECUTION, tag)
+        val researchRows = getRows(WatchlistList.RESEARCH, tag)
+        val merged = LinkedHashMap<Long, WatchlistRow>()
+        executionRows.forEach { merged[it.instrumentToken] = it }
+        researchRows.forEach { merged.putIfAbsent(it.instrumentToken, it) }
+        return merged.values.toList()
+    }
+
+    suspend fun getRows(watchlistList: WatchlistList, tag: String?): List<WatchlistRow> {
         // stocks and indicators both depend only on `tag` — fetch in parallel.
         val (stocks, indicatorsList) = coroutineScope {
             val stocksJob = async {
-                if (tag.isNullOrBlank()) stockHandler.read { it.listAll() }
-                else stockHandler.read { it.listByTagName(tag) }
+                if (tag.isNullOrBlank()) stockHandler.read { it.listByWatchlist(watchlistList.name) }
+                else stockHandler.read { it.listByWatchlistAndTagName(watchlistList.name, tag) }
             }
             val indicatorsJob = async {
                 indicatorService.getIndicatorsForTag(tag?.trim()?.takeIf { it.isNotEmpty() })
@@ -44,6 +54,9 @@ class WatchlistService(
             val effectiveLtp = tick?.ltp ?: ind?.lastClose
             val priceVs200maPct = if (effectiveLtp != null && ind?.sma200 != null && ind.sma200 != 0.0) {
                 (effectiveLtp - ind.sma200) / ind.sma200 * 100.0
+            } else null
+            val priceVs50maPct = if (effectiveLtp != null && ind?.sma50 != null && ind.sma50 != 0.0) {
+                (effectiveLtp - ind.sma50) / ind.sma50 * 100.0
             } else null
 
             val liveVolumeVsAvg = if (tick != null && ind?.avgVol20d != null && ind.avgVol20d != 0.0) {
@@ -95,6 +108,7 @@ class WatchlistService(
                 instrumentToken = stock.instrumentToken,
                 companyName = stock.companyName,
                 exchange = stock.exchange,
+                watchlistList = stock.watchlistList,
                 sector = null, // not in Stock model yet
                 ltp = effectiveLtp,
                 changePercent = tick?.changePercent,
@@ -110,6 +124,7 @@ class WatchlistService(
                 rsiAtLow60d = ind?.rsiAtLow60d,
                 volumeAtHigh60d = ind?.volumeAtHigh60d,
                 volumeAtLow60d = ind?.volumeAtLow60d,
+                priceVs50maPct = priceVs50maPct,
                 priceVs200maPct = priceVs200maPct,
                 rsi14 = ind?.rsi14,
                 atr14 = ind?.atr14,

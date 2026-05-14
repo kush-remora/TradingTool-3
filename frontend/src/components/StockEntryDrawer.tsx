@@ -16,8 +16,6 @@ interface Props {
   onClose: () => void;
 }
 
-const TAG_COLORS = ["blue", "green", "gold", "red", "purple", "cyan"];
-
 export function StockEntryDrawer({
   open,
   mode,
@@ -33,8 +31,7 @@ export function StockEntryDrawer({
   const [notesDraft, setNotesDraft] = useState(stock?.notes ?? "");
   const [tagsDraft, setTagsDraft] = useState<StockTag[]>(stock?.tags ?? []);
   
-  const [newTagName, setNewTagName] = useState("");
-  const [newTagColor, setNewTagColor] = useState<string>("blue");
+  const [watchlistList, setWatchlistList] = useState<"EXECUTION" | "RESEARCH">(stock?.watchlist_list ?? "RESEARCH");
 
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loadingTrades, setLoadingTrades] = useState(false);
@@ -47,6 +44,7 @@ export function StockEntryDrawer({
         setPriority(stock.priority ?? 0);
         setNotesDraft(stock.notes ?? "");
         setTagsDraft(stock.tags ?? []);
+        setWatchlistList(stock.watchlist_list ?? "RESEARCH");
         setLoadingTrades(true);
         getJson<Trade[]>(`/api/stocks/${stock.id}/trades`)
           .then(setTrades)
@@ -57,6 +55,7 @@ export function StockEntryDrawer({
         setPriority(0);
         setNotesDraft("");
         setTagsDraft([]);
+        setWatchlistList("RESEARCH");
         setTrades([]);
       }
     }
@@ -93,6 +92,7 @@ export function StockEntryDrawer({
           priority: priority > 0 ? priority : undefined,
           notes: notesDraft.trim().length > 0 ? notesDraft : undefined,
           tags: tagsDraft.length > 0 ? tagsDraft : undefined,
+          watchlist_list: watchlistList,
         });
         messageApi.success("Stock added to watchlist");
       } else if (mode === "edit" && stock) {
@@ -100,6 +100,7 @@ export function StockEntryDrawer({
           priority: priority > 0 ? priority : undefined,
           notes: notesDraft.trim().length > 0 ? notesDraft : undefined,
           tags: tagsDraft.length > 0 ? tagsDraft : undefined,
+          watchlist_list: watchlistList,
         });
         messageApi.success("Stock updated");
       }
@@ -159,6 +160,17 @@ export function StockEntryDrawer({
 
         <Form.Item label="Priority">
           <Rate count={5} value={priority} onChange={setPriority} style={{ fontSize: 16 }} />
+        </Form.Item>
+
+        <Form.Item label="Watchlist">
+          <Select
+            value={watchlistList}
+            onChange={(value) => setWatchlistList(value)}
+            options={[
+              { label: "Execution", value: "EXECUTION" },
+              { label: "Research", value: "RESEARCH" },
+            ]}
+          />
         </Form.Item>
 
         <Form.Item label="Notes">
