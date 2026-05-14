@@ -1,3 +1,24 @@
+# Documentation Plan: Manual NSE Inputs + Event Screens
+
+## Overview
+Capture the product requirements for a manual-input workflow that lets Kush upload NSE/downstream files and review three opportunity types in one place:
+- bulk/block deal activity for watchlist stocks,
+- upcoming IPO lock-in expiry supply events,
+- 52-week-low stocks that may still have strong fundamentals.
+
+## Implementation Steps
+- [x] Review existing docs structure and choose a feature-doc location.
+- [x] Write a combined requirements document covering:
+  - daily bulk/block deal ingestion,
+  - lock-in expiry tracking,
+  - 52-week-low CSV upload and qualification,
+  - manual-upload-first approach versus NSE API automation.
+- [x] Record product rules, filters, outputs, and non-goals clearly enough to implement later.
+
+## Review
+- Added a new feature requirements document for manual market-event ingestion and screening.
+- Chose documentation-first scope only; no code, schema, or UI changes in this task.
+
 # Implementation Plan: Remora RSI Floor Console (All NSE)
 
 ## Overview

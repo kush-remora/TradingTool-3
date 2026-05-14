@@ -91,6 +91,12 @@ export function useStocks(): UseStocksResult {
     setLoading(false);
   }, []);
 
+  const refetch = useCallback(async () => {
+    cachedStocks = null;
+    cachedConfigTags = null;
+    await fetchAll();
+  }, [fetchAll]);
+
   useEffect(() => {
     stocksChangeListeners.push(setStocks);
     configTagsChangeListeners.push(setConfigTags);
@@ -166,7 +172,7 @@ export function useStocks(): UseStocksResult {
     configTags,
     loading,
     error,
-    refetch: fetchAll,
+    refetch,
     filterByTag,
     createStock,
     updateStock,

@@ -146,6 +146,15 @@ export async function postJson<T>(path: string, body: unknown): Promise<T> {
   });
 }
 
+export async function postFormData<T>(path: string, formData: FormData): Promise<T> {
+  return sendRequest<T>(path, {
+    method: "POST",
+    // IMPORTANT: do not set Content-Type for multipart; browser will add boundary.
+    headers: { Accept: "application/json" },
+    body: formData,
+  });
+}
+
 export async function patchJson<T>(path: string, body: unknown): Promise<T> {
   const serialized = JSON.stringify(body);
   console.log(`🔧 PATCH ${path}:`, serialized);

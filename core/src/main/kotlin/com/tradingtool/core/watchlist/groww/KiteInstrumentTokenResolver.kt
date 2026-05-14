@@ -15,7 +15,31 @@ class KiteInstrumentTokenResolver(
 
     override suspend fun resolve(exchange: String, symbol: String): Long? {
         ensureCacheLoaded(exchange)
-        return instrumentCache.token(exchange, symbol)
+        val normalizedExchange = exchange.trim().uppercase()
+        val normalizedSymbol = symbol.trim().uppercase()
+
+        instrumentCache.token(normalizedExchange, normalizedSymbol)?.let { return it }
+
+        if (normalizedExchange == NSE_EXCHANGE) {
+            instrumentCache.token(normalizedExchange, "$normalizedSymbol-BE")?.let { return it }
+            return findByNseVariantPattern(normalizedSymbol)
+        }
+
+        return null
+    }
+
+    private fun findByNseVariantPattern(symbol: String): Long? {
+        val pattern = Regex("^${Regex.escape(symbol)}-[A-Z0-9]+$")
+        val candidates = instrumentCache.all().asSequence()
+            .filter { instrument -> instrument.exchange.equals(NSE_EXCHANGE, ignoreCase = true) }
+            .filter { instrument -> pattern.matches(instrument.tradingsymbol.uppercase()) }
+            .toList()
+
+        if (candidates.size == 1) {
+            return candidates.first().instrument_token
+        }
+
+        return null
     }
 
     private suspend fun ensureCacheLoaded(exchange: String) {
@@ -32,5 +56,8 @@ class KiteInstrumentTokenResolver(
             instrumentCache.refresh(instruments)
         }
     }
-}
 
+    private companion object {
+        const val NSE_EXCHANGE: String = "NSE"
+    }
+}
