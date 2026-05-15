@@ -231,15 +231,19 @@ class DeliveryReconciliationService @Inject constructor(
     }
 
     private suspend fun resolveSourceDescriptor(tradingDate: LocalDate): DeliveryFileDescriptor {
+        val source = configService.loadConfig().source
         val discovery = sourceAdapter.discoverDeliveryReports(tradingDate)
-            ?: error("No NSE delivery report available for $tradingDate")
-
-        return when (configService.loadConfig().source) {
-            DeliveryDataSource.CM_BHAVDATA_FULL -> discovery.bhavDataFull
-                ?: error("CM-BHAVDATA-FULL report missing for $tradingDate")
-            DeliveryDataSource.MTO -> discovery.mto
-                ?: error("MTO report missing for $tradingDate")
+        if (discovery != null) {
+            return when (source) {
+                DeliveryDataSource.CM_BHAVDATA_FULL -> discovery.bhavDataFull
+                    ?: error("CM-BHAVDATA-FULL report missing for $tradingDate")
+                DeliveryDataSource.MTO -> discovery.mto
+                    ?: error("MTO report missing for $tradingDate")
+            }
         }
+
+        log.info("Falling back to NSE archive descriptor for {}", tradingDate)
+        return sourceAdapter.buildArchiveDescriptor(tradingDate, source)
     }
 
     private suspend fun fetchSourceRows(descriptor: DeliveryFileDescriptor) =

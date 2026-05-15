@@ -36,6 +36,7 @@ import java.net.http.HttpClient as JdkHttpClient
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.time.DayOfWeek
 import java.time.LocalDate
 import kotlin.system.exitProcess
 
@@ -125,14 +126,95 @@ private suspend fun executeDeliveryReconciliation(
     service: DeliveryReconciliationService,
     requestedDate: LocalDate?,
 ): DeliveryReconciliationRunReport {
+    val latestAvailableDate = service.latestAvailableTradingDate()
+    val anchorDate = latestAvailableDate ?: LocalDate.now().minusDays(1)
+
+    if (requestedDate == null) {
+        val backfillSummary = backfillRecentTradingDays(
+            service = service,
+            anchorDate = anchorDate,
+            requiredTradingDays = RECENT_TRADING_DAYS_BACKFILL,
+        )
+        log.info(
+            "Delivery backfill summary: checked={} reconciled={} alreadyComplete={} failed={}",
+            backfillSummary.checkedDates,
+            backfillSummary.reconciledDates,
+            backfillSummary.alreadyCompleteDates,
+            backfillSummary.failedDates,
+        )
+    }
+
     val reconciliationResult = if (requestedDate != null) {
         service.reconcileDate(requestedDate)
     } else {
-        service.reconcileLatestAvailableDate()
-            ?: error("No latest NSE delivery date could be discovered.")
+        service.reconcileDate(anchorDate)
     }
 
     return buildRunReport(service, requestedDate, reconciliationResult)
+}
+
+private data class DeliveryBackfillSummary(
+    val checkedDates: Int,
+    val reconciledDates: Int,
+    val alreadyCompleteDates: Int,
+    val failedDates: Int,
+)
+
+private suspend fun backfillRecentTradingDays(
+    service: DeliveryReconciliationService,
+    anchorDate: LocalDate,
+    requiredTradingDays: Int,
+): DeliveryBackfillSummary {
+    val targetDates = buildRecentTradingDates(anchorDate, requiredTradingDays)
+    var reconciled = 0
+    var complete = 0
+    var failed = 0
+
+    targetDates.forEach { tradingDate ->
+        val alreadyReconciled = runCatching { service.isDateReconciled(tradingDate) }
+            .onFailure { error ->
+                log.warn("Failed to check reconciliation status for {}: {}", tradingDate, error.message)
+            }
+            .getOrDefault(false)
+
+        if (alreadyReconciled) {
+            complete++
+            return@forEach
+        }
+
+        runCatching { service.reconcileDate(tradingDate) }
+            .onSuccess { result ->
+                if (result.alreadyComplete) {
+                    complete++
+                } else {
+                    reconciled++
+                }
+            }
+            .onFailure { error ->
+                failed++
+                log.warn("Failed to reconcile delivery for {}: {}", tradingDate, error.message)
+            }
+    }
+
+    return DeliveryBackfillSummary(
+        checkedDates = targetDates.size,
+        reconciledDates = reconciled,
+        alreadyCompleteDates = complete,
+        failedDates = failed,
+    )
+}
+
+private fun buildRecentTradingDates(anchorDate: LocalDate, requiredTradingDays: Int): List<LocalDate> {
+    val dates = mutableListOf<LocalDate>()
+    var cursor = anchorDate
+    while (dates.size < requiredTradingDays) {
+        val day = cursor.dayOfWeek
+        if (day != DayOfWeek.SATURDAY && day != DayOfWeek.SUNDAY) {
+            dates += cursor
+        }
+        cursor = cursor.minusDays(1)
+    }
+    return dates
 }
 
 private suspend fun buildRunReport(
@@ -219,3 +301,5 @@ private fun buildAuthenticatedKiteClient(
     kiteClient.applyAccessToken(latestToken)
     return kiteClient
 }
+
+private const val RECENT_TRADING_DAYS_BACKFILL: Int = 20

@@ -45,9 +45,63 @@ function resolveMatchType(row: RsiFloorScannerRow): string {
   return "NEAR_52W_LOW";
 }
 
+function mergeRsiResults(results: RsiFloorScannerResult[], universes: string[]): RsiFloorScannerResult {
+  const rowsBySymbol = new Map<string, RsiFloorScannerRow>();
+  results.forEach((result) => {
+    result.rows.forEach((row) => {
+      const existing = rowsBySymbol.get(row.symbol);
+      if (!existing || row.currentRsi < existing.currentRsi) {
+        rowsBySymbol.set(row.symbol, row);
+      }
+    });
+  });
+
+  const sortedRows = Array.from(rowsBySymbol.values()).sort((a, b) => a.currentRsi - b.currentRsi);
+  const reference = results[0];
+  const sources = Array.from(new Set(results.map((result) => result.source)));
+  return {
+    ...reference,
+    universe: universes.join(","),
+    requestedSymbols: results.reduce((sum, result) => sum + result.requestedSymbols, 0),
+    scannedSymbols: results.reduce((sum, result) => sum + result.scannedSymbols, 0),
+    skippedInsufficientHistory: results.reduce((sum, result) => sum + result.skippedInsufficientHistory, 0),
+    matchedCount: sortedRows.length,
+    source: sources.length === 1 ? sources[0] : "FRESH",
+    rows: sortedRows,
+  };
+}
+
+function mergeRemoraResults(
+  results: RemoraRsiFloorChainedResult[],
+  universes: string[],
+): RemoraRsiFloorChainedResult {
+  const mergedRsi = mergeRsiResults(results.map((result) => result.rsiResult), universes);
+  const rowsBySymbol = new Map<string, DeliverySurgeConfirmationRow>();
+  results.forEach((result) => {
+    result.deliveryConfirmedRows.forEach((row) => {
+      const existing = rowsBySymbol.get(row.symbol);
+      const existingScore = existing?.maxDeliverySurgePct7d ?? Number.NEGATIVE_INFINITY;
+      const currentScore = row.maxDeliverySurgePct7d ?? Number.NEGATIVE_INFINITY;
+      if (!existing || currentScore > existingScore) {
+        rowsBySymbol.set(row.symbol, row);
+      }
+    });
+  });
+  const deliveryRows = Array.from(rowsBySymbol.values()).sort((a, b) => a.symbol.localeCompare(b.symbol));
+  return {
+    ...results[0],
+    rsiResult: mergedRsi,
+    deliveryRequestedSymbols: deliveryRows.length,
+    deliveryConfirmedCount: deliveryRows.filter(
+      (row) => !row.insufficientHistory && row.surgeDays7d >= 3 && (row.maxDeliverySurgePct7d ?? -Infinity) >= 25,
+    ).length,
+    deliveryConfirmedRows: deliveryRows,
+  };
+}
+
 export function RemoraRsiFloorPage() {
   const [messageApi, contextHolder] = message.useMessage();
-  const [universe, setUniverse] = useState<string>("WATCHLIST");
+  const [universes, setUniverses] = useState<string[]>(["WATCHLIST"]);
   const [loading, setLoading] = useState<boolean>(false);
   const [result, setResult] = useState<RsiFloorScannerResult | null>(null);
   const [remoraResult, setRemoraResult] = useState<RemoraRsiFloorChainedResult | null>(null);
@@ -60,6 +114,10 @@ export function RemoraRsiFloorPage() {
   }, [rows]);
 
   const runScan = async (freshScan: boolean): Promise<void> => {
+    if (universes.length === 0) {
+      messageApi.warning("Select at least one universe.");
+      return;
+    }
     setLoading(true);
     setError(null);
     const key = freshScan ? "remora-rsi-floor-fresh" : "remora-rsi-floor-scan";
@@ -71,17 +129,22 @@ export function RemoraRsiFloorPage() {
     });
 
     try {
-      const payload: RsiFloorScannerRequest = {
-        universe,
-        freshScan,
-      };
-      const response = await postJson<RsiFloorScannerResult>("/api/screener/remora-rsi-floor/scan", payload);
-      setResult(response);
+      const responses = await Promise.all(
+        universes.map((selectedUniverse) => {
+          const payload: RsiFloorScannerRequest = {
+            universe: selectedUniverse,
+            freshScan,
+          };
+          return postJson<RsiFloorScannerResult>("/api/screener/remora-rsi-floor/scan", payload);
+        }),
+      );
+      const merged = mergeRsiResults(responses, universes);
+      setResult(merged);
       setRemoraResult(null);
       messageApi.open({
         key,
         type: "success",
-        content: `Scan completed. Matched ${response.matchedCount} stocks.`,
+        content: `Scan completed. Matched ${merged.matchedCount} stocks.`,
         duration: 3,
       });
     } catch (scanError: unknown) {
@@ -99,6 +162,10 @@ export function RemoraRsiFloorPage() {
   };
 
   const runRemoraOnFiltered = async (): Promise<void> => {
+    if (universes.length === 0) {
+      messageApi.warning("Select at least one universe.");
+      return;
+    }
     setLoading(true);
     setError(null);
     const key = "remora-rsi-floor-remora-confirm";
@@ -110,19 +177,24 @@ export function RemoraRsiFloorPage() {
     });
 
     try {
-      const payload: RsiFloorScannerRequest = {
-        universe,
-      };
-      const response = await postJson<RemoraRsiFloorChainedResult>(
-        "/api/screener/remora-rsi-floor/remora-confirm",
-        payload,
+      const responses = await Promise.all(
+        universes.map((selectedUniverse) => {
+          const payload: RsiFloorScannerRequest = {
+            universe: selectedUniverse,
+          };
+          return postJson<RemoraRsiFloorChainedResult>(
+            "/api/screener/remora-rsi-floor/remora-confirm",
+            payload,
+          );
+        }),
       );
-      setResult(response.rsiResult);
-      setRemoraResult(response);
+      const merged = mergeRemoraResults(responses, universes);
+      setResult(merged.rsiResult);
+      setRemoraResult(merged);
       messageApi.open({
         key,
         type: "success",
-        content: `Delivery confirmed ${response.deliveryConfirmedCount} of ${response.deliveryRequestedSymbols} RSI-filtered stocks.`,
+        content: `Delivery confirmed ${merged.deliveryConfirmedCount} of ${merged.deliveryRequestedSymbols} RSI-filtered stocks.`,
         duration: 4,
       });
     } catch (scanError: unknown) {
@@ -355,11 +427,13 @@ export function RemoraRsiFloorPage() {
             <Col>
               <Space wrap>
                 <Select
-                  value={universe}
-                  onChange={setUniverse}
-                  style={{ width: 260 }}
+                  mode="multiple"
+                  value={universes}
+                  onChange={setUniverses}
+                  style={{ width: 360 }}
                   options={UNIVERSE_OPTIONS}
                   disabled={loading}
+                  maxTagCount="responsive"
                 />
                 <Button
                   type="primary"

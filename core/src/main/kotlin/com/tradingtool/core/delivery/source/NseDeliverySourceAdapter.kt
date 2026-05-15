@@ -2,6 +2,7 @@ package com.tradingtool.core.delivery.source
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.tradingtool.core.delivery.config.DeliveryDataSource
 import com.tradingtool.core.delivery.model.DeliverySourceRow
 import com.tradingtool.core.delivery.model.DeliverySourceType
 import com.tradingtool.core.delivery.validation.DeliveryDiscoveryResult
@@ -110,6 +111,24 @@ class NseDeliverySourceAdapter(
             content = rawContent,
             tradingDate = reportFile.tradingDate,
         )
+    }
+
+    fun buildArchiveDescriptor(
+        tradingDate: LocalDate,
+        source: DeliveryDataSource,
+    ): DeliveryFileDescriptor {
+        return when (source) {
+            DeliveryDataSource.CM_BHAVDATA_FULL -> {
+                val dateToken = archiveDateFormatter.format(tradingDate)
+                val fileName = "sec_bhavdata_full_${dateToken}.csv"
+                DeliveryFileDescriptor(
+                    tradingDate = tradingDate,
+                    url = "$ARCHIVE_BHAV_BASE_URL/$fileName",
+                    fileName = fileName,
+                )
+            }
+            DeliveryDataSource.MTO -> error("Archive descriptor is not implemented for source=$source")
+        }
     }
 
     private suspend fun fetchDailyReports(): DailyReportResponse? {
@@ -266,8 +285,10 @@ class NseDeliverySourceAdapter(
 
     companion object {
         private const val DISCOVERY_URL: String = "https://www.nseindia.com/api/daily-reports?key=CM"
+        private const val ARCHIVE_BHAV_BASE_URL: String = "https://archives.nseindia.com/products/content"
         private const val CM_BHAVDATA_FULL_FILE_KEY: String = "CM-BHAVDATA-FULL"
         private const val CM_MTO_FILE_KEY: String = "CM-SECWISE-DELIVERY-POSITION"
         private val apiDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("dd-MMM-yyyy", Locale.ENGLISH)
+        private val archiveDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("ddMMyyyy")
     }
 }
