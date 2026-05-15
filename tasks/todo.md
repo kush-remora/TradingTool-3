@@ -1619,3 +1619,28 @@ We should reuse the proven building blocks:
 ## Verification
 - Backend: compile + focused unit test(s) for JSON parsing and dedupe behavior.
 - Frontend: page test ensuring upload → POST → renders success/error.
+
+# Implementation Plan: Wyckoff Market Cycle Standalone Module
+
+## Overview
+Create a new standalone module named "Wyckoff Market Cycle" as a minimum isolated requirement, without integrating it into existing runtime paths.
+
+## Implementation Steps
+- [x] Add isolated module directory and build file.
+- [x] Add minimal Kotlin source/test skeleton.
+- [x] Add module README documenting separation boundaries.
+- [x] Verify module compiles independently.
+- [x] Mark completion notes.
+
+
+## Review
+- Created a new root module: `wyckoff-market-cycle`.
+- Kept it isolated by not adding it to parent `pom.xml` `<modules>`.
+- Added minimal Kotlin class + test + module README for future integration.
+- Verification: `mvn -q -f wyckoff-market-cycle/pom.xml -DskipTests compile` passed.
+- Mandatory skills invoked:
+  - `coding-standards`: applied simple/readable minimal skeleton.
+  - `backend-architect`: enforced hard boundary and no runtime coupling.
+  - `kotlin-patterns`: kept Kotlin structure explicit and minimal.
+  - `frontend-patterns`: no direct frontend surface in this slice.
+  - `kotlin-reviewer`: review pass completed, no CRITICAL/HIGH issues.
