@@ -74,6 +74,7 @@ class RsiFloorScannerService @Inject constructor(
         val rows = mutableListOf<RsiFloorScannerRow>()
         var scannedSymbols = 0
         var skippedInsufficientHistory = 0
+        val minimumCandlesRequired = maxOf(normalized.rsiPeriod + 1, normalized.lookbackMatchDays)
 
         val resolvedTokens = resolveTokens(universeSymbols, stocksBySymbol)
         val fundamentalsByToken = loadLatestFundamentalsByToken(resolvedTokens.values.toSet())
@@ -89,8 +90,9 @@ class RsiFloorScannerService @Inject constructor(
                 from = fromDate,
                 to = today,
                 yearWindowDays = normalized.yearWindowDays,
+                minimumCandlesRequired = minimumCandlesRequired,
             )
-            if (candles.size < MIN_HISTORY_DAYS || candles.size < normalized.lookbackMatchDays) {
+            if (candles.size < minimumCandlesRequired) {
                 skippedInsufficientHistory++
                 continue
             }
@@ -182,6 +184,15 @@ class RsiFloorScannerService @Inject constructor(
     }
 
     private suspend fun resolveUniverseSymbols(universe: String): List<String> {
+        val watchlistSymbols = stockHandler.read { dao ->
+            dao.listAll()
+                .asSequence()
+                .filter { stock -> stock.exchange.equals("NSE", ignoreCase = true) }
+                .map { stock -> stock.symbol.trim().uppercase() }
+                .filter { symbol -> symbol.isNotEmpty() }
+                .toList()
+        }
+
         val symbols = when (universe) {
             "ALL_NSE" -> instrumentCache.all()
                 .asSequence()
@@ -205,14 +216,8 @@ class RsiFloorScannerService @Inject constructor(
             "NIFTY_SMALLCAP_250" -> rsiMomentumConfigService.loadBaseUniverseSymbols("NIFTY_SMALLCAP_250")
             "NIFTY_50" -> rsiMomentumConfigService.loadBaseUniverseSymbols("NIFTY_50")
             "NIFTY_500" -> loadSymbolsFromCsv("strategy-universes/nifty_500.csv")
-            "GROWW_WATCHLIST" -> GROWW_WATCHLIST_SYMBOLS
-            "WATCHLIST" -> stockHandler.read { dao ->
-                dao.listAll()
-                    .asSequence()
-                    .filter { stock -> stock.exchange.equals("NSE", ignoreCase = true) }
-                    .map { stock -> stock.symbol.trim().uppercase() }
-                    .toList()
-            }
+            "GROWW_WATCHLIST" -> watchlistSymbols
+            "WATCHLIST" -> watchlistSymbols
             else -> emptyList()
         }
 
@@ -282,6 +287,7 @@ class RsiFloorScannerService @Inject constructor(
         from: LocalDate,
         to: LocalDate,
         yearWindowDays: Int,
+        minimumCandlesRequired: Int,
     ): List<DailyCandle> {
         val desiredTradingDays = yearWindowDays + RSI_WARMUP_DAYS
         val cacheKey = buildYearlyCandleCacheKey(token, yearWindowDays)
@@ -310,7 +316,7 @@ class RsiFloorScannerService @Inject constructor(
         }
 
         val merged = mergeCandles(dbCandles, fetched)
-        if (merged.isNotEmpty() && isUsableCoverage(merged, to, MIN_HISTORY_DAYS)) {
+        if (merged.isNotEmpty() && isUsableCoverage(merged, to, minimumCandlesRequired)) {
             runCatching {
                 redis.set(cacheKey, objectMapper.writeValueAsString(merged), YEARLY_CANDLE_CACHE_TTL_SECONDS)
             }
@@ -326,12 +332,61 @@ class RsiFloorScannerService @Inject constructor(
             merged.size,
         )
         if (merged.isNotEmpty()) {
-            // Store only for diagnostics/future retries if desired, but do not use for scanner decision.
+            // Allow partial-history symbols to be evaluated as long as scan-level minimum candles are present.
+            if (merged.size >= minimumCandlesRequired) {
+                runCatching {
+                    redis.set(cacheKey, objectMapper.writeValueAsString(merged), YEARLY_CANDLE_CACHE_TTL_SECONDS)
+                }
+                return merged
+            }
             runCatching {
                 redis.set(cacheKey, objectMapper.writeValueAsString(merged), YEARLY_CANDLE_CACHE_TTL_SECONDS)
             }
         }
+
+        val ohlcvFallbackCandles = loadFromOhlcvRedisFallback(symbol, token, from, to)
+        if (ohlcvFallbackCandles.size >= minimumCandlesRequired) {
+            runCatching {
+                redis.set(cacheKey, objectMapper.writeValueAsString(ohlcvFallbackCandles), YEARLY_CANDLE_CACHE_TTL_SECONDS)
+            }
+            return ohlcvFallbackCandles
+        }
         return emptyList()
+    }
+
+    private suspend fun loadFromOhlcvRedisFallback(
+        symbol: String,
+        token: Long,
+        from: LocalDate,
+        to: LocalDate,
+    ): List<DailyCandle> {
+        val raw = runCatching { redis.get("stock:$token:ohlcv") }.getOrNull() ?: return emptyList()
+        val values = runCatching { objectMapper.readTree(raw) }.getOrNull() ?: return emptyList()
+        if (!values.isArray) return emptyList()
+
+        return values.mapNotNull { node ->
+            val timestamp = node.get("timeStamp")?.asText()?.takeIf { it.length >= 19 } ?: return@mapNotNull null
+            val candleDate = runCatching { LocalDateTime.parse(timestamp.substring(0, 19)).toLocalDate() }.getOrNull()
+                ?: return@mapNotNull null
+            if (candleDate.isBefore(from) || candleDate.isAfter(to)) return@mapNotNull null
+
+            val open = node.get("open")?.asDouble() ?: return@mapNotNull null
+            val high = node.get("high")?.asDouble() ?: return@mapNotNull null
+            val low = node.get("low")?.asDouble() ?: return@mapNotNull null
+            val close = node.get("close")?.asDouble() ?: return@mapNotNull null
+            val volume = node.get("volume")?.asLong() ?: 0L
+
+            DailyCandle(
+                instrumentToken = token,
+                symbol = symbol,
+                candleDate = candleDate,
+                open = open,
+                high = high,
+                low = low,
+                close = close,
+                volume = volume,
+            )
+        }.sortedBy { candle -> candle.candleDate }
     }
 
     private suspend fun fetchFromKite(
@@ -390,15 +445,26 @@ class RsiFloorScannerService @Inject constructor(
         var best: MatchedObservation? = null
 
         for (index in startEval..lastIndex) {
-            val windowSize = minOf(request.yearWindowDays, index + 1)
-            if (windowSize < MIN_HISTORY_DAYS) continue
-            val windowStart = index - windowSize + 1
+            val windowStart = resolveWindowStartIndex(
+                candles = candles,
+                index = index,
+                yearWindowDays = request.yearWindowDays,
+            )
+            val windowSize = index - windowStart + 1
 
             val currentRsi = rsiValues[index]
-            val yearLowRsi = rsiValues.subList(windowStart, index + 1).minOrNull() ?: continue
+            val validRsiStart = maxOf(windowStart, request.rsiPeriod)
+            if (index < validRsiStart) continue
+            val yearLowRsi = rsiValues.subList(validRsiStart, index + 1).minOrNull() ?: continue
             val matchedByYearLow = currentRsi <= yearLowRsi
             val matchedByHardLimit = currentRsi <= request.hardRsiLimit
-            if (!matchesRsiFloorCondition(currentRsi, yearLowRsi, request.hardRsiLimit)) continue
+            val matchedByRsiFloor = matchesRsiFloorCondition(currentRsi, yearLowRsi, request.hardRsiLimit)
+            val matchedByNearLow = isNearLowAtIndex(
+                candles = candles,
+                index = index,
+                windowStart = windowStart,
+            )
+            if (!matchedByRsiFloor && !matchedByNearLow) continue
 
             val windowCandles = candles.subList(windowStart, index + 1)
             val high52w = windowCandles.maxOfOrNull { candle -> candle.high }
@@ -430,6 +496,30 @@ class RsiFloorScannerService @Inject constructor(
         return best
     }
 
+    private fun isNearLowAtIndex(
+        candles: List<DailyCandle>,
+        index: Int,
+        windowStart: Int,
+    ): Boolean {
+        val windowLow = candles.subList(windowStart, index + 1).minOfOrNull { candle -> candle.low } ?: return false
+        val thresholdLow = windowLow * (1.0 + NEAR_LOW_TOLERANCE_PCT / 100.0)
+        return candles[index].low <= thresholdLow
+    }
+
+    private fun resolveWindowStartIndex(
+        candles: List<DailyCandle>,
+        index: Int,
+        yearWindowDays: Int,
+    ): Int {
+        if (candles.isEmpty()) return 0
+        val cutoffDate = candles[index].candleDate.minusDays((yearWindowDays - 1).toLong())
+        var start = index
+        while (start > 0 && !candles[start - 1].candleDate.isBefore(cutoffDate)) {
+            start--
+        }
+        return start
+    }
+
     private suspend fun ensureInstrumentCacheLoaded() {
         if (!instrumentCache.isEmpty()) return
         val instruments = withContext(Dispatchers.IO) {
@@ -439,7 +529,7 @@ class RsiFloorScannerService @Inject constructor(
     }
 
     private fun buildResultCacheKey(request: RsiFloorScannerRequest): String {
-        return "scanner:remora:rsi-floor:v1:" +
+        return "scanner:remora:rsi-floor:v2:" +
             "u=${request.universe}:" +
             "lmd=${request.lookbackMatchDays}:" +
             "rsi=${request.rsiPeriod}:" +
@@ -521,6 +611,7 @@ class RsiFloorScannerService @Inject constructor(
         const val MAX_START_LAG_DAYS: Long = 45
         const val MAX_END_LAG_DAYS: Long = 10
         const val IPO_LISTING_GAP_DAYS: Long = 180
+        const val NEAR_LOW_TOLERANCE_PCT: Double = 3.0
         val GROWW_WATCHLIST_SYMBOLS: List<String> = """
             TCS, ANANDRATHI, AQYLON, ICICIAMC, JUSTDIAL, INNOVISION, ICICIPRULI, DEN, ICICIGI, HDBFS, ELECON, GTPL, TEJASNET, HDFCAMC, ANGELONE, HDFCLIFE, CRISIL, WIPRO, VSTIND, SGFIN, LLOYDS, WAAREERTL, ALOKINDS, RAJINDLTD, MASTEK, HATHWAY, INFOMEDIA, BAJAJCON, BIRLAMONEY, JIOFIN, ICICIBANK, HDFCBANK, YESBANK, BHARATCOAL, NETWORK18, SMLMAH, PNBHOUSING, PNBGILTS, WAAREEINDO, AXITA, NAVKARCORP, GROWW, UGROCAP, INDBANK, NELCO, MAHABANK, E2E, NESTLEIND, HCLTECH, PERSISTENT, 360ONE, CYIENTDLM, CMPDI, TATAELXSI, TATAINVEST, TARIL, SUNTECK, RAJRATAN, POWERICA, MAHEPC, DBSTOCKBRO, TECHM, MAHSCOOTER, HAVELLS, PRIZOR, LTTS, SBILIFE, TATACOMM, OFSS, DELTACORP, SANGAMIND, TRENT, SARLAPOLY, INFY, UTIAMC, TATACAP, CIEINDIA, MAHLOG, ADANIENSOL, LTM, CYIENT, HINDCOMPOS, AURUM, ABSLAMC, HSCL, IEX, SWSOLAR, BLUESTONE, CHOICEIN, TTML, ATUL, ADANIGREEN, INDUSINDBK, VINYLINDIA, SHAIVAL, TANLA, CHENNPETRO, LTF, SPLPETRO, SHRIRAMFIN, WENDT, ATISH, RPEL, ZENSARTECH, TNPL, DCBBANK, RELIANCE, M&MFIN, CANFINHOME, JAYNECOIND, MRPL, INDIACEM, IDFCFIRSTB, SBFC, SILKFLEX, AXISBANK, AVANTEL, ULTRACEMCO, NAM-INDIA, CRAMC, MHRIL, ATGL, BAJAJHFL, TMB, GRSE, RALLIS, EMBASSY, COALINDIA, AIMTRON, SUPREMEIND, SHEKHAWATI, HUHTAMAKI, BDR, CUB, ASTEC, MAHLIFE, STARHEALTH, CEATLTD, CASTROLIND, MARUTI, BANDHANBNK, DHANBANK, GODIGIT, ORIENTCEM, DALBHARAT, INFOBEAN, IFCI, PPLPHARMA, MPHASIS, KFINTECH, NAVINFLUOR, HEG, CAPITALSFB, BAJFINANCE, NDTV, FEDERALBNK, CEMPRO, BENARES, SHREDIGCEM, ACCELYA, SCHAEFFLER, GRANULES, SYNGENE, LGBBROSLTD, LALPATHLAB, HINDUNILVR, CHOLAFIN, BAJAJFINSV, GODREJAGRO, PSPPROJECT, KSOLVES, NSDL, LAURUSLABS, ADANIPORTS, ACC, EQUITASBNK, KSB, PANKAJPOLYMERS, GHCLTEXTIL, SIS, KRMAYURVED, NITTAGELA, KOTAKBANK, LATENTVIEW, EXIDEIND, CAMS, CSBBANK, TATATECH, AMBUJACEM, TSIL, M&M, COFORGE, POONAWALLA, UBL, GHCL, ALKYLAMINE, MARICO, KANSAINER, SHREECEM, BLUESTARCO, RML, GODREJCP, APTUS, MUTHOOTMF, BAJAJ-AUTO, RADICO, HEXT, EMUDHRA, DABUR, GLOBUSSPR, BAJAJHLDNG, NOCIL, PIDILITIND, RSSOFTWARE, ESCORTS, THERMAX, RAIN, ABB, MUTHOOTCAP, CHOLAHLDNG, KALYANKJIL, DLINKINDIA, ORIENTPPR, WEP, AURIONPRO, ANANTRAJ, DRREDDY, BBL, MFSL, BERGEPAINT, NOVARTIND, FOSECOIND, SESHAPAPER, HIGHENERGY, CIPLA, ALLCARGO, ENDURANCE, JSWSTEEL, JTEKTINDIA, MUKANDLTD, TIMKEN, WINSOMETEX, TVTODAY, RANEHOLDIN, AAKAAR, GANGOTRI, GICHSGFIN, MINDTECK, BASF, BOSCH-HCIL, BOSCHLTD
         """.split(",")

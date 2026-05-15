@@ -150,8 +150,8 @@ class StockResource @Inject constructor(
     ): CompletableFuture<Response> = ioScope.endpoint {
         val stockId = id.toLongOrNull() ?: return@endpoint badRequest("Path parameter 'id' must be a valid integer")
         val payload = body ?: return@endpoint badRequest("Request body is required")
-        if (payload.notes == null && payload.priority == null && payload.tags == null && payload.watchlistList == null)
-            return@endpoint badRequest("At least one field (notes, priority, tags, watchlist_list) must be provided")
+        if (payload.notes == null && payload.priority == null && payload.tags == null)
+            return@endpoint badRequest("At least one field (notes, priority, tags) must be provided")
         val priority = payload.priority
         if (priority != null && priority !in 1..5) return@endpoint badRequest("Field 'priority' must be between 1 and 5")
 

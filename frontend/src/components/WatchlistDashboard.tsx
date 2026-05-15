@@ -1,8 +1,8 @@
-import { Table, Typography, Tag, Space, Progress, Button, Tooltip, message, Segmented, Switch } from "antd";
+import { Table, Typography, Tag, Space, Progress, Button, Tooltip, message, Segmented } from "antd";
 import { SyncOutlined } from "@ant-design/icons";
 import { useEffect, useMemo, useState } from "react";
 import { useStocks } from "../hooks/useStocks";
-import { useWatchlist, type WatchlistList } from "../hooks/useWatchlist";
+import { useWatchlist } from "../hooks/useWatchlist";
 import { StockDetailDrawer } from "./StockDetailDrawer";
 import type { WeeklyPatternListResponse, WeeklyPatternResult, WatchlistRow } from "../types";
 import { StockBadge } from "./StockBadge";
@@ -12,6 +12,7 @@ import { getJson } from "../utils/api";
 import { compareByNearestBuyZone, computeBuyZoneMetrics } from "../utils/screenerBuyZone";
 
 const { Text } = Typography;
+const EXECUTION_SR_MULTIPLIERS = [0.5, 1.0, 1.5] as const;
 
 interface WatchlistDashboardProps {
   tag?: string;
@@ -19,12 +20,21 @@ interface WatchlistDashboardProps {
   onRowClick?: (symbol: string) => void;
 }
 
+interface ExecutionSrLevels {
+  breakout: [number, number, number];
+  dip: [number, number, number];
+}
+
+function computeExecutionSrLevels(ltp: number | null, atr14: number | null): ExecutionSrLevels | null {
+  if (ltp === null || atr14 === null || atr14 <= 0) return null;
+  const breakout = EXECUTION_SR_MULTIPLIERS.map((multiplier) => ltp + atr14 * multiplier) as [number, number, number];
+  const dip = EXECUTION_SR_MULTIPLIERS.map((multiplier) => ltp - atr14 * multiplier) as [number, number, number];
+  return { breakout, dip };
+}
+
 export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: WatchlistDashboardProps) {
-  const [selectedList, setSelectedList] = useState<WatchlistList>("EXECUTION");
-  const [showResearchFallback, setShowResearchFallback] = useState(false);
-  const effectiveList: WatchlistList =
-    selectedList === "EXECUTION" && showResearchFallback ? "RESEARCH" : selectedList;
-  const { rows, loading, refreshing, refreshIndicators } = useWatchlist(tag, effectiveList);
+  const [selectedView, setSelectedView] = useState<"EXECUTION" | "RESEARCH">("EXECUTION");
+  const { rows, loading, refreshing, refreshIndicators } = useWatchlist(tag);
   const { stocks } = useStocks();
   const [detailSymbol, setDetailSymbol] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<string[]>([]);
@@ -37,6 +47,8 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
 
   const formatRsi = (val: number | null): string => (val !== null ? val.toFixed(2) : "-");
   const formatPercent = (val: number | null): string => (val !== null ? `${val.toFixed(2)}%` : "-");
+  const formatCompactPrice = (val: number): string =>
+    val.toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 2 });
 
   const formatVolume = (val: number | null): string => {
     if (val === null) return "-";
@@ -330,18 +342,41 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
       }
     },
     {
-      title: "LTP VS SMA50 %",
-      dataIndex: "priceVs50maPct",
-      key: "priceVs50maPct",
-      width: 130,
-      render: (v: number | null) => renderColorValue(v, "", "%")
-    },
-    {
       title: "LTP VS SMA200 %",
       dataIndex: "priceVs200maPct",
       key: "priceVs200maPct",
       width: 140,
       render: (v: number | null) => renderColorValue(v, "", "%")
+    },
+    {
+      title: "SR",
+      key: "srLevels",
+      width: 210,
+      render: (_: unknown, record: WatchlistRow) => {
+        const levels = computeExecutionSrLevels(record.ltp, record.atr14);
+        if (!levels) return <Text type="secondary">-</Text>;
+
+        const breakoutLabel = levels.breakout.map((value, index) => `B${index + 1}:${formatCompactPrice(value)}`).join(" ");
+        const dipLabel = levels.dip.map((value, index) => `D${index + 1}:${formatCompactPrice(value)}`).join(" ");
+        const tooltip = (
+          <div style={{ minWidth: 280, color: "#ffffff", fontSize: 12 }}>
+            <div style={{ marginBottom: 6 }}>ATR14-based levels from current LTP</div>
+            <div style={{ marginBottom: 4 }}>Formula: Bn = LTP + ATR14 x [0.5, 1.0, 1.5]</div>
+            <div style={{ marginBottom: 8 }}>Formula: Dn = LTP - ATR14 x [0.5, 1.0, 1.5]</div>
+            <div style={{ marginBottom: 4 }}>Breakout: {levels.breakout.join(" | ")}</div>
+            <div>Dip: {levels.dip.join(" | ")}</div>
+          </div>
+        );
+
+        return (
+          <Tooltip title={tooltip} placement="right">
+            <div style={{ display: "flex", flexDirection: "column", gap: 2, lineHeight: 1.25 }}>
+              <Text style={{ fontSize: 11, fontWeight: 500, color: "#1677ff" }}>{breakoutLabel}</Text>
+              <Text style={{ fontSize: 11, fontWeight: 500, color: "#8c8c8c" }}>{dipLabel}</Text>
+            </div>
+          </Tooltip>
+        );
+      },
     },
     {
       title: "RSI (14)",
@@ -452,19 +487,20 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
     "drawdownPct",
     "rsi14",
     "priceVs200maPct",
+    "srLevels",
     "event",
     "action",
   ]);
 
   const tableColumns = useMemo(() => {
-    if (selectedList === "EXECUTION") {
+    if (selectedView === "EXECUTION") {
       return columns.filter((column) => {
         const key = String((column as { key?: string; dataIndex?: string }).key ?? (column as { dataIndex?: string }).dataIndex ?? "");
         return compactExecutionKeys.has(key);
       });
     }
     return columns;
-  }, [columns, selectedList]);
+  }, [columns, selectedView]);
 
   const handleRefreshIndicators = async () => {
     const key = "watchlist-refresh";
@@ -505,18 +541,9 @@ export function WatchlistDashboard({ tag = "", onAddClick, onRowClick }: Watchli
                 { label: "Execution", value: "EXECUTION" },
                 { label: "Research", value: "RESEARCH" },
               ]}
-              value={selectedList}
-              onChange={(value) => {
-                setSelectedList(value as WatchlistList);
-                setShowResearchFallback(false);
-              }}
+              value={selectedView}
+              onChange={(value) => setSelectedView(value as "EXECUTION" | "RESEARCH")}
             />
-            {selectedList === "EXECUTION" && rows.length === 0 && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Text type="secondary" style={{ fontSize: 12 }}>Execution empty, show Research</Text>
-                <Switch size="small" checked={showResearchFallback} onChange={setShowResearchFallback} />
-              </div>
-            )}
           </div>
         </div>
         <Space>

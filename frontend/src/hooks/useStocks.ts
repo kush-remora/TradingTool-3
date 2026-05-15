@@ -10,14 +10,12 @@ export interface CreateStockInput {
   notes?: string;
   priority?: number;
   tags?: StockTag[];
-  watchlist_list?: "EXECUTION" | "RESEARCH";
 }
 
 export interface UpdateStockInput {
   notes?: string;
   priority?: number;
   tags?: StockTag[];
-  watchlist_list?: "EXECUTION" | "RESEARCH";
 }
 
 interface UseStocksResult {
@@ -143,7 +141,6 @@ export function useStocks(): UseStocksResult {
       notes: payload.notes ?? null,
       priority: payload.priority ?? null,
       tags: payload.tags ?? [],
-      watchlist_list: payload.watchlist_list ?? "RESEARCH",
     });
     const updated = [created, ...(stocks ?? [])];
     notifyStocksChange(updated);

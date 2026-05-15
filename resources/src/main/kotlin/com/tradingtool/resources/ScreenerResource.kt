@@ -1,6 +1,7 @@
 package com.tradingtool.resources
 
 import com.google.inject.Inject
+import com.tradingtool.core.database.StockDeliveryJdbiHandler
 import com.tradingtool.core.database.StockFundamentalsJdbiHandler
 import com.tradingtool.core.fundamentals.config.FundamentalsConfigService
 import com.tradingtool.core.fundamentals.config.NseIndexConstituentsService
@@ -12,11 +13,15 @@ import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.screener.CandleDataService
 import com.tradingtool.core.screener.RsiFloorScannerRequest
+import com.tradingtool.core.screener.DeliverySurgeConfirmationRow
+import com.tradingtool.core.screener.RemoraRsiFloorChainedResult
 import com.tradingtool.core.screener.RsiFloorScannerService
 import com.tradingtool.core.screener.WeeklyCycleSuccessScanResponse
 import com.tradingtool.core.screener.WeeklyCycleSuccessService
 import com.tradingtool.core.screener.WeeklyPatternService
 import com.tradingtool.core.watchlist.WatchlistService
+import com.tradingtool.core.delivery.reconciliation.DeliveryReconciliationService
+import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
 import com.tradingtool.resources.common.badRequest
 import com.tradingtool.resources.common.endpoint
 import com.tradingtool.resources.common.ok
@@ -99,10 +104,13 @@ class ScreenerResource @Inject constructor(
     private val nseIndexConstituentsService: NseIndexConstituentsService,
     private val fundamentalsFilterConfigService: FundamentalsFilterConfigService,
     private val fundamentalsHandler: StockFundamentalsJdbiHandler,
+    private val deliveryHandler: StockDeliveryJdbiHandler,
     private val drawdownScannerService: com.tradingtool.core.screener.DrawdownScannerService,
     private val rsiFloorScannerService: RsiFloorScannerService,
     private val weeklyCycleSuccessService: WeeklyCycleSuccessService,
     private val watchlistService: WatchlistService,
+    private val deliveryReconciliationService: DeliveryReconciliationService,
+    private val nseDeliverySourceAdapter: NseDeliverySourceAdapter,
     private val stockService: StockService,
     private val kiteClient: KiteConnectClient,
     private val resourceScope: ResourceScope,
@@ -202,6 +210,192 @@ class ScreenerResource @Inject constructor(
     fun remoraRsiFloorScan(request: RsiFloorScannerRequest?): CompletableFuture<Response> = ioScope.endpoint {
         val normalizedRequest = request ?: RsiFloorScannerRequest()
         ok(rsiFloorScannerService.scan(normalizedRequest))
+    }
+
+    @POST
+    @Path("/remora-rsi-floor/remora-confirm")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun remoraRsiFloorRemoraConfirm(request: RsiFloorScannerRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val normalizedRequest = request ?: RsiFloorScannerRequest()
+        val rsiResult = rsiFloorScannerService.scan(normalizedRequest)
+        val rsiTokens = rsiResult.rows.map { row -> row.instrumentToken }.toSet()
+        val missingAfterCoverage = ensureDeliveryCoverage(rsiTokens)
+        if (missingAfterCoverage.isNotEmpty()) {
+            upsertLatestDeliveryForSymbols(
+                symbols = rsiResult.rows.map { row -> row.symbol }.toSet(),
+                missingTokens = missingAfterCoverage,
+            )
+        }
+        val deliveryRows = rsiResult.rows.map { row ->
+            val history = deliveryHandler.read { dao ->
+                dao.findRecentByInstrumentToken(
+                    instrumentToken = row.instrumentToken,
+                    beforeDate = LocalDate.now(ZoneId.of("Asia/Kolkata")).plusDays(1),
+                    limit = 27,
+                )
+            }.asSequence()
+                .filter { deliveryRow ->
+                    deliveryRow.reconciliationStatus == com.tradingtool.core.delivery.model.DeliveryReconciliationStatus.PRESENT &&
+                        deliveryRow.delivQty != null
+                }
+                .toList()
+
+            val recentWindow = history.take(7)
+            val baselineWindow = history.drop(recentWindow.size).take(20)
+            val hasBaselineHistory = baselineWindow.size >= 5
+            val hasAnyDeliveryHistory = recentWindow.isNotEmpty()
+            val avgDeliveredQty20d = if (hasBaselineHistory) {
+                baselineWindow.mapNotNull { deliveryRow -> deliveryRow.delivQty?.toDouble() }.average()
+            } else if (baselineWindow.isNotEmpty()) {
+                baselineWindow.mapNotNull { deliveryRow -> deliveryRow.delivQty?.toDouble() }.average()
+            } else {
+                null
+            }
+            val latestTradingDate = recentWindow.firstOrNull()?.tradingDate?.toString()
+            val latestDeliverySurgePct = if (avgDeliveredQty20d != null && avgDeliveredQty20d > 0.0) {
+                val latestQty = recentWindow.firstOrNull()?.delivQty?.toDouble() ?: 0.0
+                ((latestQty / avgDeliveredQty20d) - 1.0) * 100.0
+            } else {
+                null
+            }
+            val surgePctList = if (avgDeliveredQty20d != null && avgDeliveredQty20d > 0.0) {
+                recentWindow.map { deliveryRow ->
+                    val qty = deliveryRow.delivQty?.toDouble() ?: 0.0
+                    ((qty / avgDeliveredQty20d) - 1.0) * 100.0
+                }
+            } else {
+                emptyList()
+            }
+            val maxDeliverySurgePct7d = surgePctList.maxOrNull()
+            val surgeDays7d = if (avgDeliveredQty20d != null && avgDeliveredQty20d > 0.0) {
+                recentWindow.count { deliveryRow -> (deliveryRow.delivQty ?: 0L).toDouble() > avgDeliveredQty20d }
+            } else {
+                0
+            }
+
+            DeliverySurgeConfirmationRow(
+                symbol = row.symbol,
+                companyName = row.companyName,
+                exchange = row.exchange,
+                instrumentToken = row.instrumentToken,
+                latestTradingDate = latestTradingDate,
+                avgDeliveredQty20d = avgDeliveredQty20d,
+                latestDeliverySurgePct = latestDeliverySurgePct,
+                maxDeliverySurgePct7d = maxDeliverySurgePct7d,
+                surgeDays7d = surgeDays7d,
+                recentDaysUsed = recentWindow.size,
+                baselineDaysUsed = baselineWindow.size,
+                insufficientHistory = !hasAnyDeliveryHistory,
+            )
+        }
+        val confirmedCount = deliveryRows.count { row ->
+            !row.insufficientHistory && row.surgeDays7d >= 3 && (row.maxDeliverySurgePct7d ?: Double.NEGATIVE_INFINITY) >= 25.0
+        }
+        ok(
+            RemoraRsiFloorChainedResult(
+                rsiResult = rsiResult,
+                deliveryRequestedSymbols = rsiResult.rows.size,
+                deliveryConfirmedCount = confirmedCount,
+                deliveryConfirmedRows = deliveryRows,
+            ),
+        )
+    }
+
+    private suspend fun ensureDeliveryCoverage(
+        instrumentTokens: Set<Long>,
+        requiredTradingDays: Int = 8,
+    ): Set<Long> {
+        if (instrumentTokens.isEmpty()) return emptySet()
+
+        val today = LocalDate.now(ZoneId.of("Asia/Kolkata"))
+        suspend fun missingCoverageTokens(): Set<Long> {
+            return instrumentTokens.filterTo(mutableSetOf()) { token ->
+                val presentCount = deliveryHandler.read { dao ->
+                    dao.findRecentByInstrumentToken(
+                        instrumentToken = token,
+                        beforeDate = today.plusDays(1),
+                        limit = requiredTradingDays,
+                    )
+                }.count { row ->
+                    row.reconciliationStatus == com.tradingtool.core.delivery.model.DeliveryReconciliationStatus.PRESENT &&
+                        row.delivQty != null
+                }
+                presentCount < requiredTradingDays
+            }
+        }
+
+        var missing = missingCoverageTokens()
+        if (missing.isEmpty()) return emptySet()
+
+        val latestDate = runCatching { deliveryReconciliationService.latestAvailableTradingDate() }.getOrNull()
+        if (latestDate != null) {
+            runCatching { deliveryReconciliationService.reconcileDate(latestDate) }
+                .onFailure { error -> log.debug("Delivery reconcile skipped for {}: {}", latestDate, error.message) }
+            runCatching { deliveryReconciliationService.reconcileDate(latestDate.minusDays(1)) }
+                .onFailure { error -> log.debug("Delivery reconcile skipped for {}: {}", latestDate.minusDays(1), error.message) }
+        }
+
+        missing = missingCoverageTokens()
+        if (missing.isEmpty()) {
+            log.info("Delivery backfill complete for chained scan. requestedTokens={}", instrumentTokens.size)
+            return emptySet()
+        }
+
+        log.warn(
+            "Delivery backfill incomplete for chained scan. missingCoverageTokens={} requiredDays={}",
+            missing.size,
+            requiredTradingDays,
+        )
+        return missing
+    }
+
+    private suspend fun upsertLatestDeliveryForSymbols(
+        symbols: Set<String>,
+        missingTokens: Set<Long>,
+    ) {
+        if (symbols.isEmpty() || missingTokens.isEmpty()) return
+
+        val latestRows = runCatching { nseDeliverySourceAdapter.fetchLatestDeliveryData() }
+            .getOrElse { error ->
+                log.warn("Failed to fetch direct NSE latest delivery rows: {}", error.message)
+                return
+            }
+        if (latestRows.isEmpty()) return
+
+        val rowsBySymbol = latestRows.associateBy { row -> row.symbol.trim().uppercase() }
+        val stocksBySymbol = stockService.listAll()
+            .asSequence()
+            .filter { stock -> stock.exchange.equals("NSE", ignoreCase = true) }
+            .associateBy { stock -> stock.symbol.trim().uppercase() }
+
+        var upserted = 0
+        deliveryHandler.write { dao ->
+            symbols.forEach { symbolRaw ->
+                val symbol = symbolRaw.trim().uppercase()
+                val row = rowsBySymbol[symbol] ?: return@forEach
+                val stock = stocksBySymbol[symbol] ?: return@forEach
+                if (!missingTokens.contains(stock.instrumentToken)) return@forEach
+                dao.upsert(
+                    stockId = stock.id,
+                    instrumentToken = stock.instrumentToken,
+                    symbol = symbol,
+                    exchange = stock.exchange,
+                    universe = com.tradingtool.core.delivery.model.DeliveryUniverse.WATCHLIST.storageValue,
+                    tradingDate = row.tradingDate,
+                    reconciliationStatus = com.tradingtool.core.delivery.model.DeliveryReconciliationStatus.PRESENT.name,
+                    series = row.series,
+                    ttlTrdQnty = row.ttlTrdQnty,
+                    delivQty = row.delivQty,
+                    delivPer = row.delivPer,
+                    sourceFileName = row.sourceFileName,
+                    sourceUrl = row.sourceUrl,
+                )
+                upserted++
+            }
+        }
+        if (upserted > 0) {
+            log.info("Direct NSE latest delivery upserted for {} RSI-filtered symbols", upserted)
+        }
     }
 
     @GET
@@ -558,7 +752,7 @@ class ScreenerResource @Inject constructor(
             .filter { stock -> stock.exchange.equals("NSE", ignoreCase = true) }
             .associateBy { stock -> stock.symbol.uppercase() }
 
-        val watchlistRowsBySymbol = watchlistService.getRowsAll(null)
+        val watchlistRowsBySymbol = watchlistService.getRows(null)
             .associateBy { row -> row.symbol.uppercase() }
 
         val fundamentalsBySymbol = fundamentalsHandler.read { dao ->

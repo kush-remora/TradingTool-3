@@ -10,7 +10,6 @@ import com.tradingtool.core.model.stock.Stock
 import com.tradingtool.core.model.stock.StockTag
 import com.tradingtool.core.model.stock.TableAccessStatus
 import com.tradingtool.core.model.stock.UpdateStockPayload
-import com.tradingtool.core.model.stock.WatchlistList
 import com.tradingtool.core.watchlist.WatchlistConfigService
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -26,11 +25,6 @@ class StockService @Inject constructor(
     suspend fun listAll(): List<Stock> = db.read { dao -> dao.listAll() }
 
     suspend fun listByTag(tagName: String): List<Stock> = db.read { dao -> dao.listByTagName(tagName) }
-    suspend fun listByWatchlist(watchlistList: WatchlistList): List<Stock> =
-        db.read { dao -> dao.listByWatchlist(watchlistList.name) }
-
-    suspend fun listByWatchlistAndTag(watchlistList: WatchlistList, tagName: String): List<Stock> =
-        db.read { dao -> dao.listByWatchlistAndTagName(watchlistList.name, tagName) }
 
     suspend fun getById(id: Long): Stock? = db.read { dao -> dao.getById(id) }
 
@@ -58,7 +52,6 @@ class StockService @Inject constructor(
             notes = input.notes?.trim(),
             priority = input.priority,
             tagsJson = toJson(validTags),
-            watchlistList = (input.watchlistList ?: WatchlistList.RESEARCH).name,
         )
     }
 
@@ -77,8 +70,6 @@ class StockService @Inject constructor(
             priority = payload.priority,
             setTags = payload.tags != null,
             tagsJson = validTags?.let { toJson(it) },
-            setWatchlistList = payload.watchlistList != null,
-            watchlistList = payload.watchlistList?.name,
         )
     }
 

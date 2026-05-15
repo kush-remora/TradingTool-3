@@ -9,6 +9,7 @@ import com.tradingtool.core.delivery.reconciliation.DeliveryReconciliationServic
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.model.remora.RemoraEnvelope
 import com.tradingtool.core.model.remora.RemoraSignal
+import com.tradingtool.core.model.stock.Stock
 import com.tradingtool.core.telegram.TelegramSender
 import com.tradingtool.core.model.telegram.TelegramSendTextRequest
 import com.tradingtool.core.strategy.SignalScanner
@@ -63,10 +64,62 @@ class RemoraService(
         val stocks = stockHandler.read { it.listByTagName("Remora") }
         log.info("Remora scan starting for ${stocks.size} stocks")
 
+        val rows = computeSignalsForStocks(
+            stocks = stocks,
+            kiteClient = kiteClient,
+            persistSignals = true,
+            sendAlerts = true,
+        )
+        val successfulFetches = rows.successfulFetches
+        val signalsFound = rows.signalsFound
+
+        log.info("Remora scan complete: $signalsFound new signals out of ${stocks.size} stocks")
+        if (stocks.isNotEmpty()) {
+            check(successfulFetches > 0) {
+                "Remora scan failed for all ${stocks.size} stocks."
+            }
+        }
+    }
+
+    suspend fun computeForSymbols(symbols: List<String>, kiteClient: KiteConnectClient): List<RemoraSignalCalculator.ResultWithSymbol> {
+        val symbolsSet = symbols
+            .asSequence()
+            .map { symbol -> symbol.trim().uppercase() }
+            .filter { symbol -> symbol.isNotEmpty() }
+            .toSet()
+        if (symbolsSet.isEmpty()) return emptyList()
+
+        val stocks = stockHandler.read { dao ->
+            dao.listAll()
+                .asSequence()
+                .filter { stock ->
+                    stock.exchange.equals("NSE", ignoreCase = true) &&
+                        symbolsSet.contains(stock.symbol.trim().uppercase())
+                }
+                .toList()
+        }
+        if (stocks.isEmpty()) return emptyList()
+
+        val result = computeSignalsForStocks(
+            stocks = stocks,
+            kiteClient = kiteClient,
+            persistSignals = false,
+            sendAlerts = false,
+        )
+        return result.confirmedSignals
+    }
+
+    private suspend fun computeSignalsForStocks(
+        stocks: List<Stock>,
+        kiteClient: KiteConnectClient,
+        persistSignals: Boolean,
+        sendAlerts: Boolean,
+    ): ScopedRemoraScanResult {
         ensureDeliveryFresh()
 
         var signalsFound = 0
         var successfulFetches = 0
+        val confirmedSignals = mutableListOf<RemoraSignalCalculator.ResultWithSymbol>()
         val dateRange = buildDateRange()
 
         for (stock in stocks) {
@@ -94,6 +147,17 @@ class RemoraService(
                 val deliveryMap = prepareDeliveryMap(deliveryRows)
 
                 val result = RemoraSignalCalculator.compute(series, deliveryMap) ?: continue
+                confirmedSignals += RemoraSignalCalculator.ResultWithSymbol(
+                    symbol = stock.symbol,
+                    exchange = stock.exchange,
+                    companyName = stock.companyName,
+                    instrumentToken = stock.instrumentToken,
+                    result = result,
+                )
+
+                if (!persistSignals) {
+                    continue
+                }
 
                 val rowsInserted = remoraHandler.write {
                     it.upsert(
@@ -114,7 +178,9 @@ class RemoraService(
                 if (rowsInserted > 0) {
                     signalsFound++
                     log.info("Remora signal: ${stock.symbol} — ${result.signalType} (${result.volumeRatio}x vol, ${result.consecutiveDays}d, ${result.deliveryPct}% deliv)")
-                    sendTelegram(stock.symbol, stock.exchange, result)
+                    if (sendAlerts) {
+                        sendTelegram(stock.symbol, stock.exchange, result)
+                    }
                 } else {
                     log.debug("Remora signal for ${stock.symbol} already recorded for ${result.tradingDate} — skipping Telegram")
                 }
@@ -125,14 +191,18 @@ class RemoraService(
                 log.warn("Remora scan failed for ${stock.symbol}: ${e.message}")
             }
         }
-
-        log.info("Remora scan complete: $signalsFound new signals out of ${stocks.size} stocks")
-        if (stocks.isNotEmpty()) {
-            check(successfulFetches > 0) {
-                "Remora scan failed for all ${stocks.size} stocks."
-            }
-        }
+        return ScopedRemoraScanResult(
+            confirmedSignals = confirmedSignals,
+            successfulFetches = successfulFetches,
+            signalsFound = signalsFound,
+        )
     }
+
+    private data class ScopedRemoraScanResult(
+        val confirmedSignals: List<RemoraSignalCalculator.ResultWithSymbol>,
+        val successfulFetches: Int,
+        val signalsFound: Int,
+    )
 
     private suspend fun ensureDeliveryFresh() {
         if (deliveryMutex.isLocked) {

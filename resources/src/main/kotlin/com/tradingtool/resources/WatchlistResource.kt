@@ -7,7 +7,6 @@ import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.kite.TickSnapshot
 import com.tradingtool.core.kite.TickStore
 import com.tradingtool.core.strategy.remora.RemoraService
-import com.tradingtool.core.model.stock.WatchlistList
 import com.tradingtool.core.watchlist.IndicatorService
 import com.tradingtool.core.watchlist.WatchlistService
 import com.tradingtool.resources.common.badRequest
@@ -32,10 +31,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
-data class RefreshRequest(
-    val tags: List<String> = emptyList(),
-    val list: String? = null,
-)
+data class RefreshRequest(val tags: List<String> = emptyList())
 
 @Path("/api/watchlist")
 @Produces(MediaType.APPLICATION_JSON)
@@ -87,12 +83,9 @@ class WatchlistResource @Inject constructor(
      */
     @GET
     @Path("/rows")
-    fun getRows(
-        @QueryParam("tag") tag: String?,
-        @QueryParam("list") list: String?,
-    ): CompletableFuture<Response> = ioScope.endpoint {
-        val watchlistList = parseWatchlistList(list)
-        ok(watchlistService.getRows(watchlistList, tag?.trim()?.takeIf { it.isNotEmpty() }))
+    fun getRows(@QueryParam("tag") tag: String?): CompletableFuture<Response> = ioScope.endpoint {
+        
+        ok(watchlistService.getRows(tag?.trim()?.takeIf { it.isNotEmpty() }))
     }
 
     /**
@@ -116,7 +109,6 @@ class WatchlistResource @Inject constructor(
     @Path("/refresh")
     @Consumes(MediaType.APPLICATION_JSON)
     fun refresh(request: RefreshRequest?): CompletableFuture<Response> = ioScope.endpoint {
-        val watchlistList = parseWatchlistList(request?.list)
         val tags = request?.tags
             ?.map { it.trim() }
             ?.filter { it.isNotEmpty() }
@@ -124,9 +116,9 @@ class WatchlistResource @Inject constructor(
             ?: emptyList()
 
         if (tags.isEmpty()) {
-            indicatorService.refreshByList(kiteClient, watchlistList)
+            indicatorService.refreshAll(kiteClient)
         } else {
-            tags.forEach { tag -> indicatorService.refreshByListAndTag(kiteClient, watchlistList, tag) }
+            tags.forEach { tag -> indicatorService.refreshTag(kiteClient, tag) }
         }
 
         val message = if (tags.isEmpty()) {
@@ -138,18 +130,11 @@ class WatchlistResource @Inject constructor(
         ok(
             mapOf(
                 "message" to message,
-                "scope" to if (tags.isEmpty()) "list" else "list+tags",
-                "list" to watchlistList.name,
+                "scope" to if (tags.isEmpty()) "all" else "tags",
                 "tags" to tags,
                 "completed" to true,
             )
         )
-    }
-
-    private fun parseWatchlistList(raw: String?): WatchlistList {
-        if (raw.isNullOrBlank()) return WatchlistList.EXECUTION
-        return WatchlistList.entries.firstOrNull { it.name.equals(raw.trim(), ignoreCase = true) }
-            ?: throw IllegalArgumentException("Invalid list '$raw'. Allowed values: EXECUTION, RESEARCH")
     }
 
     // ── Live Stream ───────────────────────────────────────────────────────────

@@ -5,7 +5,6 @@ import com.google.inject.Singleton
 import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.TickStore
-import com.tradingtool.core.model.stock.WatchlistList
 import com.tradingtool.core.model.watchlist.WatchlistRow
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumConfigService
 import com.tradingtool.core.watchlist.IndicatorService
@@ -79,9 +78,6 @@ class DrawdownScannerService @Inject constructor(
             val priceVs200maPct = if (effectiveLtp != null && ind.sma200 != null && ind.sma200 != 0.0) {
                 (effectiveLtp - ind.sma200) / ind.sma200 * 100.0
             } else null
-            val priceVs50maPct = if (effectiveLtp != null && ind.sma50 != null && ind.sma50 != 0.0) {
-                (effectiveLtp - ind.sma50) / ind.sma50 * 100.0
-            } else null
 
             val trendState = when {
                 effectiveLtp == null || ind.sma50 == null || ind.sma200 == null -> null
@@ -96,7 +92,6 @@ class DrawdownScannerService @Inject constructor(
                 instrumentToken = ind.instrumentToken,
                 companyName = companyName,
                 exchange = "NSE",
-                watchlistList = WatchlistList.RESEARCH,
                 sector = null,
                 ltp = effectiveLtp,
                 changePercent = tick?.changePercent,
@@ -112,7 +107,6 @@ class DrawdownScannerService @Inject constructor(
                 rsiAtLow60d = ind.rsiAtLow60d,
                 volumeAtHigh60d = ind.volumeAtHigh60d,
                 volumeAtLow60d = ind.volumeAtLow60d,
-                priceVs50maPct = priceVs50maPct,
                 priceVs200maPct = priceVs200maPct,
                 rsi14 = ind.rsi14,
                 atr14 = ind.atr14,

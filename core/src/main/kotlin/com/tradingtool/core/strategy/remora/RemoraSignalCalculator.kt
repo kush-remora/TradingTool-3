@@ -45,6 +45,14 @@ object RemoraSignalCalculator {
         val deliveryRatio: Double
     )
 
+    data class ResultWithSymbol(
+        val symbol: String,
+        val exchange: String,
+        val companyName: String,
+        val instrumentToken: Long,
+        val result: Result,
+    )
+
     fun compute(series: BarSeries, deliveryMap: Map<LocalDate, DeliveryMetrics>): Result? {
         if (series.barCount < MIN_BARS_REQUIRED) return null
 

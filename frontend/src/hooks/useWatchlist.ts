@@ -2,9 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import type { WatchlistRow } from "../types";
 import { getJson, postJson } from "../utils/api";
 
-export type WatchlistList = "EXECUTION" | "RESEARCH";
-
-export function useWatchlist(tag: string = "", list: WatchlistList = "EXECUTION") {
+export function useWatchlist(tag: string = "") {
   const [rows, setRows] = useState<WatchlistRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -13,10 +11,7 @@ export function useWatchlist(tag: string = "", list: WatchlistList = "EXECUTION"
   const fetchRows = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
-      const params = new URLSearchParams();
-      params.set("list", list);
-      if (tag) params.set("tag", tag);
-      const queryParams = `?${params.toString()}`;
+      const queryParams = tag ? `?tag=${encodeURIComponent(tag)}` : "";
       const data = await getJson<WatchlistRow[]>(`/api/watchlist/rows${queryParams}`, { useCache: false });
       setRows(data || []);
       setError(null);
@@ -25,7 +20,7 @@ export function useWatchlist(tag: string = "", list: WatchlistList = "EXECUTION"
     } finally {
       if (showLoading) setLoading(false);
     }
-  }, [tag, list]);
+  }, [tag]);
 
   useEffect(() => {
     fetchRows(true);
@@ -35,8 +30,7 @@ export function useWatchlist(tag: string = "", list: WatchlistList = "EXECUTION"
     setRefreshing(true);
     try {
       const payload = await postJson<{ message?: string }>(`/api/watchlist/refresh`, {
-        tags: tag ? [tag] : [],
-        list,
+        tags: tag ? [tag] : []
       });
 
       await fetchRows(false);

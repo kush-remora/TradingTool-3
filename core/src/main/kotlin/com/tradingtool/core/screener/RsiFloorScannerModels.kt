@@ -53,6 +53,29 @@ data class RsiFloorScannerResult(
     val rows: List<RsiFloorScannerRow>,
 )
 
+data class DeliverySurgeConfirmationRow(
+    val symbol: String,
+    val companyName: String,
+    val exchange: String,
+    val instrumentToken: Long,
+    val latestTradingDate: String?,
+    val avgDeliveredQty20d: Double?,
+    val latestDeliverySurgePct: Double?,
+    val maxDeliverySurgePct7d: Double?,
+    val surgeDays7d: Int,
+    val recentDaysUsed: Int,
+    val baselineDaysUsed: Int,
+    val insufficientHistory: Boolean,
+)
+
+data class RemoraRsiFloorChainedResult(
+    val runAt: String = Instant.now().toString(),
+    val rsiResult: RsiFloorScannerResult,
+    val deliveryRequestedSymbols: Int,
+    val deliveryConfirmedCount: Int,
+    val deliveryConfirmedRows: List<DeliverySurgeConfirmationRow>,
+)
+
 enum class RsiFloorScanSource {
     CACHE,
     FRESH,

@@ -1,6 +1,5 @@
 package com.tradingtool.core.model.watchlist
 
-import com.tradingtool.core.model.stock.WatchlistList
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -9,7 +8,6 @@ data class WatchlistRow(
     val instrumentToken: Long,
     val companyName: String,
     val exchange: String,
-    val watchlistList: WatchlistList,
     val sector: String? = null,
 
     // Live injected fields
@@ -29,7 +27,6 @@ data class WatchlistRow(
     val rsiAtLow60d: Double? = null,
     val volumeAtHigh60d: Double? = null,
     val volumeAtLow60d: Double? = null,
-    val priceVs50maPct: Double? = null,
     val priceVs200maPct: Double? = null,
     val rsi14: Double? = null,
     val atr14: Double? = null,

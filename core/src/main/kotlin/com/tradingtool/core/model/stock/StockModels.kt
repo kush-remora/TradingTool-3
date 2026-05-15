@@ -11,11 +11,6 @@ data class StockTag(
     val color: String,
 )
 
-enum class WatchlistList {
-    EXECUTION,
-    RESEARCH,
-}
-
 data class Stock(
     val id: Long,
     val symbol: String,
@@ -27,8 +22,6 @@ data class Stock(
     val notes: String? = null,
     val priority: Int? = null,
     val tags: List<StockTag> = emptyList(),
-    @get:JsonProperty("watchlist_list")
-    val watchlistList: WatchlistList = WatchlistList.RESEARCH,
     @get:JsonProperty("created_at")
     val createdAt: String,
     @get:JsonProperty("updated_at")
@@ -52,8 +45,6 @@ data class CreateStockInput(
     val priority: Int? = null,
     @JsonProperty("tags")
     val tags: List<StockTag> = emptyList(),
-    @JsonProperty("watchlist_list")
-    val watchlistList: WatchlistList? = null,
 )
 
 data class UpdateStockPayload(
@@ -63,8 +54,6 @@ data class UpdateStockPayload(
     val priority: Int? = null,
     @JsonProperty("tags")
     val tags: List<StockTag>? = null,
-    @JsonProperty("watchlist_list")
-    val watchlistList: WatchlistList? = null,
 )
 
 // ==================== Health Check ====================

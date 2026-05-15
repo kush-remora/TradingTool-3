@@ -1,5 +1,4 @@
 import {
-  ApartmentOutlined,
   BarChartOutlined,
   BookOutlined,
   DownloadOutlined,
@@ -14,7 +13,6 @@ import { ConsoleV2GrowwWatchlistImportPage } from "./pages/ConsoleV2GrowwWatchli
 import { CorporateResultsPage } from "./pages/CorporateResultsPage";
 import { DrawdownScannerPage } from "./pages/DrawdownScannerPage";
 import { EarningsDashboardPage } from "./pages/EarningsDashboardPage";
-import { GraphPage } from "./pages/GraphPage";
 import { MomentumDataPrepPage } from "./pages/MomentumDataPrepPage";
 import { RemoraPage } from "./pages/RemoraPage";
 import { RemoraRsiFloorPage } from "./pages/RemoraRsiFloorPage";
@@ -37,7 +35,6 @@ import { WeeklySwingPage } from "./pages/WeeklySwingPage";
 
 type V1PageKey =
   | "watchlist"
-  | "graph"
   | "swing-analysis"
   | "trade"
   | "trade-ready"
@@ -65,8 +62,14 @@ type PageKey = V1PageKey | "watchlist-import";
 const menuItems: MenuProps["items"] = [
   { key: "watchlist-import", label: "Watchlist Import", icon: <FundOutlined /> },
   { key: "watchlist", label: "Watchlist", icon: <UnorderedListOutlined /> },
-  { key: "graph", label: "Graph", icon: <ApartmentOutlined /> },
-  { key: "swing-analysis", label: "Swing Visualizer", icon: <BarChartOutlined /> },
+  {
+    key: "unused",
+    label: "Unused",
+    icon: <BarChartOutlined />,
+    children: [
+      { key: "swing-analysis", label: "Swing Visualizer", icon: <BarChartOutlined /> },
+    ],
+  },
   { key: "trade", label: "Trade Journal", icon: <BookOutlined /> },
   { key: "trade-ready", label: "Trade Ready", icon: <ThunderboltOutlined /> },
   { key: "remora", label: "Remora", icon: <FundOutlined /> },
@@ -92,7 +95,6 @@ const menuItems: MenuProps["items"] = [
 const validPages: PageKey[] = [
   "watchlist-import",
   "watchlist",
-  "graph",
   "swing-analysis",
   "trade",
   "trade-ready",
@@ -200,7 +202,6 @@ export default function App() {
           <Layout.Content>
             {route === "watchlist-import" && <ConsoleV2GrowwWatchlistImportPage />}
             {route === "watchlist" && <WatchlistPage />}
-            {route === "graph" && <GraphPage />}
             {route === "swing-analysis" && <SwingAnalysisPage />}
             {route === "trade" && <TradePage />}
             {route === "trade-ready" && <TradeReadyPage />}

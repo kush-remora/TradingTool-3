@@ -15,9 +15,8 @@ interface StockWriteDao {
         """
         INSERT INTO public.${Tables.STOCKS}
             (${StockColumns.SYMBOL}, ${StockColumns.INSTRUMENT_TOKEN}, ${StockColumns.COMPANY_NAME},
-             ${StockColumns.EXCHANGE}, ${StockColumns.NOTES}, ${StockColumns.PRIORITY}, ${StockColumns.TAGS},
-             ${StockColumns.WATCHLIST_LIST})
-        VALUES (:symbol, :instrumentToken, :companyName, :exchange, :notes, :priority, CAST(:tagsJson AS jsonb), :watchlistList)
+             ${StockColumns.EXCHANGE}, ${StockColumns.NOTES}, ${StockColumns.PRIORITY}, ${StockColumns.TAGS})
+        VALUES (:symbol, :instrumentToken, :companyName, :exchange, :notes, :priority, CAST(:tagsJson AS jsonb))
         RETURNING ${StockColumns.ALL_WITH_TAGS}
         """
     )
@@ -29,7 +28,6 @@ interface StockWriteDao {
         @Bind("notes") notes: String?,
         @Bind("priority") priority: Int?,
         @Bind("tagsJson") tagsJson: String,
-        @Bind("watchlistList") watchlistList: String,
     ): Stock
 
     @SqlQuery(
@@ -39,7 +37,6 @@ interface StockWriteDao {
             ${StockColumns.NOTES}    = CASE WHEN :setNotes    THEN :notes                      ELSE ${StockColumns.NOTES}    END,
             ${StockColumns.PRIORITY} = CASE WHEN :setPriority THEN CAST(:priority AS integer)  ELSE ${StockColumns.PRIORITY} END,
             ${StockColumns.TAGS}     = CASE WHEN :setTags     THEN CAST(:tagsJson AS jsonb)    ELSE ${StockColumns.TAGS}     END,
-            ${StockColumns.WATCHLIST_LIST} = CASE WHEN :setWatchlistList THEN :watchlistList ELSE ${StockColumns.WATCHLIST_LIST} END,
             ${StockColumns.UPDATED_AT} = NOW()
         WHERE ${StockColumns.ID} = :id
         RETURNING ${StockColumns.ALL_WITH_TAGS}
@@ -53,8 +50,6 @@ interface StockWriteDao {
         @Bind("priority") priority: Int?,
         @Bind("setTags") setTags: Boolean,
         @Bind("tagsJson") tagsJson: String?,
-        @Bind("setWatchlistList") setWatchlistList: Boolean,
-        @Bind("watchlistList") watchlistList: String?,
     ): Stock?
 
     @SqlUpdate(
