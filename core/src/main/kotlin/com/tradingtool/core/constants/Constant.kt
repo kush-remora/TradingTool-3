@@ -14,6 +14,7 @@ object DatabaseConstants {
         const val STOCK_DELIVERY_DAILY = "stock_delivery_daily"
         const val RSI_MOMENTUM_SNAPSHOT_DAILY = "rsi_momentum_snapshot_daily"
         const val EARNINGS_RESULTS = "earnings_results"
+        const val INDEX_CONSTITUENTS = "index_constituents"
     }
 
     object KiteTokenColumns {
@@ -108,6 +109,21 @@ object DatabaseConstants {
         const val INSTRUMENT_TOKEN = "instrument_token"
         const val RESULT_DATE = "result_date"
         const val BEHAVIOR_PAYLOAD = "behavior_payload"
+        const val CREATED_AT = "created_at"
+        const val UPDATED_AT = "updated_at"
+    }
+
+    object IndexConstituentColumns {
+        const val INDEX_KEY = "index_key"
+        const val SYMBOL = "symbol"
+        const val INSTRUMENT_TOKEN = "instrument_token"
+        const val COMPANY_NAME = "company_name"
+        const val INDUSTRY = "industry"
+        const val SERIES = "series"
+        const val ISIN_CODE = "isin_code"
+        const val IS_ACTIVE = "is_active"
+        const val SOURCE_URL = "source_url"
+        const val LAST_SYNCED_AT = "last_synced_at"
         const val CREATED_AT = "created_at"
         const val UPDATED_AT = "updated_at"
     }

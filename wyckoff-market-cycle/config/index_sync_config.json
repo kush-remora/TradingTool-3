@@ -1,0 +1,10 @@
+{
+  "batchSize": 50,
+  "indices": [
+    {
+      "key": "nifty_50",
+      "enabled": true,
+      "csvUrl": "https://www.niftyindices.com/IndexConstituent/ind_nifty50list.csv"
+    }
+  ]
+}

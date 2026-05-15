@@ -141,6 +141,12 @@ Responsibilities:
 - **Explain Changes**: High-level summary at each step
 - **Document Results**: Add review section to `tasks/todo.md`
 - **Capture Lessons**: Update `tasks/lessons.md` after corrections
+- **Feature Journal (Mandatory)**: After each feature implementation, create or update a day-specific doc inside that feature's module docs (for example `wyckoff-market-cycle/docs/journeys/2026-05-16.md`) with:
+  - feature name and why it was built
+  - what was implemented
+  - key decisions/tradeoffs
+  - validation run and outcomes
+  - next follow-ups
 
 ## Core Principles
 

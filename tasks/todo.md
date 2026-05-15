@@ -1644,3 +1644,29 @@ Create a new standalone module named "Wyckoff Market Cycle" as a minimum isolate
   - `kotlin-patterns`: kept Kotlin structure explicit and minimal.
   - `frontend-patterns`: no direct frontend surface in this slice.
   - `kotlin-reviewer`: review pass completed, no CRITICAL/HIGH issues.
+
+# Implementation Plan: Wyckoff Weekly Index Membership Cron
+
+## Overview
+Implement a weekly index-constituent sync cron (config-driven) that fetches Nifty 50 CSV, resolves Kite instrument tokens, upserts membership relations, and soft-deactivates removed symbols.
+
+## Implementation Steps
+- [x] Added module config: `wyckoff-market-cycle/config/index_sync_config.json`.
+- [x] Added isolated module SQL: `wyckoff-market-cycle/sql/index_constituents.sql`.
+- [x] Added core index-constituent sync models/source/service/gateway + JDBI DAO layer.
+- [x] Added cron entrypoint: `IndexConstituentSyncJob` with report artifacts.
+- [x] Added unit tests for CSV parsing and sync batching/deactivation behavior.
+- [x] Ran compile and focused tests.
+
+## Review
+- Verification:
+  - `mvn -q -pl core,cron-job -DskipTests compile` passed.
+  - `mvn -q -pl core test -Dtest=IndexConstituentCsvSourceTest,IndexConstituentSyncServiceTest` passed.
+- Mandatory skills invoked:
+  - `coding-standards`: applied readable, minimal, explicit naming.
+  - `backend-architect`: single-table relation model + idempotent sync boundaries.
+  - `kotlin-patterns`: clear gateway/service split and constructor DI style.
+  - `frontend-patterns`: no frontend surface in this implementation.
+  - `kotlin-reviewer`: review pass completed; no CRITICAL/HIGH issues.
+- Additional required review skill:
+  - `code-reviewer`: review pass completed; no CRITICAL/HIGH issues.

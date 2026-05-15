@@ -1,0 +1,13 @@
+{
+  "startedAt" : "2026-05-16T03:42:54.857757+05:30",
+  "finishedAt" : "2026-05-16T03:42:56.613038+05:30",
+  "indexReports" : [ {
+    "indexKey" : "nifty_50",
+    "sourceUrl" : "https://www.niftyindices.com/IndexConstituent/ind_nifty50list.csv",
+    "fetchedCount" : 50,
+    "parsedCount" : 50,
+    "upsertedCount" : 50,
+    "deactivatedCount" : 0,
+    "unresolvedSymbols" : [ ]
+  } ]
+}
