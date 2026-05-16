@@ -175,6 +175,8 @@ type ColumnKey =
   | "expectedSwing"
   | "vcpTightness"
   | "volumeSignature"
+  | "baseStability"
+  | "weeklyRoc"
   | "strikeRate"
   | "lastMondayDip"
   | "avg8wMondayDip"
@@ -382,6 +384,46 @@ const COLUMN_META: ColumnMeta[] = [
     getFilterValue: (row) => toFilterValue(row.volumeSignatureRatio),
     compare: (a, b) => compareNullableNumber(a.volumeSignatureRatio, b.volumeSignatureRatio),
     render: (row) => renderNumeric(row.volumeSignatureRatio),
+  },
+  {
+    key: "baseStability",
+    title: "Base Stability",
+    width: 140,
+    defaultVisible: true,
+    defaultPin: "none",
+    getFilterValue: (row) => {
+      const v = row.weeklyBaseConsistencyPct ?? 0;
+      if (v <= 2.5) return "<= 2.5%";
+      if (v <= 4.5) return "2.5-4.5%";
+      return "> 4.5%";
+    },
+    compare: (a, b) => (a.weeklyBaseConsistencyPct || 0) - (b.weeklyBaseConsistencyPct || 0),
+    render: (row) => {
+      const val = row.weeklyBaseConsistencyPct;
+      if (val == null) return "-";
+      const color = val <= 2.5 ? "success" : val <= 4.5 ? "warning" : "default";
+      return <Tag color={color} style={{ fontWeight: 600 }}>{val.toFixed(2)}%</Tag>;
+    }
+  },
+  {
+    key: "weeklyRoc",
+    title: "Weekly ROC",
+    width: 130,
+    defaultVisible: true,
+    defaultPin: "none",
+    getFilterValue: (row) => {
+      const v = row.avgWeeklyRocPct ?? 0;
+      if (Math.abs(v) <= 1.5) return "Stable (<= 1.5%)";
+      if (Math.abs(v) <= 3.0) return "Trending (1.5-3%)";
+      return "Volatile (> 3%)";
+    },
+    compare: (a, b) => (a.avgWeeklyRocPct || 0) - (b.avgWeeklyRocPct || 0),
+    render: (row) => {
+      const val = row.avgWeeklyRocPct;
+      if (val == null) return "-";
+      const color = Math.abs(val) <= 1.5 ? "#52c41a" : Math.abs(val) <= 3.0 ? "#faad14" : undefined;
+      return <Text strong style={{ color }}>{val.toFixed(2)}%</Text>;
+    }
   },
   {
     key: "strikeRate",

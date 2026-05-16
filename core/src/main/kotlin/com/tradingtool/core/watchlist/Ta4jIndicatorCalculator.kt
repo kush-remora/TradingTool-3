@@ -13,6 +13,9 @@ import org.ta4j.core.indicators.helpers.LowestValueIndicator
 import org.ta4j.core.indicators.helpers.VolumeIndicator
 import com.tradingtool.core.technical.calculateAtr
 import com.tradingtool.core.technical.calculateSma
+import com.tradingtool.core.technical.calculateBollingerBands
+import com.tradingtool.core.technical.calculateBollingerBandWidth
+import com.tradingtool.core.technical.calculateBollingerPercentB
 import com.tradingtool.core.technical.getNullableDouble
 
 object Ta4jIndicatorCalculator {
@@ -61,6 +64,34 @@ object Ta4jIndicatorCalculator {
             }
         } else {
             null
+        }
+
+        // Bollinger Bands (20, 2)
+        val (bbUpperInd, bbMiddleInd, bbLowerInd) = if (series.barCount >= 20) series.calculateBollingerBands(20, 2.0) else Triple(null, null, null)
+        val bbUpper = bbUpperInd?.getNullableDouble(lastIndex)
+        val bbMiddle = bbMiddleInd?.getNullableDouble(lastIndex)
+        val bbLower = bbLowerInd?.getNullableDouble(lastIndex)
+
+        val percentBInd = if (series.barCount >= 20) series.calculateBollingerPercentB(20, 2.0) else null
+        val bbPercentB = percentBInd?.getNullableDouble(lastIndex)
+
+        val bandwidthInd = if (series.barCount >= 20) series.calculateBollingerBandWidth(20, 2.0) else null
+        val bbBandwidth = bandwidthInd?.getNullableDouble(lastIndex)
+
+        // Squeeze Detection: Lowest bandwidth in last 60 days
+        var isSqueeze = false
+        if (series.barCount >= 60 && bandwidthInd != null && bbBandwidth != null) {
+            val currentBw = bbBandwidth
+            val startIndex = lastIndex - 59
+            var minBandwidth: Double = currentBw
+            for (i in startIndex until lastIndex) {
+                val bw = bandwidthInd.getNullableDouble(i) ?: continue
+                if (bw < minBandwidth) {
+                    minBandwidth = bw
+                }
+            }
+            // If current bandwidth is the minimum, it's a squeeze
+            isSqueeze = currentBw <= minBandwidth + PRICE_EPSILON
         }
 
         // Drawdown % (from highest close in the last 1 year / 252 bars)
@@ -163,10 +194,13 @@ object Ta4jIndicatorCalculator {
             roc3m = roc3m,
             macdSignal = macdSignalStr,
             drawdownPct = drawdownPct,
-            // maxDd1y requires a true peak-to-trough walk (different from drawdownPct which is
-            // only current price vs period high). Left null until properly implemented rather
-            // than silently returning a wrong value.
             maxDd1y = null,
+            bbUpper = bbUpper,
+            bbLower = bbLower,
+            bbMiddle = bbMiddle,
+            bbPercentB = bbPercentB,
+            bbBandwidth = bbBandwidth,
+            bbSqueeze = isSqueeze,
             avgVol20d = avgVol20d,
             volumeVsAvg20d = volumeVsAvg20d,
             computedAt = System.currentTimeMillis(),

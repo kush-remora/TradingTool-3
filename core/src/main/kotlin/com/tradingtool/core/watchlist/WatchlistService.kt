@@ -119,6 +119,12 @@ class WatchlistService(
                 macdSignal = ind?.macdSignal,
                 drawdownPct = ind?.drawdownPct,
                 maxDd1y = ind?.maxDd1y,
+                bbUpper = ind?.bbUpper,
+                bbLower = ind?.bbLower,
+                bbMiddle = ind?.bbMiddle,
+                bbPercentB = ind?.bbPercentB,
+                bbBandwidth = ind?.bbBandwidth,
+                bbSqueeze = ind?.bbSqueeze ?: false,
                 volumeVsAvg = volumeVsAvg,
             )
         }

@@ -319,6 +319,20 @@ export function ScreenerDetail({ symbol, onBack }: ScreenerDetailProps) {
             <div style={{ fontSize: 24, fontWeight: 700, margin: '4px 0' }}>{data.rsiOverboughtPercentile}%</div>
             <Text type="secondary" style={{ fontSize: 12 }}>Shown for context near the {data.rsiLookbackDays}D RSI max</Text>
           </div>
+          <div style={statCardStyle}>
+            <Text type="secondary" style={{ fontSize: 13 }}>Base Stability</Text>
+            <div style={{ fontSize: 24, fontWeight: 700, margin: '4px 0', color: (data.weeklyBaseConsistencyPct || 0) <= 2.5 ? '#389e0d' : '#8c8c8c' }}>
+              {data.weeklyBaseConsistencyPct?.toFixed(2)}%
+            </div>
+            <Text type="secondary" style={{ fontSize: 12 }}>Avg week-to-week base drift</Text>
+          </div>
+          <div style={statCardStyle}>
+            <Text type="secondary" style={{ fontSize: 13 }}>Weekly ROC</Text>
+            <div style={{ fontSize: 24, fontWeight: 700, margin: '4px 0', color: Math.abs(data.avgWeeklyRocPct || 0) <= 1.5 ? '#389e0d' : '#8c8c8c' }}>
+              {data.avgWeeklyRocPct?.toFixed(2)}%
+            </div>
+            <Text type="secondary" style={{ fontSize: 12 }}>Avg net growth per week</Text>
+          </div>
         </div>
 
         <div style={{ background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 12, padding: 20, marginBottom: 32 }}>

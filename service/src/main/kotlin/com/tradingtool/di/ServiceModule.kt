@@ -8,6 +8,7 @@ import com.tradingtool.config.AppConfig
 import com.tradingtool.core.config.IndicatorConfig
 import com.tradingtool.core.database.CandleJdbiHandler
 import com.tradingtool.core.database.EarningsResultJdbiHandler
+import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.database.KiteTokenJdbiHandler
 import com.tradingtool.core.database.RedisHandler
@@ -96,6 +97,7 @@ class ServiceModule(
         bind(TradeService::class.java).`in`(Singleton::class.java)
         bind(TradeReadinessService::class.java).`in`(Singleton::class.java)
         bind(com.tradingtool.core.screener.DrawdownScannerService::class.java).`in`(Singleton::class.java)
+        bind(com.tradingtool.core.screener.BollingerScreenerService::class.java).`in`(Singleton::class.java)
         bind(RsiFloorScannerService::class.java).`in`(Singleton::class.java)
         bind(ProfitLookbackService::class.java).`in`(Singleton::class.java)
         bind(HttpRequestExecutor::class.java).to(JdkHttpRequestExecutor::class.java).`in`(Singleton::class.java)
@@ -143,6 +145,26 @@ class ServiceModule(
     @Provides @Singleton
     fun provideTradeJdbiHandler(config: DatabaseConfig): JdbiHandler<TradeReadDao, TradeWriteDao> =
         handler<TradeReadDao, TradeWriteDao>(config)
+
+    @Provides @Singleton
+    fun provideIndexConstituentJdbiHandler(config: DatabaseConfig): IndexConstituentJdbiHandler =
+        handler<com.tradingtool.core.indexconstituents.dao.IndexConstituentReadDao, com.tradingtool.core.indexconstituents.dao.IndexConstituentWriteDao>(config)
+
+    @Provides @Singleton
+    fun provideBaseSwingService(
+        stockHandler: StockJdbiHandler,
+        indexConstituentHandler: IndexConstituentJdbiHandler,
+        candleCache: CandleCacheService,
+    ): com.tradingtool.core.screener.BaseSwingService =
+        com.tradingtool.core.screener.BaseSwingService(stockHandler, indexConstituentHandler, candleCache)
+
+    @Provides @Singleton
+    fun provideBollingerScreenerService(
+        stockHandler: StockJdbiHandler,
+        indexConstituentHandler: IndexConstituentJdbiHandler,
+        candleCache: CandleCacheService,
+    ): com.tradingtool.core.screener.BollingerScreenerService =
+        com.tradingtool.core.screener.BollingerScreenerService(stockHandler, indexConstituentHandler, candleCache)
 
     @Provides
     @Singleton

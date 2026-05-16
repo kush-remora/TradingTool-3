@@ -10,6 +10,12 @@ import org.ta4j.core.indicators.EMAIndicator
 import org.ta4j.core.indicators.MACDIndicator
 import org.ta4j.core.indicators.RSIIndicator
 import org.ta4j.core.indicators.SMAIndicator
+import org.ta4j.core.indicators.bollinger.BollingerBandsLowerIndicator
+import org.ta4j.core.indicators.bollinger.BollingerBandsMiddleIndicator
+import org.ta4j.core.indicators.bollinger.BollingerBandsUpperIndicator
+import org.ta4j.core.indicators.bollinger.BollingerBandWidthIndicator
+import org.ta4j.core.indicators.bollinger.PercentBIndicator
+import org.ta4j.core.indicators.statistics.StandardDeviationIndicator
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator
 import org.ta4j.core.num.Num
 import java.time.ZoneId
@@ -58,6 +64,26 @@ fun BarSeries.calculateAtr(period: Int = 14): ATRIndicator {
 fun BarSeries.calculateMacd(shortBar: Int = 12, longBar: Int = 26): MACDIndicator {
     return MACDIndicator(ClosePriceIndicator(this), shortBar, longBar)
 }
+
+fun BarSeries.calculateBollingerBands(period: Int = 20, k: Double = 2.0): Triple<BollingerBandsUpperIndicator, BollingerBandsMiddleIndicator, BollingerBandsLowerIndicator> {
+    val closePrice = ClosePriceIndicator(this)
+    val sma = SMAIndicator(closePrice, period)
+    val sd = StandardDeviationIndicator(closePrice, period)
+    val middle = BollingerBandsMiddleIndicator(sma)
+    val upper = BollingerBandsUpperIndicator(middle, sd, this.numOf(k))
+    val lower = BollingerBandsLowerIndicator(middle, sd, this.numOf(k))
+    return Triple(upper, middle, lower)
+}
+
+fun BarSeries.calculateBollingerBandWidth(period: Int = 20, k: Double = 2.0): BollingerBandWidthIndicator {
+    val (upper, middle, lower) = calculateBollingerBands(period, k)
+    return BollingerBandWidthIndicator(upper, middle, lower)
+}
+
+fun BarSeries.calculateBollingerPercentB(period: Int = 20, k: Double = 2.0): PercentBIndicator {
+    return PercentBIndicator(ClosePriceIndicator(this), period, k)
+}
+
 
 fun BarSeries.calculateRsiValues(period: Int = 14, fallback: Double = 50.0): List<Double> {
     if (barCount == 0) return emptyList()

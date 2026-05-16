@@ -1,14 +1,8 @@
-import {
-  BarChartOutlined,
-  BookOutlined,
-  DownloadOutlined,
-  FundOutlined,
-  ThunderboltOutlined,
-  UnorderedListOutlined,
-} from "@ant-design/icons";
+import { BarChartOutlined, BookOutlined, DownloadOutlined, FundOutlined, ThunderboltOutlined, UnorderedListOutlined, LineChartOutlined } from "@ant-design/icons";
 import { ConfigProvider, Layout, Menu } from "antd";
 import type { MenuProps } from "antd";
 import { useState } from "react";
+import { BaseSwingPage } from "./pages/BaseSwingPage";
 import { ConsoleV2GrowwWatchlistImportPage } from "./pages/ConsoleV2GrowwWatchlistImportPage";
 import { CorporateResultsPage } from "./pages/CorporateResultsPage";
 import { DrawdownScannerPage } from "./pages/DrawdownScannerPage";
@@ -50,6 +44,7 @@ type V1PageKey =
   | "rsi-rank-drift"
   | "momentum-data-prep"
   | "weekly-swing"
+  | "base-swing"
   | "weekly-cycle-success"
   | "s4-volume-spike"
   | "volume-spike-backtest"
@@ -82,6 +77,7 @@ const menuItems: MenuProps["items"] = [
   { key: "simple-backtest", label: "Simple Backtest", icon: <FundOutlined /> },
   { key: "rsi-rank-drift", label: "RSI Rank Drift", icon: <FundOutlined /> },
   { key: "momentum-data-prep", label: "Momentum Data Prep", icon: <FundOutlined /> },
+  { key: "base-swing", label: "Base-Swing Profiler", icon: <LineChartOutlined /> },
   { key: "weekly-swing", label: "Weekly Swing", icon: <BarChartOutlined /> },
   { key: "weekly-cycle-success", label: "Weekly Cycle Success", icon: <BarChartOutlined /> },
   { key: "s4-volume-spike", label: "S4 Volume Spike", icon: <FundOutlined /> },
@@ -108,6 +104,7 @@ const validPages: PageKey[] = [
   "simple-backtest",
   "rsi-rank-drift",
   "momentum-data-prep",
+  "base-swing",
   "weekly-swing",
   "weekly-cycle-success",
   "s4-volume-spike",
@@ -215,6 +212,7 @@ export default function App() {
             {route === "simple-backtest" && <SimpleBacktestPage />}
             {route === "rsi-rank-drift" && <RsiRankDriftBacktestPage />}
             {route === "momentum-data-prep" && <MomentumDataPrepPage />}
+            {route === "base-swing" && <BaseSwingPage />}
             {route === "weekly-swing" && <WeeklySwingPage />}
             {route === "weekly-cycle-success" && <WeeklyCycleSuccessPage />}
             {route === "s4-volume-spike" && <S4VolumeSpikePage />}

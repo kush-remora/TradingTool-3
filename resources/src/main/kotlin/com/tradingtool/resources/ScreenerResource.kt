@@ -40,6 +40,9 @@ import kotlinx.coroutines.coroutineScope
 import org.slf4j.LoggerFactory
 import java.time.Instant
 import com.tradingtool.core.screener.WeeklyPatternListResponse
+import com.tradingtool.core.screener.BaseSwingResult
+import com.tradingtool.core.screener.BaseSwingListResponse
+import com.tradingtool.core.screener.BaseSwingService
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.concurrent.CompletableFuture
@@ -107,6 +110,8 @@ class ScreenerResource @Inject constructor(
     private val deliveryHandler: StockDeliveryJdbiHandler,
     private val drawdownScannerService: com.tradingtool.core.screener.DrawdownScannerService,
     private val rsiFloorScannerService: RsiFloorScannerService,
+    private val baseSwingService: BaseSwingService,
+    private val bollingerScreenerService: com.tradingtool.core.screener.BollingerScreenerService,
     private val weeklyCycleSuccessService: WeeklyCycleSuccessService,
     private val watchlistService: WatchlistService,
     private val deliveryReconciliationService: DeliveryReconciliationService,
@@ -202,6 +207,34 @@ class ScreenerResource @Inject constructor(
     fun drawdownScanner(@QueryParam("universe") universe: String?): CompletableFuture<Response> = ioScope.endpoint {
         val selectedUniverse = universe?.trim()?.uppercase()?.takeIf { it.isNotBlank() } ?: "WATCHLIST"
         ok(drawdownScannerService.scanUniverse(selectedUniverse))
+    }
+
+    @GET
+    @Path("/base-swing")
+    fun baseSwing(@QueryParam("universe") universeParam: String?): CompletableFuture<Response> = ioScope.endpoint {
+        val universeRaw = universeParam?.trim()?.uppercase()?.takeIf { it.isNotBlank() } ?: "WATCHLIST"
+        val indexKeys = universeRaw.split(",").map { it.trim() }
+        
+        val results = baseSwingService.analyze(indexKeys)
+        ok(BaseSwingListResponse(
+            runAt = Instant.now().toString(),
+            lookbackDays = 30,
+            results = results
+        ))
+    }
+
+    @GET
+    @Path("/bollinger")
+    fun bollinger(@QueryParam("universe") universeParam: String?): CompletableFuture<Response> = ioScope.endpoint {
+        val universeRaw = universeParam?.trim()?.uppercase()?.takeIf { it.isNotBlank() } ?: "WATCHLIST"
+        val indexKeys = universeRaw.split(",").map { it.trim() }
+        
+        val results = bollingerScreenerService.analyze(indexKeys)
+        ok(com.tradingtool.core.screener.BollingerScanResponse(
+            runAt = Instant.now().toString(),
+            universe = universeRaw,
+            results = results
+        ))
     }
 
     @POST

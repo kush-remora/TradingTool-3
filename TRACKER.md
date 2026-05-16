@@ -23,6 +23,14 @@ This file tracks active, pending, and completed features.
 ---
 
 ## ✅ Completed Features
+* **Base-Swing Profiler** (2026-05-16): New simplified screen to find "Boring but Breathing" stocks.
+    - Logic: Filters for 30-day base stability (+/- 3% drift) and high internal volatility (>7% range).
+    - Safety: Penalizes stocks near 52-week highs to avoid euphoria traps.
+    - Integration: Supports scanning `WATCHLIST` and all `index_constituents` tables.
+* **Pattern Screener Stability Filter** (2026-05-16): Added cycle stability metrics to identify true seasonality vs momentum traps.
+    - New Metrics: `Base Stability` (avg week-over-week price drift) and `Weekly ROC` (net growth per week).
+    - Scoring Update: Penalty for high ROC (>3%) or high base drift (>5%) to prioritize mean-reverting swing cycles.
+    - UI Update: Integrated these metrics into `WeeklySwingPage`, `ScreenerOverview`, and `ScreenerDetail`.
 * **Drawdown Scanner** (2026-04-19): New screen to filter stocks by a configurable drawdown percentage (relative to 1-year high).
     - Integrated with existing watchlist indicator API.
     - Added `DrawdownScannerPage` with instant client-side filtering and sorting.

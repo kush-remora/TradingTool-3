@@ -15,4 +15,23 @@ interface IndexConstituentReadDao {
         """,
     )
     fun countActiveByIndex(@Bind("indexKey") indexKey: String): Int
+
+    @SqlQuery(
+        """
+        SELECT 
+            ${IndexConstituentColumns.INDEX_KEY},
+            ${IndexConstituentColumns.SYMBOL},
+            ${IndexConstituentColumns.INSTRUMENT_TOKEN},
+            ${IndexConstituentColumns.COMPANY_NAME},
+            ${IndexConstituentColumns.INDUSTRY},
+            ${IndexConstituentColumns.SERIES},
+            ${IndexConstituentColumns.ISIN_CODE},
+            ${IndexConstituentColumns.SOURCE_URL}
+        FROM public.${Tables.INDEX_CONSTITUENTS}
+        WHERE ${IndexConstituentColumns.INDEX_KEY} = :indexKey
+          AND ${IndexConstituentColumns.IS_ACTIVE} = true
+        ORDER BY ${IndexConstituentColumns.SYMBOL}
+        """
+    )
+    fun listActiveByIndex(@Bind("indexKey") indexKey: String): List<IndexConstituentUpsertRow>
 }

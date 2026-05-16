@@ -36,5 +36,11 @@ data class WatchlistRow(
     val macdSignal: String? = null,
     val drawdownPct: Double? = null,
     val maxDd1y: Double? = null,
+    val bbUpper: Double? = null,
+    val bbLower: Double? = null,
+    val bbMiddle: Double? = null,
+    val bbPercentB: Double? = null,
+    val bbBandwidth: Double? = null,
+    val bbSqueeze: Boolean = false,
     val volumeVsAvg: Double? = null
 )

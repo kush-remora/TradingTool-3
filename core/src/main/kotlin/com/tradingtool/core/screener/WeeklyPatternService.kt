@@ -53,6 +53,12 @@ class WeeklyPatternService(
         val weeksCount: Int,
         val eligibleWeeksCount: Int,
         val allWeeks: List<WeekInstance>,
+        val stability: StabilityMetrics? = null,
+    )
+
+    data class StabilityMetrics(
+        val baseConsistencyPct: Double,
+        val avgWeeklyRocPct: Double,
     )
 
     private data class SeasonalityAnalysis(
@@ -235,6 +241,8 @@ class WeeklyPatternService(
             currentRsiStatus = currentRsiStatus,
             targetRecommendation = targetRecommendation,
             vcpTightnessPct = vcpTightness,
+            weeklyBaseConsistencyPct = bestPair.stability?.baseConsistencyPct,
+            avgWeeklyRocPct = bestPair.stability?.avgWeeklyRocPct,
             volumeSignatureRatio = volumeSignature,
             mondayStrikeRatePct = mondayStrikeRate,
             lastWeekMondayDipPct = mondayDipMetrics.lastWeekMondayDipPct,
@@ -410,12 +418,16 @@ class WeeklyPatternService(
         val effectiveSellDay = resolveEffectiveSellDay(simulatedWeeks, fallbackSellDay)
         val avgObservedSwingPct = calculateAverageObservedSwing(parsedWeeks, buyDay, effectiveSellDay)
         val avgRealizedSwingPct = entryWeeks.mapNotNull { it.swingPct }.averageOrZero().roundTo2()
+
+        val stability = calculateStabilityMetrics(parsedWeeks, buyDay)
+
         val compositeScore = calculateCompositeScore(
             eligibleWeeks = eligibleWeeks,
             entries = entryWeeks.size,
             wins = swingConsistency,
             avgRealizedSwingPct = avgRealizedSwingPct,
             referenceTargetPct = recommendedTargetPct,
+            stability = stability,
         )
         val avgDipPct = parsedWeeks.mapNotNull { calculateBuyDayDipPct(it, buyDay) }.averageOrZero().roundTo2()
 
@@ -432,6 +444,7 @@ class WeeklyPatternService(
                 weeksCount = totalWeeks,
                 eligibleWeeksCount = eligibleWeeks,
                 allWeeks = simulatedWeeks,
+                stability = stability,
             ),
             targetScenarios = targetScenarios,
             targetRecommendation = targetRecommendation,
@@ -605,6 +618,7 @@ class WeeklyPatternService(
         wins: Int,
         avgRealizedSwingPct: Double,
         referenceTargetPct: Double,
+        stability: StabilityMetrics? = null,
     ): Int {
         val entryRate = if (eligibleWeeks > 0) entries.toDouble() / eligibleWeeks else 0.0
         val winRate = if (entries > 0) wins.toDouble() / entries else 0.0
@@ -614,7 +628,57 @@ class WeeklyPatternService(
         val entryScore = (entryRate * 35).toInt()
         val winScore = (winRate * 45).toInt()
         val magnitudeScore = (magnitudeRate * 20).toInt()
-        return entryScore + winScore + magnitudeScore
+        
+        var score = entryScore + winScore + magnitudeScore
+
+        // Stability adjustments (Cycle vs Momentum)
+        if (stability != null) {
+            // Penalty for drifting base (Buy Day Open moving too much week-over-week)
+            if (stability.baseConsistencyPct > 5.0) {
+                score -= 10
+            } else if (stability.baseConsistencyPct > 3.5) {
+                score -= 5
+            }
+
+            // Penalty for high weekly ROC (indicates vertical trend, not a horizontal cycle)
+            if (stability.avgWeeklyRocPct > 4.0) {
+                score -= 15
+            } else if (stability.avgWeeklyRocPct > 2.0) {
+                score -= 8
+            }
+
+            // Bonus for tight, predictable cycles returning to base
+            if (stability.baseConsistencyPct < 2.0 && abs(stability.avgWeeklyRocPct) < 1.0) {
+                score += 5
+            }
+        }
+
+        return score.coerceIn(0, 100)
+    }
+
+    private fun calculateStabilityMetrics(weeks: List<WeekInstance>, buyDay: Int): StabilityMetrics {
+        val buyDayOpens = weeks.mapNotNull { it.dailyCandles[buyDay]?.open }.filter { it > 0.0 }
+        if (buyDayOpens.size < 2) return StabilityMetrics(0.0, 0.0)
+
+        val baseVariances = mutableListOf<Double>()
+        for (i in 1 until buyDayOpens.size) {
+            val prev = buyDayOpens[i - 1]
+            val curr = buyDayOpens[i]
+            baseVariances.add(abs(curr - prev) / prev * 100.0)
+        }
+
+        val weeklyRocs = weeks.mapNotNull { week ->
+            val first = week.dailyCandles.values.minByOrNull { it.candleDate }?.open
+            val last = week.dailyCandles.values.maxByOrNull { it.candleDate }?.close
+            if (first != null && last != null && first > 0.0) {
+                ((last - first) / first * 100.0)
+            } else null
+        }
+
+        return StabilityMetrics(
+            baseConsistencyPct = baseVariances.average().roundTo2(),
+            avgWeeklyRocPct = weeklyRocs.averageOrZero().roundTo2()
+        )
     }
 
     private fun simulateWeeksForTarget(
@@ -994,6 +1058,8 @@ class WeeklyPatternService(
             buyDayLowMin = minLow.roundTo2(),
             buyDayLowMax = maxLow.roundTo2(),
             vcpTightnessPct = vcpTightness,
+            weeklyBaseConsistencyPct = bestPair.stability?.baseConsistencyPct,
+            avgWeeklyRocPct = bestPair.stability?.avgWeeklyRocPct,
             volumeSignatureRatio = volumeSignature,
             mondayStrikeRatePct = mondayStrikeRate,
             lastWeekMondayDipPct = mondayDipMetrics.lastWeekMondayDipPct,

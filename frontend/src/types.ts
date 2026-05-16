@@ -325,6 +325,12 @@ export interface WatchlistRow {
   macdSignal: string | null;
   drawdownPct: number | null;
   maxDd1y: number | null;
+  bbUpper: number | null;
+  bbLower: number | null;
+  bbMiddle: number | null;
+  bbPercentB: number | null;
+  bbBandwidth: number | null;
+  bbSqueeze: boolean;
   volumeVsAvg: number | null;
 }
 
@@ -442,6 +448,8 @@ export interface WeeklyPatternResult {
   currentRsiStatus: AdaptiveRsiStatus | null;
   targetRecommendation: TargetRecommendation | null;
   vcpTightnessPct: number | null;
+  weeklyBaseConsistencyPct: number | null;
+  avgWeeklyRocPct: number | null;
   volumeSignatureRatio: number | null;
   mondayStrikeRatePct: number | null;
   lastWeekMondayDipPct?: number | null;
@@ -460,6 +468,36 @@ export interface WeeklyPatternListResponse {
   buyZoneLookbackWeeks: number;
   universeSourceTags?: string[];
   results: WeeklyPatternResult[];
+}
+
+export interface BaseSwingResult {
+  symbol: string;
+  companyName: string;
+  instrumentToken: number;
+  currentPrice: number;
+  price30dAgo: number | null;
+  baseDriftPct: number | null;
+  high30d: number;
+  low30d: number;
+  internalVolPct: number;
+  distFrom52wHighPct: number | null;
+  high52w: number | null;
+  weeklyPulses: WeeklyPulse[];
+  setupScore: number;
+  reasoning: string;
+}
+
+export interface WeeklyPulse {
+  label: string;
+  startDate: string;
+  endDate: string;
+  swingPct: number;
+}
+
+export interface BaseSwingListResponse {
+  runAt: string;
+  lookbackDays: number;
+  results: BaseSwingResult[];
 }
 
 export interface WeeklyCycleMetrics {

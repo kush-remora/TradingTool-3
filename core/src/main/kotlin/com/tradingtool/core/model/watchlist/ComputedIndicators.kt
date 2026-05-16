@@ -23,6 +23,12 @@ data class ComputedIndicators(
     val macdSignal: String? = null, // e.g., "BULLISH", "BEARISH", "FLAT"
     val drawdownPct: Double? = null,
     val maxDd1y: Double? = null,
+    val bbUpper: Double? = null,
+    val bbLower: Double? = null,
+    val bbMiddle: Double? = null,
+    val bbPercentB: Double? = null,
+    val bbBandwidth: Double? = null,
+    val bbSqueeze: Boolean = false,
     val avgVol20d: Double? = null,
     val volumeVsAvg20d: Double? = null,
     val computedAt: Long

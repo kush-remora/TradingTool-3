@@ -136,6 +136,30 @@ export function WeeklySwingPage() {
       }
     },
     {
+      title: <Tooltip title="Base Consistency = avg % change in Buy Day Open week-over-week. Lower means a more stable 'horizontal' base.">Base Stability</Tooltip>,
+      dataIndex: "weeklyBaseConsistencyPct",
+      key: "weeklyBaseConsistencyPct",
+      width: 150,
+      sorter: (a, b) => (a.weeklyBaseConsistencyPct || 0) - (b.weeklyBaseConsistencyPct || 0),
+      render: (val: number | null) => {
+        if (val == null) return "-";
+        const color = val <= 2.5 ? "success" : val <= 4.5 ? "warning" : "default";
+        return <Tag color={color} style={{ fontWeight: 600 }}>{val.toFixed(2)}%</Tag>;
+      }
+    },
+    {
+      title: <Tooltip title="Weekly ROC = avg net % change for the week. High ROC means vertical momentum, not a horizontal swing cycle.">Weekly ROC</Tooltip>,
+      dataIndex: "avgWeeklyRocPct",
+      key: "avgWeeklyRocPct",
+      width: 140,
+      sorter: (a, b) => (a.avgWeeklyRocPct || 0) - (b.avgWeeklyRocPct || 0),
+      render: (val: number | null) => {
+        if (val == null) return "-";
+        const color = Math.abs(val) <= 1.5 ? "#52c41a" : Math.abs(val) <= 3.0 ? "#faad14" : undefined;
+        return <Text strong style={{ color }}>{val.toFixed(2)}%</Text>;
+      }
+    },
+    {
       title: "Vol Signature",
       dataIndex: "volumeSignatureRatio",
       key: "volumeSignatureRatio",
