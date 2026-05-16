@@ -44,11 +44,25 @@ Knife and fake bounce are treated as **the same entry problem** for this strateg
 - Early entry at band touch + high churn + ATR stop as the primary model.
 - Symmetric “reversal exit” (upper band + RSI + two red days) — **intended to drop** when we implement simplification.
 
+### Backtest Simulation Engine Constraints
+To ensure absolute clarity that this document dictates backtest engine behavior without introducing infrastructure complexity, the backtest adheres strictly to the following constraints:
+1. **Data Scope:** The engine uses **only daily candlestick data** (High, Low, Open, Close).
+2. **No Intraday Polling:** We do **not** fetch or process 5-minute or 15-minute candlesticks.
+3. **EOD Entry Proxy:** The daily `Close` price is used mathematically to simulate the 3:20 PM live execution.
+4. **Intraday GTT Simulation:** Intraday stop losses (GTTs) are simulated by checking if the calculated stop level falls within the daily candle's range (`Low <= Stop Level`). The exit is mathematically recorded at the stop price (or `Open` in the event of a gap-down), simulating an intraday exit perfectly using EOD data.
+
 ---
 
 ## 3. Simplified Entry Rules (Decided)
 
 Enter **long at close** when the setup is armed and **any one of the three confirmation triggers** fires, provided the stock is no longer "broken".
+
+### Rule 0 — Pre-Strategy Filters (The "Gatekeeper")
+When the strategy yields more signals than available capital slots, we use underlying health metrics to prioritize the highest quality stocks. 
+*   **Status:** **Informational Only**. These are evaluated *prior* to the Bollinger dip but do **not** act as a hard filter for the backtest engine. They are exposed in the reporting/UI layer to allow the user to manually select the best candidates (e.g., "Silver/Gold" level stocks).
+1.  **Trend Alignment:** `Close >= SMA(200)`
+2.  **Relative Strength (Alpha):** `RSI(14) > 50`
+3.  **Positive Momentum:** `ROC(60) > 0`
 
 ### Rule 1 — Recent lower-band stress (setup)
 - Within the last **`signalWindowDays`** trading bars (default **5**), at least one bar has:
@@ -60,11 +74,8 @@ Enter **long at close** when the setup is armed and **any one of the three confi
 To reduce the "late entry tax" while protecting against falling knives, we accept **any of the following** as a valid entry trigger on a **Double Green Day** (`close > close(yesterday)` AND `close > open`):
 
 *   **Fast Entry A (Momentum Break):** `close(today) > 5-Day EMA`
-    *   *User Story:* The downward momentum is so thoroughly broken by today's price action that waiting for tomorrow is unnecessary.
 *   **Fast Entry B (Volume Spike):** `volume(today) > 2.0 * SMA(volume, 20)`
-    *   *User Story:* Institutional money stepped in heavily to buy the bottom. The massive volume validates the turn.
 *   **Safe Entry C (The Fallback):** `close(yesterday) > close(day-2)`
-    *   *User Story:* Volume was normal and the bounce was small, but it managed to string together two consecutive green days. Slow, steady, and safe.
 
 **Double Green Logic:** By requiring the price to be higher than both the previous close and the daily open, we avoid "fading gaps" where a stock opens high but sells off during the day. We only buy when buyers are in control from start to finish.
 
@@ -75,13 +86,12 @@ To reduce the "late entry tax" while protecting against falling knives, we accep
 ### Rule 4 — Adaptive Risk (Volatility-Based)
 - **Metric:** `Bandwidth Recovery = (EntryPrice - bbLower) / (bbUpper - bbLower)`
 - **Threshold:** **0.75 (75%)**
-- **User Story:** Instead of a fixed percentage, we use the stock's own volatility (the bands) to define a "Big Move". If the bounce has already covered 75% of the total bandwidth, we acknowledge the extreme momentum but protect our capital by switching to a tighter stop loss immediately.
+- **User Story:** Instead of a fixed percentage, we use the stock's own volatility to define a "Big Move". If the bounce has already covered 75% of the total bandwidth on the entry day, we immediately switch to **Yesterday's Low** as our stop loss to protect against a "blow-off top" reversal.
 
-### Execution Timing (Hybrid Approach)
-To avoid intraday fake-outs while ensuring capital protection, the strategy uses a hybrid execution model:
+### Execution Timing (Intraday Exit Focus)
+To avoid intraday fake-outs on entries while ensuring maximum capital protection on exits:
 - **Entries (Rule 2 & 3):** Evaluated and executed near the **End of Day (EOD, ~3:20 PM)**. We do not buy at 11:00 AM because an intraday signal might fade into a red candle by the close.
-- **Phase 1 Hard Stop Loss:** Executed **Intraday**. If the price drops below the stop-loss level at any time during the day, we exit immediately (e.g., via a GTT order) to prevent a massive crash.
-- **Trailing Stops (Phase 2 & 3):** Evaluated at the **End of Day (EOD)**. We give the stock intraday breathing room and only exit if the daily candle *closes* below the trailing level.
+- **Stop Losses (All Phases):** Executed **Intraday (GTT)**. If the price hits the defined stop level (Safety, Break-even, or Trail) at any point during market hours, the trade is closed immediately to prevent slippage and lock in gains.
 
 ### Indicators (unchanged)
 - Bollinger Bands: **BB(20, 2)**
@@ -94,13 +104,13 @@ To avoid intraday fake-outs while ensuring capital protection, the strategy uses
 
 ## 4. Simplified Exit Direction (Decided)
 
-Instead of a fixed percentage, the strategy uses a **Three-Phase Roadmap** based on the Bollinger Band levels to manage risk and maximize profit.
+The strategy uses a **Three-Phase Roadmap** to manage risk and maximize profit using **Intraday GTT Exits**.
 
-| Phase | Trigger | Stop Loss Rule | User Story |
-|-------|---------|----------------|------------|
-| **1. Safety** | At Entry | **Adaptive:**<br>• If Bandwidth Recovery < 0.75: **Structural Low** (lowest low of the 5-day setup window **plus** the entry day).<br>• If Bandwidth Recovery ≥ 0.75: **Yesterday's Low**. | "Survive the initial bounce without risking a massive loss on high-volatility moves." |
-| **2. Protection** | Close > Middle Band (20 SMA) | **Break Even:** Entry Price. | "I won't let a winning trade turn into a loser. Playing with house money now." |
-| **3. Profit** | High >= Upper Band | **Staircase Trail:** Low of the **previous trading day**. | "Target zone reached. Ride the trend until it breaks using yesterday's floor." |
+| Phase | Activation Trigger | Stop Loss Rule (Intraday GTT) | User Story |
+|-------|-------------------|--------------------------------|------------|
+| **1. Safety** | **At Entry** | **Structural Low:** Lowest low of the 5-day setup window **plus** the entry day.<br>*Exception: If Rule 4 (75% recovery) fires, use **Yesterday's Low**.* | "Survive the initial bounce without risking a massive loss on high-volatility moves." |
+| **2. Protection** | **Close > Middle Band (20 SMA)** | **Break Even:** Entry Price. | "I won't let a winning trade turn into a loser. Playing with house money now." |
+| **3. Profit** | **High >= Upper Band** | **Staircase Trail:** Low of the **previous trading day**. | "Target zone reached. Ride the trend until it breaks using yesterday's floor as a hard exit." |
 
 ### Exit Priority Order
 1.  **Stop Loss** (Phase 1, 2, or 3 logic depending on price progress).
@@ -164,6 +174,27 @@ Data slice used in discussion (24–26 Jan: **market closed**).
 2. Update backtest engine to match §3 and §4.
 3. Replace or amend [bollinger-backtest-source-of-truth.md](./bollinger-backtest-source-of-truth.md) once code matches.
 4. Re-run backtest on a small watchlist and compare trade count vs current.
+
+---
+
+## 9. Explainability & Debugging
+
+To verify that the backtest is using actual data and applying logic correctly, the engine must produce a **Reasoning Log** for every trade. This allows the user to audit the "Why" behind every entry and exit.
+
+### A. Entry Reasoning (Example)
+- **Status:** `GOLD Setup` (Rule 0: SMA200=Yes, RSI50=Yes)
+- **Setup:** `Armed` (Lower band touched 3 days ago: 2026-01-23)
+- **Trigger:** `Safe Entry C` (Confirmed by 2 green days: 822.90 > 799.10 > 772.80)
+- **Stop Loss Initial:** `772.80` (Structural Low of setup window)
+
+### B. Exit Reasoning & Phase Transitions
+The log must show exactly when the stop loss moved and why:
+- **Phase 1 -> 2:** "Moved SL to 822.90 (Break Even) because Close (845.00) > Middle Band (840.10)."
+- **Phase 2 -> 3:** "Activated Staircase Trail because High (910.00) >= Upper Band (905.00)."
+- **Final Exit:** "GTT Hit: Intraday Low (890.00) <= Trail SL (895.00). Exit recorded at 895.00."
+
+### C. Data Snapshot
+Every trade must include a daily table of OHLC + BB values for the duration of the trade to allow manual recalculation/verification of indicators.
 
 ---
 
