@@ -4,6 +4,7 @@ import com.google.inject.Inject
 import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
+import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.technical.toTa4jSeries
 import com.tradingtool.core.technical.roundTo2
 import com.tradingtool.core.watchlist.Ta4jIndicatorCalculator
@@ -16,10 +17,12 @@ import org.slf4j.LoggerFactory
 import java.time.LocalDate
 import java.time.ZoneId
 
-class BollingerScreenerService @Inject constructor(
+class BollingerScreenerService(
     private val stockHandler: StockJdbiHandler,
     private val indexConstituentHandler: IndexConstituentJdbiHandler,
     private val candleCache: CandleCacheService,
+    private val candleDataService: CandleDataService,
+    private val kiteClient: KiteConnectClient,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val ist = ZoneId.of("Asia/Kolkata")
@@ -30,7 +33,7 @@ class BollingerScreenerService @Inject constructor(
         log.info("Starting Bollinger analysis for indices: {}", indexKeys)
 
         val symbolsToAnalyze = mutableSetOf<SymbolMetadata>()
-        
+
         indexKeys.forEach { key ->
             when (key) {
                 "WATCHLIST", "ALL_STOCKS" -> {
@@ -46,7 +49,35 @@ class BollingerScreenerService @Inject constructor(
 
         log.info("Analyzing {} unique symbols", symbolsToAnalyze.size)
 
+        // Pre-fetch missing data if Kite is authenticated
+        if (kiteClient.isAuthenticated) {
+            val today = LocalDate.now(ist)
+            val symbolsToSync = mutableListOf<String>()
+
+            symbolsToAnalyze.forEach { metadata ->
+                val cached = candleCache.getDailyCandles(metadata.instrumentToken, metadata.symbol, today.minusDays(7), today)
+                if (cached.size < 2) { // Allow for weekend/holiday gap, but 0 or 1 usually means missing
+                    symbolsToSync.add(metadata.symbol)
+                }
+            }
+
+            if (symbolsToSync.isNotEmpty()) {
+                log.info("Syncing missing data for {} symbols before analysis", symbolsToSync.size)
+                // Batch sync in chunks to avoid massive delay but ensure data is there
+                symbolsToSync.chunked(20).forEach { chunk ->
+                    try {
+                        candleDataService.sync(chunk, kiteClient)
+                    } catch (e: Exception) {
+                        log.warn("Auto-sync failed for chunk {}: {}", chunk, e.message)
+                    }
+                }
+            }
+        } else {
+            log.info("Kite not authenticated, skipping auto-sync of missing data")
+        }
+
         val results = symbolsToAnalyze.map { metadata ->
+
             async {
                 analysisSemaphore.withPermit {
                     analyzeSymbol(metadata)

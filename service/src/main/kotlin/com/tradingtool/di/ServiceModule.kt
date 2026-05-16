@@ -97,7 +97,6 @@ class ServiceModule(
         bind(TradeService::class.java).`in`(Singleton::class.java)
         bind(TradeReadinessService::class.java).`in`(Singleton::class.java)
         bind(com.tradingtool.core.screener.DrawdownScannerService::class.java).`in`(Singleton::class.java)
-        bind(com.tradingtool.core.screener.BollingerScreenerService::class.java).`in`(Singleton::class.java)
         bind(RsiFloorScannerService::class.java).`in`(Singleton::class.java)
         bind(ProfitLookbackService::class.java).`in`(Singleton::class.java)
         bind(HttpRequestExecutor::class.java).to(JdkHttpRequestExecutor::class.java).`in`(Singleton::class.java)
@@ -163,8 +162,16 @@ class ServiceModule(
         stockHandler: StockJdbiHandler,
         indexConstituentHandler: IndexConstituentJdbiHandler,
         candleCache: CandleCacheService,
+        candleDataService: CandleDataService,
+        kiteClient: KiteConnectClient,
     ): com.tradingtool.core.screener.BollingerScreenerService =
-        com.tradingtool.core.screener.BollingerScreenerService(stockHandler, indexConstituentHandler, candleCache)
+        com.tradingtool.core.screener.BollingerScreenerService(
+            stockHandler, 
+            indexConstituentHandler, 
+            candleCache,
+            candleDataService,
+            kiteClient
+        )
 
     @Provides
     @Singleton
