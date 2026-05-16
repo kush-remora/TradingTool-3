@@ -22,6 +22,9 @@ private val log = LoggerFactory.getLogger("StockRowMapper")
 @RegisterRowMapper(StockTagMapper::class)
 interface StockReadDao {
 
+    @SqlQuery("SELECT COUNT(*) FROM public.${Tables.STOCKS}")
+    fun countAll(): Int
+
     @SqlQuery("SELECT ${StockColumns.ALL_WITH_TAGS} FROM public.${Tables.STOCKS} WHERE ${StockColumns.ID} = :id LIMIT 1")
     fun getById(@Bind("id") id: Long): Stock?
 

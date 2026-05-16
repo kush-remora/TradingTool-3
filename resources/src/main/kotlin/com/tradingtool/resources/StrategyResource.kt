@@ -3,6 +3,8 @@ package com.tradingtool.resources
 import com.google.inject.Inject
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.strategy.s4.S4Service
+import com.tradingtool.core.strategy.bollinger.BollingerBacktestRequest
+import com.tradingtool.core.strategy.bollinger.BollingerBacktestService
 import com.tradingtool.core.strategy.volume.EarningsFilterMode
 import com.tradingtool.core.strategy.volume.VolumeSpikeBacktestRequest
 import com.tradingtool.core.strategy.volume.VolumeSpikeBacktestRunConfig
@@ -55,6 +57,7 @@ class StrategyResource @Inject constructor(
     private val momentumDataPrepService: MomentumDataPrepService,
     private val s4Service: S4Service,
     private val volumeSpikeBacktestService: VolumeSpikeBacktestService,
+    private val bollingerBacktestService: BollingerBacktestService,
     private val profitLookbackService: ProfitLookbackService,
     private val kiteClient: com.tradingtool.core.kite.KiteConnectClient,
     resourceScope: ResourceScope,
@@ -232,6 +235,14 @@ class StrategyResource @Inject constructor(
                     else throw error
                 },
             )
+    }
+
+    @POST
+    @Path("/bollinger/backtest")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runBollingerBacktest(request: BollingerBacktestRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val normalized = request ?: BollingerBacktestRequest()
+        ok(bollingerBacktestService.runBacktest(normalized))
     }
 
     @POST

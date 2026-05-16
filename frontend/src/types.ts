@@ -1398,6 +1398,99 @@ export interface VolumeSpikeBacktestResponse {
   trades: VolumeSpikeBacktestTrade[];
 }
 
+// ==================== Bollinger Backtest ====================
+
+export interface BollingerBacktestConfig {
+  capital: number;
+  maxOpenPositions: number;
+  fromDate?: string;
+  toDate?: string;
+  signalWindowDays: number;
+  entryRsiMax: number;
+  takeProfitPct: number;
+  stopLossPct: number;
+  maxHoldDays: number;
+}
+
+export interface BollingerBacktestRequest {
+  universe: string;
+  symbols?: string[];
+  config: BollingerBacktestConfig;
+}
+
+export interface BollingerCriteriaSnapshot {
+  percentB: number;
+  rsi14: number | null;
+  bandwidthPct: number;
+  setupScore: number;
+  signal: string;
+  reasoning: string;
+}
+
+export interface BollingerBacktestTrade {
+  symbol: string;
+  companyName: string;
+  entryDate: string;
+  exitDate: string;
+  holdingDays: number;
+  quantity: number;
+  investedAmount: number;
+  entryPrice: number;
+  exitPrice: number;
+  exitReason: string;
+  grossPnlInr: number;
+  netPnlInr: number;
+  netReturnPct: number;
+  entryCriteria: BollingerCriteriaSnapshot;
+  exitCriteria: BollingerCriteriaSnapshot;
+  debugRows: BollingerBacktestDebugRow[];
+}
+
+export interface BollingerBacktestDebugRow {
+  date: string;
+  ltp: number;
+  bbUpper: number;
+  bbMiddle: number;
+  bbLower: number;
+  percentB: number;
+  bandwidthPct: number;
+  rsi14: number | null;
+  setupScore: number;
+  signal: string;
+  reasoning: string;
+}
+
+export interface BollingerBacktestSummary {
+  totalTrades: number;
+  winningTrades: number;
+  losingTrades: number;
+  winRatePct: number;
+  grossPnlInr: number;
+  totalBrokerageInr: number;
+  netPnlInr: number;
+  totalReturnPct: number;
+  avgReturnPerTradePct: number;
+  maxDrawdownInr: number;
+  finalCapital: number;
+}
+
+export interface BollingerBacktestDiagnostics {
+  symbolsConsidered: number;
+  symbolsWithInsufficientData: string[];
+  symbolsWithNoTrades: string[];
+}
+
+export interface BollingerBacktestConfigSnapshot extends BollingerBacktestConfig {
+  universe: string;
+}
+
+export interface BollingerBacktestResponse {
+  config: BollingerBacktestConfigSnapshot;
+  summary: BollingerBacktestSummary;
+  diagnostics: BollingerBacktestDiagnostics;
+  trades: BollingerBacktestTrade[];
+}
+
 // ==================== Swing Analysis ====================
 
 export interface SwingCandle {

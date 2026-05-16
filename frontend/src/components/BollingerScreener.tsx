@@ -43,33 +43,39 @@ interface BollingerScanResponse {
   results: BollingerScanResult[];
 }
 
-const INDEX_OPTIONS = [
-  { label: "Watchlist", value: "WATCHLIST" },
-  { label: "All Stocks (Database)", value: "ALL_STOCKS" },
-  { label: "NIFTY 50", value: "NIFTY 50" },
-  { label: "NIFTY 100", value: "NIFTY 100" },
-  { label: "NIFTY MIDCAP 250", value: "NIFTY MIDCAP 250" },
-  { label: "NIFTY SMALLCAP 250", value: "NIFTY SMALLCAP 250" },
-  { label: "NIFTY BANK", value: "NIFTY BANK" },
-  { label: "NIFTY AUTO", value: "NIFTY AUTO" },
-  { label: "NIFTY FMCG", value: "NIFTY FMCG" },
-  { label: "NIFTY IT", value: "NIFTY IT" },
-  { label: "NIFTY PHARMA", value: "NIFTY PHARMA" },
-  { label: "NIFTY REALTY", value: "NIFTY REALTY" },
-  { label: "NIFTY OIL & GAS", value: "NIFTY OIL & GAS" },
-];
+interface UniverseOption {
+  label: string;
+  value: string;
+  count: number;
+}
+
+interface UniverseOptionsResponse {
+  options: UniverseOption[];
+}
 
 export function BollingerScreener() {
   const [data, setData] = useState<BollingerScanResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [universe, setUniverse] = useState<string>("WATCHLIST");
+  const [universeOptions, setUniverseOptions] = useState<UniverseOption[]>([]);
   const [searchText, setSearchText] = useState("");
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchUniverses = async () => {
     try {
-      const json = await getJson<BollingerScanResponse>(`/api/screener/bollinger?universe=${universe}`);
+      const json = await getJson<UniverseOptionsResponse>("/api/screener/universes");
+      setUniverseOptions(json.options);
+    } catch (err) {
+      console.error("Failed to fetch universes", err);
+    }
+  };
+
+  const fetchData = async (overrideUniverse?: string) => {
+    setLoading(true);
+    const targetUniverse = overrideUniverse || universe;
+    try {
+      const json = await getJson<BollingerScanResponse>(`/api/screener/bollinger?universe=${targetUniverse}`);
       setData(json);
+      message.success(`Scan completed for ${targetUniverse}`);
     } catch (err) {
       console.error(err);
       message.error("Failed to fetch Bollinger data");
@@ -79,7 +85,8 @@ export function BollingerScreener() {
   };
 
   useEffect(() => {
-    void fetchData();
+    void fetchUniverses();
+    void fetchData(universe);
   }, [universe]);
 
   const filteredResults = data?.results.filter(row => 
@@ -176,8 +183,11 @@ export function BollingerScreener() {
           <div>
             <Text type="secondary" style={{ display: "block", marginBottom: 4 }}>Select Index / Universe</Text>
             <Select
-              style={{ width: 250 }}
-              options={INDEX_OPTIONS}
+              style={{ width: 300 }}
+              options={universeOptions.map(opt => ({
+                label: `${opt.label} (${opt.count} stocks)`,
+                value: opt.value
+              }))}
               value={universe}
               onChange={setUniverse}
               placeholder="Select universe"
@@ -198,7 +208,7 @@ export function BollingerScreener() {
             <Button 
               type="primary" 
               icon={<ReloadOutlined />} 
-              onClick={fetchData} 
+              onClick={() => fetchData()} 
               loading={loading}
             >
               Run Scan

@@ -27,6 +27,10 @@ class BollingerScreenerService(
     private val log = LoggerFactory.getLogger(javaClass)
     private val ist = ZoneId.of("Asia/Kolkata")
     private val analysisSemaphore = Semaphore(15)
+    private companion object {
+        // Accept either ratio form (0.04) or percent form (4.0) and normalize for UI display.
+        private const val BANDWIDTH_RATIO_THRESHOLD = 1.0
+    }
 
     suspend fun analyze(indexKeys: List<String>): List<BollingerScanResult> = coroutineScope {
         val startTime = System.currentTimeMillis()
@@ -110,7 +114,8 @@ class BollingerScreenerService(
         val bbLower = indicators.bbLower ?: 0.0
         val bbMiddle = indicators.bbMiddle ?: 0.0
         val percentB = indicators.bbPercentB ?: 0.0
-        val bandwidth = indicators.bbBandwidth ?: 0.0
+        val bandwidthRaw = indicators.bbBandwidth ?: 0.0
+        val bandwidthPercent = toBandwidthPercent(bandwidthRaw)
         val isSqueeze = indicators.bbSqueeze
         val rsi = indicators.rsi14
 
@@ -151,13 +156,22 @@ class BollingerScreenerService(
             bbLower = bbLower.roundTo2(),
             bbMiddle = bbMiddle.roundTo2(),
             percentB = percentB.roundTo2(),
-            bandwidth = (bandwidth * 100).roundTo2(), // bandwidth in %
+            bandwidth = bandwidthPercent.roundTo2(),
             isSqueeze = isSqueeze,
             rsi14 = rsi?.roundTo2(),
             signal = signal,
             setupScore = score.coerceIn(0, 100),
             reasoning = reasons.joinToString("; ")
         )
+    }
+
+    private fun toBandwidthPercent(rawBandwidth: Double): Double {
+        if (!rawBandwidth.isFinite()) return 0.0
+        return if (kotlin.math.abs(rawBandwidth) <= BANDWIDTH_RATIO_THRESHOLD) {
+            rawBandwidth * 100.0
+        } else {
+            rawBandwidth
+        }
     }
 
     private data class SymbolMetadata(

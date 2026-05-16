@@ -41,8 +41,22 @@ class CandleCacheService(
                     cachedJson,
                     object : TypeReference<List<DailyCandle>>() {}
                 )
+                val sorted = candles.sortedBy { it.candleDate }
+                val coversRange = sorted.isNotEmpty() &&
+                    sorted.first().candleDate <= from &&
+                    sorted.last().candleDate >= to
+                if (!coversRange) {
+                    log.debug(
+                        "Cache range miss for {}: cached {}..{}, requested {}..{}",
+                        symbol,
+                        sorted.firstOrNull()?.candleDate,
+                        sorted.lastOrNull()?.candleDate,
+                        from,
+                        to
+                    )
+                }
                 val filtered = candles.filter { it.candleDate in from..to }
-                if (filtered.isNotEmpty()) {
+                if (coversRange && filtered.isNotEmpty()) {
                     log.debug("Cache hit for {} ({} candles)", symbol, filtered.size)
                     return filtered
                 }

@@ -2,10 +2,28 @@ package com.tradingtool.core.indexconstituents.dao
 
 import com.tradingtool.core.constants.DatabaseConstants.IndexConstituentColumns
 import com.tradingtool.core.constants.DatabaseConstants.Tables
+import org.jdbi.v3.core.mapper.RowMapper
+import org.jdbi.v3.core.statement.StatementContext
+import org.jdbi.v3.sqlobject.config.RegisterRowMapper
 import org.jdbi.v3.sqlobject.customizer.Bind
 import org.jdbi.v3.sqlobject.statement.SqlQuery
+import java.sql.ResultSet
 
+@RegisterRowMapper(IndexSummaryMapper::class)
 interface IndexConstituentReadDao {
+    @SqlQuery(
+        """
+        SELECT 
+            ${IndexConstituentColumns.INDEX_KEY} AS index_key, 
+            COUNT(*) AS total_count
+        FROM public.${Tables.INDEX_CONSTITUENTS}
+        WHERE ${IndexConstituentColumns.IS_ACTIVE} = true
+        GROUP BY ${IndexConstituentColumns.INDEX_KEY}
+        ORDER BY ${IndexConstituentColumns.INDEX_KEY}
+        """,
+    )
+    fun listUniqueIndices(): List<IndexSummary>
+
     @SqlQuery(
         """
         SELECT COUNT(*)
@@ -34,4 +52,18 @@ interface IndexConstituentReadDao {
         """
     )
     fun listActiveByIndex(@Bind("indexKey") indexKey: String): List<IndexConstituentUpsertRow>
+}
+
+data class IndexSummary(
+    val indexKey: String,
+    val count: Int
+)
+
+class IndexSummaryMapper : RowMapper<IndexSummary> {
+    override fun map(rs: ResultSet, ctx: StatementContext): IndexSummary {
+        return IndexSummary(
+            indexKey = rs.getString("index_key"),
+            count = rs.getInt("total_count")
+        )
+    }
 }

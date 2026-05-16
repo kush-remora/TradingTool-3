@@ -43,6 +43,7 @@ import com.tradingtool.core.screener.WeeklyPatternListResponse
 import com.tradingtool.core.screener.BaseSwingResult
 import com.tradingtool.core.screener.BaseSwingListResponse
 import com.tradingtool.core.screener.BaseSwingService
+import com.tradingtool.core.indexconstituents.dao.IndexSummary
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.concurrent.CompletableFuture
@@ -108,6 +109,8 @@ class ScreenerResource @Inject constructor(
     private val fundamentalsFilterConfigService: FundamentalsFilterConfigService,
     private val fundamentalsHandler: StockFundamentalsJdbiHandler,
     private val deliveryHandler: StockDeliveryJdbiHandler,
+    private val stockHandler: com.tradingtool.core.database.StockJdbiHandler,
+    private val indexConstituentHandler: com.tradingtool.core.database.IndexConstituentJdbiHandler,
     private val drawdownScannerService: com.tradingtool.core.screener.DrawdownScannerService,
     private val rsiFloorScannerService: RsiFloorScannerService,
     private val baseSwingService: BaseSwingService,
@@ -207,6 +210,33 @@ class ScreenerResource @Inject constructor(
     fun drawdownScanner(@QueryParam("universe") universe: String?): CompletableFuture<Response> = ioScope.endpoint {
         val selectedUniverse = universe?.trim()?.uppercase()?.takeIf { it.isNotBlank() } ?: "WATCHLIST"
         ok(drawdownScannerService.scanUniverse(selectedUniverse))
+    }
+
+    @GET
+    @Path("/universes")
+    fun universes(): CompletableFuture<Response> = ioScope.endpoint {
+        val stockCount = stockHandler.read { dao -> dao.countAll() }
+        val indices: List<IndexSummary> = indexConstituentHandler.read { dao -> dao.listUniqueIndices() }
+
+        val options = mutableListOf<com.tradingtool.core.model.screener.UniverseOption>()
+        
+        // Always include Watchlist (from stocks table)
+        options.add(com.tradingtool.core.model.screener.UniverseOption(
+            label = "Watchlist",
+            value = "WATCHLIST",
+            count = stockCount
+        ))
+
+        // Add all indices from database
+        indices.forEach { idx ->
+            options.add(com.tradingtool.core.model.screener.UniverseOption(
+                label = idx.indexKey,
+                value = idx.indexKey,
+                count = idx.count
+            ))
+        }
+
+        ok(com.tradingtool.core.model.screener.UniverseOptionsResponse(options))
     }
 
     @GET

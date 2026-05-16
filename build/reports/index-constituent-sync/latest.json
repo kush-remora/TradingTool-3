@@ -1,6 +1,6 @@
 {
-  "startedAt" : "2026-05-16T03:54:48.326928+05:30",
-  "finishedAt" : "2026-05-16T03:54:53.770964+05:30",
+  "startedAt" : "2026-05-16T18:22:29.439778+05:30",
+  "finishedAt" : "2026-05-16T18:22:32.748055+05:30",
   "indexReports" : [ {
     "indexKey" : "nifty_50",
     "sourceUrl" : "https://www.niftyindices.com/IndexConstituent/ind_nifty50list.csv",
@@ -15,6 +15,22 @@
     "fetchedCount" : 150,
     "parsedCount" : 150,
     "upsertedCount" : 150,
+    "deactivatedCount" : 0,
+    "unresolvedSymbols" : [ ]
+  }, {
+    "indexKey" : "nifty_midcap_50",
+    "sourceUrl" : "https://www.niftyindices.com/IndexConstituent/ind_niftymidcap50list.csv",
+    "fetchedCount" : 50,
+    "parsedCount" : 50,
+    "upsertedCount" : 50,
+    "deactivatedCount" : 0,
+    "unresolvedSymbols" : [ ]
+  }, {
+    "indexKey" : "nifty_smallcap_50",
+    "sourceUrl" : "https://www.niftyindices.com/IndexConstituent/ind_niftysmallcap50list.csv",
+    "fetchedCount" : 50,
+    "parsedCount" : 50,
+    "upsertedCount" : 50,
     "deactivatedCount" : 0,
     "unresolvedSymbols" : [ ]
   }, {
