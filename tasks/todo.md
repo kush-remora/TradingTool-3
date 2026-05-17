@@ -1670,3 +1670,70 @@ Implement a weekly index-constituent sync cron (config-driven) that fetches Nift
   - `kotlin-reviewer`: review pass completed; no CRITICAL/HIGH issues.
 - Additional required review skill:
   - `code-reviewer`: review pass completed; no CRITICAL/HIGH issues.
+
+# Implementation Plan: Bollinger Squeeze Strategy Rewrite (2026-05-17)
+
+## Overview
+Replace the existing Bollinger backtest logic with the new squeeze-first strategy from docs/strategies/bollinger-squeeze-strategy.md. This is a behavioral rewrite, not an incremental patch.
+
+## Skill Invocation (Mandatory)
+- [x] `coding-standards` invoked as baseline quality guardrail.
+- [x] `backend-architect` invoked for service/data-flow contract decisions.
+- [x] `kotlin-patterns` invoked for Kotlin structure and implementation style.
+- [x] `frontend-patterns` invoked for UI/config presentation implications.
+- [x] `kotlin-reviewer` guidance loaded and reserved for final Kotlin review pass.
+- [x] `code-reviewer` guidance loaded and reserved for post-change review pass.
+
+## Implementation Steps
+- [x] Replace Bollinger backtest config model fields with squeeze strategy inputs.
+- [x] Rewrite entry logic to: 60-day squeeze setup + 5-day armed window + upper-band breakout + volume confirmation.
+- [x] Rewrite exit logic to 3-phase roadmap:
+  - Phase 1 structural stop (setup low + entry day),
+  - Phase 2 break-even at +2%,
+  - Phase 3 staircase trail using previous day low after higher-high confirmation.
+- [x] Keep diagnostics/debug outputs clear and aligned with squeeze reasoning.
+- [x] Update frontend types and default config JSON for squeeze strategy.
+- [x] Update/adjust frontend test fixtures for new config and criteria fields.
+- [x] Run verification checks (backend compile, frontend tests/build).
+- [x] Run mandatory review passes (`code-reviewer` and `kotlin-reviewer`) and document findings.
+- [x] Add feature journal entry for this implementation.
+
+## Review
+- Backend:
+  - Rewrote `BollingerBacktestService` to a squeeze-first implementation:
+    - setup arm from 60-day squeeze (`bbSqueeze`) within configurable setup window,
+    - trigger on `close > bbUpper` and `volumeRatio20 >= volumeMultiplier`,
+    - entry at close with structural low stop (window low + entry day),
+    - intraday GTT-style stop simulation via `open/low` checks,
+    - phase transitions:
+      - Phase 1 -> 2 at `+breakEvenProfitPct`,
+      - Phase 2/1 -> 3 at `high > entryDayHigh`,
+      - Phase 3 trails at previous day low (non-loosening stop).
+  - Replaced config/criteria models in `BollingerBacktestModels.kt` to match squeeze fields.
+- Frontend:
+  - Updated `BollingerBacktestPage` default JSON config to new squeeze fields.
+  - Replaced removed score fields with `volumeRatio20` and `closeAboveSma200` in result/debug views.
+  - Updated `frontend/src/types.ts` and `BollingerBacktestPage.test.tsx` fixtures/contracts.
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm --prefix frontend run -s test:run -- src/pages/BollingerBacktestPage.test.tsx` passed.
+  - `npm --prefix frontend run -s build` passed.
+- Mandatory review passes:
+  - `code-reviewer` pass: no CRITICAL/HIGH issues found in the changed slice.
+  - `kotlin-reviewer` pass: no CRITICAL/HIGH Kotlin issues found in the changed slice.
+
+# Hotfix Plan: Bollinger Backtest Sparse Listing Safety (2026-05-17)
+
+## Overview
+Prevent `/api/strategy/bollinger/backtest` from failing when one symbol has sparse/new-listing history or indicator build issues.
+
+## Implementation Steps
+- [x] Guard missing-symbol sync call with fail-safe handling.
+- [x] Add symbol-level guard around state/indicator construction.
+- [x] Continue run for other symbols and tag failed symbols in diagnostics.
+- [x] Run backend compile verification.
+
+## Review
+- Endpoint now degrades gracefully for sparse/new listings (for example `FRACTAL`).
+- A single symbol failure no longer aborts the full backtest.
+- Verification: `mvn -q -pl core,resources,service -DskipTests compile` passed.

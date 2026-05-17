@@ -4,7 +4,9 @@ import com.google.inject.Inject
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.strategy.s4.S4Service
 import com.tradingtool.core.strategy.bollinger.BollingerBacktestRequest
-import com.tradingtool.core.strategy.bollinger.BollingerBacktestService
+import com.tradingtool.core.strategy.bollinger.BollingerMeanReversionBacktestRequest
+import com.tradingtool.core.strategy.bollinger.BollingerMeanReversionBacktestService
+import com.tradingtool.core.strategy.bollinger.BollingerSqueezeBacktestService
 import com.tradingtool.core.strategy.volume.EarningsFilterMode
 import com.tradingtool.core.strategy.volume.VolumeSpikeBacktestRequest
 import com.tradingtool.core.strategy.volume.VolumeSpikeBacktestRunConfig
@@ -57,7 +59,8 @@ class StrategyResource @Inject constructor(
     private val momentumDataPrepService: MomentumDataPrepService,
     private val s4Service: S4Service,
     private val volumeSpikeBacktestService: VolumeSpikeBacktestService,
-    private val bollingerBacktestService: BollingerBacktestService,
+    private val bollingerSqueezeBacktestService: BollingerSqueezeBacktestService,
+    private val bollingerMeanReversionBacktestService: BollingerMeanReversionBacktestService,
     private val profitLookbackService: ProfitLookbackService,
     private val kiteClient: com.tradingtool.core.kite.KiteConnectClient,
     resourceScope: ResourceScope,
@@ -242,7 +245,15 @@ class StrategyResource @Inject constructor(
     @Consumes(MediaType.APPLICATION_JSON)
     fun runBollingerBacktest(request: BollingerBacktestRequest?): CompletableFuture<Response> = ioScope.endpoint {
         val normalized = request ?: BollingerBacktestRequest()
-        ok(bollingerBacktestService.runBacktest(normalized))
+        ok(bollingerSqueezeBacktestService.runBacktest(normalized))
+    }
+
+    @POST
+    @Path("/bollinger/mean-reversion/backtest")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runBollingerMeanReversionBacktest(request: BollingerMeanReversionBacktestRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val normalized = request ?: BollingerMeanReversionBacktestRequest()
+        ok(bollingerMeanReversionBacktestService.runBacktest(normalized))
     }
 
     @POST

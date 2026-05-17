@@ -24,7 +24,7 @@ describe("BollingerBacktestPage", () => {
     useBollingerBacktestMock.mockReturnValue({ data: null, loading: false, error: null, run });
 
     render(<BollingerBacktestPage />);
-    fireEvent.click(screen.getByRole("button", { name: /Run Bollinger Backtest/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Run Bollinger Squeeze Backtest/i }));
 
     expect(run).toHaveBeenCalledTimes(1);
     expect(run.mock.calls[0][0].universe).toBe("WATCHLIST");
@@ -40,10 +40,10 @@ describe("BollingerBacktestPage", () => {
           universe: "WATCHLIST",
           capital: 200000,
           maxOpenPositions: 5,
-          signalWindowDays: 5,
-          entryRsiMax: 30,
-          takeProfitPct: 5,
-          stopLossPct: 2,
+          setupWindowDays: 5,
+          tightSqueezeTolerancePct: 12,
+          volumeMultiplier: 2,
+          breakEvenProfitPct: 2,
           maxHoldDays: 5,
         },
         summary: {
@@ -83,7 +83,8 @@ describe("BollingerBacktestPage", () => {
               percentB: -0.05,
               rsi14: 31,
               bandwidthPct: 5,
-              setupScore: 90,
+              volumeRatio20: 2.5,
+              closeAboveSma200: true,
               signal: "OVERSOLD",
               reasoning: "Price near lower band",
             },
@@ -91,7 +92,8 @@ describe("BollingerBacktestPage", () => {
               percentB: 0.52,
               rsi14: 46,
               bandwidthPct: 5.3,
-              setupScore: 54,
+              volumeRatio20: 1.2,
+              closeAboveSma200: true,
               signal: "NORMAL",
               reasoning: "",
             },
@@ -105,7 +107,8 @@ describe("BollingerBacktestPage", () => {
                 percentB: 0.12,
                 bandwidthPct: 4.4,
                 rsi14: 33,
-                setupScore: 90,
+                volumeRatio20: 1.8,
+                closeAboveSma200: true,
                 signal: "OVERSOLD",
                 reasoning: "Price near lower band",
               },

@@ -8,11 +8,11 @@ data class BollingerBacktestConfig(
     val maxOpenPositions: Int = 5,
     val fromDate: String? = null,
     val toDate: String? = null,
-    val signalWindowDays: Int = 5,
-    val entryRsiMax: Double = 30.0,
-    val takeProfitPct: Double = 5.0,
-    val stopLossPct: Double = 2.0,
-    val maxHoldDays: Int = 5,
+    val setupWindowDays: Int = 5,
+    val tightSqueezeTolerancePct: Double = 12.0,
+    val volumeMultiplier: Double = 2.0,
+    val breakEvenProfitPct: Double = 2.0,
+    val maxHoldDays: Int = 999,
 )
 
 @Serializable
@@ -27,7 +27,8 @@ data class BollingerCriteriaSnapshot(
     val percentB: Double,
     val rsi14: Double?,
     val bandwidthPct: Double,
-    val setupScore: Int,
+    val volumeRatio20: Double,
+    val closeAboveSma200: Boolean?,
     val signal: String,
     val reasoning: String,
 )
@@ -62,7 +63,8 @@ data class BollingerBacktestDebugRow(
     val percentB: Double,
     val bandwidthPct: Double,
     val rsi14: Double?,
-    val setupScore: Int,
+    val volumeRatio20: Double,
+    val closeAboveSma200: Boolean?,
     val signal: String,
     val reasoning: String,
 )
@@ -96,10 +98,10 @@ data class BollingerBacktestConfigSnapshot(
     val maxOpenPositions: Int,
     val fromDate: String?,
     val toDate: String?,
-    val signalWindowDays: Int,
-    val entryRsiMax: Double,
-    val takeProfitPct: Double,
-    val stopLossPct: Double,
+    val setupWindowDays: Int,
+    val tightSqueezeTolerancePct: Double,
+    val volumeMultiplier: Double,
+    val breakEvenProfitPct: Double,
     val maxHoldDays: Int,
 )
 

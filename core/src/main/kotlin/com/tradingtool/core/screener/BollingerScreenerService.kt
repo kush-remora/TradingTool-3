@@ -126,7 +126,7 @@ class BollingerScreenerService(
         if (isSqueeze) {
             signal = "SQUEEZE"
             score += 30
-            reasons.add("Volatility Squeeze (60d low bandwidth)")
+            reasons.add("Volatility Squeeze (today bandwidth = lowest in last 60 trading days)")
         }
 
         if (percentB <= 0.05) {

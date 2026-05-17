@@ -1405,10 +1405,10 @@ export interface BollingerBacktestConfig {
   maxOpenPositions: number;
   fromDate?: string;
   toDate?: string;
-  signalWindowDays: number;
-  entryRsiMax: number;
-  takeProfitPct: number;
-  stopLossPct: number;
+  setupWindowDays: number;
+  tightSqueezeTolerancePct: number;
+  volumeMultiplier: number;
+  breakEvenProfitPct: number;
   maxHoldDays: number;
 }
 
@@ -1422,7 +1422,8 @@ export interface BollingerCriteriaSnapshot {
   percentB: number;
   rsi14: number | null;
   bandwidthPct: number;
-  setupScore: number;
+  volumeRatio20: number;
+  closeAboveSma200: boolean | null;
   signal: string;
   reasoning: string;
 }
@@ -1455,7 +1456,8 @@ export interface BollingerBacktestDebugRow {
   percentB: number;
   bandwidthPct: number;
   rsi14: number | null;
-  setupScore: number;
+  volumeRatio20: number;
+  closeAboveSma200: boolean | null;
   signal: string;
   reasoning: string;
 }
@@ -1489,6 +1491,100 @@ export interface BollingerBacktestResponse {
   summary: BollingerBacktestSummary;
   diagnostics: BollingerBacktestDiagnostics;
   trades: BollingerBacktestTrade[];
+}
+
+// ==================== Bollinger Mean Reversion Backtest ====================
+
+export interface BollingerMeanReversionBacktestConfig {
+  capital: number;
+  maxOpenPositions: number;
+  fromDate?: string;
+  toDate?: string;
+  signalWindowDays: number;
+  volumeMultiplier: number;
+  bandwidthRecoveryThreshold: number;
+  maxHoldDays: number;
+}
+
+export interface BollingerMeanReversionBacktestRequest {
+  universe: string;
+  symbols?: string[];
+  config: BollingerMeanReversionBacktestConfig;
+}
+
+export interface BollingerMeanReversionCriteriaSnapshot {
+  percentB: number;
+  rsi14: number | null;
+  bandwidthPct: number;
+  volumeRatio20: number;
+  closeAboveSma200: boolean | null;
+  signal: string;
+  reasoning: string;
+}
+
+export interface BollingerMeanReversionBacktestTrade {
+  symbol: string;
+  companyName: string;
+  entryDate: string;
+  exitDate: string;
+  holdingDays: number;
+  quantity: number;
+  investedAmount: number;
+  entryPrice: number;
+  exitPrice: number;
+  exitReason: string;
+  grossPnlInr: number;
+  netPnlInr: number;
+  netReturnPct: number;
+  entryCriteria: BollingerMeanReversionCriteriaSnapshot;
+  exitCriteria: BollingerMeanReversionCriteriaSnapshot;
+  debugRows: BollingerMeanReversionBacktestDebugRow[];
+}
+
+export interface BollingerMeanReversionBacktestDebugRow {
+  date: string;
+  ltp: number;
+  bbUpper: number;
+  bbMiddle: number;
+  bbLower: number;
+  percentB: number;
+  bandwidthPct: number;
+  rsi14: number | null;
+  volumeRatio20: number;
+  closeAboveSma200: boolean | null;
+  signal: string;
+  reasoning: string;
+}
+
+export interface BollingerMeanReversionBacktestSummary {
+  totalTrades: number;
+  winningTrades: number;
+  losingTrades: number;
+  winRatePct: number;
+  grossPnlInr: number;
+  totalBrokerageInr: number;
+  netPnlInr: number;
+  totalReturnPct: number;
+  avgReturnPerTradePct: number;
+  maxDrawdownInr: number;
+  finalCapital: number;
+}
+
+export interface BollingerMeanReversionBacktestDiagnostics {
+  symbolsConsidered: number;
+  symbolsWithInsufficientData: string[];
+  symbolsWithNoTrades: string[];
+}
+
+export interface BollingerMeanReversionBacktestConfigSnapshot extends BollingerMeanReversionBacktestConfig {
+  universe: string;
+}
+
+export interface BollingerMeanReversionBacktestResponse {
+  config: BollingerMeanReversionBacktestConfigSnapshot;
+  summary: BollingerMeanReversionBacktestSummary;
+  diagnostics: BollingerMeanReversionBacktestDiagnostics;
+  trades: BollingerMeanReversionBacktestTrade[];
 }
 
 // ==================== Swing Analysis ====================

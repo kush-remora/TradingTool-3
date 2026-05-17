@@ -23,9 +23,9 @@
 
 | Principle | Decision |
 |-----------|------------|
-| **Setup** | Strictly "Lowest 60-day Bandwidth". |
+| **Setup** | In the recent setup window, detect any 3-day squeeze sequence where each day is near the 60-day lowest width using a tolerance buffer. |
 | **Trend** | Trade only in the direction of the primary trend (e.g., above SMA 200). |
-| **Trigger** | Price breaking out of the upper band with high volume. |
+| **Trigger** | Phase-2 breakout: two consecutive closes above upper band + high volume. |
 | **Simplicity** | Use Daily OHLC data only (consistent with Strategy 1). |
 
 ---
@@ -37,15 +37,37 @@ When the strategy yields more signals than available capital slots, we use under
 *   **Status:** **Informational Only**. These do **not** act as a hard filter for the backtest engine but are used for UI/Reporting to tag "Gold/Silver" setups.
 1.  **Long-term Trend:** `Close >= SMA(200)`.
 
-### Rule 1 — The Squeeze Setup
-- **Metric:** `Current Bandwidth <= Minimum(Bandwidth over last 60 days)`.
+### Rule 1 — The Squeeze Setup (Phase 1: Tight Space Detection)
+- For each day in the last `setupWindowDays`, check if that day and the previous 2 days are all squeeze days.
+- A **squeeze day** means:  
+  `todayWidth <= baselineWidth * (1 + tightSqueezeTolerancePct / 100)`  
+  where `baselineWidth` is the 60-day minimum width on that day.
+- Default `tightSqueezeTolerancePct = 12`.
+- If **any** such 3-day sequence is found in the window, setup is **Armed**.
 - **Status:** Armed. The strategy is now watching for a breakout.
 
-### Rule 2 — The Breakout Trigger
+**Why this is better:**
+- We still keep strict squeeze definition.
+- We avoid depending on only one recent marker.
+- If 3 squeeze days happened earlier in the window, we keep setup ready until breakout comes.
+
+### Rule 2 — The Breakout Trigger (Phase 2: Expansion Confirmation)
 Enter **Long at Close** when:
-1.  **Armed:** The stock was in a "Squeeze" within the last 5 days. (Squeeze = 60-day bandwidth low).
-2.  **Momentum:** `Close > bbUpper`.
-3.  **Volume Confirmation:** `Volume > 2.0 * SMA(Volume, 20)` (Significant institutional force).
+1.  **Armed:** A valid 3-day squeeze sequence exists in the last `setupWindowDays`.
+2.  **Momentum Trigger (Either path):**
+    - **Fast Day-1 Entry (no need to wait for day 2):**
+      - `Close(today) > bbUpper(today)`
+      - `Close(today) vs Close(yesterday) >= 8%`
+      - `Volume(today) / SMA20(Volume, excluding today) >= 10x`
+    - **OR Standard 2-Day Confirmation:**
+      - `Close(today) > bbUpper(today)`
+      - `Close(yesterday) > bbUpper(yesterday)`
+3.  **Green Candle Confirmation for standard 2-day path:**
+      - `Close(today) > Open(today)`
+      - `Close(yesterday) > Open(yesterday)`
+4.  **No volume check is required for this standard 2-day path.**
+5.  **RSI Heat Guard (applies to all entries):**
+      - If RSI(14) is greater than 68 on any of the last 3 days (today, yesterday, day-2), do not enter.
 
 ### Rule 3 — Exit Roadmap (The Three Phases)
 The strategy uses the same **Three-Phase Roadmap** to manage risk and maximize profit using **Intraday GTT Exits**, ensuring we ride the volatility expansion for as long as possible.
@@ -78,8 +100,9 @@ The strategy uses the same **Three-Phase Roadmap** to manage risk and maximize p
 The backtest engine will provide the following debug artifacts for every squeeze trade:
 
 ### A. Breakout Validation
-- **Squeeze Check:** "Armed (60-day low bandwidth: 4.2% on 2026-04-12)."
-- **Trigger Check:** "Entry on Upper Band Break: Close (152.0) > Upper Band (148.5) + Volume (2.5x SMA)."
+- **Squeeze Check:** "Armed (3-day squeeze sequence found in setup window; latest sequence ended on 2026-04-12)."
+- **Trigger Check (Fast Day-1):** "close > upper band, close-vs-prev-close >= 8%, and volume-vs-prev20avg >= 10x."
+- **Trigger Check (Standard):** "2-day upper-band breakout confirmed (prev close > prev upper and today close > today upper), with Volume (2.5x SMA)."
 
 ### B. Exit Reasoning
 - **Phase 1 (Safety):** Initial SL set at Structural Low (142.0).

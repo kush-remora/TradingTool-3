@@ -10,10 +10,10 @@ const DEFAULT_CONFIG: BollingerBacktestConfig = {
   maxOpenPositions: 1,
   fromDate: "2026-01-01",
   toDate: "2026-05-16",
-  signalWindowDays: 5,
-  entryRsiMax: 30,
-  takeProfitPct: 5,
-  stopLossPct: 99,
+  setupWindowDays: 5,
+  tightSqueezeTolerancePct: 12,
+  volumeMultiplier: 2,
+  breakEvenProfitPct: 2,
   maxHoldDays: 999,
 };
 
@@ -62,11 +62,18 @@ const debugColumns: ColumnsType<BollingerBacktestDebugRow> = [
   { title: "%B", dataIndex: "percentB", key: "percentB", width: 80, render: (v: number) => v.toFixed(2) },
   { title: "RSI", dataIndex: "rsi14", key: "rsi14", width: 80, render: (v: number | null) => (v == null ? "-" : v.toFixed(2)) },
   { title: "Bandwidth %", dataIndex: "bandwidthPct", key: "bandwidthPct", width: 110, render: (v: number) => `${v.toFixed(2)}%` },
+  { title: "Vol Ratio", dataIndex: "volumeRatio20", key: "volumeRatio20", width: 100, render: (v: number) => `${v.toFixed(2)}x` },
+  {
+    title: "SMA200",
+    dataIndex: "closeAboveSma200",
+    key: "closeAboveSma200",
+    width: 100,
+    render: (v: boolean | null) => (v == null ? "-" : v ? "Above" : "Below"),
+  },
   { title: "BB Upper", dataIndex: "bbUpper", key: "bbUpper", width: 100, render: (v: number) => v.toFixed(2) },
   { title: "BB Mid", dataIndex: "bbMiddle", key: "bbMiddle", width: 100, render: (v: number) => v.toFixed(2) },
   { title: "BB Lower", dataIndex: "bbLower", key: "bbLower", width: 100, render: (v: number) => v.toFixed(2) },
   { title: "Signal", dataIndex: "signal", key: "signal", width: 110 },
-  { title: "Score", dataIndex: "setupScore", key: "setupScore", width: 80 },
 ];
 
 export function BollingerBacktestPage() {
@@ -126,7 +133,7 @@ export function BollingerBacktestPage() {
   return (
     <div style={{ padding: 24, background: "#f5f7fa", minHeight: "calc(100vh - 48px)" }}>
       <Space direction="vertical" size={16} style={{ width: "100%" }}>
-        <Card size="small" title="Bollinger Backtest Controls">
+        <Card size="small" title="Bollinger Squeeze Backtest Controls">
           <Space direction="vertical" style={{ width: "100%" }}>
             <div>
               <Typography.Text strong>Universe</Typography.Text>
@@ -158,7 +165,7 @@ export function BollingerBacktestPage() {
               <Input.TextArea rows={14} value={configText} onChange={(event) => setConfigText(event.target.value)} style={{ marginTop: 8, fontFamily: "monospace" }} />
             </div>
             <Space>
-              <Button type="primary" onClick={runBacktest} loading={loading}>Run Bollinger Backtest</Button>
+              <Button type="primary" onClick={runBacktest} loading={loading}>Run Bollinger Squeeze Backtest</Button>
               <Typography.Text type="secondary">Universe from UI; lookback window from config.</Typography.Text>
             </Space>
           </Space>
@@ -235,7 +242,8 @@ function BollingerBacktestResultView({ result }: { result: BollingerBacktestResp
                     <Typography.Text>%B: {trade.entryCriteria.percentB.toFixed(2)}</Typography.Text><br />
                     <Typography.Text>RSI: {trade.entryCriteria.rsi14?.toFixed(2) ?? "-"}</Typography.Text><br />
                     <Typography.Text>Bandwidth %: {trade.entryCriteria.bandwidthPct.toFixed(2)}%</Typography.Text><br />
-                    <Typography.Text>Score: {trade.entryCriteria.setupScore}</Typography.Text><br />
+                    <Typography.Text>Vol Ratio: {trade.entryCriteria.volumeRatio20.toFixed(2)}x</Typography.Text><br />
+                    <Typography.Text>SMA200: {trade.entryCriteria.closeAboveSma200 == null ? "-" : trade.entryCriteria.closeAboveSma200 ? "Above" : "Below"}</Typography.Text><br />
                     <Typography.Text>Signal: {trade.entryCriteria.signal}</Typography.Text><br />
                     <Typography.Text type="secondary">{trade.entryCriteria.reasoning || "-"}</Typography.Text>
                   </Card>
@@ -245,7 +253,8 @@ function BollingerBacktestResultView({ result }: { result: BollingerBacktestResp
                     <Typography.Text>%B: {trade.exitCriteria.percentB.toFixed(2)}</Typography.Text><br />
                     <Typography.Text>RSI: {trade.exitCriteria.rsi14?.toFixed(2) ?? "-"}</Typography.Text><br />
                     <Typography.Text>Bandwidth %: {trade.exitCriteria.bandwidthPct.toFixed(2)}%</Typography.Text><br />
-                    <Typography.Text>Score: {trade.exitCriteria.setupScore}</Typography.Text><br />
+                    <Typography.Text>Vol Ratio: {trade.exitCriteria.volumeRatio20.toFixed(2)}x</Typography.Text><br />
+                    <Typography.Text>SMA200: {trade.exitCriteria.closeAboveSma200 == null ? "-" : trade.exitCriteria.closeAboveSma200 ? "Above" : "Below"}</Typography.Text><br />
                     <Typography.Text>Signal: {trade.exitCriteria.signal}</Typography.Text><br />
                     <Typography.Text type="secondary">{trade.exitCriteria.reasoning || "-"}</Typography.Text>
                   </Card>
@@ -270,7 +279,7 @@ function BollingerBacktestResultView({ result }: { result: BollingerBacktestResp
             dataSource={debugTrade.debugRows}
             size="small"
             pagination={false}
-            scroll={{ x: 1100 }}
+            scroll={{ x: 1250 }}
           />
         )}
       </Modal>

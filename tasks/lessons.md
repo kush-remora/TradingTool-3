@@ -30,3 +30,7 @@
 ## 2026-04-23
 
 - In manual-symbol trading flows, do not rely on local `stocks` table membership for eligibility; always resolve instrument tokens from Kite exchange instruments first so valid NSE symbols like `ARE&M` are never dropped before strategy evaluation.
+
+## 2026-05-17
+
+- In backtest outputs, do not report only closed trades without handling end-of-window open positions; always mark open positions to market on the final available candle (`BACKTEST_END`) so valid late entries are visible to users.

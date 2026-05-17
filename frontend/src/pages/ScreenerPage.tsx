@@ -5,8 +5,14 @@ import { ScreenerOverview } from "../components/ScreenerOverview";
 import { ScreenerDetail } from "../components/ScreenerDetail";
 import { BollingerScreener } from "../components/BollingerScreener";
 import { BollingerBacktestPage } from "./BollingerBacktestPage";
+import { BollingerMeanReversionBacktestPage } from "./BollingerMeanReversionBacktestPage";
 
-type ScreenerMode = "weekly" | "fundamentals" | "bollinger" | "bollinger-backtest";
+type ScreenerMode =
+  | "weekly"
+  | "fundamentals"
+  | "bollinger"
+  | "bollinger-squeeze-backtest"
+  | "bollinger-mean-reversion-backtest";
 
 export function ScreenerPage() {
   const [mode, setMode] = useState<ScreenerMode>("bollinger");
@@ -26,7 +32,8 @@ export function ScreenerPage() {
       <Segmented
         options={[
           { label: "Bollinger", value: "bollinger" },
-          { label: "Bollinger Backtest", value: "bollinger-backtest" },
+          { label: "Bollinger Squeeze Backtest", value: "bollinger-squeeze-backtest" },
+          { label: "Bollinger Mean Reversion Backtest", value: "bollinger-mean-reversion-backtest" },
           { label: "Fundamentals", value: "fundamentals" },
           { label: "Weekly Pattern", value: "weekly" },
         ]}
@@ -38,8 +45,10 @@ export function ScreenerPage() {
       />
       {mode === "bollinger" ? (
         <BollingerScreener />
-      ) : mode === "bollinger-backtest" ? (
+      ) : mode === "bollinger-squeeze-backtest" ? (
         <BollingerBacktestPage />
+      ) : mode === "bollinger-mean-reversion-backtest" ? (
+        <BollingerMeanReversionBacktestPage />
       ) : mode === "fundamentals" ? (
         <FundamentalsScreener />
       ) : (

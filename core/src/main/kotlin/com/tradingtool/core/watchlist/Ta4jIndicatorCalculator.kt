@@ -78,20 +78,21 @@ object Ta4jIndicatorCalculator {
         val bandwidthInd = if (series.barCount >= 20) series.calculateBollingerBandWidth(20, 2.0) else null
         val bbBandwidth = bandwidthInd?.getNullableDouble(lastIndex)
 
-        // Squeeze Detection: Lowest bandwidth in last 60 days
+        // Squeeze Detection: today's bandwidth is the minimum across the last 60 trading days (including today)
         var isSqueeze = false
         if (series.barCount >= 60 && bandwidthInd != null && bbBandwidth != null) {
-            val currentBw = bbBandwidth
+            val currentBandwidth = bbBandwidth
             val startIndex = lastIndex - 59
-            var minBandwidth: Double = currentBw
-            for (i in startIndex until lastIndex) {
-                val bw = bandwidthInd.getNullableDouble(i) ?: continue
-                if (bw < minBandwidth) {
-                    minBandwidth = bw
+            var minimumWindowBandwidth = Double.POSITIVE_INFINITY
+            for (index in startIndex..lastIndex) {
+                val bw = bandwidthInd.getNullableDouble(index) ?: continue
+                if (bw < minimumWindowBandwidth) {
+                    minimumWindowBandwidth = bw
                 }
             }
-            // If current bandwidth is the minimum, it's a squeeze
-            isSqueeze = currentBw <= minBandwidth + PRICE_EPSILON
+            if (minimumWindowBandwidth.isFinite()) {
+                isSqueeze = currentBandwidth <= minimumWindowBandwidth + PRICE_EPSILON
+            }
         }
 
         // Drawdown % (from highest close in the last 1 year / 252 bars)
