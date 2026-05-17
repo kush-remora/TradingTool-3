@@ -200,53 +200,79 @@ class BollingerSqueezeService @Inject constructor(
 
         // Filter 1: 3-day consecutive squeeze in last 60 days
         var filter1Passed = false
-        var filter1Date: LocalDate? = null
+        var filter1OriginDate: LocalDate? = null
+        var filter1LatestDate: LocalDate? = null
+        var filter1OriginIdx: Int? = null
         
-        // Iterate backwards from today to find the most recent 3-day squeeze
-        for (i in lastIndex downTo (lastIndex - lookback60 + 1).coerceAtLeast(80)) {
+        // Find all 3-day squeeze completions in the last 60 days
+        val squeezeIndices = mutableListOf<Int>()
+        for (i in (lastIndex - lookback60 + 1).coerceAtLeast(80)..lastIndex) {
             if (is3DaySqueeze(bandwidth, i, tolerance)) {
-                filter1Passed = true
-                filter1Date = series.getBar(i).endTime.toLocalDate()
-                break
+                squeezeIndices.add(i)
             }
+        }
+
+        if (squeezeIndices.isNotEmpty()) {
+            filter1Passed = true
+            filter1OriginIdx = squeezeIndices.first()
+            filter1OriginDate = series.getBar(filter1OriginIdx).endTime.toLocalDate()
+            filter1LatestDate = series.getBar(squeezeIndices.last()).endTime.toLocalDate()
         }
 
         // Filter 2: Breakout Triggers
         var filter2Passed = false
-        var filter2Date: LocalDate? = null
+        var filter2OriginDate: LocalDate? = null
+        var filter2LatestDate: LocalDate? = null
         var filter2Type: String? = null
 
-        // Check for breakout path A and B in recent past (e.g., last 30 days)
-        for (i in lastIndex downTo (lastIndex - 30).coerceAtLeast(20)) {
-            val type = checkBreakout(series, bbUpper, volume, volSma20, i)
-            if (type != null) {
-                filter2Passed = true
-                filter2Date = series.getBar(i).endTime.toLocalDate()
-                filter2Type = type
-                break
+        val breakoutDetails = mutableListOf<Pair<Int, String>>()
+        
+        // Strategy Pure: Search for the FIRST breakout trigger occurring AFTER the FIRST squeeze completion
+        if (filter1Passed && filter1OriginIdx != null) {
+            for (i in filter1OriginIdx..lastIndex) {
+                val type = checkBreakout(series, bbUpper, bbMiddle, volume, volSma20, i)
+                if (type != null) {
+                    breakoutDetails.add(i to type)
+                }
             }
+        } else {
+            // Fallback for stale display: find any recent breakout in the last 30 days
+            for (i in (lastIndex - 30).coerceAtLeast(20)..lastIndex) {
+                val type = checkBreakout(series, bbUpper, bbMiddle, volume, volSma20, i)
+                if (type != null) {
+                    breakoutDetails.add(i to type)
+                }
+            }
+        }
+
+        if (breakoutDetails.isNotEmpty()) {
+            filter2Passed = true
+            val (originIdx, originType) = breakoutDetails.first()
+            filter2OriginDate = series.getBar(originIdx).endTime.toLocalDate()
+            filter2LatestDate = series.getBar(breakoutDetails.last().first).endTime.toLocalDate()
+            filter2Type = originType
         }
 
         // Alert Status
         var alertStatus = "NORMAL"
         val todayClose = series.getBar(lastIndex).closePrice.doubleValue()
         val todayOpen = series.getBar(lastIndex).openPrice.doubleValue()
-        val todayUpper = bbUpper.getValue(lastIndex).doubleValue()
+        val todayMiddle = bbMiddle.getValue(lastIndex).doubleValue()
         val isTodayGreen = todayClose > todayOpen
 
-        if (filter2Passed && filter2Date == today) { 
+        if (filter2Passed && filter2LatestDate == today) { 
              // check if it triggered today exactly
-             val typeToday = checkBreakout(series, bbUpper, volume, volSma20, lastIndex)
+             val typeToday = checkBreakout(series, bbUpper, bbMiddle, volume, volSma20, lastIndex)
              if (typeToday != null) {
                  alertStatus = "TRIGGERED_TODAY"
              }
         }
 
         if (alertStatus == "NORMAL") {
-            if (filter2Passed && filter1Date != null && filter2Date != null && filter2Date.isAfter(filter1Date)) {
+            if (filter2Passed && filter1LatestDate != null && filter2OriginDate != null && filter2OriginDate.isAfter(filter1LatestDate)) {
                 alertStatus = "STALE_USED"
             } else if (filter1Passed) {
-                if (todayClose > todayUpper && isTodayGreen) {
+                if (todayClose > todayMiddle && isTodayGreen) {
                     alertStatus = "DAY_1_ALERT"
                 } else if (isTodayGreen) {
                     alertStatus = "SQUEEZING_GREEN"
@@ -268,21 +294,23 @@ class BollingerSqueezeService @Inject constructor(
             ltp = todayClose.roundTo2(),
             above200Sma = todayClose >= sma200.getValue(lastIndex).doubleValue(),
             filter1Passed = filter1Passed,
-            filter1Date = filter1Date?.toString(),
+            filter1OriginDate = filter1OriginDate?.toString(),
+            filter1LatestDate = filter1LatestDate?.toString(),
             filter2Passed = filter2Passed,
-            filter2Date = filter2Date?.toString(),
+            filter2OriginDate = filter2OriginDate?.toString(),
+            filter2LatestDate = filter2LatestDate?.toString(),
             filter2Type = filter2Type,
             alertStatus = alertStatus,
             currentRsi = if (curRsi.isFinite()) curRsi.roundTo2() else null,
-            triggerRsi = if (filter2Date != null) {
-                 // find index of filter2Date
-                 val idx = (0..lastIndex).find { series.getBar(it).endTime.toLocalDate() == filter2Date }
+            triggerRsi = if (filter2OriginDate != null) {
+                 // find index of filter2OriginDate
+                 val idx = (0..lastIndex).find { series.getBar(it).endTime.toLocalDate() == filter2OriginDate }
                  idx?.let { rsi14.getValue(it).doubleValue().roundTo2() }
             } else null,
             maxRsi52w = if (maxRsi52w.isFinite()) maxRsi52w.roundTo2() else null,
             maxDrawdownPct = if (maxDrawdownPct.isFinite()) maxDrawdownPct.roundTo2() else 0.0,
-            bbUpper = todayUpper.roundTo2(),
-            bbMiddle = bbMiddle.getValue(lastIndex).doubleValue().roundTo2(),
+            bbUpper = bbUpper.getValue(lastIndex).doubleValue().roundTo2(),
+            bbMiddle = todayMiddle.roundTo2(),
             bbLower = bbLower.getValue(lastIndex).doubleValue().roundTo2()
         )
     }
@@ -308,6 +336,7 @@ class BollingerSqueezeService @Inject constructor(
     private fun checkBreakout(
         series: org.ta4j.core.BarSeries, 
         bbUpper: BollingerBandsUpperIndicator, 
+        bbMiddle: BollingerBandsMiddleIndicator,
         volume: VolumeIndicator, 
         volSma20: SMAIndicator, 
         index: Int
@@ -316,6 +345,7 @@ class BollingerSqueezeService @Inject constructor(
         val close = bar.closePrice.doubleValue()
         val open = bar.openPrice.doubleValue()
         val upper = bbUpper.getValue(index).doubleValue()
+        val middle = bbMiddle.getValue(index).doubleValue()
         val vol = volume.getValue(index).doubleValue()
         
         // Path B: Fast Day-1
@@ -329,14 +359,14 @@ class BollingerSqueezeService @Inject constructor(
             }
         }
 
-        // Path A: Standard 2-Day
+        // Path A: Standard 2-Day (Relaxed to Middle Band)
         if (index > 0) {
             val prevBar = series.getBar(index - 1)
             val prevClose = prevBar.closePrice.doubleValue()
             val prevOpen = prevBar.openPrice.doubleValue()
-            val prevUpper = bbUpper.getValue(index - 1).doubleValue()
+            val prevMiddle = bbMiddle.getValue(index - 1).doubleValue()
             
-            if (close > upper && close > open && prevClose > prevUpper && prevClose > prevOpen) {
+            if (close > middle && close > open && prevClose > prevMiddle && prevClose > prevOpen) {
                 return "STANDARD_2_DAY"
             }
         }

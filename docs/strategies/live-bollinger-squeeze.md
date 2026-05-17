@@ -25,22 +25,20 @@ The daily screener report will output the following columns to help prioritize s
 | :--- | :--- |
 | **Symbol** | The stock ticker symbol. |
 | **LTP** | Last Traded Price (Today's Close). |
-| **Alert Status** | **Crucial:** Displays the current readiness state (e.g., "Day 1 Alert", "Squeezing (Green)", "Triggered"). |
+| **Alert Status** | **Crucial:** Displays the current readiness state (e.g., "Day 1 Alert", "Squeezing (Green)", "Triggered Today"). |
 | **Above 200 SMA** | Yes/No. Informational gatekeeper to show if the long-term trend is upward. |
-| **Filter 1 Passed** | Yes/No based on the 3-day squeeze rule. |
-| **Filter 1 Date** | The most recent date the 3-day squeeze sequence was completed. |
-| **Filter 2 Passed** | Yes/No. Did the stock pass either of the Breakout Triggers recently? |
-| **Filter 2 Date** | The most recent date Filter 2 was passed (helps identify if the breakout already happened). |
-| **Filter 2 Type** | Displays "Fast 1-Day", "Standard 2-Day", or "None". |
+| **Filter 1 (Squeeze)** | **Origin Date:** The first day the 3-day squeeze was valid. <br> **Latest Date:** The most recent day the squeeze was valid. |
+| **Filter 2 (Breakout)** | **Origin Date:** The first day the breakout trigger (Path A or B) occurred after the squeeze. <br> **Latest Date:** The most recent day a breakout trigger occurred. |
+| **Filter 2 Type** | Displays "Fast 1-Day", "Standard 2-Day", or "None" for the **Origin** trigger. |
 | **Current RSI** | Today's RSI(14) value. |
-| **Trigger RSI** | The RSI(14) value on the specific `Filter 2 Date`. |
+| **Trigger RSI** | The RSI(14) value on the specific `Filter 2 Origin Date`. |
 | **52W Max RSI** | The highest RSI(14) value recorded for this stock in the last 52 weeks. |
 
 ### 1.3 Breakout Triggers (Filter 2 Conditions)
 A stock is considered to have "broken out" (Filter 2 = Passed) if it meets **either** of the following two paths:
 
 *   **Path A: Standard 2-Day Confirmation**
-    *   `Close(today) > bbUpper(today)` AND `Close(yesterday) > bbUpper(yesterday)`
+    *   `Close(today) > bbMiddle(today)` AND `Close(yesterday) > bbMiddle(yesterday)`
     *   Both days must be green candles: `Close > Open` for both days.
 *   **Path B: Fast Day-1 Entry** (Explosive momentum)
     *   `Close(today) > bbUpper(today)`
@@ -51,8 +49,8 @@ A stock is considered to have "broken out" (Filter 2 = Passed) if it meets **eit
 To prevent missing trades and to prepare for execution, the **Alert Status** column translates the raw data into actionable warnings based on the following hierarchy:
 
 1.  **"Day 1 Alert" (High Priority):** 
-    *   *Condition:* Filter 1 is passed. Today's Close > Upper Bollinger Band AND Today's Close > Open (Green Candle). 
-    *   *Meaning:* The first half of "Path A" has just occurred. **User Action:** Be ready tomorrow; if a second green close above the band happens, execute the trade.
+    *   *Condition:* Filter 1 is passed. Today's Close > Middle Bollinger Band (20 SMA) AND Today's Close > Open (Green Candle). 
+    *   *Meaning:* The first half of "Path A" has just occurred. **User Action:** Be ready tomorrow; if a second green close above the middle band happens, execute the trade.
 2.  **"Squeezing (Green)":** 
     *   *Condition:* Filter 1 is passed. Today is a Green Candle, but it has not closed above the Upper Band yet.
     *   *Meaning:* The stock is compressed and showing upward momentum. **User Action:** Monitor closely, a breakout could happen any day.

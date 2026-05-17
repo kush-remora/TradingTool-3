@@ -144,9 +144,18 @@ export function BollingerSqueezeScreener() {
       key: "filter1",
       width: 150,
       render: (_, row) => (
-        <Space orientation="vertical" size={0}>
+        <Space direction="vertical" size={0}>
           <Tag color={row.filter1Passed ? "success" : "default"}>{row.filter1Passed ? "Passed" : "Failed"}</Tag>
-          {row.filter1Date && <Text type="secondary" style={{ fontSize: 10 }}>{row.filter1Date}</Text>}
+          {row.filter1OriginDate && (
+            <Text type="secondary" style={{ fontSize: 10 }}>
+              Orig: {row.filter1OriginDate}
+            </Text>
+          )}
+          {row.filter1LatestDate && row.filter1LatestDate !== row.filter1OriginDate && (
+            <Text type="secondary" style={{ fontSize: 10 }}>
+              Late: {row.filter1LatestDate}
+            </Text>
+          )}
         </Space>
       ),
     },
@@ -154,7 +163,7 @@ export function BollingerSqueezeScreener() {
       title: (
         <Space>
           Filter 2
-          <Tooltip title="Standard 2-Day: 2 consecutive green closes above upper band. Fast 1-Day: Close > Upper Band, +8% move, and 10x average volume.">
+          <Tooltip title="Standard 2-Day: 2 consecutive green closes above Middle Band (20 SMA). Fast 1-Day: Close > Upper Band, +8% move, and 10x average volume.">
             <InfoCircleOutlined style={{ color: "#8c8c8c" }} />
           </Tooltip>
         </Space>
@@ -162,10 +171,19 @@ export function BollingerSqueezeScreener() {
       key: "filter2",
       width: 180,
       render: (_, row) => (
-        <Space orientation="vertical" size={0}>
+        <Space direction="vertical" size={0}>
           <Tag color={row.filter2Passed ? "success" : "default"}>{row.filter2Passed ? "Passed" : "Failed"}</Tag>
           {row.filter2Type && <Text type="secondary" style={{ fontSize: 10 }}>{row.filter2Type.replace(/_/g, " ")}</Text>}
-          {row.filter2Date && <Text type="secondary" style={{ fontSize: 10 }}>{row.filter2Date}</Text>}
+          {row.filter2OriginDate && (
+            <Text type="secondary" style={{ fontSize: 10 }}>
+              Orig: {row.filter2OriginDate}
+            </Text>
+          )}
+          {row.filter2LatestDate && row.filter2LatestDate !== row.filter2OriginDate && (
+            <Text type="secondary" style={{ fontSize: 10 }}>
+              Late: {row.filter2LatestDate}
+            </Text>
+          )}
         </Space>
       ),
     },

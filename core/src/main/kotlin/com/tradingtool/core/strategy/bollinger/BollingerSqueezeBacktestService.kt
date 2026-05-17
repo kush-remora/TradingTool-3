@@ -176,8 +176,8 @@ class BollingerSqueezeBacktestService @Inject constructor(
                 val hasStrongVolumeBreakout = state.volumeRatio20ExcludingToday >= FAST_ENTRY_VOLUME_RATIO20_EXCL
                 val isFastDayOneEntry = hasStrongPriceBreakout && hasStrongVolumeBreakout
 
-                val isTwoDayBreakout = state.candle.close > state.bbUpper &&
-                    previousState.candle.close > previousState.bbUpper
+                val isTwoDayBreakout = state.candle.close > state.bbMiddle &&
+                    previousState.candle.close > previousState.bbMiddle
                 val isTwoDayGreenCandle = state.candle.close > state.candle.open &&
                     previousState.candle.close > previousState.candle.open
                 val isTwoDayEntry = isTwoDayBreakout && isTwoDayGreenCandle
@@ -550,7 +550,9 @@ class BollingerSqueezeBacktestService @Inject constructor(
         } else {
             val previousOpen = previousState.candle.open.roundTo2()
             val open = state.candle.open.roundTo2()
-            "Armed from squeeze on $squeezeDate; 2-day breakout confirmed (prev close $previousClose > prev upper $previousUpper, today close $close > upper $bbUpper); both candles green (prev close $previousClose > prev open $previousOpen, today close $close > open $open); $trendTag"
+            val middle = state.bbMiddle.roundTo2()
+            val previousMiddle = previousState.bbMiddle.roundTo2()
+            "Armed from squeeze on $squeezeDate; 2-day breakout confirmed (prev close $previousClose > prev middle $previousMiddle, today close $close > middle $middle); both candles green (prev close $previousClose > prev open $previousOpen, today close $close > open $open); $trendTag"
         }
     }
 

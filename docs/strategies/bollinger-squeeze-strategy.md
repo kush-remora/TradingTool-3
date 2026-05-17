@@ -23,9 +23,9 @@
 
 | Principle | Decision |
 |-----------|------------|
-| **Setup** | In the recent setup window, detect any 3-day squeeze sequence where each day is near the 60-day lowest width using a tolerance buffer. |
+| **Setup** | In the recent setup window, detect any 3-day squeeze sequence where each day is near the 60-day lowest width using a tolerance buffer. Track both **Origin** and **Latest** dates. |
 | **Trend** | Trade only in the direction of the primary trend (e.g., above SMA 200). |
-| **Trigger** | Phase-2 breakout: two consecutive closes above upper band + high volume. |
+| **Trigger** | Phase-2 breakout: two consecutive closes above **Middle Band (20 SMA)** + green candles OR explosive day-1 move above Upper Band. |
 | **Simplicity** | Use Daily OHLC data only (consistent with Strategy 1). |
 
 ---
@@ -44,6 +44,7 @@ When the strategy yields more signals than available capital slots, we use under
   where `baselineWidth` is the 60-day minimum width on that day.
 - Default `tightSqueezeTolerancePct = 12`.
 - If **any** such 3-day sequence is found in the window, setup is **Armed**.
+- **Tracking:** The system records both the **Origin Date** (first completion) and **Latest Date** (most recent completion) of the squeeze.
 - **Status:** Armed. The strategy is now watching for a breakout.
 
 **Why this is better:**
@@ -59,15 +60,16 @@ Enter **Long at Close** when:
       - `Close(today) > bbUpper(today)`
       - `Close(today) vs Close(yesterday) >= 8%`
       - `Volume(today) / SMA20(Volume, excluding today) >= 10x`
-    - **OR Standard 2-Day Confirmation:**
-      - `Close(today) > bbUpper(today)`
-      - `Close(yesterday) > bbUpper(yesterday)`
+    - **OR Standard 2-Day Confirmation (Relaxed):**
+      - `Close(today) > bbMiddle(today)`
+      - `Close(yesterday) > bbMiddle(yesterday)`
 3.  **Green Candle Confirmation for standard 2-day path:**
       - `Close(today) > Open(today)`
       - `Close(yesterday) > Open(yesterday)`
 4.  **No volume check is required for this standard 2-day path.**
 5.  **RSI Heat Guard (applies to all entries):**
       - If RSI(14) is greater than 68 on **today or yesterday**, do not enter.
+6.  **Tracking:** The system records the **Origin Date** (first trigger after squeeze) and **Latest Date** (most recent trigger) to help identify entry points and momentum continuation.
 
 ### Rule 3 — Exit Roadmap (The Three Phases)
 The strategy uses the same **Three-Phase Roadmap** to manage risk and maximize profit using **Intraday GTT Exits**, ensuring we ride the volatility expansion for as long as possible.
@@ -102,7 +104,7 @@ The backtest engine will provide the following debug artifacts for every squeeze
 ### A. Breakout Validation
 - **Squeeze Check:** "Armed (3-day squeeze sequence found in setup window; latest sequence ended on 2026-04-12)."
 - **Trigger Check (Fast Day-1):** "close > upper band, close-vs-prev-close >= 8%, and volume-vs-prev20avg >= 10x."
-- **Trigger Check (Standard):** "2-day upper-band breakout confirmed (prev close > prev upper and today close > today upper)."
+- **Trigger Check (Standard):** "2-day breakout confirmed (prev close > prev middle and today close > middle)."
 
 ### B. Exit Reasoning
 - **Phase 1 (Safety):** Initial SL set at Structural Low (142.0).

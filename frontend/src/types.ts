@@ -1407,9 +1407,11 @@ export interface BollingerSqueezeScanResult {
   ltp: number;
   above200Sma: boolean;
   filter1Passed: boolean;
-  filter1Date: string | null;
+  filter1OriginDate: string | null;
+  filter1LatestDate: string | null;
   filter2Passed: boolean;
-  filter2Date: string | null;
+  filter2OriginDate: string | null;
+  filter2LatestDate: string | null;
   filter2Type: string | null;
   alertStatus: string;
   currentRsi: number | null;
