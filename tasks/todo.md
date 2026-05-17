@@ -1774,3 +1774,31 @@ Review current Bollinger squeeze scanner/live-trading implementation for design 
 - Kotlin reviewer pass:
   - Reviewed changed Kotlin files (`BollingerSqueezeService.kt`, `ServiceModule.kt`) for idioms/coroutine/architecture.
   - No CRITICAL/HIGH issues remain in this squeeze slice after fixes.
+
+# Implementation Plan: Live Bollinger Squeeze Drill-Down + Export (2026-05-17)
+
+## Overview
+Add a practical raw-data filtering guide in strategy docs and implement screener UI so large scans (e.g. 130 stocks) can be sorted/filtered directly by raw dates/types, plus one-click raw export.
+
+## Implementation Steps
+- [x] Add "how to filter" guide section in `docs/strategies/live-bollinger-squeeze.md`.
+- [x] Remove status-driven/preset-driven drill-down from primary workflow.
+- [x] Keep raw Filter1/Filter2 date + type columns sortable and filterable.
+- [x] Add export action for current filtered/sorted raw view (Excel-friendly CSV).
+- [x] Run frontend build verification.
+- [x] Update journey notes for this feature.
+
+## Review
+- Re-scoped from over-engineered status/preset model to raw-data-first workflow after user feedback.
+- Updated strategy docs (`Phase 1.7`) to emphasize raw-date sorting and manual column filtering.
+- Updated screener UI to:
+  - remove status-first decisioning from primary view,
+  - expose raw date/type columns (`Filter1 Origin/Latest`, `Filter2 Origin/Latest`, `Filter2 Type`),
+  - support per-column sort/filter/search on these raw fields,
+  - keep export as UTF-8 BOM CSV of current table view.
+- Added trend context from `Filter1 Origin Date` to today using `Close vs previous Close`:
+  - backend now returns `trendPatternFromFilter1`, `trendOverallFromFilter1`, `trendNetMovePctFromFilter1`,
+  - frontend renders this as a new raw table column and includes it in CSV export.
+- Validation:
+  - `mvn -q -pl core,resources,service,cron-job -DskipTests compile` passed.
+  - `npm --prefix frontend run -s build` passed.

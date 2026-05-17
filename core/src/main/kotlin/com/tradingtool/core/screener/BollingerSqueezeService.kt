@@ -253,6 +253,8 @@ class BollingerSqueezeService @Inject constructor(
             filter2Type = originType
         }
 
+        val trendSinceFilter1 = buildTrendSinceFilter1(series, filter1OriginIdx)
+
         // Alert Status
         var alertStatus = "NORMAL"
         val todayClose = series.getBar(lastIndex).closePrice.doubleValue()
@@ -301,6 +303,9 @@ class BollingerSqueezeService @Inject constructor(
             filter2LatestDate = filter2LatestDate?.toString(),
             filter2Type = filter2Type,
             alertStatus = alertStatus,
+            trendPatternFromFilter1 = trendSinceFilter1?.pattern,
+            trendOverallFromFilter1 = trendSinceFilter1?.overall,
+            trendNetMovePctFromFilter1 = trendSinceFilter1?.netMovePct?.roundTo2(),
             currentRsi = if (curRsi.isFinite()) curRsi.roundTo2() else null,
             triggerRsi = if (filter2OriginDate != null) {
                  // find index of filter2OriginDate
@@ -312,6 +317,76 @@ class BollingerSqueezeService @Inject constructor(
             bbUpper = bbUpper.getValue(lastIndex).doubleValue().roundTo2(),
             bbMiddle = todayMiddle.roundTo2(),
             bbLower = bbLower.getValue(lastIndex).doubleValue().roundTo2()
+        )
+    }
+
+    private fun buildTrendSinceFilter1(
+        series: org.ta4j.core.BarSeries,
+        filter1OriginIdx: Int?,
+    ): TrendSinceFilter1? {
+        if (filter1OriginIdx == null) return null
+
+        val endIdx = series.endIndex
+        if (filter1OriginIdx >= endIdx) {
+            val startClose = series.getBar(filter1OriginIdx).closePrice.doubleValue()
+            return TrendSinceFilter1(
+                pattern = "NA",
+                overall = "SIDEWAYS",
+                netMovePct = 0.0.takeIf { startClose.isFinite() }
+            )
+        }
+
+        val startClose = series.getBar(filter1OriginIdx).closePrice.doubleValue()
+        val endClose = series.getBar(endIdx).closePrice.doubleValue()
+        val netMovePct = if (startClose.isFinite() && startClose > 0.0 && endClose.isFinite()) {
+            ((endClose - startClose) / startClose) * 100.0
+        } else {
+            null
+        }
+
+        val trendTokens = mutableListOf<String>()
+        var currentDirection: Char? = null
+        var runLength = 0
+
+        for (i in (filter1OriginIdx + 1)..endIdx) {
+            val prevClose = series.getBar(i - 1).closePrice.doubleValue()
+            val curClose = series.getBar(i).closePrice.doubleValue()
+            if (!prevClose.isFinite() || !curClose.isFinite()) continue
+
+            val direction = when {
+                curClose > prevClose -> 'U'
+                curClose < prevClose -> 'D'
+                else -> 'F'
+            }
+
+            if (currentDirection == null) {
+                currentDirection = direction
+                runLength = 1
+            } else if (currentDirection == direction) {
+                runLength += 1
+            } else {
+                trendTokens.add("${currentDirection}${runLength}")
+                currentDirection = direction
+                runLength = 1
+            }
+        }
+
+        if (currentDirection != null && runLength > 0) {
+            trendTokens.add("${currentDirection}${runLength}")
+        }
+
+        val pattern = if (trendTokens.isEmpty()) "NA" else trendTokens.joinToString("-")
+        val overall = when {
+            netMovePct == null -> "UNKNOWN"
+            netMovePct > 0.0 -> "UPTREND"
+            netMovePct < 0.0 -> "DOWNTREND"
+            else -> "SIDEWAYS"
+        }
+
+        return TrendSinceFilter1(
+            pattern = pattern,
+            overall = overall,
+            netMovePct = netMovePct
         )
     }
 
@@ -386,4 +461,10 @@ class BollingerSqueezeService @Inject constructor(
         }
         override fun hashCode(): Int = symbol.hashCode()
     }
+
+    private data class TrendSinceFilter1(
+        val pattern: String,
+        val overall: String,
+        val netMovePct: Double?,
+    )
 }

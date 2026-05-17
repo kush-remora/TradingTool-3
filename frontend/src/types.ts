@@ -1414,6 +1414,9 @@ export interface BollingerSqueezeScanResult {
   filter2LatestDate: string | null;
   filter2Type: string | null;
   alertStatus: string;
+  trendPatternFromFilter1: string | null;
+  trendOverallFromFilter1: string | null;
+  trendNetMovePctFromFilter1: number | null;
   currentRsi: number | null;
   triggerRsi: number | null;
   maxRsi52w: number | null;

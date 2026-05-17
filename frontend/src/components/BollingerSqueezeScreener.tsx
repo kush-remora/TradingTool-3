@@ -1,7 +1,7 @@
 import {
+  DownloadOutlined,
   ReloadOutlined,
   SearchOutlined,
-  InfoCircleOutlined,
 } from "@ant-design/icons";
 import {
   Button,
@@ -13,10 +13,9 @@ import {
   message,
   Card,
   Input,
-  Tooltip,
 } from "antd";
-import type { TableColumnsType } from "antd";
-import { useEffect, useState } from "react";
+import type { TableColumnsType, TableProps } from "antd";
+import { useEffect, useMemo, useState } from "react";
 import { getJson } from "../utils/api";
 import { StockBadge } from "./StockBadge";
 import type {
@@ -28,12 +27,37 @@ import type {
 
 const { Text, Title } = Typography;
 
+function escapeCsvValue(value: string | number | null): string {
+  if (value == null) return "";
+  const asString = String(value);
+  if (asString.includes(",") || asString.includes('"') || asString.includes("\n")) {
+    return `"${asString.replace(/"/g, '""')}"`;
+  }
+  return asString;
+}
+
+function compareNullableDate(left: string | null, right: string | null): number {
+  if (left == null && right == null) return 0;
+  if (left == null) return -1;
+  if (right == null) return 1;
+  return left.localeCompare(right);
+}
+
+function toDateFilterOptions(values: Array<string | null>): Array<{ text: string; value: string }> {
+  return values
+    .filter((value): value is string => value != null && value.trim().length > 0)
+    .filter((value, index, all) => all.indexOf(value) === index)
+    .sort((left, right) => right.localeCompare(left))
+    .map((value) => ({ text: value, value }));
+}
+
 export function BollingerSqueezeScreener() {
   const [data, setData] = useState<BollingerSqueezeScanResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [universe, setUniverse] = useState<string>("WATCHLIST");
   const [universeOptions, setUniverseOptions] = useState<UniverseOption[]>([]);
   const [searchText, setSearchText] = useState("");
+  const [tableViewRows, setTableViewRows] = useState<BollingerSqueezeScanResult[]>([]);
 
   const fetchUniverses = async () => {
     try {
@@ -69,16 +93,133 @@ export function BollingerSqueezeScreener() {
     void fetchData(universe);
   }, [universe]);
 
-  const filteredResults = data?.results.filter(row => 
-    row.symbol.toLowerCase().includes(searchText.toLowerCase()) ||
-    row.companyName.toLowerCase().includes(searchText.toLowerCase())
-  ) ?? [];
+  const baseRows = useMemo(() => {
+    const rows = data?.results ?? [];
+    const search = searchText.trim().toLowerCase();
+    if (search.length === 0) return rows;
+    return rows.filter((row) =>
+      row.symbol.toLowerCase().includes(search) ||
+      row.companyName.toLowerCase().includes(search)
+    );
+  }, [data, searchText]);
+
+  useEffect(() => {
+    const defaultSortedRows = [...baseRows].sort((left, right) =>
+      compareNullableDate(right.filter1LatestDate, left.filter1LatestDate)
+    );
+    setTableViewRows(defaultSortedRows);
+  }, [baseRows]);
+
+  const stockColumnFilters = useMemo(() => {
+    return baseRows
+      .map((row) => row.symbol)
+      .filter((value, index, all) => all.indexOf(value) === index)
+      .sort((left, right) => left.localeCompare(right))
+      .map((symbol) => ({ text: symbol, value: symbol }));
+  }, [baseRows]);
+
+  const filter1OriginDateFilters = useMemo(() => toDateFilterOptions(baseRows.map((row) => row.filter1OriginDate)), [baseRows]);
+  const filter1LatestDateFilters = useMemo(() => toDateFilterOptions(baseRows.map((row) => row.filter1LatestDate)), [baseRows]);
+  const filter2OriginDateFilters = useMemo(() => toDateFilterOptions(baseRows.map((row) => row.filter2OriginDate)), [baseRows]);
+  const filter2LatestDateFilters = useMemo(() => toDateFilterOptions(baseRows.map((row) => row.filter2LatestDate)), [baseRows]);
+
+  const filter2TypeFilters = useMemo(() => {
+    return baseRows
+      .map((row) => row.filter2Type ?? "NONE")
+      .filter((value, index, all) => all.indexOf(value) === index)
+      .sort((left, right) => left.localeCompare(right))
+      .map((value) => ({ text: value.replace(/_/g, " "), value }));
+  }, [baseRows]);
+
+  const trendOverallFilters = useMemo(() => {
+    return baseRows
+      .map((row) => row.trendOverallFromFilter1 ?? "UNKNOWN")
+      .filter((value, index, all) => all.indexOf(value) === index)
+      .sort((left, right) => left.localeCompare(right))
+      .map((value) => ({ text: value, value }));
+  }, [baseRows]);
+
+  const handleTableChange: TableProps<BollingerSqueezeScanResult>["onChange"] = (
+    _pagination,
+    _filters,
+    _sorter,
+    extra
+  ) => {
+    setTableViewRows(extra.currentDataSource);
+  };
+
+  const downloadFilteredCsv = (): void => {
+    if (tableViewRows.length === 0) {
+      message.warning("No rows to export.");
+      return;
+    }
+
+    const headers = [
+      "Symbol",
+      "Company Name",
+      "LTP",
+      "Filter 1 Origin Date",
+      "Filter 1 Latest Date",
+      "Filter 2 Origin Date",
+      "Filter 2 Latest Date",
+      "Filter 2 Type",
+      "Trend Pattern (Since Filter1 Origin)",
+      "Trend Overall (Since Filter1 Origin)",
+      "Trend Net Move % (Since Filter1 Origin)",
+      "Above 200 SMA",
+      "Max Drawdown %",
+      "Current RSI",
+      "Trigger RSI",
+      "52W Max RSI",
+      "BB Upper",
+      "BB Middle",
+      "BB Lower",
+    ];
+
+    const lines = tableViewRows.map((row) => [
+      row.symbol,
+      row.companyName,
+      row.ltp.toFixed(2),
+      row.filter1OriginDate,
+      row.filter1LatestDate,
+      row.filter2OriginDate,
+      row.filter2LatestDate,
+      row.filter2Type ?? "NONE",
+      row.trendPatternFromFilter1 ?? "NA",
+      row.trendOverallFromFilter1 ?? "UNKNOWN",
+      row.trendNetMovePctFromFilter1 != null ? row.trendNetMovePctFromFilter1.toFixed(2) : null,
+      row.above200Sma ? "Above" : "Below",
+      row.maxDrawdownPct.toFixed(2),
+      row.currentRsi != null ? row.currentRsi.toFixed(2) : null,
+      row.triggerRsi != null ? row.triggerRsi.toFixed(2) : null,
+      row.maxRsi52w != null ? row.maxRsi52w.toFixed(2) : null,
+      row.bbUpper.toFixed(2),
+      row.bbMiddle.toFixed(2),
+      row.bbLower.toFixed(2),
+    ]);
+
+    const csvContent = [headers, ...lines]
+      .map((line) => line.map((value) => escapeCsvValue(value)).join(","))
+      .join("\n");
+
+    const blob = new Blob([`\uFEFF${csvContent}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const runAt = data?.runAt ? new Date(data.runAt).toISOString().slice(0, 10) : "latest";
+    link.href = url;
+    link.download = `bollinger_squeeze_raw_${universe.toLowerCase()}_${runAt}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    message.success(`Exported ${tableViewRows.length} rows.`);
+  };
 
   const columns: TableColumnsType<BollingerSqueezeScanResult> = [
     {
       title: "Stock",
       key: "symbol",
-      width: 220,
+      width: 230,
       fixed: "left",
       render: (_, row) => (
         <div style={{ display: "flex", flexDirection: "column" }}>
@@ -87,110 +228,112 @@ export function BollingerSqueezeScreener() {
         </div>
       ),
       sorter: (a, b) => a.symbol.localeCompare(b.symbol),
-    },
-    {
-      title: "Alert Status",
-      dataIndex: "alertStatus",
-      key: "alertStatus",
-      width: 160,
-      render: (status) => {
-        let color = "default";
-        let text = status.replace(/_/g, " ");
-        if (status === "TRIGGERED_TODAY") color = "green";
-        if (status === "DAY_1_ALERT") color = "orange";
-        if (status === "SQUEEZING_GREEN") color = "cyan";
-        if (status === "ACTIVE_SQUEEZE") color = "blue";
-        if (status === "STALE_USED") color = "purple";
-        return <Tag color={color} style={{ fontWeight: "bold" }}>{text}</Tag>;
-      },
-      filters: [
-        { text: "TRIGGERED TODAY", value: "TRIGGERED_TODAY" },
-        { text: "DAY 1 ALERT", value: "DAY_1_ALERT" },
-        { text: "SQUEEZING GREEN", value: "SQUEEZING_GREEN" },
-        { text: "ACTIVE SQUEEZE", value: "ACTIVE_SQUEEZE" },
-        { text: "STALE USED", value: "STALE_USED" },
-      ],
-      onFilter: (value, record) => record.alertStatus === value,
+      filters: stockColumnFilters,
+      filterSearch: true,
+      onFilter: (value, record) => record.symbol === String(value),
     },
     {
       title: "LTP",
       dataIndex: "ltp",
       width: 110,
-      render: (val) => <Text strong>₹{val.toLocaleString()}</Text>,
+      render: (value: number) => <Text strong>₹{value.toLocaleString()}</Text>,
       sorter: (a, b) => a.ltp - b.ltp,
+    },
+    {
+      title: "Filter1 Origin",
+      dataIndex: "filter1OriginDate",
+      width: 130,
+      render: (value: string | null) => value ?? "-",
+      sorter: (a, b) => compareNullableDate(a.filter1OriginDate, b.filter1OriginDate),
+      filters: filter1OriginDateFilters,
+      filterSearch: true,
+      onFilter: (value, record) => record.filter1OriginDate === String(value),
+    },
+    {
+      title: "Filter1 Latest",
+      dataIndex: "filter1LatestDate",
+      width: 130,
+      render: (value: string | null) => value ?? "-",
+      sorter: (a, b) => compareNullableDate(a.filter1LatestDate, b.filter1LatestDate),
+      defaultSortOrder: "descend",
+      filters: filter1LatestDateFilters,
+      filterSearch: true,
+      onFilter: (value, record) => record.filter1LatestDate === String(value),
+    },
+    {
+      title: "Filter2 Origin",
+      dataIndex: "filter2OriginDate",
+      width: 130,
+      render: (value: string | null) => value ?? "-",
+      sorter: (a, b) => compareNullableDate(a.filter2OriginDate, b.filter2OriginDate),
+      filters: filter2OriginDateFilters,
+      filterSearch: true,
+      onFilter: (value, record) => record.filter2OriginDate === String(value),
+    },
+    {
+      title: "Filter2 Latest",
+      dataIndex: "filter2LatestDate",
+      width: 130,
+      render: (value: string | null) => value ?? "-",
+      sorter: (a, b) => compareNullableDate(a.filter2LatestDate, b.filter2LatestDate),
+      filters: filter2LatestDateFilters,
+      filterSearch: true,
+      onFilter: (value, record) => record.filter2LatestDate === String(value),
+    },
+    {
+      title: "Filter2 Type",
+      dataIndex: "filter2Type",
+      width: 130,
+      render: (value: string | null) => value?.replace(/_/g, " ") ?? "NONE",
+      sorter: (a, b) => (a.filter2Type ?? "NONE").localeCompare(b.filter2Type ?? "NONE"),
+      filters: filter2TypeFilters,
+      filterSearch: true,
+      onFilter: (value, record) => (record.filter2Type ?? "NONE") === String(value),
+    },
+    {
+      title: "Trend Since F1",
+      key: "trendSinceF1",
+      width: 250,
+      render: (_, row) => (
+        <Space orientation="vertical" size={0}>
+          <Text style={{ fontSize: 12 }}>
+            Pattern: <Text strong>{row.trendPatternFromFilter1 ?? "NA"}</Text>
+          </Text>
+          <Text style={{ fontSize: 12 }}>
+            Overall: <Text type="secondary">{row.trendOverallFromFilter1 ?? "UNKNOWN"}</Text>
+          </Text>
+          <Text style={{ fontSize: 12 }}>
+            Net: <Text type="secondary">{row.trendNetMovePctFromFilter1 != null ? `${row.trendNetMovePctFromFilter1.toFixed(2)}%` : "-"}</Text>
+          </Text>
+        </Space>
+      ),
+      sorter: (a, b) => (a.trendNetMovePctFromFilter1 ?? Number.NEGATIVE_INFINITY) - (b.trendNetMovePctFromFilter1 ?? Number.NEGATIVE_INFINITY),
+      filters: trendOverallFilters,
+      onFilter: (value, record) => (record.trendOverallFromFilter1 ?? "UNKNOWN") === String(value),
     },
     {
       title: "200 SMA",
       dataIndex: "above200Sma",
       width: 100,
-      render: (above) => <Tag color={above ? "success" : "error"}>{above ? "Above" : "Below"}</Tag>,
+      render: (above: boolean) => <Tag color={above ? "success" : "error"}>{above ? "Above" : "Below"}</Tag>,
+      sorter: (a, b) => Number(a.above200Sma) - Number(b.above200Sma),
+      filters: [
+        { text: "Above", value: "ABOVE" },
+        { text: "Below", value: "BELOW" },
+      ],
+      onFilter: (value, record) => (value === "ABOVE" ? record.above200Sma : !record.above200Sma),
     },
     {
       title: "Max DD",
       dataIndex: "maxDrawdownPct",
-      width: 100,
-      render: (val) => <Text type="danger">{val.toFixed(2)}%</Text>,
+      width: 110,
+      render: (value: number) => <Text type="danger">{value.toFixed(2)}%</Text>,
       sorter: (a, b) => a.maxDrawdownPct - b.maxDrawdownPct,
-    },
-    {
-      title: (
-        <Space>
-          Filter 1
-          <Tooltip title="3 consecutive days of tight squeeze (lowest 60-day bandwidth + 12% buffer) in the last 60 days.">
-            <InfoCircleOutlined style={{ color: "#8c8c8c" }} />
-          </Tooltip>
-        </Space>
-      ),
-      key: "filter1",
-      width: 150,
-      render: (_, row) => (
-        <Space direction="vertical" size={0}>
-          <Tag color={row.filter1Passed ? "success" : "default"}>{row.filter1Passed ? "Passed" : "Failed"}</Tag>
-          {row.filter1OriginDate && (
-            <Text type="secondary" style={{ fontSize: 10 }}>
-              Orig: {row.filter1OriginDate}
-            </Text>
-          )}
-          {row.filter1LatestDate && row.filter1LatestDate !== row.filter1OriginDate && (
-            <Text type="secondary" style={{ fontSize: 10 }}>
-              Late: {row.filter1LatestDate}
-            </Text>
-          )}
-        </Space>
-      ),
-    },
-    {
-      title: (
-        <Space>
-          Filter 2
-          <Tooltip title="Standard 2-Day: 2 consecutive green closes above Middle Band (20 SMA). Fast 1-Day: Close > Upper Band, +8% move, and 10x average volume.">
-            <InfoCircleOutlined style={{ color: "#8c8c8c" }} />
-          </Tooltip>
-        </Space>
-      ),
-      key: "filter2",
-      width: 180,
-      render: (_, row) => (
-        <Space direction="vertical" size={0}>
-          <Tag color={row.filter2Passed ? "success" : "default"}>{row.filter2Passed ? "Passed" : "Failed"}</Tag>
-          {row.filter2Type && <Text type="secondary" style={{ fontSize: 10 }}>{row.filter2Type.replace(/_/g, " ")}</Text>}
-          {row.filter2OriginDate && (
-            <Text type="secondary" style={{ fontSize: 10 }}>
-              Orig: {row.filter2OriginDate}
-            </Text>
-          )}
-          {row.filter2LatestDate && row.filter2LatestDate !== row.filter2OriginDate && (
-            <Text type="secondary" style={{ fontSize: 10 }}>
-              Late: {row.filter2LatestDate}
-            </Text>
-          )}
-        </Space>
-      ),
     },
     {
       title: "RSI Context",
       key: "rsi",
-      width: 200,
+      width: 220,
       render: (_, row) => (
         <Space orientation="vertical" size={0}>
           <Text style={{ fontSize: 12 }}>Current: <Text strong>{row.currentRsi?.toFixed(2) || "-"}</Text></Text>
@@ -198,6 +341,7 @@ export function BollingerSqueezeScreener() {
           <Text style={{ fontSize: 12 }}>52W Max: <Text type="secondary">{row.maxRsi52w?.toFixed(2) || "-"}</Text></Text>
         </Space>
       ),
+      sorter: (a, b) => (a.currentRsi ?? Number.NEGATIVE_INFINITY) - (b.currentRsi ?? Number.NEGATIVE_INFINITY),
     },
   ];
 
@@ -209,9 +353,9 @@ export function BollingerSqueezeScreener() {
             <Text type="secondary" style={{ display: "block", marginBottom: 4 }}>Select Universe</Text>
             <Select
               style={{ width: 300 }}
-              options={universeOptions.map(opt => ({
-                label: `${opt.label} (${opt.count} stocks)`,
-                value: opt.value
+              options={universeOptions.map((option) => ({
+                label: `${option.label} (${option.count} stocks)`,
+                value: option.value,
               }))}
               value={universe}
               onChange={setUniverse}
@@ -220,41 +364,55 @@ export function BollingerSqueezeScreener() {
           </div>
           <div>
             <Text type="secondary" style={{ display: "block", marginBottom: 4 }}>Search Symbol</Text>
-            <Input 
-              prefix={<SearchOutlined />} 
-              placeholder="Search..." 
-              value={searchText} 
-              onChange={e => setSearchText(e.target.value)}
-              style={{ width: 200 }}
+            <Input
+              prefix={<SearchOutlined />}
+              placeholder="Search..."
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              style={{ width: 220 }}
               allowClear
             />
           </div>
           <div style={{ alignSelf: "flex-end" }}>
-            <Button 
-              type="primary" 
-              icon={<ReloadOutlined />} 
-              onClick={() => fetchData()} 
-              loading={loading}
-            >
-              Run Squeeze Scan
-            </Button>
+            <Space>
+              <Button
+                type="primary"
+                icon={<ReloadOutlined />}
+                onClick={() => fetchData()}
+                loading={loading}
+              >
+                Run Squeeze Scan
+              </Button>
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={downloadFilteredCsv}
+                disabled={tableViewRows.length === 0}
+              >
+                Download Raw CSV
+              </Button>
+            </Space>
           </div>
         </Space>
       </Card>
 
       <div style={{ background: "#fff", borderRadius: 12, padding: "0px", flex: 1, display: "flex", flexDirection: "column" }}>
         <div style={{ padding: "16px 20px" }}>
-          <Title level={5} style={{ margin: 0 }}>Bollinger Squeeze Screener</Title>
+          <Title level={5} style={{ margin: 0 }}>Bollinger Squeeze Screener (Raw View)</Title>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            Last run: {data ? new Date(data.runAt).toLocaleString() : "Never"} • Rule: 3-day Squeeze in 60-day window
+            Last run: {data ? new Date(data.runAt).toLocaleString() : "Never"} • Sort/filter by raw Filter1/Filter2 dates
+          </Text>
+          <br />
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            Showing {tableViewRows.length} / {baseRows.length} rows
           </Text>
         </div>
         <Table<BollingerSqueezeScanResult>
-          dataSource={filteredResults}
+          dataSource={baseRows}
           columns={columns}
           rowKey="symbol"
+          onChange={handleTableChange}
           pagination={{ pageSize: 50, showSizeChanger: true }}
-          scroll={{ x: 1300, y: "calc(100vh - 400px)" }}
+          scroll={{ x: 1650, y: "calc(100vh - 400px)" }}
           loading={loading}
           size="small"
           sticky

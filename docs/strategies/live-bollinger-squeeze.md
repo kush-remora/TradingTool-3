@@ -25,11 +25,11 @@ The daily screener report will output the following columns to help prioritize s
 | :--- | :--- |
 | **Symbol** | The stock ticker symbol. |
 | **LTP** | Last Traded Price (Today's Close). |
-| **Alert Status** | **Crucial:** Displays the current readiness state (e.g., "Day 1 Alert", "Squeezing (Green)", "Triggered Today"). |
 | **Above 200 SMA** | Yes/No. Informational gatekeeper to show if the long-term trend is upward. |
 | **Filter 1 (Squeeze)** | **Origin Date:** The first day the 3-day squeeze was valid. <br> **Latest Date:** The most recent day the squeeze was valid. |
 | **Filter 2 (Breakout)** | **Origin Date:** The first day the breakout trigger (Path A or B) occurred after the squeeze. <br> **Latest Date:** The most recent day a breakout trigger occurred. |
 | **Filter 2 Type** | Displays "Fast 1-Day", "Standard 2-Day", or "None" for the **Origin** trigger. |
+| **Trend Since Filter 1 Origin** | Uses `Close(today) vs Close(yesterday)` from `Filter1 Origin Date` to current day. Shows run-sequence pattern (example `U3-D1-U3-D3`) and overall direction (`UPTREND`/`DOWNTREND`/`SIDEWAYS`). |
 | **Current RSI** | Today's RSI(14) value. |
 | **Trigger RSI** | The RSI(14) value on the specific `Filter 2 Origin Date`. |
 | **52W Max RSI** | The highest RSI(14) value recorded for this stock in the last 52 weeks. |
@@ -45,31 +45,39 @@ A stock is considered to have "broken out" (Filter 2 = Passed) if it meets **eit
     *   `Close(today) vs Close(yesterday) >= 8%`
     *   `Volume(today) / SMA20(Volume, excluding today) >= 10x`
 
-### 1.4 Pre-Breakout Alerting Logic (The "Readiness" System)
-To prevent missing trades and to prepare for execution, the **Alert Status** column translates the raw data into actionable warnings based on the following hierarchy:
-
-1.  **"Day 1 Alert" (High Priority):** 
-    *   *Condition:* Filter 1 is passed. Today's Close > Middle Bollinger Band (20 SMA) AND Today's Close > Open (Green Candle). 
-    *   *Meaning:* The first half of "Path A" has just occurred. **User Action:** Be ready tomorrow; if a second green close above the middle band happens, execute the trade.
-2.  **"Squeezing (Green)":** 
-    *   *Condition:* Filter 1 is passed. Today is a Green Candle, but it has not closed above the Upper Band yet.
-    *   *Meaning:* The stock is compressed and showing upward momentum. **User Action:** Monitor closely, a breakout could happen any day.
-3.  **"Active Squeeze":**
-    *   *Condition:* Filter 1 is passed. Today is a flat or red candle.
-    *   *Meaning:* The setup is armed but resting.
-4.  **"Triggered Today":**
-    *   *Condition:* Filter 2 passed *today*.
-5.  **"Stale / Used":**
-    *   *Condition:* Filter 2 passed in the past (Filter 2 Date > Filter 1 Date).
-
-### 1.5 Manual RSI Heat Guard
+### 1.4 Manual RSI Heat Guard
 Instead of using a hardcoded filter (like rejecting entries if RSI > 68), the screener provides contextual RSI data for manual visual inspection.
 *   **User Story:** By comparing the `Trigger RSI` against the historical `52W Max RSI`, you can determine if a stock is genuinely "overheated" for its specific personality. If a stock routinely hits 85 RSI on breakouts, a Trigger RSI of 70 is not overheated. If its 52-week max is 72, a Trigger RSI of 70 is extremely overheated.
 
-### 1.6 Handling Stale Setups
+### 1.5 Handling Stale Setups
 By displaying both the `Filter 1 Date` (Squeeze) and the `Filter 2 Date` (Breakout), the user can manually filter out stale setups.
 *   **Ideal Setup:** `Filter 1 Passed` is Yes, and `Filter 2 Passed` is No (or the `Filter 2 Date` is very old, before the current squeeze).
 *   **Stale Setup:** If the `Filter 2 Date` is more recent than the `Filter 1 Date`, the stock has already broken out of that specific squeeze and should likely be ignored for a new entry.
+
+### 1.6 Raw Data Drill-Down Guide (No Status Logic)
+When a full-universe scan returns many stocks (for example, 120-150 names), the screener should stay raw and sortable so the user can apply custom filtering logic without code changes.
+
+#### Core Principle
+Do not force pre-defined status labels for decisioning.  
+Instead, expose raw event dates and let the user sort/filter directly in table columns.
+
+#### Raw Columns to Prioritize
+*   `Filter1 Origin Date`
+*   `Filter1 Latest Date`
+*   `Filter2 Origin Date`
+*   `Filter2 Latest Date`
+*   `Filter2 Type`
+
+#### Practical Usage
+*   Sort by `Filter1 Latest Date` descending to see the most recent squeeze context first.
+*   Switch sort to `Filter2 Origin Date` or `Filter2 Latest Date` when focusing on breakout timing.
+*   Use `Trend Since Filter1 Origin` to inspect directional quality before Filter 2 confirms:
+    *   `U` = close up vs previous close
+    *   `D` = close down vs previous close
+    *   `F` = flat close vs previous close
+    *   Example: `U3-D1-U3-D3` means 3 up days, then 1 down day, then 3 up days, then 3 down days.
+*   Use column-level filters and search on each date/type column to build your own shortlist.
+*   Keep export as raw CSV so the same filtered/sorted view can be analyzed offline in Excel.
 
 ---
 
@@ -80,7 +88,7 @@ While the backtest assumes a rigid 3:20 PM entry, live trading requires handling
 ### 2.1 Handling Intraday Data (LTP Substitution)
 The screener can be run at any point during market hours. To provide a "live preview" of the strategy status:
 *   For all current-day calculations, the screener must substitute the real-time **Last Traded Price (LTP)** as the `Close(today)` variable.
-*   *Implication:* If run at 11:00 AM, an "Alert Status" of "Day 1 Alert" means the condition is met *at that exact moment*. The user must understand this is dynamic and could change before the market closes.
+*   *Implication:* If run at 11:00 AM, date-driven rows (Filter 1 / Filter 2 timing and trend context) reflect that exact moment and can still change before market close.
 
 ### 2.2 Execution Timing Framework
 When a stock triggers a breakout (e.g., transitioning from "Day 1 Alert" to a Day 2 confirmation), the user must decide exactly *when* to execute the buy order.

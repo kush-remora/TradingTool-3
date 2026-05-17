@@ -34,3 +34,5 @@
 ## 2026-05-17
 
 - In backtest outputs, do not report only closed trades without handling end-of-window open positions; always mark open positions to market on the final available candle (`BACKTEST_END`) so valid late entries are visible to users.
+- When the user asks for discussion/alignment first (especially for UX/strategy workflow changes), do not implement immediately. First present the proposal clearly, get sign-off, then proceed with code/doc updates.
+- For screener UX in this project, default to raw-data-first tables (sortable/filterable dates/types) instead of status-heavy derived logic; avoid over-engineered label systems unless explicitly requested.
