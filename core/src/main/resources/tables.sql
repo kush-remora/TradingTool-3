@@ -51,10 +51,14 @@ CREATE TABLE IF NOT EXISTS public.trades (
     close_date        DATE          NULL,
     notes             TEXT,
     trade_date        DATE        NOT NULL,
+    strategy          TEXT,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(stock_id)  -- one consolidated position per stock
 );
+
+ALTER TABLE public.trades
+    ADD COLUMN IF NOT EXISTS strategy TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_trades_stock_id   ON public.trades(stock_id);
 CREATE INDEX IF NOT EXISTS idx_trades_stock_date ON public.trades(stock_id, trade_date);

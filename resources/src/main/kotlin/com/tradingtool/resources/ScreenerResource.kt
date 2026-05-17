@@ -115,6 +115,7 @@ class ScreenerResource @Inject constructor(
     private val rsiFloorScannerService: RsiFloorScannerService,
     private val baseSwingService: BaseSwingService,
     private val bollingerScreenerService: com.tradingtool.core.screener.BollingerScreenerService,
+    private val bollingerSqueezeService: com.tradingtool.core.screener.BollingerSqueezeService,
     private val weeklyCycleSuccessService: WeeklyCycleSuccessService,
     private val watchlistService: WatchlistService,
     private val deliveryReconciliationService: DeliveryReconciliationService,
@@ -265,6 +266,28 @@ class ScreenerResource @Inject constructor(
             universe = universeRaw,
             results = results
         ))
+    }
+
+    @GET
+    @Path("/bollinger-squeeze")
+    fun bollingerSqueeze(@QueryParam("universe") universeParam: String?): CompletableFuture<Response> = ioScope.endpoint {
+        val universeRaw = universeParam?.trim()?.uppercase()?.takeIf { it.isNotBlank() } ?: "WATCHLIST"
+        val indexKeys = universeRaw.split(",").map { it.trim() }
+        
+        val results = bollingerSqueezeService.analyze(indexKeys)
+        ok(com.tradingtool.core.screener.BollingerSqueezeScanResponse(
+            runAt = Instant.now().toString(),
+            universe = universeRaw,
+            results = results
+        ))
+    }
+
+    @POST
+    @Path("/bollinger-squeeze/track")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun trackPositions(positions: List<com.tradingtool.core.screener.SqueezePositionInput>?): CompletableFuture<Response> = ioScope.endpoint {
+        val input = positions ?: emptyList()
+        ok(bollingerSqueezeService.track(input))
     }
 
     @POST

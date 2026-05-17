@@ -1398,6 +1398,72 @@ export interface VolumeSpikeBacktestResponse {
   trades: VolumeSpikeBacktestTrade[];
 }
 
+// ==================== Bollinger Squeeze ====================
+
+export interface BollingerSqueezeScanResult {
+  symbol: string;
+  companyName: string;
+  instrumentToken: number;
+  ltp: number;
+  above200Sma: boolean;
+  filter1Passed: boolean;
+  filter1Date: string | null;
+  filter2Passed: boolean;
+  filter2Date: string | null;
+  filter2Type: string | null;
+  alertStatus: string;
+  currentRsi: number | null;
+  triggerRsi: number | null;
+  maxRsi52w: number | null;
+  maxDrawdownPct: number;
+  bbUpper: number;
+  bbMiddle: number;
+  bbLower: number;
+}
+
+export interface BollingerSqueezeScanResponse {
+  runAt: string;
+  universe: string;
+  results: BollingerSqueezeScanResult[];
+}
+
+export interface UniverseOption {
+  label: string;
+  value: string;
+  count: number;
+}
+
+export interface UniverseOptionsResponse {
+  options: UniverseOption[];
+}
+
+export interface SqueezePositionInput {
+  symbol: string;
+  buyDate: string;
+  buyPrice: number;
+}
+
+export interface SqueezeTrackResult {
+  symbol: string;
+  companyName: string;
+  buyDate: string;
+  buyPrice: number;
+  ltp: number;
+  profitPct: number;
+  currentPhase: string;
+  requiredSl: number;
+  todayRsi: number | null;
+  maxRsi1y: number | null;
+  maxDrawdownPct: number;
+  bbUpper: number;
+  bbMiddle: number;
+  bbLower: number;
+}
+
+export interface SqueezeTrackResponse {
+  results: SqueezeTrackResult[];
+}
+
 // ==================== Bollinger Backtest ====================
 
 export interface BollingerBacktestConfig {

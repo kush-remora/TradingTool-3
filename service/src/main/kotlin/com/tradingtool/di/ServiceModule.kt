@@ -173,6 +173,18 @@ class ServiceModule(
             kiteClient
         )
 
+    @Provides @Singleton
+    fun provideBollingerSqueezeService(
+        stockHandler: StockJdbiHandler,
+        indexConstituentHandler: IndexConstituentJdbiHandler,
+        candleCache: CandleCacheService,
+    ): com.tradingtool.core.screener.BollingerSqueezeService =
+        com.tradingtool.core.screener.BollingerSqueezeService(
+            stockHandler,
+            indexConstituentHandler,
+            candleCache
+        )
+
     @Provides
     @Singleton
     fun provideRedisHandler(config: AppConfig): RedisHandler =

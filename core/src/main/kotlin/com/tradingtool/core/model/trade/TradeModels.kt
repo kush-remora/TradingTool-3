@@ -31,6 +31,7 @@ data class Trade(
     val createdAt: String,
     @get:JsonProperty("updated_at")
     val updatedAt: String,
+    val strategy: String? = null,
 )
 
 // ==================== Input Models for Close Operation ====================
@@ -63,6 +64,7 @@ data class CreateTradeInput(
     val notes: String? = null,
     @JsonProperty("trade_date")
     val tradeDate: String = java.time.LocalDate.now().toString(), // YYYY-MM-DD
+    val strategy: String? = null,
 )
 
 // ==================== Response Models with Calculated GTT Targets ====================

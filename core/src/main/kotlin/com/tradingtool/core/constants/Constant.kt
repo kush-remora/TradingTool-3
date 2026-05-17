@@ -60,10 +60,11 @@ object DatabaseConstants {
         const val TRADE_DATE = "trade_date"
         const val CLOSE_PRICE = "close_price"
         const val CLOSE_DATE = "close_date"
+        const val STRATEGY = "strategy"
         const val CREATED_AT = "created_at"
         const val UPDATED_AT = "updated_at"
 
-        const val ALL = "$ID, $STOCK_ID, $NSE_SYMBOL, $QUANTITY, $AVG_BUY_PRICE, $TODAY_LOW, $STOP_LOSS_PERCENT, $STOP_LOSS_PRICE, $NOTES, $TRADE_DATE, $CLOSE_PRICE, $CLOSE_DATE, $CREATED_AT, $UPDATED_AT"
+        const val ALL = "$ID, $STOCK_ID, $NSE_SYMBOL, $QUANTITY, $AVG_BUY_PRICE, $TODAY_LOW, $STOP_LOSS_PERCENT, $STOP_LOSS_PRICE, $NOTES, $TRADE_DATE, $CLOSE_PRICE, $CLOSE_DATE, $STRATEGY, $CREATED_AT, $UPDATED_AT"
     }
 
     object StockDeliveryColumns {

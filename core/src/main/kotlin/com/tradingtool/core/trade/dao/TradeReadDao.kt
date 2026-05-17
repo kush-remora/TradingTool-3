@@ -68,6 +68,7 @@ class TradeMapper : RowMapper<Trade> {
             closeDate = rs.getDate(TradeColumns.CLOSE_DATE)?.toLocalDate()?.toString(),
             createdAt = toUtcString(rs.getObject(TradeColumns.CREATED_AT, OffsetDateTime::class.java)),
             updatedAt = toUtcString(rs.getObject(TradeColumns.UPDATED_AT, OffsetDateTime::class.java)),
+            strategy = rs.getString(TradeColumns.STRATEGY),
         )
     }
 

@@ -34,7 +34,8 @@ interface TradeWriteDao {
             ${TradeColumns.STOP_LOSS_PERCENT},
             ${TradeColumns.STOP_LOSS_PRICE},
             ${TradeColumns.NOTES},
-            ${TradeColumns.TRADE_DATE}
+            ${TradeColumns.TRADE_DATE},
+            ${TradeColumns.STRATEGY}
         ) VALUES (
             :stockId,
             :nseSymbol,
@@ -44,7 +45,8 @@ interface TradeWriteDao {
             CAST(:stopLossPercent AS NUMERIC(5,2)),
             CAST(:stopLossPrice AS NUMERIC(10,2)),
             :notes,
-            CAST(:tradeDate AS DATE)
+            CAST(:tradeDate AS DATE),
+            :strategy
         )
         ON CONFLICT (${TradeColumns.STOCK_ID}) DO UPDATE SET
             ${TradeColumns.QUANTITY} = EXCLUDED.${TradeColumns.QUANTITY} + ${Tables.TRADES}.${TradeColumns.QUANTITY},
@@ -73,7 +75,8 @@ interface TradeWriteDao {
         @Bind("stopLossPercent") stopLossPercent: String,
         @Bind("stopLossPrice") stopLossPrice: String,
         @Bind("notes") notes: String?,
-        @Bind("tradeDate") tradeDate: String
+        @Bind("tradeDate") tradeDate: String,
+        @Bind("strategy") strategy: String?,
     ): Trade
 
     /**

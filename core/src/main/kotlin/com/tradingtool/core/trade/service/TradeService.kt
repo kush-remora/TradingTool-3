@@ -110,7 +110,8 @@ class TradeService @Inject constructor(
                 stopLossPercent = input.stopLossPercent,
                 stopLossPrice = stopLossPrice,
                 notes = input.notes,
-                tradeDate = input.tradeDate
+                tradeDate = input.tradeDate,
+                strategy = input.strategy
             )
         }
 

@@ -1,8 +1,9 @@
-import { BarChartOutlined, BookOutlined, DownloadOutlined, FundOutlined, ThunderboltOutlined, UnorderedListOutlined, LineChartOutlined } from "@ant-design/icons";
+import { BarChartOutlined, BookOutlined, DownloadOutlined, FundOutlined, ThunderboltOutlined, UnorderedListOutlined, LineChartOutlined, AreaChartOutlined } from "@ant-design/icons";
 import { ConfigProvider, Layout, Menu } from "antd";
 import type { MenuProps } from "antd";
 import { useState } from "react";
 import { BaseSwingPage } from "./pages/BaseSwingPage";
+import { BollingerSqueezePage } from "./pages/BollingerSqueezePage";
 import { ConsoleV2GrowwWatchlistImportPage } from "./pages/ConsoleV2GrowwWatchlistImportPage";
 import { CorporateResultsPage } from "./pages/CorporateResultsPage";
 import { DrawdownScannerPage } from "./pages/DrawdownScannerPage";
@@ -50,13 +51,15 @@ type V1PageKey =
   | "volume-spike-backtest"
   | "corporate-results"
   | "earnings-dashboard"
-  | "v2-dashboard";
+  | "v2-dashboard"
+  | "bollinger-squeeze";
 
 type PageKey = V1PageKey | "watchlist-import";
 
 const menuItems: MenuProps["items"] = [
   { key: "watchlist-import", label: "Watchlist Import", icon: <FundOutlined /> },
   { key: "watchlist", label: "Watchlist", icon: <UnorderedListOutlined /> },
+  { key: "bollinger-squeeze", label: "Bollinger Squeeze", icon: <AreaChartOutlined /> },
   {
     key: "unused",
     label: "Unused",
@@ -113,6 +116,7 @@ const validPages: PageKey[] = [
   "corporate-results",
   "earnings-dashboard",
   "v2-dashboard",
+  "bollinger-squeeze",
 ];
 
 export default function App() {
@@ -221,6 +225,7 @@ export default function App() {
             {route === "corporate-results" && <CorporateResultsPage />}
             {route === "earnings-dashboard" && <EarningsDashboardPage />}
             {route === "v2-dashboard" && <V2DashboardPage />}
+            {route === "bollinger-squeeze" && <BollingerSqueezePage />}
           </Layout.Content>
         </Layout>
       </Layout>

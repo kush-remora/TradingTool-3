@@ -1737,3 +1737,40 @@ Prevent `/api/strategy/bollinger/backtest` from failing when one symbol has spar
 - Endpoint now degrades gracefully for sparse/new listings (for example `FRACTAL`).
 - A single symbol failure no longer aborts the full backtest.
 - Verification: `mvn -q -pl core,resources,service -DskipTests compile` passed.
+
+# Implementation Plan: Live Bollinger Squeeze Scanner + Trading Review Fixes
+
+## Overview
+Review current Bollinger squeeze scanner/live-trading implementation for design mismatches, compile/runtime issues, and obvious logic defects; then apply minimal, readable fixes across backend/frontend and verify with build checks.
+
+## Implementation Steps
+- [x] Inspect strategy docs and code diff for contract/behavior mismatches.
+- [x] Run backend compile checks and capture all errors.
+- [x] Run frontend build/test checks and capture all errors.
+- [x] Apply minimal code fixes for compilation, typing, and obvious logic/design issues.
+- [x] Re-run backend/frontend verification checks until green or blocked by unrelated baseline issues.
+- [x] Run Kotlin reviewer pass on Kotlin changes and capture findings.
+- [x] Document review summary and validations in this section.
+
+## Review
+- Fixed backend signal-context correctness:
+  - `maxRsi52w` now computes true 52-week RSI max (not current RSI) in squeeze scan.
+  - tracker now computes `todayRsi` and `maxRsi1y` separately and correctly.
+  - drawdown computation now guards divide-by-zero on 52W-high.
+  - tracker rejects invalid rows early when `buyPrice <= 0` or `buyDate` is not present in candle series.
+- Fixed frontend contract and safety issues:
+  - added missing `Bollinger Squeeze` types in `frontend/src/types.ts` (`UniverseOption`, `UniverseOptionsResponse`, `SqueezePositionInput`, `SqueezeTrack*`, `maxDrawdownPct`).
+  - removed `as any` escapes in squeeze components and converted imports to type-safe `import type`.
+  - tracker delete action now hard-stops when a row has missing `tradeId` instead of calling `/api/trades/undefined`.
+  - updated Ant `Space` usage from deprecated `direction` to `orientation` in squeeze components.
+  - universe query value is now URL-encoded before API call.
+- Minimal architecture cleanup:
+  - removed unused `CandleDataService`/`KiteConnectClient` dependencies from `BollingerSqueezeService` and DI provider wiring.
+- Verification:
+  - `mvn -q -pl core,resources,service,cron-job -DskipTests compile` passed (after fixes).
+  - `npm --prefix frontend run -s build` passed.
+  - `npm --prefix frontend run -s test:run -- src/pages/BollingerMeanReversionBacktestPage.test.tsx` passed.
+  - `cd frontend && npx tsc --noEmit` still reports pre-existing repo-wide errors; squeeze-specific missing-type errors are resolved.
+- Kotlin reviewer pass:
+  - Reviewed changed Kotlin files (`BollingerSqueezeService.kt`, `ServiceModule.kt`) for idioms/coroutine/architecture.
+  - No CRITICAL/HIGH issues remain in this squeeze slice after fixes.

@@ -67,14 +67,14 @@ Enter **Long at Close** when:
       - `Close(yesterday) > Open(yesterday)`
 4.  **No volume check is required for this standard 2-day path.**
 5.  **RSI Heat Guard (applies to all entries):**
-      - If RSI(14) is greater than 68 on any of the last 3 days (today, yesterday, day-2), do not enter.
+      - If RSI(14) is greater than 68 on **today or yesterday**, do not enter.
 
 ### Rule 3 — Exit Roadmap (The Three Phases)
 The strategy uses the same **Three-Phase Roadmap** to manage risk and maximize profit using **Intraday GTT Exits**, ensuring we ride the volatility expansion for as long as possible.
 
 | Phase | Activation Trigger | Stop Loss Rule (Intraday GTT) | User Story |
 |-------|-------------------|--------------------------------|------------|
-| **1. Safety** | **At Entry** | **Structural Low:** Lowest low of the 5-day setup window **plus** the entry day. | "Survive the initial breakout attempt without risking a massive reversal." |
+| **1. Safety** | **At Entry** | **Structural Low:** Lowest low of the 5-day setup window **plus** the entry day (Total 6-day lookback). | "Survive the initial breakout attempt without risking a massive reversal." |
 | **2. Protection** | **Profit >= 2%** | **Break Even:** Entry Price. | "The breakout has momentum. I won't let this turn into a loser." |
 | **3. Profit** | **Today's High > Entry Day's High** | **Staircase Trail:** Low of the **previous trading day**. | "Expansion confirmed. Ride the trend using yesterday's floor as a hard exit." |
 
@@ -102,7 +102,7 @@ The backtest engine will provide the following debug artifacts for every squeeze
 ### A. Breakout Validation
 - **Squeeze Check:** "Armed (3-day squeeze sequence found in setup window; latest sequence ended on 2026-04-12)."
 - **Trigger Check (Fast Day-1):** "close > upper band, close-vs-prev-close >= 8%, and volume-vs-prev20avg >= 10x."
-- **Trigger Check (Standard):** "2-day upper-band breakout confirmed (prev close > prev upper and today close > today upper), with Volume (2.5x SMA)."
+- **Trigger Check (Standard):** "2-day upper-band breakout confirmed (prev close > prev upper and today close > today upper)."
 
 ### B. Exit Reasoning
 - **Phase 1 (Safety):** Initial SL set at Structural Low (142.0).

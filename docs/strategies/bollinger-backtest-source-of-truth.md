@@ -29,7 +29,7 @@ Endpoint: `POST /api/strategy/bollinger/backtest`
 ## Indicator Definitions
 - Bollinger Bands: BB(20, 2)
 - Squeeze strictness:
-  - baseline bandwidth = minimum bandwidth over last 60 days
+  - baseline bandwidth = minimum bandwidth over last 60 days (including today)
   - squeeze day rule: `bandwidth <= baseline * (1 + tightSqueezeTolerancePct / 100)`
   - default `tightSqueezeTolerancePct = 12`
   - setup arms when any **3 consecutive** squeeze days are found in the setup window
@@ -45,7 +45,7 @@ Setup is armed when a squeeze event happened within the last `setupWindowDays` b
 On a day where setup is armed:
 - Either **Fast Day-1 path** or **Standard 2-day path** must pass.
 - RSI heat guard must pass:
-  - Reject entry if RSI(14) > 68 on any of: today, yesterday, day-2.
+  - Reject entry if RSI(14) > 68 on **today or yesterday**.
 
 Fast Day-1 path:
 - `close(today) > bbUpper(today)`
@@ -66,7 +66,7 @@ If all pass, enter at `close(today)`.
 Exit is stop-first, with phased stop upgrades.
 
 ### Phase 1: Safety
-- Initial stop at entry: structural low of setup window + entry day.
+- Initial stop at entry: structural low of setup window + entry day (6-day lookback).
 
 ### Phase 2: Protection
 - If `high(today) >= entryPrice * (1 + breakEvenProfitPct/100)`, move stop to break-even (`entryPrice`) if higher than current stop.
