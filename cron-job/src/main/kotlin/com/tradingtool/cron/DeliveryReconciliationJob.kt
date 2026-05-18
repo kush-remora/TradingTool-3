@@ -30,6 +30,9 @@ import com.tradingtool.core.delivery.dao.StockDeliveryWriteDao
 import com.tradingtool.core.telegram.TelegramApiClient
 import com.tradingtool.core.telegram.TelegramNotifier
 import com.tradingtool.core.telegram.TelegramSender
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import java.net.http.HttpClient as JdkHttpClient
@@ -160,43 +163,61 @@ private data class DeliveryBackfillSummary(
     val failedDates: Int,
 )
 
+private enum class DeliveryBackfillOutcome {
+    RECONCILED,
+    ALREADY_COMPLETE,
+    FAILED,
+}
+
 private suspend fun backfillRecentTradingDays(
     service: DeliveryReconciliationService,
     anchorDate: LocalDate,
     requiredTradingDays: Int,
-): DeliveryBackfillSummary {
+): DeliveryBackfillSummary = coroutineScope {
     val targetDates = buildRecentTradingDates(anchorDate, requiredTradingDays)
     var reconciled = 0
     var complete = 0
     var failed = 0
 
-    targetDates.forEach { tradingDate ->
-        val alreadyReconciled = runCatching { service.isDateReconciled(tradingDate) }
-            .onFailure { error ->
-                log.warn("Failed to check reconciliation status for {}: {}", tradingDate, error.message)
-            }
-            .getOrDefault(false)
+    targetDates.chunked(BACKFILL_PARALLEL_BATCH_SIZE).forEach { tradingDateBatch ->
+        val outcomes = tradingDateBatch.map { tradingDate ->
+            async {
+                val alreadyReconciled = runCatching { service.isDateReconciled(tradingDate) }
+                    .onFailure { error ->
+                        log.warn("Failed to check reconciliation status for {}: {}", tradingDate, error.message)
+                    }
+                    .getOrDefault(false)
 
-        if (alreadyReconciled) {
-            complete++
-            return@forEach
-        }
-
-        runCatching { service.reconcileDate(tradingDate) }
-            .onSuccess { result ->
-                if (result.alreadyComplete) {
-                    complete++
-                } else {
-                    reconciled++
+                if (alreadyReconciled) {
+                    return@async DeliveryBackfillOutcome.ALREADY_COMPLETE
                 }
+
+                runCatching { service.reconcileDate(tradingDate) }
+                    .onFailure { error ->
+                        log.warn("Failed to reconcile delivery for {}: {}", tradingDate, error.message)
+                    }
+                    .map { result ->
+                        if (result.alreadyComplete) {
+                            DeliveryBackfillOutcome.ALREADY_COMPLETE
+                        } else {
+                            DeliveryBackfillOutcome.RECONCILED
+                        }
+                    }
+                    .getOrElse { DeliveryBackfillOutcome.FAILED }
             }
-            .onFailure { error ->
-                failed++
-                log.warn("Failed to reconcile delivery for {}: {}", tradingDate, error.message)
+        }
+            .awaitAll()
+
+        outcomes.forEach { outcome ->
+            when (outcome) {
+                DeliveryBackfillOutcome.RECONCILED -> reconciled++
+                DeliveryBackfillOutcome.ALREADY_COMPLETE -> complete++
+                DeliveryBackfillOutcome.FAILED -> failed++
             }
+        }
     }
 
-    return DeliveryBackfillSummary(
+    DeliveryBackfillSummary(
         checkedDates = targetDates.size,
         reconciledDates = reconciled,
         alreadyCompleteDates = complete,
@@ -302,4 +323,5 @@ private fun buildAuthenticatedKiteClient(
     return kiteClient
 }
 
-private const val RECENT_TRADING_DAYS_BACKFILL: Int = 60
+private const val BACKFILL_PARALLEL_BATCH_SIZE: Int = 5
+private const val RECENT_TRADING_DAYS_BACKFILL: Int = 365

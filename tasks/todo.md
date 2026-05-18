@@ -1878,3 +1878,40 @@ Fix cron-job compilation failure caused by a typo in delivery reconciliation CLI
 - Validation:
   - `mvn -q -pl cron-job -am -DskipTests compile` passed.
   - `mvn -q -DskipTests compile` passed.
+
+# Implementation Plan: Delivery Reconciliation 365-Day Backfill (2026-05-18)
+
+## Overview
+Expand delivery reconciliation backfill depth from 60 to 365 days.
+
+## Implementation Steps
+- [x] Update delivery backfill constant in `DeliveryReconciliationJob.kt`.
+- [x] Run compile verification for cron-job module.
+- [x] Update journey notes for this change.
+
+## Review
+- Updated `RECENT_TRADING_DAYS_BACKFILL` from `60` to `365`.
+- Validation:
+  - `mvn -q -pl cron-job -DskipTests compile` passed.
+
+# Implementation Plan: Delivery Reconciliation Parallel Backfill (2026-05-18)
+
+## Overview
+Run delivery reconciliation backfill in parallel using coroutines, processing 5 trading dates at a time.
+
+## Implementation Steps
+- [x] Refactor backfill loop from sequential to coroutine-based parallel batches.
+- [x] Keep existing reconciliation-status checks and success/failure accounting behavior.
+- [x] Add explicit batch-size constant for readability and easy tuning.
+- [x] Run compile verification for cron-job module.
+
+## Review
+- Added coroutine-based batching in `backfillRecentTradingDays`:
+  - `chunked(BACKFILL_PARALLEL_BATCH_SIZE)` + `async { ... }` + `awaitAll()`.
+- Added `DeliveryBackfillOutcome` enum to aggregate outcomes without shared mutable updates across coroutines.
+- Added `BACKFILL_PARALLEL_BATCH_SIZE = 5`.
+- Validation:
+  - `mvn -q -pl cron-job -DskipTests compile` passed.
+- Mandatory review passes:
+  - `kotlin-reviewer`: no CRITICAL/HIGH issues in this scoped diff.
+  - `code-reviewer`: no CRITICAL/HIGH issues in this scoped diff.

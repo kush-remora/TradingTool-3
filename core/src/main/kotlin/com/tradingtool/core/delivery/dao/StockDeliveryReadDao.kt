@@ -39,6 +39,18 @@ interface StockDeliveryReadDao {
 
     @SqlQuery(
         "SELECT * FROM ${Tables.STOCK_DELIVERY_DAILY} " +
+            "WHERE ${Cols.INSTRUMENT_TOKEN} = :instrumentToken " +
+            "AND ${Cols.TRADING_DATE} BETWEEN :fromDate AND :toDate " +
+            "ORDER BY ${Cols.TRADING_DATE}"
+    )
+    fun findByInstrumentTokenBetweenDates(
+        @Bind("instrumentToken") instrumentToken: Long,
+        @Bind("fromDate") fromDate: LocalDate,
+        @Bind("toDate") toDate: LocalDate,
+    ): List<StockDeliveryDaily>
+
+    @SqlQuery(
+        "SELECT * FROM ${Tables.STOCK_DELIVERY_DAILY} " +
             "WHERE ${Cols.TRADING_DATE} = :tradingDate " +
             "ORDER BY ${Cols.INSTRUMENT_TOKEN}"
     )

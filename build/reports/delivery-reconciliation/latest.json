@@ -1,12 +1,12 @@
 {
   "requestedDate" : null,
-  "resolvedDate" : "2026-05-15",
+  "resolvedDate" : "2026-05-18",
   "expectedSymbolCount" : 526,
   "presentCount" : 521,
   "missingFromSourceCount" : 1,
-  "nullableStockIdCount" : 397,
-  "watchlistLinkedCount" : 125,
-  "nonWatchlistCount" : 397,
+  "nullableStockIdCount" : 396,
+  "watchlistLinkedCount" : 126,
+  "nonWatchlistCount" : 396,
   "fetchedFromSource" : false,
   "alreadyComplete" : true,
   "blockingIssues" : [ ],
@@ -16,31 +16,31 @@
     "symbol" : "AARTIIND",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 45.86
+    "delivPer" : 45.19
   }, {
     "instrumentToken" : 3329,
     "symbol" : "ABB",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 34.41
+    "delivPer" : 48.22
   }, {
     "instrumentToken" : 5633,
     "symbol" : "ACC",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 41.78
+    "delivPer" : 55.48
   }, {
     "instrumentToken" : 6401,
     "symbol" : "ADANIENT",
     "stockId" : 414,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 17.54
+    "delivPer" : 20.01
   }, {
     "instrumentToken" : 10241,
     "symbol" : "AEGISLOG",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 31.63
+    "delivPer" : 29.23
   } ],
   "missingFromSourceSamples" : [ {
     "instrumentToken" : 256265,
@@ -54,30 +54,30 @@
     "symbol" : "AARTIIND",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 45.86
+    "delivPer" : 45.19
   }, {
     "instrumentToken" : 3329,
     "symbol" : "ABB",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 34.41
+    "delivPer" : 48.22
   }, {
     "instrumentToken" : 5633,
     "symbol" : "ACC",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 41.78
+    "delivPer" : 55.48
   }, {
     "instrumentToken" : 10241,
     "symbol" : "AEGISLOG",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 31.63
+    "delivPer" : 29.23
   }, {
     "instrumentToken" : 40193,
     "symbol" : "APOLLOHOSP",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 64.06
+    "delivPer" : 63.01
   } ]
 }

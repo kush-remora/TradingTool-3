@@ -7,6 +7,7 @@ import { BollingerSqueezePage } from "./pages/BollingerSqueezePage";
 import { ConsoleV2GrowwWatchlistImportPage } from "./pages/ConsoleV2GrowwWatchlistImportPage";
 import { CorporateResultsPage } from "./pages/CorporateResultsPage";
 import { DrawdownScannerPage } from "./pages/DrawdownScannerPage";
+import { DeliveryThresholdBacktestPage } from "./pages/DeliveryThresholdBacktestPage";
 import { EarningsDashboardPage } from "./pages/EarningsDashboardPage";
 import { MomentumDataPrepPage } from "./pages/MomentumDataPrepPage";
 import { RemoraPage } from "./pages/RemoraPage";
@@ -52,7 +53,8 @@ type V1PageKey =
   | "corporate-results"
   | "earnings-dashboard"
   | "v2-dashboard"
-  | "bollinger-squeeze";
+  | "bollinger-squeeze"
+  | "delivery-threshold-backtest";
 
 type PageKey = V1PageKey | "watchlist-import";
 
@@ -60,6 +62,7 @@ const menuItems: MenuProps["items"] = [
   { key: "watchlist-import", label: "Watchlist Import", icon: <FundOutlined /> },
   { key: "watchlist", label: "Watchlist", icon: <UnorderedListOutlined /> },
   { key: "bollinger-squeeze", label: "Bollinger Squeeze", icon: <AreaChartOutlined /> },
+  { key: "delivery-threshold-backtest", label: "Delivery Threshold BT", icon: <BarChartOutlined /> },
   {
     key: "unused",
     label: "Unused",
@@ -117,6 +120,7 @@ const validPages: PageKey[] = [
   "earnings-dashboard",
   "v2-dashboard",
   "bollinger-squeeze",
+  "delivery-threshold-backtest",
 ];
 
 export default function App() {
@@ -226,6 +230,7 @@ export default function App() {
             {route === "earnings-dashboard" && <EarningsDashboardPage />}
             {route === "v2-dashboard" && <V2DashboardPage />}
             {route === "bollinger-squeeze" && <BollingerSqueezePage />}
+            {route === "delivery-threshold-backtest" && <DeliveryThresholdBacktestPage />}
           </Layout.Content>
         </Layout>
       </Layout>

@@ -11,6 +11,9 @@ import com.tradingtool.core.strategy.volume.EarningsFilterMode
 import com.tradingtool.core.strategy.volume.VolumeSpikeBacktestRequest
 import com.tradingtool.core.strategy.volume.VolumeSpikeBacktestRunConfig
 import com.tradingtool.core.strategy.volume.VolumeSpikeBacktestService
+import com.tradingtool.core.strategy.deliverythreshold.DeliveryThresholdBacktestRequest
+import com.tradingtool.core.strategy.deliverythreshold.DeliveryThresholdBacktestRunConfig
+import com.tradingtool.core.strategy.deliverythreshold.DeliveryThresholdBacktestService
 import com.tradingtool.core.strategy.profitlookback.ProfitLookbackRequest
 import com.tradingtool.core.strategy.profitlookback.ProfitLookbackBulkRequest
 import com.tradingtool.core.strategy.profitlookback.ProfitLookbackBulkRowRequest
@@ -61,6 +64,7 @@ class StrategyResource @Inject constructor(
     private val volumeSpikeBacktestService: VolumeSpikeBacktestService,
     private val bollingerSqueezeBacktestService: BollingerSqueezeBacktestService,
     private val bollingerMeanReversionBacktestService: BollingerMeanReversionBacktestService,
+    private val deliveryThresholdBacktestService: DeliveryThresholdBacktestService,
     private val profitLookbackService: ProfitLookbackService,
     private val kiteClient: com.tradingtool.core.kite.KiteConnectClient,
     resourceScope: ResourceScope,
@@ -427,6 +431,22 @@ class StrategyResource @Inject constructor(
 
         ok(volumeSpikeBacktestService.runBacktest(validatedRequest))
     }
+
+    @POST
+    @Path("/delivery-threshold/backtest")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runDeliveryThresholdBacktest(request: DeliveryThresholdBacktestRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val validatedRequest = runCatching {
+            validateDeliveryThresholdBacktestRequest(request)
+        }.getOrElse { error ->
+            if (error is IllegalArgumentException) {
+                return@endpoint badRequest(error.message ?: "Invalid request.")
+            }
+            throw error
+        }
+
+        ok(deliveryThresholdBacktestService.runBacktest(validatedRequest))
+    }
 }
 
 internal fun validateProfitLookbackRequest(request: ProfitLookbackRequest?): ProfitLookbackRequest {
@@ -650,4 +670,74 @@ internal fun validateVolumeSpikeBacktestRequest(request: VolumeSpikeBacktestRequ
         positionSizeInr = positionSizeInr,
         feePerTradeInr = feePerTradeInr,
     )
+}
+
+internal fun validateDeliveryThresholdBacktestRequest(request: DeliveryThresholdBacktestRequest?): DeliveryThresholdBacktestRunConfig {
+    val body = request ?: throw IllegalArgumentException("Request body is required.")
+
+    val indexKeys = body.indexKeys
+        .map { value -> value.trim() }
+        .filter { value -> value.isNotEmpty() }
+        .distinct()
+    if (indexKeys.isEmpty()) {
+        throw IllegalArgumentException("indexKeys must contain at least one value.")
+    }
+    val normalizedIndexKeys = indexKeys
+        .map { value -> normalizeIndexKey(value) }
+        .distinct()
+
+    val thresholds = body.config.thresholds
+        .mapKeys { entry -> normalizeIndexKey(entry.key) }
+        .mapValues { entry -> entry.value }
+
+    normalizedIndexKeys.forEach { indexKey ->
+        val threshold = thresholds[indexKey]
+        if (threshold == null) {
+            throw IllegalArgumentException("Missing threshold for selected indexKey=$indexKey.")
+        }
+        if (!threshold.isFinite() || threshold <= 0.0) {
+            throw IllegalArgumentException("Threshold for indexKey=$indexKey must be a positive number.")
+        }
+    }
+
+    val profitPct = body.config.profitPct
+    if (!profitPct.isFinite() || profitPct <= 0.0) {
+        throw IllegalArgumentException("profitPct must be a positive number.")
+    }
+
+    val toDate = body.config.toDate?.let { value ->
+        runCatching { LocalDate.parse(value) }.getOrNull()
+            ?: throw IllegalArgumentException("toDate must be in YYYY-MM-DD format.")
+    } ?: LocalDate.now()
+
+    val fromDate = body.config.fromDate?.let { value ->
+        runCatching { LocalDate.parse(value) }.getOrNull()
+            ?: throw IllegalArgumentException("fromDate must be in YYYY-MM-DD format.")
+    } ?: toDate.minusDays(365)
+
+    if (fromDate.isAfter(toDate)) {
+        throw IllegalArgumentException("fromDate must be on or before toDate.")
+    }
+
+    val symbols = body.symbols
+        .map { value -> value.trim().uppercase() }
+        .filter { value -> value.isNotEmpty() }
+        .distinct()
+
+    return DeliveryThresholdBacktestRunConfig(
+        indexKeys = indexKeys,
+        symbols = symbols,
+        thresholdsByIndex = thresholds,
+        profitPct = profitPct,
+        fromDate = fromDate,
+        toDate = toDate,
+    )
+}
+
+internal fun normalizeIndexKey(raw: String): String {
+    return raw.trim()
+        .uppercase()
+        .replace(Regex("[^A-Z0-9]+"), "_")
+        .replace(Regex("_+"), "_")
+        .trim('_')
 }

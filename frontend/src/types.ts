@@ -1398,6 +1398,72 @@ export interface VolumeSpikeBacktestResponse {
   trades: VolumeSpikeBacktestTrade[];
 }
 
+// ==================== Delivery Threshold Backtest ====================
+
+export interface DeliveryThresholdBacktestConfig {
+  thresholds: Record<string, number>;
+  profitPct: number;
+  fromDate?: string;
+  toDate?: string;
+}
+
+export interface DeliveryThresholdBacktestRequest {
+  indexKeys: string[];
+  symbols?: string[];
+  config: DeliveryThresholdBacktestConfig;
+}
+
+export interface DeliveryThresholdBacktestConfigSnapshot {
+  indexKeys: string[];
+  symbols: string[];
+  thresholds: Record<string, number>;
+  profitPct: number;
+  fromDate: string;
+  toDate: string;
+}
+
+export interface DeliveryThresholdBacktestSummary {
+  totalBuys: number;
+  hitCount: number;
+  hitRatePct: number;
+  daysToHitAvg: number | null;
+  daysToHitMedian: number | null;
+  daysToHitMin: number | null;
+  daysToHitMax: number | null;
+  openCount: number;
+}
+
+export interface DeliveryThresholdBacktestRow {
+  symbol: string;
+  index: string;
+  entryDate: string;
+  entryPrice: number;
+  entryDeliveryPct: number;
+  totalVolumeCount: number | null;
+  targetPrice: number;
+  fiftyTwoWeekHighAtBuy: number | null;
+  fiftyTwoWeekLowAtBuy: number | null;
+  pctFrom52WeekHighAtBuy: number | null;
+  pctFrom52WeekLowAtBuy: number | null;
+  buyDayOfWeek: string;
+  exitDate: string | null;
+  exitPrice: number | null;
+  holdingDays: number;
+  rsiBuy: number | null;
+  rsiSell: number | null;
+  maxDrawdownAtBuyPct: number | null;
+  status: "HIT" | "OPEN" | string;
+  currentPrice: number;
+  floatingPnlPct: number | null;
+  thresholdUsed: number;
+}
+
+export interface DeliveryThresholdBacktestResponse {
+  config: DeliveryThresholdBacktestConfigSnapshot;
+  summary: DeliveryThresholdBacktestSummary;
+  rows: DeliveryThresholdBacktestRow[];
+}
+
 // ==================== Bollinger Squeeze ====================
 
 export interface BollingerSqueezeScanResult {
