@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Button, Card, Col, Empty, Input, Row, Select, Space, Spin, Statistic, Table, Tag, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { DownloadOutlined } from "@ant-design/icons";
+import { DownloadOutlined, FilterFilled } from "@ant-design/icons";
 import { getJson } from "../utils/api";
 import { useDeliveryThresholdBacktest } from "../hooks/useDeliveryThresholdBacktest";
 import type {
@@ -16,6 +16,14 @@ const EMPTY_CONFIG_JSON = JSON.stringify({ thresholds: {}, profitPct: 10 }, null
 const rowColumns: ColumnsType<DeliveryThresholdBacktestRow> = [
   { title: "Symbol", dataIndex: "symbol", key: "symbol", fixed: "left", width: 110, sorter: (a, b) => a.symbol.localeCompare(b.symbol) },
   { title: "Index", dataIndex: "index", key: "index", width: 180, sorter: (a, b) => a.index.localeCompare(b.index) },
+  {
+    title: "Status",
+    dataIndex: "status",
+    key: "status",
+    width: 95,
+    sorter: (a, b) => a.status.localeCompare(b.status),
+    render: (status: string) => <Tag color={status === "HIT" ? "green" : "gold"}>{status}</Tag>,
+  },
   { title: "Entry Date", dataIndex: "entryDate", key: "entryDate", width: 120, sorter: (a, b) => a.entryDate.localeCompare(b.entryDate) },
   { title: "Entry Price", dataIndex: "entryPrice", key: "entryPrice", width: 110, sorter: (a, b) => a.entryPrice - b.entryPrice, render: (value: number) => value.toFixed(2) },
   { title: "Entry Delivery %", dataIndex: "entryDeliveryPct", key: "entryDeliveryPct", width: 140, sorter: (a, b) => a.entryDeliveryPct - b.entryDeliveryPct, render: (value: number) => `${value.toFixed(2)}%` },
@@ -73,13 +81,6 @@ const rowColumns: ColumnsType<DeliveryThresholdBacktestRow> = [
     sorter: (a, b) => (a.maxDrawdownAtBuyPct ?? 0) - (b.maxDrawdownAtBuyPct ?? 0),
     render: (value: number | null) => (value == null ? "-" : `${value.toFixed(2)}%`),
   },
-  {
-    title: "Status",
-    dataIndex: "status",
-    key: "status",
-    width: 95,
-    render: (status: string) => <Tag color={status === "HIT" ? "green" : "gold"}>{status}</Tag>,
-  },
   { title: "Current Price", dataIndex: "currentPrice", key: "currentPrice", width: 120, sorter: (a, b) => a.currentPrice - b.currentPrice, render: (value: number) => value.toFixed(2) },
   {
     title: "Floating PnL %",
@@ -105,6 +106,106 @@ function normalizeIndexKey(value: string): string {
     .replace(/[^A-Z0-9]+/g, "_")
     .replace(/_+/g, "_")
     .replace(/^_+|_+$/g, "");
+}
+
+function containsIgnoreCase(source: string, query: string): boolean {
+  return source.toLowerCase().includes(query.toLowerCase());
+}
+
+function parseDateRange(raw: string): { from: string; to: string } {
+  const [from = "", to = ""] = raw.split("|");
+  return { from, to };
+}
+
+function withTextFilter(
+  key: string,
+  pickValue: (row: DeliveryThresholdBacktestRow) => string,
+): Partial<ColumnsType<DeliveryThresholdBacktestRow>[number]> {
+  return {
+    filterDropdown: ({ selectedKeys, setSelectedKeys, confirm, clearFilters }) => (
+      <div style={{ padding: 8, width: 220 }}>
+        <Input
+          allowClear
+          placeholder={`Filter ${key}`}
+          value={(selectedKeys[0] as string) ?? ""}
+          onChange={(event) => {
+            const value = event.target.value;
+            setSelectedKeys(value ? [value] : []);
+          }}
+          onPressEnter={() => confirm()}
+        />
+        <Space style={{ marginTop: 8 }}>
+          <Button type="primary" size="small" onClick={() => confirm()}>Apply</Button>
+          <Button
+            size="small"
+            onClick={() => {
+              clearFilters?.();
+              confirm();
+            }}
+          >
+            Reset
+          </Button>
+        </Space>
+      </div>
+    ),
+    filterIcon: (filtered) => <FilterFilled style={{ color: filtered ? "#1677ff" : undefined }} />,
+    onFilter: (value, record) => containsIgnoreCase(pickValue(record), String(value)),
+  };
+}
+
+function withDateRangeFilter(
+  key: string,
+  pickValue: (row: DeliveryThresholdBacktestRow) => string | null,
+): Partial<ColumnsType<DeliveryThresholdBacktestRow>[number]> {
+  return {
+    filterDropdown: ({ selectedKeys, setSelectedKeys, confirm, clearFilters }) => {
+      const current = String(selectedKeys[0] ?? "");
+      const parsed = parseDateRange(current);
+      return (
+        <div style={{ padding: 8, width: 230 }}>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>From</Typography.Text>
+          <Input
+            type="date"
+            value={parsed.from}
+            onChange={(event) => {
+              const next = `${event.target.value}|${parsed.to}`;
+              setSelectedKeys(next === "|" ? [] : [next]);
+            }}
+          />
+          <Typography.Text type="secondary" style={{ marginTop: 8, display: "block", fontSize: 12 }}>To</Typography.Text>
+          <Input
+            type="date"
+            value={parsed.to}
+            onChange={(event) => {
+              const next = `${parsed.from}|${event.target.value}`;
+              setSelectedKeys(next === "|" ? [] : [next]);
+            }}
+          />
+          <Space style={{ marginTop: 8 }}>
+            <Button type="primary" size="small" onClick={() => confirm()}>Apply</Button>
+            <Button
+              size="small"
+              onClick={() => {
+                clearFilters?.();
+                confirm();
+              }}
+            >
+              Reset
+            </Button>
+          </Space>
+        </div>
+      );
+    },
+    filterIcon: (filtered) => <FilterFilled style={{ color: filtered ? "#1677ff" : undefined }} />,
+    onFilter: (value, record) => {
+      const rawDate = pickValue(record);
+      if (!rawDate) return false;
+      const { from, to } = parseDateRange(String(value));
+      if (from && rawDate < from) return false;
+      if (to && rawDate > to) return false;
+      return true;
+    },
+  };
 }
 
 function downloadCsv(result: DeliveryThresholdBacktestResponse): void {
@@ -346,6 +447,22 @@ export function DeliveryThresholdBacktestPage() {
 }
 
 function DeliveryThresholdResult({ result }: { result: DeliveryThresholdBacktestResponse }) {
+  const filteredColumns = useMemo<ColumnsType<DeliveryThresholdBacktestRow>>(() => {
+    return rowColumns.map((column) => {
+      const key = String(column.key ?? "");
+      if (key === "entryDate" || key === "exitDate") {
+        const dateAccessor = (row: DeliveryThresholdBacktestRow): string | null =>
+          key === "entryDate" ? row.entryDate : row.exitDate;
+        return { ...column, ...withDateRangeFilter(key, dateAccessor) };
+      }
+      const accessor = (row: DeliveryThresholdBacktestRow): string => {
+        const value = row[key as keyof DeliveryThresholdBacktestRow];
+        return value == null ? "" : String(value);
+      };
+      return { ...column, ...withTextFilter(key, accessor) };
+    });
+  }, []);
+
   return (
     <Space orientation="vertical" size={16} style={{ width: "100%" }}>
       <Row gutter={12}>
@@ -360,7 +477,7 @@ function DeliveryThresholdResult({ result }: { result: DeliveryThresholdBacktest
       <Card size="small" title="Result Table">
         <Table
           rowKey={(row) => `${row.symbol}-${row.entryDate}-${row.index}`}
-          columns={rowColumns}
+          columns={filteredColumns}
           dataSource={result.rows}
           size="small"
           pagination={{ pageSize: 25, showSizeChanger: true }}
