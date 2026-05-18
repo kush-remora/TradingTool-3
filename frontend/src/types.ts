@@ -1440,6 +1440,8 @@ export interface DeliveryThresholdBacktestRow {
   entryPrice: number;
   entryDeliveryPct: number;
   totalVolumeCount: number | null;
+  avg20dVolumeAtSignal: number | null;
+  signalVolumeVs20dPct: number | null;
   targetPrice: number;
   fiftyTwoWeekHighAtBuy: number | null;
   fiftyTwoWeekLowAtBuy: number | null;

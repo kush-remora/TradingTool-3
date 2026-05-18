@@ -12,12 +12,25 @@ vi.mock("../utils/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../utils/api")>();
   return {
     ...actual,
-    getJson: vi.fn().mockResolvedValue({
-      options: [
-        { label: "Watchlist", value: "WATCHLIST", count: 20 },
-        { label: "NIFTY_LARGEMIDCAP_250", value: "NIFTY_LARGEMIDCAP_250", count: 250 },
-        { label: "NIFTY_SMALLCAP_250", value: "NIFTY_SMALLCAP_250", count: 250 },
-      ],
+    getJson: vi.fn().mockImplementation((path: string) => {
+      if (path === "/api/strategy/delivery-threshold/config") {
+        return Promise.resolve({
+          thresholds: {
+            NIFTY_LARGEMIDCAP_250: 55,
+            NIFTY_SMALLCAP_250: 70,
+          },
+          profitPct: 10,
+          fromDate: null,
+          toDate: null,
+        });
+      }
+      return Promise.resolve({
+        options: [
+          { label: "Watchlist", value: "WATCHLIST", count: 20 },
+          { label: "NIFTY_LARGEMIDCAP_250", value: "NIFTY_LARGEMIDCAP_250", count: 250 },
+          { label: "NIFTY_SMALLCAP_250", value: "NIFTY_SMALLCAP_250", count: 250 },
+        ],
+      });
     }),
   };
 });
@@ -81,6 +94,8 @@ describe("DeliveryThresholdBacktestPage", () => {
             entryPrice: 100,
             entryDeliveryPct: 60,
             totalVolumeCount: 100000,
+            avg20dVolumeAtSignal: 120000,
+            signalVolumeVs20dPct: 83.33,
             targetPrice: 110,
             fiftyTwoWeekHighAtBuy: 145,
             fiftyTwoWeekLowAtBuy: 92,

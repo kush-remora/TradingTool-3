@@ -2,7 +2,7 @@ package com.tradingtool.core.strategy.deliverythreshold
 
 import com.google.inject.Inject
 import com.google.inject.Singleton
-import com.tradingtool.core.database.CandleJdbiHandler
+import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
@@ -15,8 +15,8 @@ import org.slf4j.LoggerFactory
 @Singleton
 class DeliveryThresholdBacktestService @Inject constructor(
     private val indexConstituentHandler: IndexConstituentJdbiHandler,
-    private val candleHandler: CandleJdbiHandler,
     private val deliveryHandler: StockDeliveryJdbiHandler,
+    private val candleCacheService: CandleCacheService,
     private val candleDataService: CandleDataService,
     private val kiteClient: KiteConnectClient,
 ) {
@@ -50,15 +50,19 @@ class DeliveryThresholdBacktestService @Inject constructor(
         }
 
         val warmupFrom = config.fromDate.minusDays(HISTORY_WARMUP_DAYS)
-        val initialCandlesBySymbol = resolvedUniverse.symbols.associate { symbol ->
-            val candles = loadCandles(symbol.instrumentToken, warmupFrom, config.toDate)
+        val candlesBySymbol = resolvedUniverse.symbols.associate { symbol ->
+            val candles = loadCandles(symbol.symbol, symbol.instrumentToken, warmupFrom, config.toDate)
             symbol.symbol to candles
+        }.toMutableMap()
+
+        fun candlesForSymbol(symbol: String): List<com.tradingtool.core.candle.DailyCandle> {
+            return candlesBySymbol[symbol].orEmpty()
         }
 
         val requiredLookbackStart = config.fromDate.minusDays(INDICATOR_LOOKBACK_DAYS)
         val symbolsNeedingBackfill = resolvedUniverse.symbols
             .filter { symbol ->
-                val candles = initialCandlesBySymbol[symbol.symbol].orEmpty()
+                val candles = candlesForSymbol(symbol.symbol)
                 val earliest = candles.firstOrNull()?.candleDate
                 val latest = candles.lastOrNull()?.candleDate
                 candles.isEmpty() ||
@@ -85,10 +89,21 @@ class DeliveryThresholdBacktestService @Inject constructor(
                     error.message,
                 )
             }
+
+            resolvedUniverse.symbols
+                .filter { symbol -> symbolsNeedingBackfill.contains(symbol.symbol) }
+                .forEach { symbol ->
+                    candlesBySymbol[symbol.symbol] = loadCandles(
+                        symbol = symbol.symbol,
+                        instrumentToken = symbol.instrumentToken,
+                        fromDate = warmupFrom,
+                        toDate = config.toDate,
+                    )
+                }
         }
 
         val contexts = resolvedUniverse.symbols.mapNotNull { symbol ->
-            val candles = loadCandles(symbol.instrumentToken, warmupFrom, config.toDate)
+            val candles = candlesForSymbol(symbol.symbol)
             if (candles.isEmpty()) {
                 return@mapNotNull null
             }
@@ -115,12 +130,18 @@ class DeliveryThresholdBacktestService @Inject constructor(
     }
 
     private suspend fun loadCandles(
+        symbol: String,
         instrumentToken: Long,
         fromDate: LocalDate,
         toDate: LocalDate,
-    ) = candleHandler.read { dao ->
-        dao.getDailyCandles(instrumentToken, fromDate, toDate)
-    }.sortedBy { candle -> candle.candleDate }
+    ) = candleCacheService
+        .getDailyCandles(
+            token = instrumentToken,
+            symbol = symbol,
+            from = fromDate,
+            to = toDate,
+        )
+        .sortedBy { candle -> candle.candleDate }
 
     private suspend fun resolveUniverse(config: DeliveryThresholdBacktestRunConfig): DeliveryThresholdResolvedUniverse {
         val members = loadIndexMembers(config.indexKeys)
@@ -159,17 +180,22 @@ class DeliveryThresholdBacktestService @Inject constructor(
             .groupBy { summary -> normalizeIndexKeyInCore(summary.indexKey) }
             .mapValues { (_, rows) -> rows.map { row -> row.indexKey } }
 
+        val membersByResolvedKey = mutableMapOf<String, List<IndexConstituentUpsertRow>>()
         val members = mutableListOf<IndexConstituentUpsertRow>()
         indexKeys.forEach { indexKey ->
             val normalized = normalizeIndexKeyInCore(indexKey)
             val resolvedKeys = indexKeysByNormalized[normalized].orEmpty()
             if (resolvedKeys.isEmpty()) {
-                val rows = indexConstituentHandler.read { dao -> dao.listActiveByIndex(indexKey) }
-                members.addAll(rows)
+                val rows = membersByResolvedKey.getOrPut(indexKey) {
+                    indexConstituentHandler.read { dao -> dao.listActiveByIndex(indexKey) }
+                }
+                members += rows
             } else {
-                resolvedKeys.forEach { resolvedKey ->
-                    val rows = indexConstituentHandler.read { dao -> dao.listActiveByIndex(resolvedKey) }
-                    members.addAll(rows)
+                resolvedKeys.distinct().forEach { resolvedKey ->
+                    val rows = membersByResolvedKey.getOrPut(resolvedKey) {
+                        indexConstituentHandler.read { dao -> dao.listActiveByIndex(resolvedKey) }
+                    }
+                    members += rows
                 }
             }
         }

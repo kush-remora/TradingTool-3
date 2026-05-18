@@ -41,11 +41,26 @@ class DeliveryThresholdBacktestRequestValidationTest {
     }
 
     @Test
-    fun `validate fails when selected index threshold is missing`() {
+    fun `validate uses backend default threshold for known index when omitted`() {
+        val result = validateDeliveryThresholdBacktestRequest(
+            DeliveryThresholdBacktestRequest(
+                indexKeys = listOf("NIFTY_SMALLCAP_250"),
+                config = DeliveryThresholdBacktestConfig(
+                    thresholds = mapOf("NIFTY_LARGEMIDCAP_250" to 55.0),
+                    profitPct = 10.0,
+                ),
+            ),
+        )
+
+        assertEquals(70.0, result.thresholdsByIndex["NIFTY_SMALLCAP_250"])
+    }
+
+    @Test
+    fun `validate fails when selected index threshold is missing for unknown key`() {
         val error = assertThrows(IllegalArgumentException::class.java) {
             validateDeliveryThresholdBacktestRequest(
                 DeliveryThresholdBacktestRequest(
-                    indexKeys = listOf("NIFTY_SMALLCAP_250"),
+                    indexKeys = listOf("NIFTY_UNKNOWN_999"),
                     config = DeliveryThresholdBacktestConfig(
                         thresholds = mapOf("NIFTY_LARGEMIDCAP_250" to 55.0),
                         profitPct = 10.0,
@@ -54,7 +69,7 @@ class DeliveryThresholdBacktestRequestValidationTest {
             )
         }
 
-        assertEquals("Missing threshold for selected indexKey=NIFTY_SMALLCAP_250.", error.message)
+        assertEquals("Missing threshold for selected indexKey=NIFTY_UNKNOWN_999.", error.message)
     }
 
     @Test

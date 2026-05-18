@@ -83,6 +83,19 @@ class DeliveryThresholdBacktestEngine {
             if (!entryPrice.isFinite() || entryPrice <= 0.0) {
                 return@forEach
             }
+            val triggerCandleIndex = candles.indexOfFirst { candle -> candle.candleDate == delivery.tradingDate }
+            val avg20dVolumeAtSignal = computeAvg20dVolumeBeforeIndex(candles, triggerCandleIndex)
+            val triggerVolume = delivery.ttlTrdQnty?.toDouble()
+                ?: triggerCandleIndex.takeIf { index -> index >= 0 }?.let { index -> candles[index].volume.toDouble() }
+            val signalVolumeVs20dPct = if (
+                triggerVolume != null &&
+                avg20dVolumeAtSignal != null &&
+                avg20dVolumeAtSignal > 0.0
+            ) {
+                (triggerVolume / avg20dVolumeAtSignal) * 100.0
+            } else {
+                null
+            }
 
             val targetPrice = entryPrice * (1.0 + (config.profitPct / 100.0))
             val hitIndex = findTargetHitIndex(candles, entryIndex, targetPrice)
@@ -114,6 +127,8 @@ class DeliveryThresholdBacktestEngine {
                     entryPrice = entryPrice.roundTo2(),
                     entryDeliveryPct = deliveryPct.roundTo2(),
                     totalVolumeCount = delivery.ttlTrdQnty,
+                    avg20dVolumeAtSignal = avg20dVolumeAtSignal?.roundTo2(),
+                    signalVolumeVs20dPct = signalVolumeVs20dPct?.roundTo2(),
                     targetPrice = targetPrice.roundTo2(),
                     fiftyTwoWeekHighAtBuy = entryRange.high.takeIf { value -> value > 0.0 }?.roundTo2(),
                     fiftyTwoWeekLowAtBuy = entryRange.low.takeIf { value -> value > 0.0 }?.roundTo2(),
@@ -191,6 +206,21 @@ class DeliveryThresholdBacktestEngine {
         return EntryRange(high = high, low = low)
     }
 
+    private fun computeAvg20dVolumeBeforeIndex(
+        candles: List<com.tradingtool.core.candle.DailyCandle>,
+        triggerIndex: Int,
+    ): Double? {
+        if (triggerIndex <= 0 || triggerIndex > candles.lastIndex) {
+            return null
+        }
+        val start = (triggerIndex - AVG_VOLUME_LOOKBACK_DAYS).coerceAtLeast(0)
+        val history = candles.subList(start, triggerIndex)
+        if (history.isEmpty()) {
+            return null
+        }
+        return history.map { candle -> candle.volume.toDouble() }.average()
+    }
+
     private data class EntryRange(
         val high: Double,
         val low: Double,
@@ -218,5 +248,6 @@ class DeliveryThresholdBacktestEngine {
         private const val STATUS_OPEN = "OPEN"
         private const val MIN_REQUIRED_CANDLES = 20
         private const val DRAWDOWN_LOOKBACK_DAYS = 252
+        private const val AVG_VOLUME_LOOKBACK_DAYS = 20
     }
 }

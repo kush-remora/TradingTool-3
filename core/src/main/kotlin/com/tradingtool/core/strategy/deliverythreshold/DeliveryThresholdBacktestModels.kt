@@ -11,7 +11,16 @@ data class DeliveryThresholdBacktestRequest(
 )
 
 data class DeliveryThresholdBacktestConfig(
-    val thresholds: Map<String, Double> = emptyMap(),
+    val thresholds: Map<String, Double> = mapOf(
+        "NIFTY_50" to 55.0,
+        "NIFTY_MIDCAP_50" to 60.0,
+        "NIFTY_MIDCAP_150" to 60.0,
+        "NIFTY_SMALLCAP_50" to 70.0,
+        "NIFTY_LARGEMIDCAP_250" to 55.0,
+        "NIFTY_SMALLCAP_250" to 70.0,
+        "NIFTY_MICROCAP_250" to 85.0,
+        "NIFTY_NANOCAP_250" to 92.0,
+    ),
     val profitPct: Double = 10.0,
     val fromDate: String? = null,
     val toDate: String? = null,
@@ -42,6 +51,8 @@ data class DeliveryThresholdBacktestRow(
     val entryPrice: Double,
     val entryDeliveryPct: Double,
     val totalVolumeCount: Long?,
+    val avg20dVolumeAtSignal: Double?,
+    val signalVolumeVs20dPct: Double?,
     val targetPrice: Double,
     val fiftyTwoWeekHighAtBuy: Double?,
     val fiftyTwoWeekLowAtBuy: Double?,

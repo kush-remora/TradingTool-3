@@ -1,0 +1,15 @@
+{
+  "thresholds": {
+    "NIFTY_50": 55.0,
+    "NIFTY_MIDCAP_50": 60.0,
+    "NIFTY_MIDCAP_150": 60.0,
+    "NIFTY_SMALLCAP_50": 70.0,
+    "NIFTY_LARGEMIDCAP_250": 55.0,
+    "NIFTY_SMALLCAP_250": 70.0,
+    "NIFTY_MICROCAP_250": 85.0,
+    "NIFTY_NANOCAP_250": 92.0
+  },
+  "profitPct": 10.0,
+  "fromDate": null,
+  "toDate": null
+}

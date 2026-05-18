@@ -14,6 +14,8 @@ import com.tradingtool.core.strategy.volume.VolumeSpikeBacktestService
 import com.tradingtool.core.strategy.deliverythreshold.DeliveryThresholdBacktestRequest
 import com.tradingtool.core.strategy.deliverythreshold.DeliveryThresholdBacktestRunConfig
 import com.tradingtool.core.strategy.deliverythreshold.DeliveryThresholdBacktestService
+import com.tradingtool.core.strategy.deliverythreshold.DeliveryThresholdBacktestConfigService
+import com.tradingtool.core.strategy.deliverythreshold.DeliveryThresholdBacktestConfig
 import com.tradingtool.core.strategy.profitlookback.ProfitLookbackRequest
 import com.tradingtool.core.strategy.profitlookback.ProfitLookbackBulkRequest
 import com.tradingtool.core.strategy.profitlookback.ProfitLookbackBulkRowRequest
@@ -65,6 +67,7 @@ class StrategyResource @Inject constructor(
     private val bollingerSqueezeBacktestService: BollingerSqueezeBacktestService,
     private val bollingerMeanReversionBacktestService: BollingerMeanReversionBacktestService,
     private val deliveryThresholdBacktestService: DeliveryThresholdBacktestService,
+    private val deliveryThresholdBacktestConfigService: DeliveryThresholdBacktestConfigService,
     private val profitLookbackService: ProfitLookbackService,
     private val kiteClient: com.tradingtool.core.kite.KiteConnectClient,
     resourceScope: ResourceScope,
@@ -436,8 +439,9 @@ class StrategyResource @Inject constructor(
     @Path("/delivery-threshold/backtest")
     @Consumes(MediaType.APPLICATION_JSON)
     fun runDeliveryThresholdBacktest(request: DeliveryThresholdBacktestRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val defaultConfig = deliveryThresholdBacktestConfigService.loadConfig()
         val validatedRequest = runCatching {
-            validateDeliveryThresholdBacktestRequest(request)
+            validateDeliveryThresholdBacktestRequest(request, defaultConfig)
         }.getOrElse { error ->
             if (error is IllegalArgumentException) {
                 return@endpoint badRequest(error.message ?: "Invalid request.")
@@ -446,6 +450,12 @@ class StrategyResource @Inject constructor(
         }
 
         ok(deliveryThresholdBacktestService.runBacktest(validatedRequest))
+    }
+
+    @GET
+    @Path("/delivery-threshold/config")
+    fun getDeliveryThresholdBacktestConfig(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(deliveryThresholdBacktestConfigService.loadConfig())
     }
 }
 
@@ -672,7 +682,10 @@ internal fun validateVolumeSpikeBacktestRequest(request: VolumeSpikeBacktestRequ
     )
 }
 
-internal fun validateDeliveryThresholdBacktestRequest(request: DeliveryThresholdBacktestRequest?): DeliveryThresholdBacktestRunConfig {
+internal fun validateDeliveryThresholdBacktestRequest(
+    request: DeliveryThresholdBacktestRequest?,
+    defaultConfig: DeliveryThresholdBacktestConfig = DeliveryThresholdBacktestConfig(),
+): DeliveryThresholdBacktestRunConfig {
     val body = request ?: throw IllegalArgumentException("Request body is required.")
 
     val indexKeys = body.indexKeys
@@ -686,9 +699,13 @@ internal fun validateDeliveryThresholdBacktestRequest(request: DeliveryThreshold
         .map { value -> normalizeIndexKey(value) }
         .distinct()
 
-    val thresholds = body.config.thresholds
+    val requestThresholds = body.config.thresholds
         .mapKeys { entry -> normalizeIndexKey(entry.key) }
         .mapValues { entry -> entry.value }
+    val defaultThresholds = defaultConfig.thresholds
+        .mapKeys { entry -> normalizeIndexKey(entry.key) }
+        .mapValues { entry -> entry.value }
+    val thresholds = defaultThresholds + requestThresholds
 
     normalizedIndexKeys.forEach { indexKey ->
         val threshold = thresholds[indexKey]

@@ -11,19 +11,7 @@ import type {
   UniverseOptionsResponse,
 } from "../types";
 
-const DEFAULT_CONFIG_JSON = JSON.stringify(
-  {
-    thresholds: {
-      NIFTY_LARGEMIDCAP_250: 55,
-      NIFTY_SMALLCAP_250: 70,
-      NIFTY_MICROCAP_250: 85,
-      NIFTY_NANOCAP_250: 92,
-    },
-    profitPct: 10,
-  },
-  null,
-  2,
-);
+const EMPTY_CONFIG_JSON = JSON.stringify({ thresholds: {}, profitPct: 10 }, null, 2);
 
 const rowColumns: ColumnsType<DeliveryThresholdBacktestRow> = [
   { title: "Symbol", dataIndex: "symbol", key: "symbol", fixed: "left", width: 110, sorter: (a, b) => a.symbol.localeCompare(b.symbol) },
@@ -37,6 +25,22 @@ const rowColumns: ColumnsType<DeliveryThresholdBacktestRow> = [
     key: "totalVolumeCount",
     width: 130,
     render: (value: number | null) => (value == null ? "-" : value.toLocaleString("en-IN")),
+  },
+  {
+    title: "Avg 20D Vol",
+    dataIndex: "avg20dVolumeAtSignal",
+    key: "avg20dVolumeAtSignal",
+    width: 130,
+    sorter: (a, b) => (a.avg20dVolumeAtSignal ?? 0) - (b.avg20dVolumeAtSignal ?? 0),
+    render: (value: number | null) => (value == null ? "-" : value.toLocaleString("en-IN", { maximumFractionDigits: 0 })),
+  },
+  {
+    title: "Signal Vol vs 20D",
+    dataIndex: "signalVolumeVs20dPct",
+    key: "signalVolumeVs20dPct",
+    width: 140,
+    sorter: (a, b) => (a.signalVolumeVs20dPct ?? 0) - (b.signalVolumeVs20dPct ?? 0),
+    render: (value: number | null) => (value == null ? "-" : `${value.toFixed(2)}%`),
   },
   { title: "Target", dataIndex: "targetPrice", key: "targetPrice", width: 100, sorter: (a, b) => a.targetPrice - b.targetPrice, render: (value: number) => value.toFixed(2) },
   {
@@ -94,6 +98,15 @@ function parseSymbols(input: string): string[] {
     .filter((value) => value.length > 0);
 }
 
+function normalizeIndexKey(value: string): string {
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
 function downloadCsv(result: DeliveryThresholdBacktestResponse): void {
   const header = [
     "symbol",
@@ -102,6 +115,8 @@ function downloadCsv(result: DeliveryThresholdBacktestResponse): void {
     "entryPrice",
     "entryDeliveryPct",
     "totalVolumeCount",
+    "avg20dVolumeAtSignal",
+    "signalVolumeVs20dPct",
     "targetPrice",
     "pctFrom52WeekHighAtBuy",
     "pctFrom52WeekLowAtBuy",
@@ -125,6 +140,8 @@ function downloadCsv(result: DeliveryThresholdBacktestResponse): void {
     row.entryPrice,
     row.entryDeliveryPct,
     row.totalVolumeCount ?? "",
+    row.avg20dVolumeAtSignal ?? "",
+    row.signalVolumeVs20dPct ?? "",
     row.targetPrice,
     row.pctFrom52WeekHighAtBuy ?? "",
     row.pctFrom52WeekLowAtBuy ?? "",
@@ -162,7 +179,7 @@ export function DeliveryThresholdBacktestPage() {
   const [indexOptions, setIndexOptions] = useState<Array<{ label: string; value: string }>>([]);
   const [selectedIndexes, setSelectedIndexes] = useState<string[]>([]);
   const [symbolsText, setSymbolsText] = useState<string>("");
-  const [configText, setConfigText] = useState<string>(DEFAULT_CONFIG_JSON);
+  const [configText, setConfigText] = useState<string>(EMPTY_CONFIG_JSON);
 
   useEffect(() => {
     let mounted = true;
@@ -189,6 +206,23 @@ export function DeliveryThresholdBacktestPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    void getJson<DeliveryThresholdBacktestRequest["config"]>("/api/strategy/delivery-threshold/config")
+      .then((response) => {
+        if (!mounted) return;
+        setConfigText(JSON.stringify(response, null, 2));
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setConfigText(EMPTY_CONFIG_JSON);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const parsedSymbols = useMemo(() => parseSymbols(symbolsText), [symbolsText]);
 
   const runBacktest = async (): Promise<void> => {
@@ -202,6 +236,21 @@ export function DeliveryThresholdBacktestPage() {
       parsedConfig = JSON.parse(configText) as DeliveryThresholdBacktestRequest["config"];
     } catch {
       messageApi.error("Config JSON is invalid.");
+      return;
+    }
+
+    const thresholdMap = Object.entries(parsedConfig.thresholds ?? {}).reduce<Record<string, number>>(
+      (accumulator, [key, value]) => {
+        accumulator[normalizeIndexKey(key)] = value;
+        return accumulator;
+      },
+      {},
+    );
+    const missingThresholdKeys = selectedIndexes
+      .map((indexKey) => normalizeIndexKey(indexKey))
+      .filter((indexKey) => thresholdMap[indexKey] == null);
+    if (missingThresholdKeys.length > 0) {
+      messageApi.error(`Missing thresholds for: ${missingThresholdKeys.join(", ")}`);
       return;
     }
 
