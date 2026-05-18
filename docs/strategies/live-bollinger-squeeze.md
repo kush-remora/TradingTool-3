@@ -26,8 +26,9 @@ The daily screener report will output the following columns to help prioritize s
 | **Symbol** | The stock ticker symbol. |
 | **LTP** | Last Traded Price (Today's Close). |
 | **Above 200 SMA** | Yes/No. Informational gatekeeper to show if the long-term trend is upward. |
-| **Filter 1 (Squeeze)** | **Origin Date:** The first day the 3-day squeeze was valid. <br> **Latest Date:** The most recent day the squeeze was valid. |
-| **Filter 2 (Breakout)** | **Origin Date:** The first day the breakout trigger (Path A or B) occurred after the squeeze. <br> **Latest Date:** The most recent day a breakout trigger occurred. |
+| **Filter 1 (Squeeze)** | **Origin Date:** The first day the 3-day squeeze was valid. <br> **Latest Date:** The most recent day the squeeze was valid. <br> **Origin Price:** Close price on Filter 1 Origin Date. |
+| **Filter 2 (Breakout)** | **Origin Date:** The first day the breakout trigger (Path A or B) occurred after the squeeze. <br> **Latest Date:** The most recent day a breakout trigger occurred. <br> **Origin Price:** Close price on Filter 2 Origin Date. |
+| **F2 vs F1 Move %** | Percent move from `Filter 1 Origin Price` to `Filter 2 Origin Price`: `((F2OriginPrice - F1OriginPrice) / F1OriginPrice) * 100`. |
 | **Filter 2 Type** | Displays "Fast 1-Day", "Standard 2-Day", or "None" for the **Origin** trigger. |
 | **Trend Since Filter 1 Origin** | Uses `Close(today) vs Close(yesterday)` from `Filter1 Origin Date` to current day. Shows run-sequence pattern (example `U3-D1-U3-D3`) and overall direction (`UPTREND`/`DOWNTREND`/`SIDEWAYS`). |
 | **Current RSI** | Today's RSI(14) value. |
@@ -64,8 +65,11 @@ Instead, expose raw event dates and let the user sort/filter directly in table c
 #### Raw Columns to Prioritize
 *   `Filter1 Origin Date`
 *   `Filter1 Latest Date`
+*   `Filter1 Origin Price`
 *   `Filter2 Origin Date`
 *   `Filter2 Latest Date`
+*   `Filter2 Origin Price`
+*   `F2 vs F1 Move %`
 *   `Filter2 Type`
 
 #### Practical Usage

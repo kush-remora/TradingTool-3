@@ -13,6 +13,7 @@ import {
   message,
   Card,
   Input,
+  InputNumber,
 } from "antd";
 import type { TableColumnsType, TableProps } from "antd";
 import { useEffect, useMemo, useState } from "react";
@@ -57,6 +58,7 @@ export function BollingerSqueezeScreener() {
   const [universe, setUniverse] = useState<string>("WATCHLIST");
   const [universeOptions, setUniverseOptions] = useState<UniverseOption[]>([]);
   const [searchText, setSearchText] = useState("");
+  const [maxCurrentRsi, setMaxCurrentRsi] = useState<number | null>(null);
   const [tableViewRows, setTableViewRows] = useState<BollingerSqueezeScanResult[]>([]);
 
   const fetchUniverses = async () => {
@@ -96,12 +98,19 @@ export function BollingerSqueezeScreener() {
   const baseRows = useMemo(() => {
     const rows = data?.results ?? [];
     const search = searchText.trim().toLowerCase();
-    if (search.length === 0) return rows;
-    return rows.filter((row) =>
-      row.symbol.toLowerCase().includes(search) ||
-      row.companyName.toLowerCase().includes(search)
-    );
-  }, [data, searchText]);
+    return rows.filter((row) => {
+      const searchMatch = search.length === 0 ||
+        row.symbol.toLowerCase().includes(search) ||
+        row.companyName.toLowerCase().includes(search);
+      if (!searchMatch) return false;
+
+      if (maxCurrentRsi != null) {
+        if (row.currentRsi == null || row.currentRsi > maxCurrentRsi) return false;
+      }
+
+      return true;
+    });
+  }, [data, searchText, maxCurrentRsi]);
 
   useEffect(() => {
     const defaultSortedRows = [...baseRows].sort((left, right) =>
@@ -160,8 +169,11 @@ export function BollingerSqueezeScreener() {
       "LTP",
       "Filter 1 Origin Date",
       "Filter 1 Latest Date",
+      "Filter 1 Origin Price",
       "Filter 2 Origin Date",
       "Filter 2 Latest Date",
+      "Filter 2 Origin Price",
+      "Filter2 Move % From Filter1",
       "Filter 2 Type",
       "Trend Pattern (Since Filter1 Origin)",
       "Trend Overall (Since Filter1 Origin)",
@@ -182,8 +194,11 @@ export function BollingerSqueezeScreener() {
       row.ltp.toFixed(2),
       row.filter1OriginDate,
       row.filter1LatestDate,
+      row.filter1OriginPrice != null ? row.filter1OriginPrice.toFixed(2) : null,
       row.filter2OriginDate,
       row.filter2LatestDate,
+      row.filter2OriginPrice != null ? row.filter2OriginPrice.toFixed(2) : null,
+      row.filter2MovePctFromFilter1 != null ? row.filter2MovePctFromFilter1.toFixed(2) : null,
       row.filter2Type ?? "NONE",
       row.trendPatternFromFilter1 ?? "NA",
       row.trendOverallFromFilter1 ?? "UNKNOWN",
@@ -233,62 +248,90 @@ export function BollingerSqueezeScreener() {
       onFilter: (value, record) => record.symbol === String(value),
     },
     {
-      title: "LTP",
-      dataIndex: "ltp",
-      width: 110,
-      render: (value: number) => <Text strong>₹{value.toLocaleString()}</Text>,
-      sorter: (a, b) => a.ltp - b.ltp,
+      title: "Original Events",
+      children: [
+        {
+          title: "Filter1 Origin",
+          dataIndex: "filter1OriginDate",
+          width: 130,
+          render: (value: string | null) => value ?? "-",
+          sorter: (a, b) => compareNullableDate(a.filter1OriginDate, b.filter1OriginDate),
+          filters: filter1OriginDateFilters,
+          filterSearch: true,
+          onFilter: (value, record) => record.filter1OriginDate === String(value),
+        },
+        {
+          title: "F1 Origin ₹",
+          dataIndex: "filter1OriginPrice",
+          width: 120,
+          render: (value: number | null) => value != null ? `₹${value.toLocaleString()}` : "-",
+          sorter: (a, b) => (a.filter1OriginPrice ?? Number.NEGATIVE_INFINITY) - (b.filter1OriginPrice ?? Number.NEGATIVE_INFINITY),
+        },
+        {
+          title: "Filter2 Origin",
+          dataIndex: "filter2OriginDate",
+          width: 130,
+          render: (value: string | null) => value ?? "-",
+          sorter: (a, b) => compareNullableDate(a.filter2OriginDate, b.filter2OriginDate),
+          filters: filter2OriginDateFilters,
+          filterSearch: true,
+          onFilter: (value, record) => record.filter2OriginDate === String(value),
+        },
+        {
+          title: "F2 Origin ₹",
+          dataIndex: "filter2OriginPrice",
+          width: 120,
+          render: (value: number | null) => value != null ? `₹${value.toLocaleString()}` : "-",
+          sorter: (a, b) => (a.filter2OriginPrice ?? Number.NEGATIVE_INFINITY) - (b.filter2OriginPrice ?? Number.NEGATIVE_INFINITY),
+        },
+        {
+          title: "F2 vs F1 %",
+          dataIndex: "filter2MovePctFromFilter1",
+          width: 120,
+          render: (value: number | null) => {
+            if (value == null) return "-";
+            const color = value >= 0 ? "#389e0d" : "#cf1322";
+            return <Text style={{ color }}>{value.toFixed(2)}%</Text>;
+          },
+          sorter: (a, b) => (a.filter2MovePctFromFilter1 ?? Number.NEGATIVE_INFINITY) - (b.filter2MovePctFromFilter1 ?? Number.NEGATIVE_INFINITY),
+        },
+        {
+          title: "Filter2 Type",
+          dataIndex: "filter2Type",
+          width: 130,
+          render: (value: string | null) => value?.replace(/_/g, " ") ?? "NONE",
+          sorter: (a, b) => (a.filter2Type ?? "NONE").localeCompare(b.filter2Type ?? "NONE"),
+          filters: filter2TypeFilters,
+          filterSearch: true,
+          onFilter: (value, record) => (record.filter2Type ?? "NONE") === String(value),
+        },
+      ],
     },
     {
-      title: "Filter1 Origin",
-      dataIndex: "filter1OriginDate",
-      width: 130,
-      render: (value: string | null) => value ?? "-",
-      sorter: (a, b) => compareNullableDate(a.filter1OriginDate, b.filter1OriginDate),
-      filters: filter1OriginDateFilters,
-      filterSearch: true,
-      onFilter: (value, record) => record.filter1OriginDate === String(value),
-    },
-    {
-      title: "Filter1 Latest",
-      dataIndex: "filter1LatestDate",
-      width: 130,
-      render: (value: string | null) => value ?? "-",
-      sorter: (a, b) => compareNullableDate(a.filter1LatestDate, b.filter1LatestDate),
-      defaultSortOrder: "descend",
-      filters: filter1LatestDateFilters,
-      filterSearch: true,
-      onFilter: (value, record) => record.filter1LatestDate === String(value),
-    },
-    {
-      title: "Filter2 Origin",
-      dataIndex: "filter2OriginDate",
-      width: 130,
-      render: (value: string | null) => value ?? "-",
-      sorter: (a, b) => compareNullableDate(a.filter2OriginDate, b.filter2OriginDate),
-      filters: filter2OriginDateFilters,
-      filterSearch: true,
-      onFilter: (value, record) => record.filter2OriginDate === String(value),
-    },
-    {
-      title: "Filter2 Latest",
-      dataIndex: "filter2LatestDate",
-      width: 130,
-      render: (value: string | null) => value ?? "-",
-      sorter: (a, b) => compareNullableDate(a.filter2LatestDate, b.filter2LatestDate),
-      filters: filter2LatestDateFilters,
-      filterSearch: true,
-      onFilter: (value, record) => record.filter2LatestDate === String(value),
-    },
-    {
-      title: "Filter2 Type",
-      dataIndex: "filter2Type",
-      width: 130,
-      render: (value: string | null) => value?.replace(/_/g, " ") ?? "NONE",
-      sorter: (a, b) => (a.filter2Type ?? "NONE").localeCompare(b.filter2Type ?? "NONE"),
-      filters: filter2TypeFilters,
-      filterSearch: true,
-      onFilter: (value, record) => (record.filter2Type ?? "NONE") === String(value),
+      title: "Latest Events",
+      children: [
+        {
+          title: "Filter1 Latest",
+          dataIndex: "filter1LatestDate",
+          width: 130,
+          render: (value: string | null) => value ?? "-",
+          sorter: (a, b) => compareNullableDate(a.filter1LatestDate, b.filter1LatestDate),
+          defaultSortOrder: "descend",
+          filters: filter1LatestDateFilters,
+          filterSearch: true,
+          onFilter: (value, record) => record.filter1LatestDate === String(value),
+        },
+        {
+          title: "Filter2 Latest",
+          dataIndex: "filter2LatestDate",
+          width: 130,
+          render: (value: string | null) => value ?? "-",
+          sorter: (a, b) => compareNullableDate(a.filter2LatestDate, b.filter2LatestDate),
+          filters: filter2LatestDateFilters,
+          filterSearch: true,
+          onFilter: (value, record) => record.filter2LatestDate === String(value),
+        },
+      ],
     },
     {
       title: "Trend Since F1",
@@ -312,36 +355,64 @@ export function BollingerSqueezeScreener() {
       onFilter: (value, record) => (record.trendOverallFromFilter1 ?? "UNKNOWN") === String(value),
     },
     {
-      title: "200 SMA",
-      dataIndex: "above200Sma",
-      width: 100,
-      render: (above: boolean) => <Tag color={above ? "success" : "error"}>{above ? "Above" : "Below"}</Tag>,
-      sorter: (a, b) => Number(a.above200Sma) - Number(b.above200Sma),
-      filters: [
-        { text: "Above", value: "ABOVE" },
-        { text: "Below", value: "BELOW" },
+      title: "Current",
+      children: [
+        {
+          title: "LTP",
+          dataIndex: "ltp",
+          width: 110,
+          render: (value: number) => <Text strong>₹{value.toLocaleString()}</Text>,
+          sorter: (a, b) => a.ltp - b.ltp,
+        },
+        {
+          title: "200 SMA",
+          dataIndex: "above200Sma",
+          width: 100,
+          render: (above: boolean) => <Tag color={above ? "success" : "error"}>{above ? "Above" : "Below"}</Tag>,
+          sorter: (a, b) => Number(a.above200Sma) - Number(b.above200Sma),
+          filters: [
+            { text: "Above", value: "ABOVE" },
+            { text: "Below", value: "BELOW" },
+          ],
+          onFilter: (value, record) => (value === "ABOVE" ? record.above200Sma : !record.above200Sma),
+        },
+        {
+          title: "Max DD",
+          dataIndex: "maxDrawdownPct",
+          width: 110,
+          render: (value: number) => <Text type="danger">{value.toFixed(2)}%</Text>,
+          sorter: (a, b) => a.maxDrawdownPct - b.maxDrawdownPct,
+        },
+        {
+          title: "RSI Context",
+          key: "rsi",
+          width: 220,
+          render: (_, row) => (
+            <Space orientation="vertical" size={0}>
+              <Text style={{ fontSize: 12 }}>Current: <Text strong>{row.currentRsi?.toFixed(2) || "-"}</Text></Text>
+              <Text style={{ fontSize: 12 }}>Trigger: <Text type="secondary">{row.triggerRsi?.toFixed(2) || "-"}</Text></Text>
+              <Text style={{ fontSize: 12 }}>52W Max: <Text type="secondary">{row.maxRsi52w?.toFixed(2) || "-"}</Text></Text>
+            </Space>
+          ),
+          sorter: (a, b) => (a.currentRsi ?? Number.NEGATIVE_INFINITY) - (b.currentRsi ?? Number.NEGATIVE_INFINITY),
+          filters: [
+            { text: "RSI <= 40", value: "LE_40" },
+            { text: "RSI <= 50", value: "LE_50" },
+            { text: "RSI <= 60", value: "LE_60" },
+            { text: "RSI <= 70", value: "LE_70" },
+            { text: "RSI > 70", value: "GT_70" },
+          ],
+          onFilter: (value, record) => {
+            const rsi = record.currentRsi;
+            if (rsi == null) return false;
+            if (value === "LE_40") return rsi <= 40;
+            if (value === "LE_50") return rsi <= 50;
+            if (value === "LE_60") return rsi <= 60;
+            if (value === "LE_70") return rsi <= 70;
+            return rsi > 70;
+          },
+        },
       ],
-      onFilter: (value, record) => (value === "ABOVE" ? record.above200Sma : !record.above200Sma),
-    },
-    {
-      title: "Max DD",
-      dataIndex: "maxDrawdownPct",
-      width: 110,
-      render: (value: number) => <Text type="danger">{value.toFixed(2)}%</Text>,
-      sorter: (a, b) => a.maxDrawdownPct - b.maxDrawdownPct,
-    },
-    {
-      title: "RSI Context",
-      key: "rsi",
-      width: 220,
-      render: (_, row) => (
-        <Space orientation="vertical" size={0}>
-          <Text style={{ fontSize: 12 }}>Current: <Text strong>{row.currentRsi?.toFixed(2) || "-"}</Text></Text>
-          <Text style={{ fontSize: 12 }}>Trigger: <Text type="secondary">{row.triggerRsi?.toFixed(2) || "-"}</Text></Text>
-          <Text style={{ fontSize: 12 }}>52W Max: <Text type="secondary">{row.maxRsi52w?.toFixed(2) || "-"}</Text></Text>
-        </Space>
-      ),
-      sorter: (a, b) => (a.currentRsi ?? Number.NEGATIVE_INFINITY) - (b.currentRsi ?? Number.NEGATIVE_INFINITY),
     },
   ];
 
@@ -371,6 +442,17 @@ export function BollingerSqueezeScreener() {
               onChange={(event) => setSearchText(event.target.value)}
               style={{ width: 220 }}
               allowClear
+            />
+          </div>
+          <div>
+            <Text type="secondary" style={{ display: "block", marginBottom: 4 }}>Current RSI &lt;=</Text>
+            <InputNumber
+              style={{ width: 140 }}
+              placeholder="e.g. 60"
+              min={0}
+              max={100}
+              value={maxCurrentRsi}
+              onChange={(value) => setMaxCurrentRsi(value == null ? null : Number(value))}
             />
           </div>
           <div style={{ alignSelf: "flex-end" }}>

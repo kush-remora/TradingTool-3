@@ -1409,9 +1409,12 @@ export interface BollingerSqueezeScanResult {
   filter1Passed: boolean;
   filter1OriginDate: string | null;
   filter1LatestDate: string | null;
+  filter1OriginPrice: number | null;
   filter2Passed: boolean;
   filter2OriginDate: string | null;
   filter2LatestDate: string | null;
+  filter2OriginPrice: number | null;
+  filter2MovePctFromFilter1: number | null;
   filter2Type: string | null;
   alertStatus: string;
   trendPatternFromFilter1: string | null;

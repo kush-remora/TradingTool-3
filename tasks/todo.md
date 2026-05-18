@@ -1802,3 +1802,79 @@ Add a practical raw-data filtering guide in strategy docs and implement screener
 - Validation:
   - `mvn -q -pl core,resources,service,cron-job -DskipTests compile` passed.
   - `npm --prefix frontend run -s build` passed.
+
+## Add-on: F1/F2 Origin Price Context (2026-05-18)
+- [x] Add filter origin prices and F2-vs-F1 move% in backend response.
+- [x] Show new fields in raw screener UI table and CSV export.
+- [x] Update strategy docs for new raw fields.
+- [x] Run backend/frontend verification checks.
+
+Review:
+- Added raw fields:
+  - `filter1OriginPrice`, `filter2OriginPrice`, `filter2MovePctFromFilter1`
+- Added UI columns:
+  - `F1 Origin ₹`, `F2 Origin ₹`, `F2 vs F1 %`
+- Added CSV columns for same values.
+- Verification passed:
+  - `mvn -q -pl core,resources,service,cron-job -DskipTests compile`
+  - `npm --prefix frontend run -s build`
+
+# Implementation Plan: Delivery Reconciliation 60-Day Backfill (2026-05-18)
+
+## Overview
+Update delivery reconciliation cron behavior to fetch a 60-day backfill window instead of 20 days.
+
+## Implementation Steps
+- [x] Confirm current backfill lookback constant in `DeliveryReconciliationJob`.
+- [x] Update backfill lookback from 20 to 60.
+- [x] Run focused compile verification for cron-job module.
+- [x] Run mandatory review pass and record findings.
+- [x] Add feature journey note for this change.
+
+## Review
+- Updated `RECENT_TRADING_DAYS_BACKFILL` from `20` to `60` in `DeliveryReconciliationJob.kt`.
+- No flow or contract changes; only lookback window expanded.
+- Verification:
+  - `mvn -q -pl cron-job -DskipTests compile` failed due pre-existing unresolved references in other cron files (`BollingerSqueezeAlertJob`, `EarningsResultsRefreshJob`, `GrowwWatchlistSyncJob`, `IndexConstituentSyncJob`), not due this diff.
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+- Mandatory review passes:
+  - `code-reviewer`: no CRITICAL/HIGH issues in this scoped diff.
+  - `kotlin-reviewer`: no CRITICAL/HIGH issues in this scoped diff.
+
+# Implementation Plan: Index Sync Config - Nifty Microcap 250 Alias (2026-05-18)
+
+## Overview
+Add `nifty-microcap-250` as an additional index key in index sync config.
+
+## Implementation Steps
+- [x] Inspect existing `index_sync_config.json` entries for microcap key variants.
+- [x] Add `nifty-microcap-250` entry with existing NSE microcap CSV URL.
+- [x] Validate JSON structure after edit.
+
+## Review
+- Added new enabled entry:
+  - `key`: `nifty-microcap-250`
+  - `csvUrl`: `https://www.niftyindices.com/IndexConstituent/ind_niftymicrocap250_list.csv`
+- Kept existing `nifty_microcap_250` unchanged for backward compatibility.
+- Validation:
+  - `jq . wyckoff-market-cycle/config/index_sync_config.json` passed.
+
+# Implementation Plan: Cron Compilation Fix (2026-05-18)
+
+## Overview
+Fix cron-job compilation failure caused by a typo in delivery reconciliation CLI args.
+
+## Implementation Steps
+- [x] Reproduce compile failure.
+- [x] Identify root cause in `DeliveryReconciliationJob.kt`.
+- [x] Fix typo in `DeliveryReconciliationCliArgs`.
+- [x] Re-run compile validation.
+
+## Review
+- Root cause:
+  - `val reques.tedDate` typo in `DeliveryReconciliationCliArgs` broke parsing and downstream references.
+- Fix:
+  - changed to `val requestedDate`.
+- Validation:
+  - `mvn -q -pl cron-job -am -DskipTests compile` passed.
+  - `mvn -q -DskipTests compile` passed.

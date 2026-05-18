@@ -30,6 +30,11 @@
       "key": "nifty_microcap_250",
       "enabled": true,
       "csvUrl": "https://www.niftyindices.com/IndexConstituent/ind_niftymicrocap250_list.csv"
+    },
+    {
+      "key": "nifty-microcap-250",
+      "enabled": true,
+      "csvUrl": "https://www.niftyindices.com/IndexConstituent/ind_niftymicrocap250_list.csv"
     }
   ]
 }

@@ -1,6 +1,6 @@
 {
-  "startedAt" : "2026-05-16T18:22:29.439778+05:30",
-  "finishedAt" : "2026-05-16T18:22:32.748055+05:30",
+  "startedAt" : "2026-05-18T16:59:58.269561+05:30",
+  "finishedAt" : "2026-05-18T17:00:01.25737+05:30",
   "indexReports" : [ {
     "indexKey" : "nifty_50",
     "sourceUrl" : "https://www.niftyindices.com/IndexConstituent/ind_nifty50list.csv",
@@ -43,6 +43,14 @@
     "unresolvedSymbols" : [ ]
   }, {
     "indexKey" : "nifty_microcap_250",
+    "sourceUrl" : "https://www.niftyindices.com/IndexConstituent/ind_niftymicrocap250_list.csv",
+    "fetchedCount" : 251,
+    "parsedCount" : 251,
+    "upsertedCount" : 250,
+    "deactivatedCount" : 0,
+    "unresolvedSymbols" : [ "DUMMYALCAR" ]
+  }, {
+    "indexKey" : "nifty-microcap-250",
     "sourceUrl" : "https://www.niftyindices.com/IndexConstituent/ind_niftymicrocap250_list.csv",
     "fetchedCount" : 251,
     "parsedCount" : 251,

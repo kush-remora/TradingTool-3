@@ -203,6 +203,7 @@ class BollingerSqueezeService @Inject constructor(
         var filter1OriginDate: LocalDate? = null
         var filter1LatestDate: LocalDate? = null
         var filter1OriginIdx: Int? = null
+        var filter1OriginPrice: Double? = null
         
         // Find all 3-day squeeze completions in the last 60 days
         val squeezeIndices = mutableListOf<Int>()
@@ -217,12 +218,16 @@ class BollingerSqueezeService @Inject constructor(
             filter1OriginIdx = squeezeIndices.first()
             filter1OriginDate = series.getBar(filter1OriginIdx).endTime.toLocalDate()
             filter1LatestDate = series.getBar(squeezeIndices.last()).endTime.toLocalDate()
+            filter1OriginPrice = series.getBar(filter1OriginIdx).closePrice.doubleValue().takeIf { it.isFinite() }
         }
 
         // Filter 2: Breakout Triggers
         var filter2Passed = false
         var filter2OriginDate: LocalDate? = null
         var filter2LatestDate: LocalDate? = null
+        var filter2OriginIdx: Int? = null
+        var filter2OriginPrice: Double? = null
+        var filter2MovePctFromFilter1: Double? = null
         var filter2Type: String? = null
 
         val breakoutDetails = mutableListOf<Pair<Int, String>>()
@@ -248,9 +253,20 @@ class BollingerSqueezeService @Inject constructor(
         if (breakoutDetails.isNotEmpty()) {
             filter2Passed = true
             val (originIdx, originType) = breakoutDetails.first()
+            filter2OriginIdx = originIdx
             filter2OriginDate = series.getBar(originIdx).endTime.toLocalDate()
             filter2LatestDate = series.getBar(breakoutDetails.last().first).endTime.toLocalDate()
             filter2Type = originType
+            filter2OriginPrice = series.getBar(originIdx).closePrice.doubleValue().takeIf { it.isFinite() }
+        }
+
+        if (
+            filter1OriginPrice != null &&
+            filter2OriginIdx != null &&
+            filter2OriginPrice != null &&
+            filter1OriginPrice > 0.0
+        ) {
+            filter2MovePctFromFilter1 = ((filter2OriginPrice - filter1OriginPrice) / filter1OriginPrice) * 100.0
         }
 
         val trendSinceFilter1 = buildTrendSinceFilter1(series, filter1OriginIdx)
@@ -298,9 +314,12 @@ class BollingerSqueezeService @Inject constructor(
             filter1Passed = filter1Passed,
             filter1OriginDate = filter1OriginDate?.toString(),
             filter1LatestDate = filter1LatestDate?.toString(),
+            filter1OriginPrice = filter1OriginPrice?.roundTo2(),
             filter2Passed = filter2Passed,
             filter2OriginDate = filter2OriginDate?.toString(),
             filter2LatestDate = filter2LatestDate?.toString(),
+            filter2OriginPrice = filter2OriginPrice?.roundTo2(),
+            filter2MovePctFromFilter1 = filter2MovePctFromFilter1?.roundTo2(),
             filter2Type = filter2Type,
             alertStatus = alertStatus,
             trendPatternFromFilter1 = trendSinceFilter1?.pattern,

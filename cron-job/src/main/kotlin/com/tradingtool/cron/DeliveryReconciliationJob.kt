@@ -302,4 +302,4 @@ private fun buildAuthenticatedKiteClient(
     return kiteClient
 }
 
-private const val RECENT_TRADING_DAYS_BACKFILL: Int = 20
+private const val RECENT_TRADING_DAYS_BACKFILL: Int = 60
