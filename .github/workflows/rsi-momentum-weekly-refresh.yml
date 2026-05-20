@@ -1,9 +1,7 @@
 name: RSI Momentum Daily Refresh
 
-# Runs at 3:40 PM IST (10:10 UTC) every weekday after market close.
+# Cron disabled. Run manually via workflow_dispatch when needed.
 on:
-  schedule:
-    - cron: '10 10 * * 1-5'
   workflow_dispatch:
 
 jobs:
