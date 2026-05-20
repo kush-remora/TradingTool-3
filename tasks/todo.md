@@ -1915,3 +1915,70 @@ Run delivery reconciliation backfill in parallel using coroutines, processing 5 
 - Mandatory review passes:
   - `kotlin-reviewer`: no CRITICAL/HIGH issues in this scoped diff.
   - `code-reviewer`: no CRITICAL/HIGH issues in this scoped diff.
+
+# Implementation Plan: 52-Week High Backtest (2026-05-21)
+
+## Overview
+Add a new backtest flow for "first 52-week-high breakout" with 20% target exit, 90-day re-entry cooldown, and index-universe multiselect + optional manual symbol filter.
+
+## Implementation Steps
+- [x] Add Kotlin strategy models and service for 2-year data / 1-year trading logic.
+- [x] Add strategy resource endpoints for universe options and backtest execution.
+- [x] Add frontend hook, page, menu route, and result table output.
+- [x] Run compile/build verification.
+- [x] Run mandatory skill review notes (coding-standards, backend-architect, kotlin-patterns, frontend-patterns, kotlin-reviewer).
+
+## Review
+- Implemented endpoint: `GET /api/strategy/52-week-high/universes`.
+- Implemented endpoint: `POST /api/strategy/52-week-high/backtest`.
+- Strategy logic:
+  - 52-week high signal uses prior 252-trading-day high (excluding signal day).
+  - Entry on next-day open.
+  - Exit when high reaches +20% target.
+  - Open positions remain open if target not hit.
+  - Re-entry blocked for 90 calendar days from last entry.
+  - Backtest entries only in last 365 days; uses 730-day data window.
+- Validation:
+  - `mvn -pl core,resources -DskipTests compile` passed.
+  - `npm --prefix frontend run build` passed.
+
+## Follow-up Patch: Cache/Backfill + Configurable Target (2026-05-21)
+- [x] Made daily candle cache key range-aware (`candles:<SYMBOL>:day:<from>:<to>`) to avoid repeated range misses.
+- [x] Relaxed 52W backtest backfill trigger for recent listings/weekend gaps (backfill only when empty or latest-gap > 3 days).
+- [x] Added configurable `Target Profit %` input in 52W High Backtest UI and wired to request `config.profitPct`.
+- [x] Re-validated build:
+  - `mvn -pl core,resources -DskipTests compile` passed.
+  - `npm --prefix frontend run build` passed.
+
+# Implementation Plan: 104-Week Live Strategy Screener
+
+## Overview
+Build an end-to-end live 104-week breakout screener with manual run, three action buckets, multi-universe selection (`WATCHLIST` + `INDEX:*`), and one-click per-row Telegram send.
+
+## Implementation Steps
+- [x] Add backend live-strategy models for config, rows, summaries, universe options, and Telegram request.
+- [x] Add backend live-strategy service using daily candles, 504-session lookback, 5% near-threshold, 10-session recent-hit window, 2-session hit-today window, and 180-trading-session cooldown.
+- [x] Add strategy endpoints for universe options, live run, and row Telegram send.
+- [x] Add frontend types + hook for live run and Telegram row send.
+- [x] Add new dedicated `104W Live` page with multi-select universe, manual run, sortable/filterable bucket tables, and per-row Telegram button.
+- [x] Wire route/menu in app shell.
+- [x] Run backend/frontend build checks.
+- [x] Run kotlin-reviewer pass and record findings.
+
+## Review
+- Backend:
+  - Added `FiftyTwoWeekHighLiveService` with daily-candle live scan logic, 504-day breakout baseline, 5% near threshold, 10-session recent-hit bucket, 2-session hit-today bucket, and 180-trading-session cooldown.
+  - Added live models in `FiftyTwoWeekHighLiveModels.kt`.
+  - Added endpoints in `StrategyResource`:
+    - `GET /api/strategy/52-week-high/live/universes`
+    - `POST /api/strategy/52-week-high/live/run`
+    - `POST /api/strategy/52-week-high/live/telegram`
+- Frontend:
+  - Added `FiftyTwoWeekHighLivePage` route and menu item `104W Live`.
+  - Added `use52WeekHighLive` hook for manual run and one-click row Telegram send.
+  - Added live request/response typings in `frontend/src/types.ts`.
+- Verification:
+  - `mvn -q -pl core,resources,service -DskipTests compile` passed.
+  - `npm --prefix frontend run -s build` passed.
+- Kotlin reviewer pass:
+  - No CRITICAL/HIGH issues found in modified Kotlin files; coroutine scope usage, data flow boundaries, and null handling remain consistent with existing module patterns.

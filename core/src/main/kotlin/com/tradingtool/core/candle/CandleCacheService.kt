@@ -31,7 +31,8 @@ class CandleCacheService(
         from: LocalDate,
         to: LocalDate,
     ): List<DailyCandle> {
-        val key = "candles:$symbol:day"
+        val normalizedSymbol = symbol.trim().uppercase()
+        val key = "candles:$normalizedSymbol:day:$from:$to"
 
         // 1. Try Cache
         try {
@@ -41,33 +42,18 @@ class CandleCacheService(
                     cachedJson,
                     object : TypeReference<List<DailyCandle>>() {}
                 )
-                val sorted = candles.sortedBy { it.candleDate }
-                val coversRange = sorted.isNotEmpty() &&
-                    sorted.first().candleDate <= from &&
-                    sorted.last().candleDate >= to
-                if (!coversRange) {
-                    log.debug(
-                        "Cache range miss for {}: cached {}..{}, requested {}..{}",
-                        symbol,
-                        sorted.firstOrNull()?.candleDate,
-                        sorted.lastOrNull()?.candleDate,
-                        from,
-                        to
-                    )
-                }
-                val filtered = candles.filter { it.candleDate in from..to }
-                if (coversRange && filtered.isNotEmpty()) {
-                    log.debug("Cache hit for {} ({} candles)", symbol, filtered.size)
-                    return filtered
+                if (candles.isNotEmpty()) {
+                    log.debug("Cache hit for {} ({} candles)", normalizedSymbol, candles.size)
+                    return candles
                 }
             }
         } catch (e: Exception) {
-            log.warn("Redis error fetching daily candles for {}: {}", symbol, e.message)
+            log.warn("Redis error fetching daily candles for {}: {}", normalizedSymbol, e.message)
         }
 
         // 2. Cache Miss: Fetch from DB
         val dbCandles = candleHandler.read { it.getDailyCandles(token, from, to) }
-        log.info("Cache miss for daily candles {} — fetched {} from DB", symbol, dbCandles.size)
+        log.info("Cache miss for daily candles {} {}..{} — fetched {} from DB", normalizedSymbol, from, to, dbCandles.size)
 
         // 3. Update Cache
         if (dbCandles.isNotEmpty()) {
@@ -75,7 +61,7 @@ class CandleCacheService(
                 val json = objectMapper.writeValueAsString(dbCandles)
                 redis.set(key, json, ttlSeconds)
             } catch (e: Exception) {
-                log.warn("Failed to update daily cache for {}: {}", symbol, e.message)
+                log.warn("Failed to update daily cache for {}: {}", normalizedSymbol, e.message)
             }
         }
 

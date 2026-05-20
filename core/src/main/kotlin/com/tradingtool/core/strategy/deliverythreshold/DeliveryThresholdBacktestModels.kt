@@ -22,8 +22,25 @@ data class DeliveryThresholdBacktestConfig(
         "NIFTY_NANOCAP_250" to 92.0,
     ),
     val profitPct: Double = 10.0,
+    val roc20ByIndex: Map<String, DeliveryThresholdRocConfig> = mapOf(
+        "NIFTY_50" to DeliveryThresholdRocConfig(),
+    ),
+    val sma200ByIndex: Map<String, DeliveryThresholdSma200Config> = mapOf(
+        "NIFTY_50" to DeliveryThresholdSma200Config(),
+    ),
     val fromDate: String? = null,
     val toDate: String? = null,
+)
+
+data class DeliveryThresholdRocConfig(
+    val accumulationMinPct: Double = -5.0,
+    val accumulationMaxPct: Double = 5.0,
+    val distributionMinPct: Double = 15.0,
+)
+
+data class DeliveryThresholdSma200Config(
+    val accumulationMaxDistancePct: Double = 5.0,
+    val distributionMinDistancePct: Double = 20.0,
 )
 
 data class DeliveryThresholdBacktestRunConfig(
@@ -31,6 +48,8 @@ data class DeliveryThresholdBacktestRunConfig(
     val symbols: List<String>,
     val thresholdsByIndex: Map<String, Double>,
     val profitPct: Double,
+    val roc20ByIndex: Map<String, DeliveryThresholdRocConfig> = emptyMap(),
+    val sma200ByIndex: Map<String, DeliveryThresholdSma200Config> = emptyMap(),
     val fromDate: LocalDate,
     val toDate: LocalDate,
 )
@@ -40,6 +59,8 @@ data class DeliveryThresholdBacktestConfigSnapshot(
     val symbols: List<String>,
     val thresholds: Map<String, Double>,
     val profitPct: Double,
+    val roc20ByIndex: Map<String, DeliveryThresholdRocConfig> = emptyMap(),
+    val sma200ByIndex: Map<String, DeliveryThresholdSma200Config> = emptyMap(),
     val fromDate: String,
     val toDate: String,
 )
@@ -53,6 +74,9 @@ data class DeliveryThresholdBacktestRow(
     val totalVolumeCount: Long?,
     val avg20dVolumeAtSignal: Double?,
     val signalVolumeVs20dPct: Double?,
+    val roc20AtSignalPct: Double? = null,
+    val sma200AtSignal: Double? = null,
+    val distFromSma200AtSignalPct: Double? = null,
     val targetPrice: Double,
     val fiftyTwoWeekHighAtBuy: Double?,
     val fiftyTwoWeekLowAtBuy: Double?,

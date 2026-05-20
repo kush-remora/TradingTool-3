@@ -1403,6 +1403,15 @@ export interface VolumeSpikeBacktestResponse {
 export interface DeliveryThresholdBacktestConfig {
   thresholds: Record<string, number>;
   profitPct: number;
+  roc20ByIndex?: Record<string, {
+    accumulationMinPct: number;
+    accumulationMaxPct: number;
+    distributionMinPct: number;
+  }>;
+  sma200ByIndex?: Record<string, {
+    accumulationMaxDistancePct: number;
+    distributionMinDistancePct: number;
+  }>;
   fromDate?: string;
   toDate?: string;
 }
@@ -1418,6 +1427,15 @@ export interface DeliveryThresholdBacktestConfigSnapshot {
   symbols: string[];
   thresholds: Record<string, number>;
   profitPct: number;
+  roc20ByIndex: Record<string, {
+    accumulationMinPct: number;
+    accumulationMaxPct: number;
+    distributionMinPct: number;
+  }>;
+  sma200ByIndex: Record<string, {
+    accumulationMaxDistancePct: number;
+    distributionMinDistancePct: number;
+  }>;
   fromDate: string;
   toDate: string;
 }
@@ -1442,6 +1460,9 @@ export interface DeliveryThresholdBacktestRow {
   totalVolumeCount: number | null;
   avg20dVolumeAtSignal: number | null;
   signalVolumeVs20dPct: number | null;
+  roc20AtSignalPct: number | null;
+  sma200AtSignal: number | null;
+  distFromSma200AtSignalPct: number | null;
   targetPrice: number;
   fiftyTwoWeekHighAtBuy: number | null;
   fiftyTwoWeekLowAtBuy: number | null;
@@ -1511,6 +1532,97 @@ export interface UniverseOption {
 
 export interface UniverseOptionsResponse {
   options: UniverseOption[];
+}
+
+export interface FiftyTwoWeekHighBacktestConfig {
+  profitPct: number;
+  historyDays: number;
+  backtestDays: number;
+  cooldownDays: number;
+  toDate?: string;
+}
+
+export interface FiftyTwoWeekHighBacktestRequest {
+  indexKeys: string[];
+  symbols: string[];
+  config: FiftyTwoWeekHighBacktestConfig;
+}
+
+export interface FiftyTwoWeekHighBacktestRow {
+  symbol: string;
+  indexBucket: string;
+  enterTrade: string;
+  exitTrade: string | null;
+  holdingDays: number;
+  status: "OPEN" | "CLOSED" | string;
+}
+
+export interface FiftyTwoWeekHighBacktestSummary {
+  totalTrades: number;
+  closedTrades: number;
+  openTrades: number;
+}
+
+export interface FiftyTwoWeekHighBacktestConfigSnapshot extends FiftyTwoWeekHighBacktestConfig {
+  indexKeys: string[];
+  symbols: string[];
+  fromDate: string;
+}
+
+export interface FiftyTwoWeekHighBacktestResponse {
+  config: FiftyTwoWeekHighBacktestConfigSnapshot;
+  summary: FiftyTwoWeekHighBacktestSummary;
+  rows: FiftyTwoWeekHighBacktestRow[];
+}
+
+export interface FiftyTwoWeekHighLiveRequest {
+  universeKeys: string[];
+  symbols: string[];
+}
+
+export interface FiftyTwoWeekHighLiveTelegramRequest {
+  symbol: string;
+  bucket: string;
+  breakoutLevel: number;
+  latestHigh: number;
+  latestClose: number;
+  gapToBreakoutPct: number;
+  latestDate: string;
+  lastHitDate: string | null;
+}
+
+export interface FiftyTwoWeekHighLiveRow {
+  symbol: string;
+  indexBucket: string;
+  latestDate: string;
+  breakoutLevel: number;
+  latestHigh: number;
+  latestClose: number;
+  gapToBreakoutPct: number;
+  lastHitDate: string | null;
+  cooldownActive: boolean;
+}
+
+export interface FiftyTwoWeekHighLiveSummary {
+  nearBreakout: number;
+  hitInLast2Weeks: number;
+  hitToday: number;
+}
+
+export interface FiftyTwoWeekHighLiveConfigSnapshot {
+  nearThresholdPct: number;
+  breakoutLookbackDays: number;
+  hitLookbackTradingDays: number;
+  hitTodayTradingDays: number;
+  cooldownTradingDays: number;
+}
+
+export interface FiftyTwoWeekHighLiveResponse {
+  config: FiftyTwoWeekHighLiveConfigSnapshot;
+  summary: FiftyTwoWeekHighLiveSummary;
+  nearBreakout: FiftyTwoWeekHighLiveRow[];
+  hitInLast2Weeks: FiftyTwoWeekHighLiveRow[];
+  hitToday: FiftyTwoWeekHighLiveRow[];
 }
 
 export interface SqueezePositionInput {

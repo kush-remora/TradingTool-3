@@ -32,6 +32,8 @@ class DeliveryThresholdBacktestService @Inject constructor(
                     symbols = config.symbols,
                     thresholds = config.thresholdsByIndex,
                     profitPct = config.profitPct,
+                    roc20ByIndex = config.roc20ByIndex,
+                    sma200ByIndex = config.sma200ByIndex,
                     fromDate = config.fromDate.toString(),
                     toDate = config.toDate.toString(),
                 ),

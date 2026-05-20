@@ -16,6 +16,15 @@ import com.tradingtool.core.strategy.deliverythreshold.DeliveryThresholdBacktest
 import com.tradingtool.core.strategy.deliverythreshold.DeliveryThresholdBacktestService
 import com.tradingtool.core.strategy.deliverythreshold.DeliveryThresholdBacktestConfigService
 import com.tradingtool.core.strategy.deliverythreshold.DeliveryThresholdBacktestConfig
+import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighBacktestRequest
+import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighBacktestRunConfig
+import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighBacktestService
+import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighLiveRequest
+import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighLiveRunConfig
+import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighLiveService
+import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighLiveTelegramRequest
+import com.tradingtool.core.telegram.TelegramSender
+import com.tradingtool.core.model.telegram.TelegramSendTextRequest
 import com.tradingtool.core.strategy.profitlookback.ProfitLookbackRequest
 import com.tradingtool.core.strategy.profitlookback.ProfitLookbackBulkRequest
 import com.tradingtool.core.strategy.profitlookback.ProfitLookbackBulkRowRequest
@@ -68,6 +77,9 @@ class StrategyResource @Inject constructor(
     private val bollingerMeanReversionBacktestService: BollingerMeanReversionBacktestService,
     private val deliveryThresholdBacktestService: DeliveryThresholdBacktestService,
     private val deliveryThresholdBacktestConfigService: DeliveryThresholdBacktestConfigService,
+    private val fiftyTwoWeekHighBacktestService: FiftyTwoWeekHighBacktestService,
+    private val fiftyTwoWeekHighLiveService: FiftyTwoWeekHighLiveService,
+    private val telegramSender: TelegramSender,
     private val profitLookbackService: ProfitLookbackService,
     private val kiteClient: com.tradingtool.core.kite.KiteConnectClient,
     resourceScope: ResourceScope,
@@ -457,6 +469,89 @@ class StrategyResource @Inject constructor(
     fun getDeliveryThresholdBacktestConfig(): CompletableFuture<Response> = ioScope.endpoint {
         ok(deliveryThresholdBacktestConfigService.loadConfig())
     }
+
+    @GET
+    @Path("/52-week-high/universes")
+    fun get52WeekHighUniverseOptions(): CompletableFuture<Response> = ioScope.endpoint {
+        val options = fiftyTwoWeekHighBacktestService.listUniverseOptions().map { (indexKey, count) ->
+            com.tradingtool.core.model.screener.UniverseOption(
+                label = indexKey,
+                value = indexKey,
+                count = count,
+            )
+        }
+        ok(com.tradingtool.core.model.screener.UniverseOptionsResponse(options))
+    }
+
+    @POST
+    @Path("/52-week-high/backtest")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun run52WeekHighBacktest(request: FiftyTwoWeekHighBacktestRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val validatedRequest = runCatching {
+            validate52WeekHighBacktestRequest(request)
+        }.getOrElse { error ->
+            if (error is IllegalArgumentException) {
+                return@endpoint badRequest(error.message ?: "Invalid request.")
+            }
+            throw error
+        }
+
+        ok(fiftyTwoWeekHighBacktestService.runBacktest(validatedRequest))
+    }
+
+    @GET
+    @Path("/52-week-high/live/universes")
+    fun get52WeekHighLiveUniverseOptions(): CompletableFuture<Response> = ioScope.endpoint {
+        val options = fiftyTwoWeekHighLiveService.listUniverseOptions().map { option ->
+            com.tradingtool.core.model.screener.UniverseOption(
+                label = option.value,
+                value = option.value,
+                count = option.count,
+            )
+        }
+        ok(com.tradingtool.core.model.screener.UniverseOptionsResponse(options))
+    }
+
+    @POST
+    @Path("/52-week-high/live/run")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun run52WeekHighLive(request: FiftyTwoWeekHighLiveRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val validated = runCatching {
+            validate52WeekHighLiveRequest(request)
+        }.getOrElse { error ->
+            if (error is IllegalArgumentException) {
+                return@endpoint badRequest(error.message ?: "Invalid request.")
+            }
+            throw error
+        }
+
+        ok(fiftyTwoWeekHighLiveService.runLive(validated))
+    }
+
+    @POST
+    @Path("/52-week-high/live/telegram")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun send52WeekHighLiveTelegram(request: FiftyTwoWeekHighLiveTelegramRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        val symbol = body.symbol.trim().uppercase()
+        if (symbol.isEmpty()) {
+            return@endpoint badRequest("symbol is required.")
+        }
+        val message = buildString {
+            append("104W Live Signal\\n")
+            append("Symbol: ").append(symbol).append("\\n")
+            append("Bucket: ").append(body.bucket).append("\\n")
+            append("Date: ").append(body.latestDate).append("\\n")
+            append("Breakout: ").append(String.format("%.2f", body.breakoutLevel)).append("\\n")
+            append("High: ").append(String.format("%.2f", body.latestHigh)).append("\\n")
+            append("Close: ").append(String.format("%.2f", body.latestClose)).append("\\n")
+            append("Gap: ").append(String.format("%.2f", body.gapToBreakoutPct)).append("%\\n")
+            if (!body.lastHitDate.isNullOrBlank()) {
+                append("Last Hit: ").append(body.lastHitDate).append("\\n")
+            }
+        }
+        ok(telegramSender.sendText(TelegramSendTextRequest(text = message)))
+    }
 }
 
 internal fun validateProfitLookbackRequest(request: ProfitLookbackRequest?): ProfitLookbackRequest {
@@ -707,6 +802,22 @@ internal fun validateDeliveryThresholdBacktestRequest(
         .mapValues { entry -> entry.value }
     val thresholds = defaultThresholds + requestThresholds
 
+    val requestRoc20ByIndex = body.config.roc20ByIndex
+        .mapKeys { entry -> normalizeIndexKey(entry.key) }
+        .mapValues { entry -> entry.value }
+    val defaultRoc20ByIndex = defaultConfig.roc20ByIndex
+        .mapKeys { entry -> normalizeIndexKey(entry.key) }
+        .mapValues { entry -> entry.value }
+    val roc20ByIndex = defaultRoc20ByIndex + requestRoc20ByIndex
+
+    val requestSma200ByIndex = body.config.sma200ByIndex
+        .mapKeys { entry -> normalizeIndexKey(entry.key) }
+        .mapValues { entry -> entry.value }
+    val defaultSma200ByIndex = defaultConfig.sma200ByIndex
+        .mapKeys { entry -> normalizeIndexKey(entry.key) }
+        .mapValues { entry -> entry.value }
+    val sma200ByIndex = defaultSma200ByIndex + requestSma200ByIndex
+
     normalizedIndexKeys.forEach { indexKey ->
         val threshold = thresholds[indexKey]
         if (threshold == null) {
@@ -714,6 +825,20 @@ internal fun validateDeliveryThresholdBacktestRequest(
         }
         if (!threshold.isFinite() || threshold <= 0.0) {
             throw IllegalArgumentException("Threshold for indexKey=$indexKey must be a positive number.")
+        }
+
+        val rocConfig = roc20ByIndex[indexKey]
+        if (rocConfig != null) {
+            if (!rocConfig.accumulationMinPct.isFinite() || !rocConfig.accumulationMaxPct.isFinite() || !rocConfig.distributionMinPct.isFinite()) {
+                throw IllegalArgumentException("ROC20 config for indexKey=$indexKey must contain finite numbers.")
+            }
+        }
+
+        val smaConfig = sma200ByIndex[indexKey]
+        if (smaConfig != null) {
+            if (!smaConfig.accumulationMaxDistancePct.isFinite() || !smaConfig.distributionMinDistancePct.isFinite()) {
+                throw IllegalArgumentException("SMA200 config for indexKey=$indexKey must contain finite numbers.")
+            }
         }
     }
 
@@ -746,6 +871,8 @@ internal fun validateDeliveryThresholdBacktestRequest(
         symbols = symbols,
         thresholdsByIndex = thresholds,
         profitPct = profitPct,
+        roc20ByIndex = roc20ByIndex,
+        sma200ByIndex = sma200ByIndex,
         fromDate = fromDate,
         toDate = toDate,
     )
@@ -757,4 +884,70 @@ internal fun normalizeIndexKey(raw: String): String {
         .replace(Regex("[^A-Z0-9]+"), "_")
         .replace(Regex("_+"), "_")
         .trim('_')
+}
+
+internal fun validate52WeekHighBacktestRequest(
+    request: FiftyTwoWeekHighBacktestRequest?,
+): FiftyTwoWeekHighBacktestRunConfig {
+    val body = request ?: throw IllegalArgumentException("Request body is required.")
+    val indexKeys = body.indexKeys
+        .map { value -> value.trim() }
+        .filter { value -> value.isNotEmpty() }
+        .distinct()
+    if (indexKeys.isEmpty()) {
+        throw IllegalArgumentException("indexKeys must contain at least one value.")
+    }
+
+    val symbols = body.symbols
+        .map { value -> value.trim().uppercase() }
+        .filter { value -> value.isNotEmpty() }
+        .distinct()
+
+    if (!body.config.profitPct.isFinite() || body.config.profitPct <= 0.0) {
+        throw IllegalArgumentException("profitPct must be a positive number.")
+    }
+    if (body.config.backtestDays < 1) {
+        throw IllegalArgumentException("backtestDays must be at least 1.")
+    }
+
+    val toDate = body.config.toDate?.let { raw ->
+        runCatching { LocalDate.parse(raw) }.getOrNull()
+            ?: throw IllegalArgumentException("toDate must be in YYYY-MM-DD format.")
+    } ?: LocalDate.now()
+
+    return FiftyTwoWeekHighBacktestRunConfig(
+        indexKeys = indexKeys,
+        symbols = symbols,
+        profitPct = body.config.profitPct,
+        historyDays = HARDCODED_HISTORY_DAYS,
+        backtestDays = body.config.backtestDays,
+        cooldownDays = HARDCODED_COOLDOWN_DAYS,
+        toDate = toDate,
+    )
+}
+
+private const val HARDCODED_HISTORY_DAYS: Long = 1300
+private const val HARDCODED_COOLDOWN_DAYS: Long = 180
+
+internal fun validate52WeekHighLiveRequest(
+    request: FiftyTwoWeekHighLiveRequest?,
+): FiftyTwoWeekHighLiveRunConfig {
+    val body = request ?: throw IllegalArgumentException("Request body is required.")
+    val universeKeys = body.universeKeys
+        .map { value -> value.trim() }
+        .filter { value -> value.isNotEmpty() }
+        .distinct()
+    if (universeKeys.isEmpty()) {
+        throw IllegalArgumentException("universeKeys must contain at least one value.")
+    }
+
+    val symbols = body.symbols
+        .map { value -> value.trim().uppercase() }
+        .filter { value -> value.isNotEmpty() }
+        .distinct()
+
+    return FiftyTwoWeekHighLiveRunConfig(
+        universeKeys = universeKeys,
+        symbols = symbols,
+    )
 }

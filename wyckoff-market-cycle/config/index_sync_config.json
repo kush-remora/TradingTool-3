@@ -7,6 +7,11 @@
       "csvUrl": "https://www.niftyindices.com/IndexConstituent/ind_nifty50list.csv"
     },
     {
+      "key": "nifty_100",
+      "enabled": true,
+      "csvUrl": "https://www.niftyindices.com/IndexConstituent/ind_nifty100list.csv"
+    },
+    {
       "key": "nifty_midcap_150",
       "enabled": true,
       "csvUrl": "https://www.niftyindices.com/IndexConstituent/ind_niftymidcap150list.csv"

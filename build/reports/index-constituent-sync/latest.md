@@ -1,12 +1,12 @@
 # Index Constituent Sync Report
 
-- Started at: `2026-05-18T16:59:58.269561+05:30`
-- Finished at: `2026-05-18T17:00:01.257370+05:30`
-- Total fetched: `1052`
-- Total parsed: `1052`
-- Total upserted: `1050`
+- Started at: `2026-05-21T04:10:18.852969+05:30`
+- Finished at: `2026-05-21T04:10:22.162217+05:30`
+- Total fetched: `905`
+- Total parsed: `905`
+- Total upserted: `900`
 - Total deactivated: `0`
-- Total unresolved symbols: `2`
+- Total unresolved symbols: `5`
 
 ## nifty_50
 - Source: `https://www.niftyindices.com/IndexConstituent/ind_nifty50list.csv`
@@ -15,6 +15,13 @@
 - Upserted: `50`
 - Deactivated: `0`
 - Unresolved: `0`
+## nifty_100
+- Source: `https://www.niftyindices.com/IndexConstituent/ind_nifty100list.csv`
+- Fetched: `104`
+- Parsed: `104`
+- Upserted: `100`
+- Deactivated: `0`
+- Unresolved: `4`
 ## nifty_midcap_150
 - Source: `https://www.niftyindices.com/IndexConstituent/ind_niftymidcap150list.csv`
 - Fetched: `150`
@@ -44,13 +51,6 @@
 - Deactivated: `0`
 - Unresolved: `0`
 ## nifty_microcap_250
-- Source: `https://www.niftyindices.com/IndexConstituent/ind_niftymicrocap250_list.csv`
-- Fetched: `251`
-- Parsed: `251`
-- Upserted: `250`
-- Deactivated: `0`
-- Unresolved: `1`
-## nifty-microcap-250
 - Source: `https://www.niftyindices.com/IndexConstituent/ind_niftymicrocap250_list.csv`
 - Fetched: `251`
 - Parsed: `251`

@@ -36,6 +36,8 @@ class DeliveryThresholdBacktestEngine {
                 symbols = config.symbols,
                 thresholds = config.thresholdsByIndex,
                 profitPct = config.profitPct.roundTo2(),
+                roc20ByIndex = config.roc20ByIndex,
+                sma200ByIndex = config.sma200ByIndex,
                 fromDate = config.fromDate.toString(),
                 toDate = config.toDate.toString(),
             ),
@@ -96,6 +98,12 @@ class DeliveryThresholdBacktestEngine {
             } else {
                 null
             }
+            val roc20AtSignalPct = computeRocPctAtIndex(candles, triggerCandleIndex, ROC_LOOKBACK_DAYS)
+            val sma200AtSignal = computeSmaAtIndex(candles, triggerCandleIndex, SMA_LOOKBACK_DAYS)
+            val distFromSma200AtSignalPct = computeDistancePctFromReference(
+                price = triggerCandleIndex.takeIf { index -> index >= 0 }?.let { index -> candles[index].close },
+                reference = sma200AtSignal,
+            )
 
             val targetPrice = entryPrice * (1.0 + (config.profitPct / 100.0))
             val hitIndex = findTargetHitIndex(candles, entryIndex, targetPrice)
@@ -129,6 +137,9 @@ class DeliveryThresholdBacktestEngine {
                     totalVolumeCount = delivery.ttlTrdQnty,
                     avg20dVolumeAtSignal = avg20dVolumeAtSignal?.roundTo2(),
                     signalVolumeVs20dPct = signalVolumeVs20dPct?.roundTo2(),
+                    roc20AtSignalPct = roc20AtSignalPct?.roundTo2(),
+                    sma200AtSignal = sma200AtSignal?.roundTo2(),
+                    distFromSma200AtSignalPct = distFromSma200AtSignalPct?.roundTo2(),
                     targetPrice = targetPrice.roundTo2(),
                     fiftyTwoWeekHighAtBuy = entryRange.high.takeIf { value -> value > 0.0 }?.roundTo2(),
                     fiftyTwoWeekLowAtBuy = entryRange.low.takeIf { value -> value > 0.0 }?.roundTo2(),
@@ -221,6 +232,45 @@ class DeliveryThresholdBacktestEngine {
         return history.map { candle -> candle.volume.toDouble() }.average()
     }
 
+    private fun computeRocPctAtIndex(
+        candles: List<com.tradingtool.core.candle.DailyCandle>,
+        index: Int,
+        lookbackDays: Int,
+    ): Double? {
+        if (index < 0 || index >= candles.size || index - lookbackDays < 0) {
+            return null
+        }
+        val currentClose = candles[index].close
+        val oldClose = candles[index - lookbackDays].close
+        if (oldClose <= 0.0 || !oldClose.isFinite() || !currentClose.isFinite()) {
+            return null
+        }
+        return ((currentClose - oldClose) / oldClose) * 100.0
+    }
+
+    private fun computeSmaAtIndex(
+        candles: List<com.tradingtool.core.candle.DailyCandle>,
+        index: Int,
+        period: Int,
+    ): Double? {
+        if (index < 0 || index >= candles.size || index + 1 < period) {
+            return null
+        }
+        val start = index - period + 1
+        val window = candles.subList(start, index + 1)
+        if (window.isEmpty()) {
+            return null
+        }
+        return window.map { candle -> candle.close }.average()
+    }
+
+    private fun computeDistancePctFromReference(price: Double?, reference: Double?): Double? {
+        if (price == null || reference == null || reference <= 0.0 || !price.isFinite() || !reference.isFinite()) {
+            return null
+        }
+        return ((price / reference) - 1.0) * 100.0
+    }
+
     private data class EntryRange(
         val high: Double,
         val low: Double,
@@ -249,5 +299,7 @@ class DeliveryThresholdBacktestEngine {
         private const val MIN_REQUIRED_CANDLES = 20
         private const val DRAWDOWN_LOOKBACK_DAYS = 252
         private const val AVG_VOLUME_LOOKBACK_DAYS = 20
+        private const val ROC_LOOKBACK_DAYS = 20
+        private const val SMA_LOOKBACK_DAYS = 200
     }
 }
