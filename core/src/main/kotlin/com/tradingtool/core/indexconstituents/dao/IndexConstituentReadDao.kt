@@ -8,8 +8,10 @@ import org.jdbi.v3.sqlobject.config.RegisterRowMapper
 import org.jdbi.v3.sqlobject.customizer.Bind
 import org.jdbi.v3.sqlobject.statement.SqlQuery
 import java.sql.ResultSet
+import org.jdbi.v3.sqlobject.customizer.BindList
 
 @RegisterRowMapper(IndexSummaryMapper::class)
+@RegisterRowMapper(InstrumentUniverseMapper::class)
 interface IndexConstituentReadDao {
     @SqlQuery(
         """
@@ -52,7 +54,27 @@ interface IndexConstituentReadDao {
         """
     )
     fun listActiveByIndex(@Bind("indexKey") indexKey: String): List<IndexConstituentUpsertRow>
+
+    @SqlQuery(
+        """
+        SELECT
+            ${IndexConstituentColumns.INSTRUMENT_TOKEN} AS instrument_token,
+            string_agg(DISTINCT ${IndexConstituentColumns.INDEX_KEY}, ',' ORDER BY ${IndexConstituentColumns.INDEX_KEY}) AS universe
+        FROM public.${Tables.INDEX_CONSTITUENTS}
+        WHERE ${IndexConstituentColumns.IS_ACTIVE} = true
+          AND ${IndexConstituentColumns.INSTRUMENT_TOKEN} IN (<instrumentTokens>)
+        GROUP BY ${IndexConstituentColumns.INSTRUMENT_TOKEN}
+        """,
+    )
+    fun findUniverseByInstrumentTokens(
+        @BindList("instrumentTokens") instrumentTokens: List<Long>,
+    ): List<InstrumentUniverseRow>
 }
+
+data class InstrumentUniverseRow(
+    val instrumentToken: Long,
+    val universe: String,
+)
 
 data class IndexSummary(
     val indexKey: String,
@@ -64,6 +86,15 @@ class IndexSummaryMapper : RowMapper<IndexSummary> {
         return IndexSummary(
             indexKey = rs.getString("index_key"),
             count = rs.getInt("total_count")
+        )
+    }
+}
+
+class InstrumentUniverseMapper : RowMapper<InstrumentUniverseRow> {
+    override fun map(rs: ResultSet, ctx: StatementContext): InstrumentUniverseRow {
+        return InstrumentUniverseRow(
+            instrumentToken = rs.getLong("instrument_token"),
+            universe = rs.getString("universe"),
         )
     }
 }

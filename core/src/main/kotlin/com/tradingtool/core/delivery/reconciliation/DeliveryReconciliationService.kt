@@ -2,6 +2,7 @@ package com.tradingtool.core.delivery.reconciliation
 
 import com.google.inject.Inject
 import com.google.inject.Singleton
+import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
 import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.delivery.config.DeliveryDataSource
@@ -22,6 +23,7 @@ import java.time.ZoneId
 class DeliveryReconciliationService @Inject constructor(
     private val stockHandler: StockJdbiHandler,
     private val deliveryHandler: StockDeliveryJdbiHandler,
+    private val indexConstituentHandler: IndexConstituentJdbiHandler,
     private val instrumentCache: InstrumentCache,
     private val kiteClient: KiteConnectClient,
     private val sourceAdapter: NseDeliverySourceAdapter,
@@ -81,6 +83,8 @@ class DeliveryReconciliationService @Inject constructor(
         }.associateBy { stock -> stock.symbol.uppercase() }
 
         val unresolvedSymbols = mutableListOf<String>()
+        val resolvedTokens = sourceRowsBySymbol.rowsBySymbol.values.mapNotNull { resolveInstrumentToken(it) }.distinct()
+        val universeByToken = loadUniverseByInstrumentToken(resolvedTokens)
         val upserts = sourceRowsBySymbol.rowsBySymbol.values.mapNotNull { sourceRow ->
             val token = resolveInstrumentToken(sourceRow)
             if (token == null) {
@@ -92,7 +96,7 @@ class DeliveryReconciliationService @Inject constructor(
                     instrumentToken = token,
                     symbol = sourceRow.symbol.uppercase(),
                     exchange = NSE_EXCHANGE,
-                    universe = "DEPRECATED",
+                    universe = universeByToken[token] ?: UNKNOWN_UNIVERSE,
                     tradingDate = sourceRow.tradingDate,
                     reconciliationStatus = DeliveryReconciliationStatus.PRESENT,
                     series = sourceRow.series,
@@ -231,8 +235,19 @@ class DeliveryReconciliationService @Inject constructor(
         return null
     }
 
+    private fun loadUniverseByInstrumentToken(tokens: List<Long>): Map<Long, String> {
+        if (tokens.isEmpty()) {
+            return emptyMap()
+        }
+
+        return indexConstituentHandler.read { dao ->
+            dao.findUniverseByInstrumentTokens(tokens)
+        }.associate { row -> row.instrumentToken to row.universe }
+    }
+
     private companion object {
         const val NSE_EXCHANGE: String = "NSE"
+        const val UNKNOWN_UNIVERSE: String = "UNKNOWN"
         val MARKET_ZONE: ZoneId = ZoneId.of("Asia/Kolkata")
     }
 }
