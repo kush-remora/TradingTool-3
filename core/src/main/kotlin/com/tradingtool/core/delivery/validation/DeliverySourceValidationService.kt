@@ -1,6 +1,5 @@
 package com.tradingtool.core.delivery.validation
 
-import com.tradingtool.core.delivery.config.DeliveryUniverseService
 import com.tradingtool.core.delivery.model.DeliverySourceRow
 import com.tradingtool.core.delivery.model.DeliverySourceType
 import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
@@ -8,7 +7,7 @@ import org.slf4j.LoggerFactory
 import java.time.LocalDate
 
 class DeliverySourceValidationService(
-    private val deliveryUniverseService: DeliveryUniverseService,
+    private val targetSymbolResolver: DeliveryTargetSymbolResolver,
     private val sourceAdapter: NseDeliverySourceAdapter,
 ) {
     private val log = LoggerFactory.getLogger(DeliverySourceValidationService::class.java)
@@ -57,7 +56,7 @@ class DeliverySourceValidationService(
     }
 
     private suspend fun loadTargetSymbols(): Set<String> {
-        return deliveryUniverseService.resolveTargetSymbols()
+        return targetSymbolResolver.resolveTargetSymbols()
     }
 
     private suspend fun loadSourceRows(

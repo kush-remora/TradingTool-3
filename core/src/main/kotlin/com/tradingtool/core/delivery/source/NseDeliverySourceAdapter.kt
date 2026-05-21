@@ -8,6 +8,7 @@ import com.tradingtool.core.delivery.model.DeliverySourceType
 import com.tradingtool.core.delivery.validation.DeliveryDiscoveryResult
 import com.tradingtool.core.delivery.validation.DeliveryFileDescriptor
 import com.tradingtool.core.http.JsonHttpClient
+import com.tradingtool.core.http.Result
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -142,8 +143,11 @@ class NseDeliverySourceAdapter(
 
     private suspend fun fetchRawContent(url: String): String {
         log.info("Downloading NSE delivery file from {}", url)
-        return jsonHttpClient.getRaw(url, defaultHeaders()).getOrNull()
-            ?: error("Failed to download file from $url")
+        val response = jsonHttpClient.getRaw(url, defaultHeaders())
+        return when (response) {
+            is Result.Success -> response.data
+            is Result.Failure -> error("Failed to download file from $url: ${response.error.describe()}")
+        }
     }
 
     private fun resolveBucketForTargetDate(response: DailyReportResponse, targetDate: LocalDate): String? {

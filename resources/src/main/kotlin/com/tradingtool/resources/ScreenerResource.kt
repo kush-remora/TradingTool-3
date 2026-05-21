@@ -7,7 +7,6 @@ import com.tradingtool.core.fundamentals.config.FundamentalsConfigService
 import com.tradingtool.core.fundamentals.config.NseIndexConstituentsService
 import com.tradingtool.core.fundamentals.filter.FundamentalsFilterConfigService
 import com.tradingtool.core.fundamentals.filter.FundamentalsProfileRule
-import com.tradingtool.core.fundamentals.refresh.FundamentalsRefreshService
 import com.tradingtool.core.stock.service.StockService
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.kite.KiteConnectClient
@@ -103,7 +102,6 @@ data class FundamentalsTagOverviewResponse(
 class ScreenerResource @Inject constructor(
     private val candleDataService: CandleDataService,
     private val weeklyPatternService: WeeklyPatternService,
-    private val fundamentalsRefreshService: FundamentalsRefreshService,
     private val fundamentalsConfigService: FundamentalsConfigService,
     private val nseIndexConstituentsService: NseIndexConstituentsService,
     private val fundamentalsFilterConfigService: FundamentalsFilterConfigService,
@@ -567,34 +565,6 @@ class ScreenerResource @Inject constructor(
         } else {
             ok(detail)
         }
-    }
-
-    @POST
-    @Path("/fundamentals/refresh-by-tag")
-    fun refreshFundamentalsByTag(@QueryParam("tag") rawTag: String?): CompletableFuture<Response> = ioScope.endpoint {
-        val indexTag = FundamentalsIndexTag.fromRaw(rawTag)
-            ?: return@endpoint badRequest(
-                "Unsupported or missing tag. Allowed tags: NIFTY_50, NIFTY_100, NIFTY_200, NIFTY_SMALLCAP_250.",
-            )
-
-        val symbols = resolveFundamentalsSymbolsForTag(indexTag)
-        if (symbols.isEmpty()) {
-            return@endpoint badRequest(
-                "No symbols mapped to tag ${indexTag.key}. Add matching stock tags or configure a preset resource for this index.",
-            )
-        }
-
-        val deletedRows = fundamentalsRefreshService.deleteSnapshotsForSymbols(symbols)
-        val refreshResult = fundamentalsRefreshService.refreshDailySnapshots(symbolsOverride = symbols)
-
-        ok(
-            mapOf(
-                "tag" to indexTag.key,
-                "symbolsCount" to symbols.size,
-                "deletedRows" to deletedRows,
-                "refresh" to refreshResult,
-            ),
-        )
     }
 
     @GET

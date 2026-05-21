@@ -4,23 +4,23 @@ import com.google.inject.Inject
 import com.google.inject.Singleton
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
 import com.tradingtool.core.database.StockJdbiHandler
-import com.tradingtool.core.delivery.config.DeliveryConfigService
 import com.tradingtool.core.delivery.config.DeliveryDataSource
-import com.tradingtool.core.delivery.config.DeliveryUniverseService
+import com.tradingtool.core.delivery.model.DeliveryReconciliationStatus
+import com.tradingtool.core.delivery.model.DeliverySourceRow
+import com.tradingtool.core.delivery.model.DeliveryUniverse
+import com.tradingtool.core.delivery.model.StockDeliveryDaily
 import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
+import com.tradingtool.core.delivery.validation.DeliveryFileDescriptor
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConnectClient
-import com.tradingtool.core.delivery.validation.DeliveryFileDescriptor
-import com.tradingtool.core.delivery.model.StockDeliveryDaily
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
+import java.time.ZoneId
 
 @Singleton
 class DeliveryReconciliationService @Inject constructor(
-    private val configService: DeliveryConfigService,
-    private val deliveryUniverseService: DeliveryUniverseService,
     private val stockHandler: StockJdbiHandler,
     private val deliveryHandler: StockDeliveryJdbiHandler,
     private val instrumentCache: InstrumentCache,
@@ -34,25 +34,10 @@ class DeliveryReconciliationService @Inject constructor(
     }
 
     suspend fun isDateReconciled(tradingDate: LocalDate): Boolean {
-        val expectationState = resolveExpectations()
-        if (expectationState.totalSymbolCount == 0) {
-            return true
-        }
-        if (expectationState.expectations.isEmpty()) {
-            return false
-        }
-
         val existingRows = deliveryHandler.read { dao ->
-            dao.findByTradingDateAndInstrumentTokens(
-                tradingDate = tradingDate,
-                instrumentTokens = expectationState.expectations.map { expectation -> expectation.instrumentToken },
-            )
+            dao.findAllByTradingDate(tradingDate)
         }
-
-        return DeliveryReconciliationAnalyzer.isDateComplete(
-            expectedInstrumentTokens = expectationState.expectations.map { expectation -> expectation.instrumentToken }.toSet(),
-            existingRows = existingRows,
-        )
+        return existingRows.isNotEmpty()
     }
 
     suspend fun reconcileLatestAvailableDate(): DeliveryDateReconciliationResult? {
@@ -61,79 +46,65 @@ class DeliveryReconciliationService @Inject constructor(
     }
 
     suspend fun findConfiguredRowsForDate(tradingDate: LocalDate): List<StockDeliveryDaily> {
-        val expectationState = resolveExpectations()
-        if (expectationState.expectations.isEmpty()) {
-            return emptyList()
-        }
-
         return deliveryHandler.read { dao ->
-            dao.findByTradingDateAndInstrumentTokens(
-                tradingDate = tradingDate,
-                instrumentTokens = expectationState.expectations.map { expectation -> expectation.instrumentToken },
-            )
+            dao.findAllByTradingDate(tradingDate)
         }
     }
 
     suspend fun reconcileDate(tradingDate: LocalDate): DeliveryDateReconciliationResult {
-        val expectationState = resolveExpectations()
-        if (expectationState.totalSymbolCount == 0) {
-            return DeliveryDateReconciliationResult(
-                tradingDate = tradingDate,
-                expectedCount = 0,
-                alreadyComplete = true,
-                fetchedFromSource = false,
-                presentCount = 0,
-                missingFromSourceCount = 0,
-            )
-        }
-        if (expectationState.expectations.isEmpty()) {
-            return DeliveryDateReconciliationResult(
-                tradingDate = tradingDate,
-                expectedCount = expectationState.totalSymbolCount,
-                alreadyComplete = true,
-                fetchedFromSource = false,
-                presentCount = 0,
-                missingFromSourceCount = 0,
-                unresolvedSymbols = expectationState.unresolvedSymbols,
-            )
-        }
-
-        val expectedTokens = expectationState.expectations.map { expectation -> expectation.instrumentToken }
         val existingRows = deliveryHandler.read { dao ->
-            dao.findByTradingDateAndInstrumentTokens(
-                tradingDate = tradingDate,
-                instrumentTokens = expectedTokens,
-            )
+            dao.findAllByTradingDate(tradingDate)
         }
-
-        if (DeliveryReconciliationAnalyzer.isDateComplete(expectedTokens.toSet(), existingRows)) {
+        if (existingRows.isNotEmpty()) {
             return DeliveryDateReconciliationResult(
                 tradingDate = tradingDate,
-                expectedCount = expectationState.totalSymbolCount,
+                expectedCount = existingRows.size,
                 alreadyComplete = true,
                 fetchedFromSource = false,
-                presentCount = existingRows.count { row -> row.reconciliationStatus.name == "PRESENT" },
-                missingFromSourceCount = existingRows.count { row -> row.reconciliationStatus.name == "MISSING_FROM_SOURCE" },
-                unresolvedSymbols = expectationState.unresolvedSymbols,
+                presentCount = existingRows.count { row -> row.reconciliationStatus == DeliveryReconciliationStatus.PRESENT },
+                missingFromSourceCount = 0,
             )
         }
 
-        val descriptor = resolveSourceDescriptor(tradingDate)
-        val sourceRows = fetchSourceRows(descriptor)
-        val sourceRowsBySymbol = if (sourceRows.isEmpty()) {
-            DeliverySourceRowsBySymbol(
+        ensureInstrumentCacheLoaded()
+        val sourcePayload = resolveSourcePayload(tradingDate)
+        val sourceRowsBySymbol = when {
+            sourcePayload.rows.isEmpty() -> DeliverySourceRowsBySymbol(
                 tradingDate = tradingDate,
                 rowsBySymbol = emptyMap(),
             )
-        } else {
-            DeliveryReconciliationAnalyzer.selectBestRowsBySymbol(sourceRows)
+            else -> DeliveryReconciliationAnalyzer.selectBestRowsBySymbol(sourcePayload.rows)
         }
-        val upserts = DeliveryReconciliationAnalyzer.buildUpserts(
-            expectations = expectationState.expectations,
-            sourceRows = sourceRowsBySymbol,
-            sourceFileName = descriptor.fileName,
-            sourceUrl = descriptor.url,
-        )
+
+        val sourceSymbols = sourceRowsBySymbol.rowsBySymbol.keys.toList()
+        val trackedStocksBySymbol = stockHandler.read { dao ->
+            dao.listBySymbols(sourceSymbols, NSE_EXCHANGE)
+        }.associateBy { stock -> stock.symbol.uppercase() }
+
+        val unresolvedSymbols = mutableListOf<String>()
+        val upserts = sourceRowsBySymbol.rowsBySymbol.values.mapNotNull { sourceRow ->
+            val token = resolveInstrumentToken(sourceRow)
+            if (token == null) {
+                unresolvedSymbols += sourceRow.symbol.uppercase()
+                null
+            } else {
+                DeliveryReconciliationUpsert(
+                    stockId = trackedStocksBySymbol[sourceRow.symbol.uppercase()]?.id,
+                    instrumentToken = token,
+                    symbol = sourceRow.symbol.uppercase(),
+                    exchange = NSE_EXCHANGE,
+                    universe = DeliveryUniverse.DEPRECATED,
+                    tradingDate = sourceRow.tradingDate,
+                    reconciliationStatus = DeliveryReconciliationStatus.PRESENT,
+                    series = sourceRow.series,
+                    ttlTrdQnty = sourceRow.tradedQuantity,
+                    delivQty = sourceRow.deliverableQuantity,
+                    delivPer = sourceRow.deliveryPercent,
+                    sourceFileName = sourcePayload.descriptor.fileName,
+                    sourceUrl = sourcePayload.descriptor.url,
+                )
+            }
+        }
 
         deliveryHandler.write { dao ->
             upserts.forEach { row ->
@@ -156,66 +127,20 @@ class DeliveryReconciliationService @Inject constructor(
         }
 
         log.info(
-            "Reconciled delivery date {} for {} symbols (present={}, missingFromSource={})",
+            "Reconciled delivery date {} with source={} for {} symbols (unresolved={})",
             tradingDate,
+            sourcePayload.source.name,
             upserts.size,
-            upserts.count { row -> row.reconciliationStatus.name == "PRESENT" },
-            upserts.count { row -> row.reconciliationStatus.name == "MISSING_FROM_SOURCE" },
+            unresolvedSymbols.size,
         )
 
         return DeliveryDateReconciliationResult(
             tradingDate = tradingDate,
-            expectedCount = expectationState.totalSymbolCount,
+            expectedCount = upserts.size,
             alreadyComplete = false,
             fetchedFromSource = true,
-            presentCount = upserts.count { row -> row.reconciliationStatus.name == "PRESENT" },
-            missingFromSourceCount = upserts.count { row -> row.reconciliationStatus.name == "MISSING_FROM_SOURCE" },
-            unresolvedSymbols = expectationState.unresolvedSymbols,
-        )
-    }
-
-    private suspend fun resolveExpectations(): DeliveryExpectationState {
-        ensureInstrumentCacheLoaded()
-        val universeAssignments = configService.resolveConfiguredUniverseAssignments(
-            watchlistSymbols = deliveryUniverseService.loadNseWatchlistSymbolsForDelivery(),
-        )
-        if (universeAssignments.isEmpty()) {
-            return DeliveryExpectationState(
-                totalSymbolCount = 0,
-                expectations = emptyList(),
-                unresolvedSymbols = emptyList(),
-            )
-        }
-        val symbols = universeAssignments.keys.toList()
-
-        val trackedStocks = stockHandler.read { dao ->
-            dao.listBySymbols(symbols, NSE_EXCHANGE)
-        }.associateBy { stock -> stock.symbol.uppercase() }
-
-        val expectations = mutableListOf<DeliveryExpectation>()
-        val unresolvedSymbols = mutableListOf<String>()
-
-        symbols.forEach { symbol ->
-            val instrumentToken = instrumentCache.token(NSE_EXCHANGE, symbol)
-            if (instrumentToken == null) {
-                unresolvedSymbols += symbol
-            } else {
-                expectations += DeliveryExpectation(
-                    stockId = trackedStocks[symbol]?.id,
-                    instrumentToken = instrumentToken,
-                    symbol = symbol,
-                    exchange = NSE_EXCHANGE,
-                    universe = requireNotNull(universeAssignments[symbol]) {
-                        "Universe assignment missing for configured delivery symbol $symbol"
-                    },
-                )
-            }
-        }
-
-        return DeliveryExpectationState(
-            totalSymbolCount = symbols.size,
-            expectations = expectations,
-            unresolvedSymbols = unresolvedSymbols,
+            presentCount = upserts.size,
+            missingFromSourceCount = 0,
         )
     }
 
@@ -230,35 +155,91 @@ class DeliveryReconciliationService @Inject constructor(
         instrumentCache.refresh(instruments)
     }
 
-    private suspend fun resolveSourceDescriptor(tradingDate: LocalDate): DeliveryFileDescriptor {
-        val source = configService.loadConfig().source
+    private suspend fun resolveSourcePayload(tradingDate: LocalDate): ResolvedSourcePayload {
+        val preferredSources = selectSourcePriority(tradingDate)
+
+        preferredSources.forEach { source ->
+            val descriptor = resolveSourceDescriptorForSource(tradingDate, source) ?: return@forEach
+            val rows = runCatching { fetchSourceRows(source, descriptor) }
+                .onFailure { error ->
+                    log.warn("Failed to fetch {} source for {}: {}", source.name, tradingDate, error.message)
+                }
+                .getOrNull() ?: return@forEach
+
+            return ResolvedSourcePayload(
+                source = source,
+                descriptor = descriptor,
+                rows = rows,
+            )
+        }
+
+        error("No delivery source could be resolved for trading date $tradingDate")
+    }
+
+    private suspend fun resolveSourceDescriptorForSource(
+        tradingDate: LocalDate,
+        source: DeliveryDataSource,
+    ): DeliveryFileDescriptor? {
         val discovery = sourceAdapter.discoverDeliveryReports(tradingDate)
         if (discovery != null) {
-            return when (source) {
+            val descriptor = when (source) {
                 DeliveryDataSource.CM_BHAVDATA_FULL -> discovery.bhavDataFull
-                    ?: error("CM-BHAVDATA-FULL report missing for $tradingDate")
                 DeliveryDataSource.MTO -> discovery.mto
-                    ?: error("MTO report missing for $tradingDate")
+            }
+            if (descriptor != null) {
+                return descriptor
             }
         }
 
-        log.info("Falling back to NSE archive descriptor for {}", tradingDate)
-        return sourceAdapter.buildArchiveDescriptor(tradingDate, source)
+        return when (source) {
+            DeliveryDataSource.CM_BHAVDATA_FULL -> {
+                log.info("Falling back to NSE archive descriptor for {}", tradingDate)
+                sourceAdapter.buildArchiveDescriptor(tradingDate, source)
+            }
+            DeliveryDataSource.MTO -> null
+        }
     }
 
-    private suspend fun fetchSourceRows(descriptor: DeliveryFileDescriptor) =
-        when (configService.loadConfig().source) {
+    private suspend fun fetchSourceRows(
+        source: DeliveryDataSource,
+        descriptor: DeliveryFileDescriptor,
+    ) =
+        when (source) {
             DeliveryDataSource.CM_BHAVDATA_FULL -> sourceAdapter.fetchBhavDataRows(descriptor)
             DeliveryDataSource.MTO -> sourceAdapter.fetchMtoRows(descriptor)
         }
 
+    private fun selectSourcePriority(tradingDate: LocalDate): List<DeliveryDataSource> {
+        val today = LocalDate.now(MARKET_ZONE)
+        return if (tradingDate >= today.minusDays(1)) {
+            listOf(DeliveryDataSource.MTO, DeliveryDataSource.CM_BHAVDATA_FULL)
+        } else {
+            listOf(DeliveryDataSource.CM_BHAVDATA_FULL, DeliveryDataSource.MTO)
+        }
+    }
+
+    private fun resolveInstrumentToken(sourceRow: DeliverySourceRow): Long? {
+        val symbol = sourceRow.symbol.trim().uppercase()
+        val byExactSymbol = instrumentCache.token(NSE_EXCHANGE, symbol)
+        if (byExactSymbol != null) {
+            return byExactSymbol
+        }
+
+        if (sourceRow.series.equals("BE", ignoreCase = true)) {
+            return instrumentCache.token(NSE_EXCHANGE, "$symbol-BE")
+        }
+
+        return null
+    }
+
     private companion object {
         const val NSE_EXCHANGE: String = "NSE"
+        val MARKET_ZONE: ZoneId = ZoneId.of("Asia/Kolkata")
     }
 }
 
-private data class DeliveryExpectationState(
-    val totalSymbolCount: Int,
-    val expectations: List<DeliveryExpectation>,
-    val unresolvedSymbols: List<String>,
+private data class ResolvedSourcePayload(
+    val source: DeliveryDataSource,
+    val descriptor: DeliveryFileDescriptor,
+    val rows: List<DeliverySourceRow>,
 )

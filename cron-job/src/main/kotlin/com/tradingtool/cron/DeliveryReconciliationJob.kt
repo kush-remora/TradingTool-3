@@ -5,8 +5,6 @@ import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.tradingtool.core.config.ConfigLoader
 import com.tradingtool.core.database.JdbiHandler
-import com.tradingtool.core.delivery.config.DeliveryConfigService
-import com.tradingtool.core.delivery.config.DeliveryUniverseService
 import com.tradingtool.core.delivery.reconciliation.DeliveryDateReconciliationResult
 import com.tradingtool.core.delivery.reconciliation.DeliveryReconciliationRunReport
 import com.tradingtool.core.delivery.reconciliation.DeliveryReconciliationRunReportFactory
@@ -53,7 +51,11 @@ fun main(args: Array<String>) {
     runBlocking {
         runtime.telegramNotifier.cronStarted(jobName)
         val exitCode = runCatching {
-            val report = executeDeliveryReconciliation(runtime.service, cli.requestedDate)
+            val report = executeDeliveryReconciliation(
+                service = runtime.service,
+                requestedDate = cli.requestedDate,
+                backfillSettings = runtime.backfillSettings,
+            )
             val outputDir = writeArtifacts(report)
             runtime.telegramNotifier.cronCompleted(jobName, report.toTelegramSummary())
             log.info(
@@ -84,6 +86,7 @@ private data class DeliveryReconciliationCliArgs(
 private data class DeliveryReconciliationRuntime(
     val service: DeliveryReconciliationService,
     val telegramNotifier: TelegramNotifier,
+    val backfillSettings: DeliveryBackfillSettings,
 ) {
     companion object {
         fun fromEnvironment(): DeliveryReconciliationRuntime {
@@ -98,13 +101,7 @@ private data class DeliveryReconciliationRuntime(
             val stockHandler = JdbiHandler(databaseConfig, StockReadDao::class.java, StockWriteDao::class.java)
             val deliveryHandler = JdbiHandler(databaseConfig, StockDeliveryReadDao::class.java, StockDeliveryWriteDao::class.java)
             val tokenHandler = JdbiHandler(databaseConfig, KiteTokenReadDao::class.java, KiteTokenWriteDao::class.java)
-            val deliveryConfigService = DeliveryConfigService()
             val service = DeliveryReconciliationService(
-                configService = deliveryConfigService,
-                deliveryUniverseService = DeliveryUniverseService(
-                    configService = deliveryConfigService,
-                    stockHandler = stockHandler,
-                ),
                 stockHandler = stockHandler,
                 deliveryHandler = deliveryHandler,
                 instrumentCache = InstrumentCache(),
@@ -120,14 +117,23 @@ private data class DeliveryReconciliationRuntime(
             return DeliveryReconciliationRuntime(
                 service = service,
                 telegramNotifier = buildTelegramNotifier(httpClient, objectMapper),
+                backfillSettings = loadBackfillSettings(),
             )
         }
     }
 }
 
+private data class DeliveryBackfillSettings(
+    val requiredTradingDays: Int,
+    val parallelBatchSize: Int,
+    val extraCandidateTradingDays: Int,
+    val maxFailedDates: Int,
+)
+
 private suspend fun executeDeliveryReconciliation(
     service: DeliveryReconciliationService,
     requestedDate: LocalDate?,
+    backfillSettings: DeliveryBackfillSettings,
 ): DeliveryReconciliationRunReport {
     val latestAvailableDate = service.latestAvailableTradingDate()
     val anchorDate = latestAvailableDate ?: LocalDate.now().minusDays(1)
@@ -136,15 +142,26 @@ private suspend fun executeDeliveryReconciliation(
         val backfillSummary = backfillRecentTradingDays(
             service = service,
             anchorDate = anchorDate,
-            requiredTradingDays = RECENT_TRADING_DAYS_BACKFILL,
+            requiredTradingDays = backfillSettings.requiredTradingDays,
+            parallelBatchSize = backfillSettings.parallelBatchSize,
+            extraCandidateTradingDays = backfillSettings.extraCandidateTradingDays,
         )
         log.info(
-            "Delivery backfill summary: checked={} reconciled={} alreadyComplete={} failed={}",
+            "Delivery backfill summary: covered={} candidates={} skippedUnavailable={} reconciled={} alreadyComplete={} failed={}",
             backfillSummary.checkedDates,
+            backfillSummary.candidateDates,
+            backfillSummary.skippedUnavailableDates,
             backfillSummary.reconciledDates,
             backfillSummary.alreadyCompleteDates,
             backfillSummary.failedDates,
         )
+
+        require(backfillSummary.checkedDates >= backfillSettings.requiredTradingDays) {
+            "Backfill coverage shortfall. required=${backfillSettings.requiredTradingDays}, covered=${backfillSummary.checkedDates}"
+        }
+        require(backfillSummary.failedDates <= backfillSettings.maxFailedDates) {
+            "Backfill failures exceeded threshold. failed=${backfillSummary.failedDates}, maxAllowed=${backfillSettings.maxFailedDates}"
+        }
     }
 
     val reconciliationResult = if (requestedDate != null) {
@@ -157,13 +174,16 @@ private suspend fun executeDeliveryReconciliation(
 }
 
 private data class DeliveryBackfillSummary(
+    val candidateDates: Int,
     val checkedDates: Int,
+    val skippedUnavailableDates: Int,
     val reconciledDates: Int,
     val alreadyCompleteDates: Int,
     val failedDates: Int,
 )
 
 private enum class DeliveryBackfillOutcome {
+    SKIPPED_SOURCE_UNAVAILABLE,
     RECONCILED,
     ALREADY_COMPLETE,
     FAILED,
@@ -173,13 +193,22 @@ private suspend fun backfillRecentTradingDays(
     service: DeliveryReconciliationService,
     anchorDate: LocalDate,
     requiredTradingDays: Int,
+    parallelBatchSize: Int,
+    extraCandidateTradingDays: Int,
 ): DeliveryBackfillSummary = coroutineScope {
-    val targetDates = buildRecentTradingDates(anchorDate, requiredTradingDays)
+    val candidateDates = buildRecentTradingDates(
+        anchorDate = anchorDate,
+        requiredTradingDays = requiredTradingDays + extraCandidateTradingDays,
+    )
+    var coveredDates = 0
+    var skippedUnavailable = 0
     var reconciled = 0
     var complete = 0
     var failed = 0
 
-    targetDates.chunked(BACKFILL_PARALLEL_BATCH_SIZE).forEach { tradingDateBatch ->
+    for (tradingDateBatch in candidateDates.chunked(parallelBatchSize)) {
+        if (coveredDates >= requiredTradingDays) break
+
         val outcomes = tradingDateBatch.map { tradingDate ->
             async {
                 val alreadyReconciled = runCatching { service.isDateReconciled(tradingDate) }
@@ -194,7 +223,11 @@ private suspend fun backfillRecentTradingDays(
 
                 runCatching { service.reconcileDate(tradingDate) }
                     .onFailure { error ->
-                        log.warn("Failed to reconcile delivery for {}: {}", tradingDate, error.message)
+                        if (isSourceUnavailableError(error)) {
+                            log.info("Skipping unavailable delivery source date {}", tradingDate)
+                        } else {
+                            log.warn("Failed to reconcile delivery for {}: {}", tradingDate, error.message)
+                        }
                     }
                     .map { result ->
                         if (result.alreadyComplete) {
@@ -203,22 +236,40 @@ private suspend fun backfillRecentTradingDays(
                             DeliveryBackfillOutcome.RECONCILED
                         }
                     }
-                    .getOrElse { DeliveryBackfillOutcome.FAILED }
+                    .getOrElse { error ->
+                        if (isSourceUnavailableError(error)) {
+                            DeliveryBackfillOutcome.SKIPPED_SOURCE_UNAVAILABLE
+                        } else {
+                            DeliveryBackfillOutcome.FAILED
+                        }
+                    }
             }
         }
             .awaitAll()
 
         outcomes.forEach { outcome ->
             when (outcome) {
-                DeliveryBackfillOutcome.RECONCILED -> reconciled++
-                DeliveryBackfillOutcome.ALREADY_COMPLETE -> complete++
-                DeliveryBackfillOutcome.FAILED -> failed++
+                DeliveryBackfillOutcome.SKIPPED_SOURCE_UNAVAILABLE -> skippedUnavailable++
+                DeliveryBackfillOutcome.RECONCILED -> {
+                    coveredDates++
+                    reconciled++
+                }
+                DeliveryBackfillOutcome.ALREADY_COMPLETE -> {
+                    coveredDates++
+                    complete++
+                }
+                DeliveryBackfillOutcome.FAILED -> {
+                    coveredDates++
+                    failed++
+                }
             }
         }
     }
 
     DeliveryBackfillSummary(
-        checkedDates = targetDates.size,
+        candidateDates = candidateDates.size,
+        checkedDates = coveredDates,
+        skippedUnavailableDates = skippedUnavailable,
         reconciledDates = reconciled,
         alreadyCompleteDates = complete,
         failedDates = failed,
@@ -252,17 +303,30 @@ private suspend fun buildRunReport(
 }
 
 private fun parseArgs(args: Array<String>): DeliveryReconciliationCliArgs {
+    val helpRequested = args.any { value -> value == "--help" || value == "-h" }
+    if (helpRequested) {
+        println("Usage: --date=YYYY-MM-DD")
+        exitProcess(0)
+    }
+
+    val malformed = args.filter { arg -> !arg.startsWith("--") || !arg.contains("=") }
+    require(malformed.isEmpty()) {
+        "Invalid arguments: ${malformed.joinToString(", ")}. Usage: --date=YYYY-MM-DD"
+    }
+
     val values = args
         .mapNotNull { arg ->
-            if (!arg.startsWith("--") || !arg.contains("=")) {
-                null
-            } else {
-                val key = arg.substringAfter("--").substringBefore("=")
-                val value = arg.substringAfter("=")
-                key to value
-            }
+            val key = arg.substringAfter("--").substringBefore("=")
+            val value = arg.substringAfter("=")
+            key to value
         }
         .toMap()
+
+    val allowedKeys = setOf("date")
+    val unknownKeys = values.keys.filter { key -> key !in allowedKeys }
+    require(unknownKeys.isEmpty()) {
+        "Unknown arguments: ${unknownKeys.joinToString(", ")}. Allowed: --date=YYYY-MM-DD"
+    }
 
     val requestedDate = values["date"]?.let { value ->
         runCatching { LocalDate.parse(value) }.getOrElse {
@@ -323,5 +387,63 @@ private fun buildAuthenticatedKiteClient(
     return kiteClient
 }
 
-private const val BACKFILL_PARALLEL_BATCH_SIZE: Int = 5
-private const val RECENT_TRADING_DAYS_BACKFILL: Int = 365
+private fun loadBackfillSettings(): DeliveryBackfillSettings {
+    val requiredTradingDays = readPositiveIntConfig(
+        envKey = "DELIVERY_BACKFILL_REQUIRED_TRADING_DAYS",
+        yamlKey = "delivery.backfillRequiredTradingDays",
+        defaultValue = 365,
+    )
+    val parallelBatchSize = readPositiveIntConfig(
+        envKey = "DELIVERY_BACKFILL_PARALLEL_BATCH_SIZE",
+        yamlKey = "delivery.backfillParallelBatchSize",
+        defaultValue = 5,
+    )
+    val extraCandidateTradingDays = readPositiveIntConfig(
+        envKey = "DELIVERY_BACKFILL_EXTRA_CANDIDATE_DAYS",
+        yamlKey = "delivery.backfillExtraCandidateDays",
+        defaultValue = 80,
+    )
+    val maxFailedDates = readNonNegativeIntConfig(
+        envKey = "DELIVERY_BACKFILL_MAX_FAILED_DATES",
+        yamlKey = "delivery.backfillMaxFailedDates",
+        defaultValue = 2,
+    )
+
+    return DeliveryBackfillSettings(
+        requiredTradingDays = requiredTradingDays,
+        parallelBatchSize = parallelBatchSize,
+        extraCandidateTradingDays = extraCandidateTradingDays,
+        maxFailedDates = maxFailedDates,
+    )
+}
+
+private fun readPositiveIntConfig(
+    envKey: String,
+    yamlKey: String,
+    defaultValue: Int,
+): Int {
+    val raw = ConfigLoader.getOptional(envKey, yamlKey)?.trim().orEmpty()
+    if (raw.isBlank()) return defaultValue
+    return raw.toIntOrNull()?.takeIf { value -> value > 0 } ?: run {
+        log.warn("Invalid positive integer config {}='{}'. Using default={}", envKey, raw, defaultValue)
+        defaultValue
+    }
+}
+
+private fun readNonNegativeIntConfig(
+    envKey: String,
+    yamlKey: String,
+    defaultValue: Int,
+): Int {
+    val raw = ConfigLoader.getOptional(envKey, yamlKey)?.trim().orEmpty()
+    if (raw.isBlank()) return defaultValue
+    return raw.toIntOrNull()?.takeIf { value -> value >= 0 } ?: run {
+        log.warn("Invalid non-negative integer config {}='{}'. Using default={}", envKey, raw, defaultValue)
+        defaultValue
+    }
+}
+
+private fun isSourceUnavailableError(error: Throwable): Boolean {
+    val message = error.message?.lowercase().orEmpty()
+    return message.contains("failed to download file") && message.contains("http 404")
+}

@@ -2017,3 +2017,63 @@ Align strategy ownership by moving Delivery Threshold 10% backtest code under a 
   - `kotlin-patterns`: kept constructor DI + simple package-level ownership shift.
   - `frontend-patterns`: no direct frontend code changes required.
   - `kotlin-reviewer`: no CRITICAL/HIGH issues observed in this scoped move.
+
+# Implementation Plan: Delivery Reconciliation Job Reliability Hardening (2026-05-21)
+
+## Overview
+Improve cron reliability for delivery reconciliation by tightening failure handling, backfill controls, and CLI safety.
+
+## Implementation Steps
+- [x] Add richer source download error context for HTTP failures.
+- [x] Add configurable backfill settings (required days, parallel batch size, extra candidate days, max allowed failures).
+- [x] Classify source-unavailable dates (HTTP 404) as skipped instead of failed.
+- [x] Enforce backfill quality gates (minimum coverage + maximum failures).
+- [x] Harden CLI argument parsing (`--help`, malformed/unknown arg rejection).
+- [x] Run compile and focused delivery tests.
+
+## Review
+- Updated files:
+  - `core/src/main/kotlin/com/tradingtool/core/delivery/source/NseDeliverySourceAdapter.kt`
+  - `cron-job/src/main/kotlin/com/tradingtool/cron/DeliveryReconciliationJob.kt`
+- Validation:
+  - `mvn -q -pl core,cron-job -am -DskipTests compile` passed.
+  - `mvn -q -pl core test -Dtest=DeliveryReconciliationRunReportTest,DeliveryReconciliationAnalyzerTest,NseDeliverySourceAdapterTest` passed.
+- Mandatory skill pass:
+  - `coding-standards`, `backend-architect`, `kotlin-patterns`, `frontend-patterns`, `kotlin-reviewer` consulted.
+  - `frontend-patterns`: no direct frontend code surface in this task.
+
+# Implementation Plan: Delivery Source Rule + Full Source Persistence (2026-05-21)
+
+## Overview
+Apply source rule `MTO for today/yesterday, CM_BHAVDATA_FULL for older dates` and persist full source rows (not config-scoped universe subset).
+
+## Implementation Steps
+- [x] Remove config-scoped universe expectation from delivery reconciliation flow.
+- [x] Persist all deduped source symbols for the date (token-resolved rows) with deprecated universe label.
+- [x] Add date-based source priority (`MTO -> BHAV` for today/yesterday, else `BHAV -> MTO`).
+- [x] Keep archive fallback for historical CM-BHAVDATA-FULL.
+- [x] Compile and run focused delivery tests.
+
+## Review
+- Updated service behavior in `DeliveryReconciliationService`:
+  - no dependency on delivery config/universe mapping for reconciliation.
+  - date-based source selection with runtime fallback.
+  - source-wide persistence with `DeliveryUniverse.DEPRECATED`.
+- Updated cron job wiring to new service constructor.
+- Validation:
+  - `mvn -q -pl core,service,resources,cron-job -am -DskipTests compile` passed.
+  - `mvn -q -pl core test -Dtest=NseDeliverySourceAdapterTest,DeliveryReconciliationAnalyzerTest,DeliveryReconciliationRunReportTest,StockDeliveryMapperTest,DeliveryConfigServiceTest,DeliveryUniverseServiceTest` passed.
+- Mandatory skill pass:
+  - `coding-standards`, `backend-architect`, `kotlin-patterns`, `frontend-patterns`, `kotlin-reviewer` consulted.
+  - `frontend-patterns`: no direct frontend changes in this task.
+
+## Follow-up Patch: Telegram Alerts + Universe Source Switch for Delivery Validation Job
+- [x] Added Telegram start/completed/failed notifications in `DeliverySourceValidationJob`.
+- [x] Replaced `DeliveryUniverseService` dependency with `DeliveryTargetSymbolResolver`.
+- [x] Target symbols now come from:
+  - all NSE watchlist stocks (`stocks` table), and
+  - active `index_constituents` symbols across index keys.
+- [x] Added run-time universe count logging (`WATCHLIST` + each `index_key` count).
+- Validation:
+  - `mvn -q -pl core,cron-job -am -DskipTests compile` passed.
+  - `mvn -q -pl core test -Dtest=DeliveryReconciliationAnalyzerTest,DeliveryReconciliationRunReportTest,NseDeliverySourceAdapterTest` passed.
