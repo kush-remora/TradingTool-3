@@ -1982,3 +1982,38 @@ Build an end-to-end live 104-week breakout screener with manual run, three actio
   - `npm --prefix frontend run -s build` passed.
 - Kotlin reviewer pass:
   - No CRITICAL/HIGH issues found in modified Kotlin files; coroutine scope usage, data flow boundaries, and null handling remain consistent with existing module patterns.
+
+# Implementation Plan: Move Delivery Threshold 10% Backtest into Wyckoff Scope (2026-05-21)
+
+## Overview
+Align strategy ownership by moving Delivery Threshold 10% backtest code under a Wyckoff strategy namespace while keeping API behavior unchanged.
+
+## Implementation Steps
+- [x] Move delivery-threshold strategy Kotlin files to `core/.../strategy/wyckoff/deliverythreshold`.
+- [x] Update package declarations and all imports (core/resources/tests).
+- [x] Preserve endpoint contracts and request/response models.
+- [x] Run compile and focused test validation.
+- [x] Run mandatory skill pass notes (`coding-standards`, `backend-architect`, `kotlin-patterns`, `frontend-patterns`, `kotlin-reviewer`).
+
+## Review
+- Scope moved:
+  - `DeliveryThresholdBacktestModels.kt`
+  - `DeliveryThresholdBacktestEngine.kt`
+  - `DeliveryThresholdBacktestService.kt`
+  - `DeliveryThresholdBacktestConfigService.kt`
+  - `DeliveryThresholdBacktestEngineTest.kt`
+- Package updated from:
+  - `com.tradingtool.core.strategy.deliverythreshold`
+  - to `com.tradingtool.core.strategy.wyckoff.deliverythreshold`.
+- Related imports updated in `resources` and `fiftytwohigh` strategy files.
+- Behavior/API kept unchanged (`/api/strategy/delivery-threshold/backtest` and config endpoint).
+- Validation:
+  - `mvn -q -pl resources -am -DskipTests compile` passed.
+  - `mvn -q -pl core -Dtest=DeliveryThresholdBacktestEngineTest test` passed.
+  - `mvn -q -pl resources -am -Dtest=DeliveryThresholdBacktestRequestValidationTest -Dsurefire.failIfNoSpecifiedTests=false test` passed.
+- Mandatory skill notes:
+  - `coding-standards`: applied minimal diff + readability-first move.
+  - `backend-architect`: preserved service boundaries and API contracts.
+  - `kotlin-patterns`: kept constructor DI + simple package-level ownership shift.
+  - `frontend-patterns`: no direct frontend code changes required.
+  - `kotlin-reviewer`: no CRITICAL/HIGH issues observed in this scoped move.

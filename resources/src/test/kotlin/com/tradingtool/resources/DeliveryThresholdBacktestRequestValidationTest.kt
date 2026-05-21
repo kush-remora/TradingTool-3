@@ -1,9 +1,9 @@
 package com.tradingtool.resources
 
-import com.tradingtool.core.strategy.deliverythreshold.DeliveryThresholdBacktestConfig
-import com.tradingtool.core.strategy.deliverythreshold.DeliveryThresholdBacktestRequest
-import com.tradingtool.core.strategy.deliverythreshold.DeliveryThresholdRocConfig
-import com.tradingtool.core.strategy.deliverythreshold.DeliveryThresholdSma200Config
+import com.tradingtool.core.strategy.wyckoff.deliverythreshold.DeliveryThresholdBacktestConfig
+import com.tradingtool.core.strategy.wyckoff.deliverythreshold.DeliveryThresholdBacktestRequest
+import com.tradingtool.core.strategy.wyckoff.deliverythreshold.DeliveryThresholdRocConfig
+import com.tradingtool.core.strategy.wyckoff.deliverythreshold.DeliveryThresholdSma200Config
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test

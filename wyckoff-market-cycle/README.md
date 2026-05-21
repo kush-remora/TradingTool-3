@@ -6,6 +6,7 @@ Standalone module for Wyckoff-focused workflows, kept isolated from active paren
 - Module marker and basic Kotlin unit test.
 - Config-driven index constituent sync inputs (`config/index_sync_config.json`).
 - Isolated SQL contract for `index_constituents` (`sql/index_constituents.sql`).
+- Wyckoff-scoped strategy package for Delivery Threshold 10% backtest logic (`core/.../strategy/wyckoff/deliverythreshold`).
 - Module-specific docs and journey log under `docs/`.
 
 ## Boundary Rules

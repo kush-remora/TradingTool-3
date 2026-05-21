@@ -9,7 +9,7 @@ import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.screener.CandleDataService
-import com.tradingtool.core.strategy.deliverythreshold.normalizeIndexKeyInCore
+import com.tradingtool.core.strategy.wyckoff.deliverythreshold.normalizeIndexKeyInCore
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 

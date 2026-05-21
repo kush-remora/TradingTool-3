@@ -9,6 +9,60 @@ Optimize for **clarity, maintainability, and speed of iteration** over scalabili
 - Team size: 1 engineer (backend-focused)
 - Typical scale: watchlist of around 20-30 stocks
 - Objective: stable, understandable system that is easy to evolve
+- Primary product direction: **Project Composite — Wyckoff Institutional Bloodhound**
+- Current status: **Phase 1 build**
+- Market scope: NSE-focused
+
+## Primary Product Philosophy (Wyckoff First)
+
+Treat Wyckoff as the main product lens for strategy decisions and implementation.
+
+- Core mental model: market behavior is driven by institutional campaigns ("Composite Man").
+- Build anomaly-first, not pattern-first: detect mathematical supply-exhaustion footprints first, then validate structural context.
+- Avoid generic scanner behavior. If a feature does not improve Wyckoff accumulation/distribution interpretation, de-prioritize it.
+- Prefer evidence from price/volume behavior over narrative assumptions.
+- Keep terminology and logic aligned to Wyckoff laws, events, and phases.
+
+## Wyckoff Canonical Constraints
+
+Use these principles as non-negotiable design constraints:
+
+- Law of Supply and Demand: direction inference must come from price/volume balance.
+- Law of Cause and Effect: trading-range "cause" should map to projected move "effect".
+- Law of Effort vs Result: treat price/volume divergence as a potential turning-point signal.
+- Accumulation interpretation should remain explicit around PS, SC, AR, ST, Spring/Test, SOS, and LPS.
+- Distribution interpretation should remain explicit around PSY, BC, AR, ST/UT, SOW, LPSY, and UTAD.
+- Never treat a raw spike as accumulation without context validation.
+
+## Phase 1 Scope (Current Build Target)
+
+Phase 1 is the active delivery scope and should be prioritized over Phase 2/3 enhancements.
+
+- Goal: backward-sweep anomaly scanner for **Wyckoff Stage 1 accumulation floor detection**.
+- Universe:
+  - Track A/B: NIFTY 50, NIFTY 100, NIFTY MIDCAP 50, NIFTY MIDCAP 150, NIFTY SMALLCAP 50, NIFTY SMALLCAP 250, NIFTY MICROCAP 250
+  - Track C: curated 50-100 high-growth/sector-leader list
+- Data cadence: daily post-market ingestion (Bhavcopy + delivery), target run around 18:30 IST.
+- Phase 1 anomaly rules:
+  - Historical anchors: HVQ/HVY/HVE and LVQ/LVY
+  - Cap-adaptive delivery thresholds:
+    - Large/Mid: >55%
+    - Small: >70%
+    - Micro: >85%
+    - Nano: >92%
+  - Rolling density: threshold breach >= 4 times in rolling 15-day window
+  - Math shock: delivery volume Z-score >= 2.0 on 60-day baseline
+  - Absorption check: daily spread < 20-day average spread
+- Track C exception: allow absolute volume-shock logic near structural support without delivery-% gating (denominator-flaw workaround).
+
+## Phase 2/3 Guardrails (Not Current Build Priority)
+
+- Phase 2 context filter ("4-brick base check"):
+  - Distance from 200 DMA between -5% and +5%
+  - ROC-20 between -5% and +5%
+- Phase 3 deployment rule:
+  - Do not buy raw anomaly (avoid Phase B time trap)
+  - Prefer trigger-based entry on Phase C exhaustion or Phase D launch conditions
 
 ## Global Engineering Priorities
 1. Readability over cleverness
@@ -153,6 +207,7 @@ Responsibilities:
 - **Simplicity First**: Make every change as simple as possible. Impact minimal code.
 - **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
 - **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
+- **Wyckoff Fidelity**: Preserve institutional-footprint interpretation over generic technical heuristics.
 
 ## Mandatory Skill Invocation
 

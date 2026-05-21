@@ -1,4 +1,4 @@
-package com.tradingtool.core.strategy.deliverythreshold
+package com.tradingtool.core.strategy.wyckoff.deliverythreshold
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule

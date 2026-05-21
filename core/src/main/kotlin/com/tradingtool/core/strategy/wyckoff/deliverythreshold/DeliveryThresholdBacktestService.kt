@@ -1,4 +1,4 @@
-package com.tradingtool.core.strategy.deliverythreshold
+package com.tradingtool.core.strategy.wyckoff.deliverythreshold
 
 import com.google.inject.Inject
 import com.google.inject.Singleton

@@ -1,4 +1,4 @@
-package com.tradingtool.core.strategy.deliverythreshold
+package com.tradingtool.core.strategy.wyckoff.deliverythreshold
 
 import com.tradingtool.core.delivery.model.StockDeliveryDaily
 import com.tradingtool.core.technical.calculateRsi
