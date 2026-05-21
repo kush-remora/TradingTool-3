@@ -2,7 +2,6 @@ package com.tradingtool.core.delivery.reconciliation
 
 import com.tradingtool.core.delivery.model.DeliveryReconciliationStatus
 import com.tradingtool.core.delivery.model.StockDeliveryDaily
-import com.tradingtool.core.delivery.model.DeliveryUniverse
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -103,7 +102,7 @@ class DeliveryReconciliationRunReportTest {
             instrumentToken = instrumentToken,
             symbol = symbol,
             exchange = "NSE",
-            universe = DeliveryUniverse.LARGEMIDCAP_250,
+            universe = "LARGEMIDCAP_250",
             tradingDate = tradingDate,
             reconciliationStatus = status,
             series = "EQ",

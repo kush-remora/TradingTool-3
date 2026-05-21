@@ -3,7 +3,6 @@ package com.tradingtool.core.delivery.reconciliation
 import com.tradingtool.core.delivery.model.DeliveryReconciliationStatus
 import com.tradingtool.core.delivery.model.DeliverySourceRow
 import com.tradingtool.core.delivery.model.StockDeliveryDaily
-import com.tradingtool.core.delivery.model.DeliveryUniverse
 import java.time.LocalDate
 
 data class DeliveryExpectation(
@@ -11,7 +10,7 @@ data class DeliveryExpectation(
     val instrumentToken: Long,
     val symbol: String,
     val exchange: String,
-    val universe: DeliveryUniverse,
+    val universe: String,
 )
 
 data class DeliveryReconciliationUpsert(
@@ -19,7 +18,7 @@ data class DeliveryReconciliationUpsert(
     val instrumentToken: Long,
     val symbol: String,
     val exchange: String,
-    val universe: DeliveryUniverse,
+    val universe: String,
     val tradingDate: LocalDate,
     val reconciliationStatus: DeliveryReconciliationStatus,
     val series: String?,

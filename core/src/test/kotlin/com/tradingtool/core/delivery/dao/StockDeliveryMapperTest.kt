@@ -2,7 +2,6 @@ package com.tradingtool.core.delivery.dao
 
 import com.tradingtool.core.constants.DatabaseConstants.StockDeliveryColumns as Cols
 import com.tradingtool.core.delivery.model.DeliveryReconciliationStatus
-import com.tradingtool.core.delivery.model.DeliveryUniverse
 import org.jdbi.v3.core.config.ConfigRegistry
 import org.jdbi.v3.core.statement.StatementContext
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -55,7 +54,7 @@ class StockDeliveryMapperTest {
         rowSet.updateLong(Cols.INSTRUMENT_TOKEN, 738561L)
         rowSet.updateString(Cols.SYMBOL, "RELIANCE")
         rowSet.updateString(Cols.EXCHANGE, "NSE")
-        rowSet.updateString(Cols.UNIVERSE, DeliveryUniverse.LARGEMIDCAP_250.storageValue)
+        rowSet.updateString(Cols.UNIVERSE, "LARGEMIDCAP_250")
         rowSet.updateDate(Cols.TRADING_DATE, Date.valueOf("2026-04-10"))
         rowSet.updateString(Cols.RECONCILIATION_STATUS, DeliveryReconciliationStatus.PRESENT.name)
         rowSet.updateString(Cols.SERIES, "EQ")
@@ -76,7 +75,7 @@ class StockDeliveryMapperTest {
         assertEquals(738561L, mapped.instrumentToken)
         assertEquals("RELIANCE", mapped.symbol)
         assertEquals("NSE", mapped.exchange)
-        assertEquals(DeliveryUniverse.LARGEMIDCAP_250, mapped.universe)
+        assertEquals("LARGEMIDCAP_250", mapped.universe)
         assertEquals(DeliveryReconciliationStatus.PRESENT, mapped.reconciliationStatus)
         assertEquals(64.0, mapped.delivPer)
         assertEquals("sec_bhavdata_full_10042026.csv", mapped.sourceFileName)
@@ -123,7 +122,7 @@ class StockDeliveryMapperTest {
         rowSet.updateLong(Cols.INSTRUMENT_TOKEN, 992244L)
         rowSet.updateString(Cols.SYMBOL, "ABFRL")
         rowSet.updateString(Cols.EXCHANGE, "NSE")
-        rowSet.updateString(Cols.UNIVERSE, DeliveryUniverse.SMALLCAP_250.storageValue)
+        rowSet.updateString(Cols.UNIVERSE, "SMALLCAP_250")
         rowSet.updateDate(Cols.TRADING_DATE, Date.valueOf("2026-04-10"))
         rowSet.updateString(Cols.RECONCILIATION_STATUS, DeliveryReconciliationStatus.MISSING_FROM_SOURCE.name)
         rowSet.updateNull(Cols.SERIES)
@@ -142,7 +141,7 @@ class StockDeliveryMapperTest {
 
         assertNull(mapped.stockId)
         assertEquals(992244L, mapped.instrumentToken)
-        assertEquals(DeliveryUniverse.SMALLCAP_250, mapped.universe)
+        assertEquals("SMALLCAP_250", mapped.universe)
         assertEquals(DeliveryReconciliationStatus.MISSING_FROM_SOURCE, mapped.reconciliationStatus)
         assertNull(mapped.delivPer)
         assertNull(mapped.series)

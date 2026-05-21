@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.google.inject.Inject
 import com.google.inject.Singleton
-import com.tradingtool.core.delivery.model.DeliveryUniverse
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.io.InputStream
@@ -67,9 +66,9 @@ class DeliveryConfigService @Inject constructor() {
         return resolveConfiguredUniverseAssignments(watchlistSymbols).keys
     }
 
-    fun resolveConfiguredUniverseAssignments(watchlistSymbols: List<String> = emptyList()): Map<String, DeliveryUniverse> {
+    fun resolveConfiguredUniverseAssignments(watchlistSymbols: List<String> = emptyList()): Map<String, String> {
         val config = loadConfig()
-        val assignments = linkedMapOf<String, DeliveryUniverse>()
+        val assignments = linkedMapOf<String, String>()
         config.universe.presetNames.forEach { presetName ->
             val universe = PRESET_UNIVERSE_VALUES[presetName]
             if (universe == null) {
@@ -90,7 +89,7 @@ class DeliveryConfigService @Inject constructor() {
         }
 
         normalizedWatchlistSymbols.forEach { symbol ->
-            assignments.putIfAbsent(symbol, DeliveryUniverse.WATCHLIST)
+            assignments.putIfAbsent(symbol, "WATCHLIST")
         }
 
         return assignments.toSortedMap()
@@ -132,9 +131,9 @@ class DeliveryConfigService @Inject constructor() {
             PRESET_LARGE_MIDCAP_250 to "strategy-universes/nifty_largemidcap_250.csv",
             PRESET_SMALLCAP_250 to "strategy-universes/nifty_smallcap_250.csv",
         )
-        private val PRESET_UNIVERSE_VALUES: Map<String, DeliveryUniverse> = mapOf(
-            PRESET_LARGE_MIDCAP_250 to DeliveryUniverse.LARGEMIDCAP_250,
-            PRESET_SMALLCAP_250 to DeliveryUniverse.SMALLCAP_250,
+        private val PRESET_UNIVERSE_VALUES: Map<String, String> = mapOf(
+            PRESET_LARGE_MIDCAP_250 to "LARGEMIDCAP_250",
+            PRESET_SMALLCAP_250 to "SMALLCAP_250",
         )
     }
 }

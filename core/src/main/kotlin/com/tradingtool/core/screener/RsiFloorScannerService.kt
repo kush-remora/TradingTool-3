@@ -9,9 +9,7 @@ import com.google.inject.Singleton
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.database.CandleJdbiHandler
 import com.tradingtool.core.database.RedisHandler
-import com.tradingtool.core.database.StockFundamentalsJdbiHandler
 import com.tradingtool.core.database.StockJdbiHandler
-import com.tradingtool.core.fundamentals.config.FundamentalsConfigService
 import com.tradingtool.core.fundamentals.config.NseIndexConstituentsService
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConnectClient
@@ -31,11 +29,9 @@ class RsiFloorScannerService @Inject constructor(
     private val redis: RedisHandler,
     private val candleHandler: CandleJdbiHandler,
     private val stockHandler: StockJdbiHandler,
-    private val fundamentalsHandler: StockFundamentalsJdbiHandler,
     private val instrumentCache: InstrumentCache,
     private val kiteClient: KiteConnectClient,
     private val rsiMomentumConfigService: RsiMomentumConfigService,
-    private val fundamentalsConfigService: FundamentalsConfigService,
     private val nseIndexConstituentsService: NseIndexConstituentsService,
 ) {
     private val log = LoggerFactory.getLogger(RsiFloorScannerService::class.java)
@@ -77,7 +73,6 @@ class RsiFloorScannerService @Inject constructor(
         val minimumCandlesRequired = maxOf(normalized.rsiPeriod + 1, normalized.lookbackMatchDays)
 
         val resolvedTokens = resolveTokens(universeSymbols, stocksBySymbol)
-        val fundamentalsByToken = loadLatestFundamentalsByToken(resolvedTokens.values.toSet())
         val today = LocalDate.now(ist)
         val fromDate = today.minusDays(computeCalendarLookbackDays(normalized))
 
@@ -104,8 +99,7 @@ class RsiFloorScannerService @Inject constructor(
             }
 
             scannedSymbols++
-            val fundamentals = fundamentalsByToken[token]
-            val capBucket = classifyMarketCapBucket(fundamentals?.marketCapCr)
+            val capBucket = classifyMarketCapBucket(null)
             rows += RsiFloorScannerRow(
                 symbol = symbol,
                 companyName = companyName,
@@ -120,7 +114,7 @@ class RsiFloorScannerService @Inject constructor(
                 drawdownPct = matched.drawdownPct,
                 high52w = matched.high52w,
                 low52w = matched.low52w,
-                marketCapCr = fundamentals?.marketCapCr,
+                marketCapCr = null,
                 capBucket = capBucket,
                 historyType = matched.historyType,
             )
@@ -204,11 +198,9 @@ class RsiFloorScannerService @Inject constructor(
                 .filter { symbol -> symbol.isNotEmpty() }
                 .toList()
             "ALL_CUSTOM_UNIVERSE" -> {
-                val presetNames = fundamentalsConfigService.loadConfig().universe.presetNames
-                val presetSymbols = presetNames.flatMap { presetName ->
-                    fundamentalsConfigService.loadPresetSymbols(presetName)
-                }
-                presetSymbols + GROWW_WATCHLIST_SYMBOLS
+                nseIndexConstituentsService.fetchSymbols("NIFTY LARGEMIDCAP 250") +
+                    nseIndexConstituentsService.fetchSymbols("NIFTY SMALLCAP 250") +
+                    GROWW_WATCHLIST_SYMBOLS
             }
             "NIFTY_100" -> nseIndexConstituentsService.fetchSymbols("NIFTY 100")
             "NIFTY_MIDCAP_250" -> nseIndexConstituentsService.fetchSymbols("NIFTY MIDCAP 250")
@@ -272,13 +264,6 @@ class RsiFloorScannerService @Inject constructor(
         return instrumentCache.find(token)?.name?.takeIf { name -> name.isNotBlank() }
             ?: stocksBySymbol[symbol]?.companyName
             ?: symbol
-    }
-
-    private suspend fun loadLatestFundamentalsByToken(tokens: Set<Long>): Map<Long, com.tradingtool.core.fundamentals.model.StockFundamentalsDaily> {
-        if (tokens.isEmpty()) return emptyMap()
-        return fundamentalsHandler.read { dao ->
-            dao.findLatestByInstrumentTokens(tokens.toList())
-        }.associateBy { row -> row.instrumentToken }
     }
 
     private suspend fun loadYearlyCandlesWithFallback(

@@ -2,7 +2,6 @@ package com.tradingtool.core.strategy.wyckoff.deliverythreshold
 
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.delivery.model.DeliveryReconciliationStatus
-import com.tradingtool.core.delivery.model.DeliveryUniverse
 import com.tradingtool.core.delivery.model.StockDeliveryDaily
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -194,7 +193,7 @@ class DeliveryThresholdBacktestEngineTest {
             instrumentToken = token,
             symbol = "ABC",
             exchange = "NSE",
-            universe = DeliveryUniverse.SMALLCAP_250,
+            universe = "SMALLCAP_250",
             tradingDate = date,
             reconciliationStatus = DeliveryReconciliationStatus.PRESENT,
             series = "EQ",

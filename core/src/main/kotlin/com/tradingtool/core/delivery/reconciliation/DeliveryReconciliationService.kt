@@ -7,7 +7,6 @@ import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.delivery.config.DeliveryDataSource
 import com.tradingtool.core.delivery.model.DeliveryReconciliationStatus
 import com.tradingtool.core.delivery.model.DeliverySourceRow
-import com.tradingtool.core.delivery.model.DeliveryUniverse
 import com.tradingtool.core.delivery.model.StockDeliveryDaily
 import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
 import com.tradingtool.core.delivery.validation.DeliveryFileDescriptor
@@ -93,7 +92,7 @@ class DeliveryReconciliationService @Inject constructor(
                     instrumentToken = token,
                     symbol = sourceRow.symbol.uppercase(),
                     exchange = NSE_EXCHANGE,
-                    universe = DeliveryUniverse.DEPRECATED,
+                    universe = "DEPRECATED",
                     tradingDate = sourceRow.tradingDate,
                     reconciliationStatus = DeliveryReconciliationStatus.PRESENT,
                     series = sourceRow.series,
@@ -113,7 +112,7 @@ class DeliveryReconciliationService @Inject constructor(
                     instrumentToken = row.instrumentToken,
                     symbol = row.symbol,
                     exchange = row.exchange,
-                    universe = row.universe.storageValue,
+                    universe = row.universe,
                     tradingDate = row.tradingDate,
                     reconciliationStatus = row.reconciliationStatus.name,
                     series = row.series,

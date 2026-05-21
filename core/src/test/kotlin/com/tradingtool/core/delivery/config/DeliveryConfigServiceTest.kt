@@ -3,7 +3,6 @@ package com.tradingtool.core.delivery.config
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
-import com.tradingtool.core.delivery.model.DeliveryUniverse
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
 import kotlin.io.path.deleteIfExists
@@ -96,8 +95,8 @@ class DeliveryConfigServiceTest {
                 watchlistSymbols = listOf("CUSTOM", "RELIANCE"),
             )
 
-            assertEquals(DeliveryUniverse.LARGEMIDCAP_250, assignments["RELIANCE"])
-            assertEquals(DeliveryUniverse.WATCHLIST, assignments["CUSTOM"])
+            assertEquals("LARGEMIDCAP_250", assignments["RELIANCE"])
+            assertEquals("WATCHLIST", assignments["CUSTOM"])
         }
     }
 

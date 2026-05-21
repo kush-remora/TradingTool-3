@@ -2,8 +2,6 @@ package com.tradingtool.resources
 
 import com.google.inject.Inject
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
-import com.tradingtool.core.database.StockFundamentalsJdbiHandler
-import com.tradingtool.core.fundamentals.config.FundamentalsConfigService
 import com.tradingtool.core.fundamentals.config.NseIndexConstituentsService
 import com.tradingtool.core.fundamentals.filter.FundamentalsFilterConfigService
 import com.tradingtool.core.fundamentals.filter.FundamentalsProfileRule
@@ -102,10 +100,8 @@ data class FundamentalsTagOverviewResponse(
 class ScreenerResource @Inject constructor(
     private val candleDataService: CandleDataService,
     private val weeklyPatternService: WeeklyPatternService,
-    private val fundamentalsConfigService: FundamentalsConfigService,
     private val nseIndexConstituentsService: NseIndexConstituentsService,
     private val fundamentalsFilterConfigService: FundamentalsFilterConfigService,
-    private val fundamentalsHandler: StockFundamentalsJdbiHandler,
     private val deliveryHandler: StockDeliveryJdbiHandler,
     private val stockHandler: com.tradingtool.core.database.StockJdbiHandler,
     private val indexConstituentHandler: com.tradingtool.core.database.IndexConstituentJdbiHandler,
@@ -464,7 +460,7 @@ class ScreenerResource @Inject constructor(
                     instrumentToken = stock.instrumentToken,
                     symbol = symbol,
                     exchange = stock.exchange,
-                    universe = com.tradingtool.core.delivery.model.DeliveryUniverse.WATCHLIST.storageValue,
+                    universe = "WATCHLIST",
                     tradingDate = row.tradingDate,
                     reconciliationStatus = com.tradingtool.core.delivery.model.DeliveryReconciliationStatus.PRESENT.name,
                     series = row.series,
@@ -790,12 +786,7 @@ class ScreenerResource @Inject constructor(
             return fromStockTags
         }
 
-        return when (tag) {
-            FundamentalsIndexTag.NIFTY_SMALLCAP_250 -> fundamentalsConfigService.loadPresetSymbols(
-                FundamentalsConfigService.PRESET_SMALLCAP_250,
-            )
-            else -> emptyList()
-        }
+        return emptyList()
     }
 
     private suspend fun buildFundamentalsRowsForTag(tag: FundamentalsIndexTag): List<FundamentalsTableRow> {
@@ -811,29 +802,24 @@ class ScreenerResource @Inject constructor(
         val watchlistRowsBySymbol = watchlistService.getRows(null)
             .associateBy { row -> row.symbol.uppercase() }
 
-        val fundamentalsBySymbol = fundamentalsHandler.read { dao ->
-            dao.findLatestBySymbols(symbols)
-        }.associateBy { row -> row.symbol.uppercase() }
-
         return symbols.map { symbol ->
             val stock = stocksBySymbol[symbol]
             val watchRow = watchlistRowsBySymbol[symbol]
-            val fundamentals = fundamentalsBySymbol[symbol]
-            val instrumentToken = stock?.instrumentToken ?: fundamentals?.instrumentToken ?: 0L
+            val instrumentToken = stock?.instrumentToken ?: 0L
             FundamentalsTableRow(
                 symbol = symbol,
-                companyName = stock?.companyName ?: fundamentals?.companyName ?: symbol,
-                exchange = stock?.exchange ?: fundamentals?.exchange ?: "NSE",
+                companyName = stock?.companyName ?: symbol,
+                exchange = stock?.exchange ?: "NSE",
                 instrumentToken = instrumentToken,
                 tag = tag.key,
-                fundamentalsSnapshotDate = fundamentals?.snapshotDate,
-                marketCapCr = fundamentals?.marketCapCr,
-                stockPe = fundamentals?.stockPe,
-                rocePercent = fundamentals?.rocePercent,
-                roePercent = fundamentals?.roePercent,
-                promoterHoldingPercent = fundamentals?.promoterHoldingPercent,
-                industry = fundamentals?.industry,
-                broadIndustry = fundamentals?.broadIndustry,
+                fundamentalsSnapshotDate = null,
+                marketCapCr = null,
+                stockPe = null,
+                rocePercent = null,
+                roePercent = null,
+                promoterHoldingPercent = null,
+                industry = null,
+                broadIndustry = null,
                 ltp = watchRow?.ltp,
                 rsi14 = watchRow?.rsi14,
                 roc1w = watchRow?.roc1w,

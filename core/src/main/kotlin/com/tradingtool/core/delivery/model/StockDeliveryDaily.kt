@@ -8,7 +8,7 @@ data class StockDeliveryDaily(
     val instrumentToken: Long,
     val symbol: String,
     val exchange: String,
-    val universe: DeliveryUniverse,
+    val universe: String,
     val tradingDate: LocalDate,
     val reconciliationStatus: DeliveryReconciliationStatus,
     val series: String?,

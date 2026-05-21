@@ -15,7 +15,6 @@ import com.tradingtool.core.database.RedisHandler
 import com.tradingtool.core.database.RemoraJdbiHandler
 import com.tradingtool.core.database.RsiMomentumSnapshotJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
-import com.tradingtool.core.database.StockFundamentalsJdbiHandler
 import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.http.CoreHttpModule
@@ -31,8 +30,6 @@ import com.tradingtool.core.kite.TickerSubscriptions
 import com.tradingtool.core.model.DatabaseConfig
 import com.tradingtool.core.stock.dao.StockReadDao
 import com.tradingtool.core.stock.dao.StockWriteDao
-import com.tradingtool.core.fundamentals.dao.StockFundamentalsReadDao
-import com.tradingtool.core.fundamentals.dao.StockFundamentalsWriteDao
 import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.candle.dao.CandleReadDao
 import com.tradingtool.core.candle.dao.CandleWriteDao
@@ -136,10 +133,6 @@ class ServiceModule(
     @Provides @Singleton
     fun provideStockJdbiHandler(config: DatabaseConfig): StockJdbiHandler =
         handler<StockReadDao, StockWriteDao>(config)
-
-    @Provides @Singleton
-    fun provideStockFundamentalsJdbiHandler(config: DatabaseConfig): StockFundamentalsJdbiHandler =
-        handler<StockFundamentalsReadDao, StockFundamentalsWriteDao>(config)
 
     @Provides @Singleton
     fun provideTradeJdbiHandler(config: DatabaseConfig): JdbiHandler<TradeReadDao, TradeWriteDao> =

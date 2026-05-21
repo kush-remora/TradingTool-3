@@ -4,7 +4,6 @@ import com.tradingtool.core.delivery.model.DeliveryReconciliationStatus
 import com.tradingtool.core.delivery.model.DeliverySourceRow
 import com.tradingtool.core.delivery.model.DeliverySourceType
 import com.tradingtool.core.delivery.model.StockDeliveryDaily
-import com.tradingtool.core.delivery.model.DeliveryUniverse
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -56,8 +55,8 @@ class DeliveryReconciliationAnalyzerTest {
     @Test
     fun `buildUpserts creates present and missing rows from source comparison`() {
         val expectations = listOf(
-            DeliveryExpectation(stockId = 1L, instrumentToken = 101L, symbol = "RELIANCE", exchange = "NSE", universe = DeliveryUniverse.LARGEMIDCAP_250),
-            DeliveryExpectation(stockId = null, instrumentToken = 202L, symbol = "ABFRL", exchange = "NSE", universe = DeliveryUniverse.SMALLCAP_250),
+            DeliveryExpectation(stockId = 1L, instrumentToken = 101L, symbol = "RELIANCE", exchange = "NSE", universe = "LARGEMIDCAP_250"),
+            DeliveryExpectation(stockId = null, instrumentToken = 202L, symbol = "ABFRL", exchange = "NSE", universe = "SMALLCAP_250"),
         )
         val sourceRows = DeliverySourceRowsBySymbol(
             tradingDate = tradingDate,
@@ -89,7 +88,7 @@ class DeliveryReconciliationAnalyzerTest {
             instrumentToken = instrumentToken,
             symbol = "SYM$instrumentToken",
             exchange = "NSE",
-            universe = DeliveryUniverse.LARGEMIDCAP_250,
+            universe = "LARGEMIDCAP_250",
             tradingDate = tradingDate,
             reconciliationStatus = status,
             series = "EQ",
