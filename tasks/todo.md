@@ -2077,3 +2077,20 @@ Apply source rule `MTO for today/yesterday, CM_BHAVDATA_FULL for older dates` an
 - Validation:
   - `mvn -q -pl core,cron-job -am -DskipTests compile` passed.
   - `mvn -q -pl core test -Dtest=DeliveryReconciliationAnalyzerTest,DeliveryReconciliationRunReportTest,NseDeliverySourceAdapterTest` passed.
+
+# Implementation Plan: 104W Live CSV Export (2026-05-21)
+
+## Overview
+Add a simple export button on the `104W Live` screen to download current scan results as one CSV file.
+
+## Implementation Steps
+- [x] Add CSV serialization for all three result buckets with explicit `bucket` column.
+- [x] Add `Export CSV` action in results panel.
+- [x] Trigger browser download using Blob URL.
+- [x] Run frontend build check.
+
+## Review
+- Updated:
+  - `frontend/src/pages/FiftyTwoWeekHighLivePage.tsx`
+- Validation:
+  - `npm --prefix frontend run build` passed.

@@ -8,6 +8,7 @@ import com.tradingtool.core.delivery.model.DeliverySourceType
 import com.tradingtool.core.delivery.validation.DeliveryDiscoveryResult
 import com.tradingtool.core.delivery.validation.DeliveryFileDescriptor
 import com.tradingtool.core.http.JsonHttpClient
+import com.tradingtool.core.http.HttpError
 import com.tradingtool.core.http.Result
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
@@ -146,7 +147,13 @@ class NseDeliverySourceAdapter(
         val response = jsonHttpClient.getRaw(url, defaultHeaders())
         return when (response) {
             is Result.Success -> response.data
-            is Result.Failure -> error("Failed to download file from $url: ${response.error.describe()}")
+            is Result.Failure -> {
+                val error = response.error
+                if (error is HttpError.HttpStatusError && error.statusCode == 404) {
+                    throw DeliverySourceUnavailableException("Delivery source file not available yet: $url")
+                }
+                error("Failed to download file from $url: ${error.describe()}")
+            }
         }
     }
 

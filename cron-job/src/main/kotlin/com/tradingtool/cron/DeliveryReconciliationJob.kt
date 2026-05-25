@@ -11,6 +11,7 @@ import com.tradingtool.core.delivery.reconciliation.DeliveryReconciliationRunRep
 import com.tradingtool.core.delivery.reconciliation.DeliveryReconciliationService
 import com.tradingtool.core.delivery.reconciliation.toMarkdown
 import com.tradingtool.core.delivery.reconciliation.toTelegramSummary
+import com.tradingtool.core.delivery.source.DeliverySourceUnavailableException
 import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
 import com.tradingtool.core.http.HttpClientConfig
 import com.tradingtool.core.http.JdkHttpClientImpl
@@ -58,7 +59,7 @@ fun main(args: Array<String>) {
                 requestedDate = cli.requestedDate,
                 backfillSettings = runtime.backfillSettings,
             )
-            val outputDir = writeArtifacts(report)
+            val outputDir = writeArtifacts(report, runtime.objectMapper)
             runtime.telegramNotifier.cronCompleted(jobName, report.toTelegramSummary())
             log.info(
                 "Delivery reconciliation completed: resolvedDate={} expected={} present={} missingFromSource={} artifacts={}",
@@ -89,23 +90,42 @@ private data class DeliveryReconciliationRuntime(
     val service: DeliveryReconciliationService,
     val telegramNotifier: TelegramNotifier,
     val backfillSettings: DeliveryBackfillSettings,
+    val objectMapper: ObjectMapper,
 ) {
     companion object {
         fun fromEnvironment(): DeliveryReconciliationRuntime {
-            val databaseConfig = DatabaseConfig(
-                jdbcUrl = ConfigLoader.get("SUPABASE_DB_URL", "supabase.dbUrl"),
+            val databaseConfig = DatabaseConfig(jdbcUrl = ConfigLoader.get("SUPABASE_DB_URL", "supabase.dbUrl"))
+            val httpClient = buildHttpClient()
+            val objectMapper = buildObjectMapper()
+            val service = buildDeliveryReconciliationService(databaseConfig, httpClient, objectMapper)
+
+            return DeliveryReconciliationRuntime(
+                service = service,
+                telegramNotifier = buildTelegramNotifier(httpClient, objectMapper),
+                backfillSettings = loadBackfillSettings(),
+                objectMapper = objectMapper,
             )
-            val httpClient = JdkHttpClientImpl(
+        }
+
+        private fun buildHttpClient(): JdkHttpClientImpl {
+            return JdkHttpClientImpl(
                 JdkHttpClient.newBuilder().build(),
                 HttpClientConfig(),
             )
-            val objectMapper = buildObjectMapper()
+        }
+
+        private fun buildDeliveryReconciliationService(
+            databaseConfig: DatabaseConfig,
+            httpClient: JdkHttpClientImpl,
+            objectMapper: ObjectMapper,
+        ): DeliveryReconciliationService {
             val stockHandler = JdbiHandler(databaseConfig, StockReadDao::class.java, StockWriteDao::class.java)
             val deliveryHandler = JdbiHandler(databaseConfig, StockDeliveryReadDao::class.java, StockDeliveryWriteDao::class.java)
             val indexConstituentHandler =
                 JdbiHandler(databaseConfig, IndexConstituentReadDao::class.java, IndexConstituentWriteDao::class.java)
             val tokenHandler = JdbiHandler(databaseConfig, KiteTokenReadDao::class.java, KiteTokenWriteDao::class.java)
-            val service = DeliveryReconciliationService(
+
+            return DeliveryReconciliationService(
                 stockHandler = stockHandler,
                 deliveryHandler = deliveryHandler,
                 indexConstituentHandler = indexConstituentHandler,
@@ -117,12 +137,6 @@ private data class DeliveryReconciliationRuntime(
                         objectMapper = objectMapper,
                     ),
                 ),
-            )
-
-            return DeliveryReconciliationRuntime(
-                service = service,
-                telegramNotifier = buildTelegramNotifier(httpClient, objectMapper),
-                backfillSettings = loadBackfillSettings(),
             )
         }
     }
@@ -264,7 +278,6 @@ private suspend fun backfillRecentTradingDays(
                     complete++
                 }
                 DeliveryBackfillOutcome.FAILED -> {
-                    coveredDates++
                     failed++
                 }
             }
@@ -341,11 +354,10 @@ private fun parseArgs(args: Array<String>): DeliveryReconciliationCliArgs {
     return DeliveryReconciliationCliArgs(requestedDate = requestedDate)
 }
 
-private fun writeArtifacts(report: DeliveryReconciliationRunReport): Path {
+private fun writeArtifacts(report: DeliveryReconciliationRunReport, objectMapper: ObjectMapper): Path {
     val outputDir = Paths.get("build", "reports", "delivery-reconciliation")
     Files.createDirectories(outputDir)
 
-    val objectMapper = buildObjectMapper()
     Files.writeString(outputDir.resolve("latest.json"), objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(report))
     Files.writeString(outputDir.resolve("latest.md"), report.toMarkdown())
     return outputDir
@@ -449,6 +461,12 @@ private fun readNonNegativeIntConfig(
 }
 
 private fun isSourceUnavailableError(error: Throwable): Boolean {
-    val message = error.message?.lowercase().orEmpty()
-    return message.contains("failed to download file") && message.contains("http 404")
+    var cursor: Throwable? = error
+    while (cursor != null) {
+        if (cursor is DeliverySourceUnavailableException) {
+            return true
+        }
+        cursor = cursor.cause
+    }
+    return false
 }

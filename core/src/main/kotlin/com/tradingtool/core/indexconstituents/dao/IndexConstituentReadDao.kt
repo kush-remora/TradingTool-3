@@ -59,7 +59,7 @@ interface IndexConstituentReadDao {
         """
         SELECT
             ${IndexConstituentColumns.INSTRUMENT_TOKEN} AS instrument_token,
-            string_agg(DISTINCT ${IndexConstituentColumns.INDEX_KEY}, ',' ORDER BY ${IndexConstituentColumns.INDEX_KEY}) AS universe
+            MIN(${IndexConstituentColumns.INDEX_KEY}) AS universe
         FROM public.${Tables.INDEX_CONSTITUENTS}
         WHERE ${IndexConstituentColumns.IS_ACTIVE} = true
           AND ${IndexConstituentColumns.INSTRUMENT_TOKEN} IN (<instrumentTokens>)

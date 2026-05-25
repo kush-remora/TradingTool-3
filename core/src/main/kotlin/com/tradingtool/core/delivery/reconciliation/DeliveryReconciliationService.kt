@@ -9,6 +9,7 @@ import com.tradingtool.core.delivery.config.DeliveryDataSource
 import com.tradingtool.core.delivery.model.DeliveryReconciliationStatus
 import com.tradingtool.core.delivery.model.DeliverySourceRow
 import com.tradingtool.core.delivery.model.StockDeliveryDaily
+import com.tradingtool.core.delivery.source.DeliverySourceUnavailableException
 import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
 import com.tradingtool.core.delivery.validation.DeliveryFileDescriptor
 import com.tradingtool.core.kite.InstrumentCache
@@ -176,7 +177,7 @@ class DeliveryReconciliationService @Inject constructor(
             )
         }
 
-        error("No delivery source could be resolved for trading date $tradingDate")
+        throw DeliverySourceUnavailableException("No delivery source available for trading date $tradingDate")
     }
 
     private suspend fun resolveSourceDescriptorForSource(
@@ -235,7 +236,7 @@ class DeliveryReconciliationService @Inject constructor(
         return null
     }
 
-    private fun loadUniverseByInstrumentToken(tokens: List<Long>): Map<Long, String> {
+    private suspend fun loadUniverseByInstrumentToken(tokens: List<Long>): Map<Long, String> {
         if (tokens.isEmpty()) {
             return emptyMap()
         }

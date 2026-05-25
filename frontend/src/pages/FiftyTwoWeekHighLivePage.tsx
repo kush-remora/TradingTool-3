@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Button, Card, Empty, Input, Select, Space, Spin, Statistic, Table, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { FilterFilled } from "@ant-design/icons";
+import { DownloadOutlined, FilterFilled } from "@ant-design/icons";
 import { getJson } from "../utils/api";
 import { use52WeekHighLive } from "../hooks/use52WeekHighLive";
 import type { FiftyTwoWeekHighLiveRequest, FiftyTwoWeekHighLiveResponse, FiftyTwoWeekHighLiveRow, UniverseOptionsResponse } from "../types";
@@ -15,6 +15,58 @@ function parseSymbols(input: string): string[] {
 
 function containsIgnoreCase(source: string, query: string): boolean {
   return source.toLowerCase().includes(query.toLowerCase());
+}
+
+function escapeCsv(value: string): string {
+  return `"${value.replace(/"/g, "\"\"")}"`;
+}
+
+function toCsv(data: FiftyTwoWeekHighLiveResponse): string {
+  const header = [
+    "bucket",
+    "symbol",
+    "indexBucket",
+    "latestDate",
+    "breakoutLevel",
+    "latestHigh",
+    "latestClose",
+    "gapToBreakoutPct",
+    "lastHitDate",
+    "cooldownActive",
+  ];
+
+  const rows: Array<{ bucket: string; row: FiftyTwoWeekHighLiveRow }> = [
+    ...data.nearBreakout.map((row) => ({ bucket: "NEAR_BREAKOUT", row })),
+    ...data.hitInLast2Weeks.map((row) => ({ bucket: "HIT_LAST_2_WEEKS", row })),
+    ...data.hitToday.map((row) => ({ bucket: "HIT_TODAY", row })),
+  ];
+
+  const lines = rows.map(({ bucket, row }) => [
+    bucket,
+    row.symbol,
+    row.indexBucket,
+    row.latestDate,
+    row.breakoutLevel.toFixed(2),
+    row.latestHigh.toFixed(2),
+    row.latestClose.toFixed(2),
+    row.gapToBreakoutPct.toFixed(2),
+    row.lastHitDate ?? "",
+    row.cooldownActive ? "YES" : "NO",
+  ].map((value) => escapeCsv(String(value))).join(","));
+
+  return [header.join(","), ...lines].join("\n");
+}
+
+function downloadCsv(filename: string, csv: string): void {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 function withTextFilter(
@@ -181,6 +233,13 @@ function ResultPanel({
     },
   ]);
 
+  const exportAllBuckets = (): void => {
+    const csv = toCsv(data);
+    const fileDate = new Date().toISOString().slice(0, 10);
+    downloadCsv(`104w-live-${fileDate}.csv`, csv);
+    message.success("CSV export started");
+  };
+
   return (
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
       <Space size={12} wrap>
@@ -188,6 +247,9 @@ function ResultPanel({
         <Card size="small"><Statistic title="Hit in Last 2 Weeks" value={data.summary.hitInLast2Weeks} /></Card>
         <Card size="small"><Statistic title="Hit Today" value={data.summary.hitToday} /></Card>
       </Space>
+      <Button icon={<DownloadOutlined />} onClick={exportAllBuckets} style={{ width: "fit-content" }}>
+        Export CSV
+      </Button>
 
       <Card size="small" title="Near Breakout">
         <Table rowKey={(row) => `near-${row.symbol}`} columns={buildColumns("NEAR_BREAKOUT")} dataSource={data.nearBreakout} size="small" pagination={{ pageSize: 25, showSizeChanger: true }} />
