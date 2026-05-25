@@ -101,4 +101,20 @@ interface IndexConstituentWriteDao {
         @Bind("indexKey") indexKey: String,
         @Bind("syncedAt") syncedAt: OffsetDateTime,
     ): Int
+
+    @SqlUpdate(
+        """
+        UPDATE public.${Tables.INDEX_CONSTITUENTS}
+        SET
+            ${IndexConstituentColumns.INSTRUMENT_TOKEN} = :instrumentToken,
+            ${IndexConstituentColumns.UPDATED_AT} = :syncedAt
+        WHERE ${IndexConstituentColumns.SYMBOL} = :symbol
+          AND ${IndexConstituentColumns.IS_ACTIVE} = true
+        """,
+    )
+    fun updateInstrumentTokenBySymbol(
+        @Bind("symbol") symbol: String,
+        @Bind("instrumentToken") instrumentToken: Long,
+        @Bind("syncedAt") syncedAt: OffsetDateTime,
+    ): Int
 }

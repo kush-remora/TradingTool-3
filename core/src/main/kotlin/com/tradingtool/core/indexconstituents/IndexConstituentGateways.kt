@@ -1,11 +1,16 @@
 package com.tradingtool.core.indexconstituents
 
+import com.tradingtool.core.kite.InstrumentTokenResolution
+
 interface IndexConstituentSource {
     suspend fun fetchRows(index: IndexDefinition): List<IndexConstituentCsvRow>
 }
 
 interface IndexConstituentTokenResolver {
-    suspend fun resolve(exchange: String, symbol: String): Long?
+    suspend fun resolveDetailed(exchange: String, symbol: String): InstrumentTokenResolution
+
+    suspend fun resolve(exchange: String, symbol: String): Long? =
+        resolveDetailed(exchange, symbol).resolvedToken
 }
 
 interface IndexConstituentGateway {

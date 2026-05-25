@@ -234,6 +234,10 @@ class IndicatorService(
     ) {
         log.info("Fetching history for ${stock.symbol} (token=${stock.instrumentToken})")
 
+        if(stock.symbol == "TATASTEEL"){
+            println("chekc now ")
+        }
+
         val (fromDate, toDate) = buildDateRange()
         awaitKiteRequestSlot()
 

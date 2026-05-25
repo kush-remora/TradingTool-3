@@ -13,9 +13,9 @@ import com.tradingtool.core.delivery.source.DeliverySourceUnavailableException
 import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
 import com.tradingtool.core.delivery.validation.DeliveryFileDescriptor
 import com.tradingtool.core.kite.InstrumentCache
+import com.tradingtool.core.kite.InstrumentTokenResolution
+import com.tradingtool.core.kite.InstrumentTokenResolverService
 import com.tradingtool.core.kite.KiteConnectClient
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
 import java.time.ZoneId
@@ -30,6 +30,7 @@ class DeliveryReconciliationService @Inject constructor(
     private val sourceAdapter: NseDeliverySourceAdapter,
 ) {
     private val log = LoggerFactory.getLogger(DeliveryReconciliationService::class.java)
+    private val tokenResolver = InstrumentTokenResolverService(kiteClient, instrumentCache)
 
     suspend fun latestAvailableTradingDate(): LocalDate? {
         return sourceAdapter.discoverDeliveryReports()?.resolvedTradingDate
@@ -68,7 +69,6 @@ class DeliveryReconciliationService @Inject constructor(
             )
         }
 
-        ensureInstrumentCacheLoaded()
         val sourcePayload = resolveSourcePayload(tradingDate)
         val sourceRowsBySymbol = when {
             sourcePayload.rows.isEmpty() -> DeliverySourceRowsBySymbol(
@@ -83,31 +83,39 @@ class DeliveryReconciliationService @Inject constructor(
             dao.listBySymbols(sourceSymbols, NSE_EXCHANGE)
         }.associateBy { stock -> stock.symbol.uppercase() }
 
-        val unresolvedSymbols = mutableListOf<String>()
-        val resolvedTokens = sourceRowsBySymbol.rowsBySymbol.values.mapNotNull { resolveInstrumentToken(it) }.distinct()
-        val universeByToken = loadUniverseByInstrumentToken(resolvedTokens)
-        val upserts = sourceRowsBySymbol.rowsBySymbol.values.mapNotNull { sourceRow ->
-            val token = resolveInstrumentToken(sourceRow)
-            if (token == null) {
-                unresolvedSymbols += sourceRow.symbol.uppercase()
+        val unresolvedResolutions = mutableListOf<InstrumentTokenResolution>()
+        val resolvedPairs = sourceRowsBySymbol.rowsBySymbol.values.mapNotNull { sourceRow ->
+            val resolution = resolveInstrumentToken(sourceRow)
+            val resolvedToken = resolution.resolvedToken
+            if (resolvedToken == null) {
+                unresolvedResolutions += resolution
                 null
             } else {
-                DeliveryReconciliationUpsert(
-                    stockId = trackedStocksBySymbol[sourceRow.symbol.uppercase()]?.id,
-                    instrumentToken = token,
-                    symbol = sourceRow.symbol.uppercase(),
-                    exchange = NSE_EXCHANGE,
-                    universe = universeByToken[token] ?: UNKNOWN_UNIVERSE,
-                    tradingDate = sourceRow.tradingDate,
-                    reconciliationStatus = DeliveryReconciliationStatus.PRESENT,
-                    series = sourceRow.series,
-                    ttlTrdQnty = sourceRow.tradedQuantity,
-                    delivQty = sourceRow.deliverableQuantity,
-                    delivPer = sourceRow.deliveryPercent,
-                    sourceFileName = sourcePayload.descriptor.fileName,
-                    sourceUrl = sourcePayload.descriptor.url,
-                )
+                sourceRow to resolvedToken
             }
+        }
+        if (unresolvedResolutions.isNotEmpty()) {
+            throw IllegalStateException(buildUnresolvedTokenMessage(unresolvedResolutions))
+        }
+
+        val resolvedTokens = resolvedPairs.map { (_, token) -> token }.distinct()
+        val universeByToken = loadUniverseByInstrumentToken(resolvedTokens)
+        val upserts = resolvedPairs.map { (sourceRow, token) ->
+            DeliveryReconciliationUpsert(
+                stockId = trackedStocksBySymbol[sourceRow.symbol.uppercase()]?.id,
+                instrumentToken = token,
+                symbol = sourceRow.symbol.uppercase(),
+                exchange = NSE_EXCHANGE,
+                universe = universeByToken[token] ?: UNKNOWN_UNIVERSE,
+                tradingDate = sourceRow.tradingDate,
+                reconciliationStatus = DeliveryReconciliationStatus.PRESENT,
+                series = sourceRow.series,
+                ttlTrdQnty = sourceRow.tradedQuantity,
+                delivQty = sourceRow.deliverableQuantity,
+                delivPer = sourceRow.deliveryPercent,
+                sourceFileName = sourcePayload.descriptor.fileName,
+                sourceUrl = sourcePayload.descriptor.url,
+            )
         }
 
         deliveryHandler.write { dao ->
@@ -135,7 +143,7 @@ class DeliveryReconciliationService @Inject constructor(
             tradingDate,
             sourcePayload.source.name,
             upserts.size,
-            unresolvedSymbols.size,
+            0,
         )
 
         return DeliveryDateReconciliationResult(
@@ -146,17 +154,6 @@ class DeliveryReconciliationService @Inject constructor(
             presentCount = upserts.size,
             missingFromSourceCount = 0,
         )
-    }
-
-    private suspend fun ensureInstrumentCacheLoaded() {
-        if (!instrumentCache.isEmpty()) {
-            return
-        }
-
-        val instruments = withContext(Dispatchers.IO) {
-            kiteClient.client().getInstruments(NSE_EXCHANGE)
-        }
-        instrumentCache.refresh(instruments)
     }
 
     private suspend fun resolveSourcePayload(tradingDate: LocalDate): ResolvedSourcePayload {
@@ -222,18 +219,19 @@ class DeliveryReconciliationService @Inject constructor(
         }
     }
 
-    private fun resolveInstrumentToken(sourceRow: DeliverySourceRow): Long? {
-        val symbol = sourceRow.symbol.trim().uppercase()
-        val byExactSymbol = instrumentCache.token(NSE_EXCHANGE, symbol)
-        if (byExactSymbol != null) {
-            return byExactSymbol
-        }
+    private suspend fun resolveInstrumentToken(sourceRow: DeliverySourceRow): InstrumentTokenResolution {
+        return tokenResolver.resolveDetailed(NSE_EXCHANGE, sourceRow.symbol)
+    }
 
-        if (sourceRow.series.equals("BE", ignoreCase = true)) {
-            return instrumentCache.token(NSE_EXCHANGE, "$symbol-BE")
-        }
-
-        return null
+    private fun buildUnresolvedTokenMessage(unresolvedResolutions: List<InstrumentTokenResolution>): String {
+        val details = unresolvedResolutions
+            .take(MAX_UNRESOLVED_SYMBOLS_IN_MESSAGE)
+            .joinToString(separator = "; ") { resolution ->
+                val expected = resolution.expectedKeys.joinToString(" | ")
+                val candidates = if (resolution.candidateKeys.isEmpty()) "none" else resolution.candidateKeys.joinToString(" | ")
+                "${resolution.symbol} (expected=$expected, candidates=$candidates)"
+            }
+        return "DeliveryReconciliationJob unresolved instrument tokens: count=${unresolvedResolutions.size}; $details"
     }
 
     private suspend fun loadUniverseByInstrumentToken(tokens: List<Long>): Map<Long, String> {
@@ -249,6 +247,7 @@ class DeliveryReconciliationService @Inject constructor(
     private companion object {
         const val NSE_EXCHANGE: String = "NSE"
         const val UNKNOWN_UNIVERSE: String = "UNKNOWN"
+        const val MAX_UNRESOLVED_SYMBOLS_IN_MESSAGE: Int = 30
         val MARKET_ZONE: ZoneId = ZoneId.of("Asia/Kolkata")
     }
 }

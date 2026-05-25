@@ -1,9 +1,11 @@
 package com.tradingtool.core.indexconstituents
 
+import com.tradingtool.core.kite.InstrumentTokenResolution
 import java.time.OffsetDateTime
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class IndexConstituentSyncServiceTest {
 
@@ -48,7 +50,7 @@ class IndexConstituentSyncServiceTest {
     }
 
     @Test
-    fun `sync records unresolved symbols`() = runBlocking {
+    fun `sync fails fast when unresolved symbols are present`() = runBlocking {
         val source = FakeSource(
             mapOf(
                 "nifty_50" to listOf(
@@ -61,16 +63,15 @@ class IndexConstituentSyncServiceTest {
         val gateway = FakeGateway()
 
         val service = IndexConstituentSyncService(source, resolver, gateway)
-        val report = service.sync(
-            IndexSyncConfig(
-                batchSize = 50,
-                indices = listOf(IndexDefinition("nifty_50", true, "https://example.com/nifty50.csv")),
-            ),
-        )
-
-        val row = report.indexReports.first()
-        assertEquals(listOf("UNKNOWN"), row.unresolvedSymbols)
-        assertEquals(1, row.upsertedCount)
+        assertFailsWith<IllegalStateException> {
+            service.sync(
+                IndexSyncConfig(
+                    batchSize = 50,
+                    indices = listOf(IndexDefinition("nifty_50", true, "https://example.com/nifty50.csv")),
+                ),
+            )
+        }
+        assertEquals(emptyList(), gateway.batchSizes)
     }
 
     private class FakeSource(
@@ -82,7 +83,17 @@ class IndexConstituentSyncServiceTest {
     private class FakeResolver(
         private val tokenBySymbol: Map<String, Long>,
     ) : IndexConstituentTokenResolver {
-        override suspend fun resolve(exchange: String, symbol: String): Long? = tokenBySymbol[symbol]
+        override suspend fun resolveDetailed(exchange: String, symbol: String): InstrumentTokenResolution {
+            val resolvedToken = tokenBySymbol[symbol]
+            return InstrumentTokenResolution(
+                exchange = exchange,
+                symbol = symbol,
+                expectedKeys = listOf("$exchange:$symbol"),
+                resolvedToken = resolvedToken,
+                matchedKey = resolvedToken?.let { "$exchange:$symbol" },
+                candidateKeys = emptyList(),
+            )
+        }
     }
 
     private class FakeGateway : IndexConstituentGateway {

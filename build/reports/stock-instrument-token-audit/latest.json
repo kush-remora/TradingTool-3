@@ -1,0 +1,1163 @@
+{
+  "mode" : "APPLY",
+  "totalStocks" : 128,
+  "matchedCount" : 128,
+  "mismatchedCount" : 0,
+  "unresolvedCount" : 0,
+  "correctedStocksCount" : 0,
+  "correctedIndexConstituentsCount" : 0,
+  "unresolvedSymbols" : [ ],
+  "rows" : [ {
+    "symbol" : "ABBOTINDIA",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 4583169,
+    "resolvedInstrumentToken" : 4583169,
+    "matchedKey" : "NSE:ABBOTINDIA",
+    "expectedKeys" : [ "NSE:ABBOTINDIA", "NSE:ABBOTINDIA-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "ABSLAMC",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 1540609,
+    "resolvedInstrumentToken" : 1540609,
+    "matchedKey" : "NSE:ABSLAMC",
+    "expectedKeys" : [ "NSE:ABSLAMC", "NSE:ABSLAMC-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "ACCELYA",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 1805569,
+    "resolvedInstrumentToken" : 1805569,
+    "matchedKey" : "NSE:ACCELYA",
+    "expectedKeys" : [ "NSE:ACCELYA", "NSE:ACCELYA-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "ACE",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 3478273,
+    "resolvedInstrumentToken" : 3478273,
+    "matchedKey" : "NSE:ACE",
+    "expectedKeys" : [ "NSE:ACE", "NSE:ACE-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "ACUTAAS",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 1427969,
+    "resolvedInstrumentToken" : 1427969,
+    "matchedKey" : "NSE:ACUTAAS",
+    "expectedKeys" : [ "NSE:ACUTAAS", "NSE:ACUTAAS-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "ADANIENSOL",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2615553,
+    "resolvedInstrumentToken" : 2615553,
+    "matchedKey" : "NSE:ADANIENSOL",
+    "expectedKeys" : [ "NSE:ADANIENSOL", "NSE:ADANIENSOL-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "ADANIENT",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 6401,
+    "resolvedInstrumentToken" : 6401,
+    "matchedKey" : "NSE:ADANIENT",
+    "expectedKeys" : [ "NSE:ADANIENT", "NSE:ADANIENT-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "ADANIGREEN",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 912129,
+    "resolvedInstrumentToken" : 912129,
+    "matchedKey" : "NSE:ADANIGREEN",
+    "expectedKeys" : [ "NSE:ADANIGREEN", "NSE:ADANIGREEN-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "AEROFLEX",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 4676609,
+    "resolvedInstrumentToken" : 4676609,
+    "matchedKey" : "NSE:AEROFLEX",
+    "expectedKeys" : [ "NSE:AEROFLEX", "NSE:AEROFLEX-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "ANANDRATHI",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 1829121,
+    "resolvedInstrumentToken" : 1829121,
+    "matchedKey" : "NSE:ANANDRATHI",
+    "expectedKeys" : [ "NSE:ANANDRATHI", "NSE:ANANDRATHI-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "ANANTRAJ",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 3486721,
+    "resolvedInstrumentToken" : 3486721,
+    "matchedKey" : "NSE:ANANTRAJ",
+    "expectedKeys" : [ "NSE:ANANTRAJ", "NSE:ANANTRAJ-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "APEX",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 5535489,
+    "resolvedInstrumentToken" : 5535489,
+    "matchedKey" : "NSE:APEX",
+    "expectedKeys" : [ "NSE:APEX", "NSE:APEX-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "APOLLO",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 290305,
+    "resolvedInstrumentToken" : 290305,
+    "matchedKey" : "NSE:APOLLO",
+    "expectedKeys" : [ "NSE:APOLLO", "NSE:APOLLO-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "ARE&M",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 25601,
+    "resolvedInstrumentToken" : 25601,
+    "matchedKey" : "NSE:ARE&M",
+    "expectedKeys" : [ "NSE:ARE&M", "NSE:ARE&M-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "ASHOKLEY",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 54273,
+    "resolvedInstrumentToken" : 54273,
+    "matchedKey" : "NSE:ASHOKLEY",
+    "expectedKeys" : [ "NSE:ASHOKLEY", "NSE:ASHOKLEY-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "ASTRAMICRO",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2974209,
+    "resolvedInstrumentToken" : 2974209,
+    "matchedKey" : "NSE:ASTRAMICRO",
+    "expectedKeys" : [ "NSE:ASTRAMICRO", "NSE:ASTRAMICRO-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "ATHERENERG",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 193957121,
+    "resolvedInstrumentToken" : 193957121,
+    "matchedKey" : "NSE:ATHERENERG",
+    "expectedKeys" : [ "NSE:ATHERENERG", "NSE:ATHERENERG-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "AVANTIFEED",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2031617,
+    "resolvedInstrumentToken" : 2031617,
+    "matchedKey" : "NSE:AVANTIFEED",
+    "expectedKeys" : [ "NSE:AVANTIFEED", "NSE:AVANTIFEED-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "BBOX",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 879361,
+    "resolvedInstrumentToken" : 879361,
+    "matchedKey" : "NSE:BBOX",
+    "expectedKeys" : [ "NSE:BBOX", "NSE:BBOX-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "BEL",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 98049,
+    "resolvedInstrumentToken" : 98049,
+    "matchedKey" : "NSE:BEL",
+    "expectedKeys" : [ "NSE:BEL", "NSE:BEL-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "BHAGYANGR",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 5324545,
+    "resolvedInstrumentToken" : 5324545,
+    "matchedKey" : "NSE:BHAGYANGR-BE",
+    "expectedKeys" : [ "NSE:BHAGYANGR", "NSE:BHAGYANGR-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "BHARATFORG",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 108033,
+    "resolvedInstrumentToken" : 108033,
+    "matchedKey" : "NSE:BHARATFORG",
+    "expectedKeys" : [ "NSE:BHARATFORG", "NSE:BHARATFORG-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "BHARTIARTL",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2714625,
+    "resolvedInstrumentToken" : 2714625,
+    "matchedKey" : "NSE:BHARTIARTL",
+    "expectedKeys" : [ "NSE:BHARTIARTL", "NSE:BHARTIARTL-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "BHEL",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 112129,
+    "resolvedInstrumentToken" : 112129,
+    "matchedKey" : "NSE:BHEL",
+    "expectedKeys" : [ "NSE:BHEL", "NSE:BHEL-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "BOSCHLTD",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 558337,
+    "resolvedInstrumentToken" : 558337,
+    "matchedKey" : "NSE:BOSCHLTD",
+    "expectedKeys" : [ "NSE:BOSCHLTD", "NSE:BOSCHLTD-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "CASTROLIND",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 320001,
+    "resolvedInstrumentToken" : 320001,
+    "matchedKey" : "NSE:CASTROLIND",
+    "expectedKeys" : [ "NSE:CASTROLIND", "NSE:CASTROLIND-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "CEMPRO",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 1439233,
+    "resolvedInstrumentToken" : 1439233,
+    "matchedKey" : "NSE:CEMPRO",
+    "expectedKeys" : [ "NSE:CEMPRO", "NSE:CEMPRO-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "CGPOWER",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 194561,
+    "resolvedInstrumentToken" : 194561,
+    "matchedKey" : "NSE:CGPOWER",
+    "expectedKeys" : [ "NSE:CGPOWER", "NSE:CGPOWER-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "COFORGE",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2955009,
+    "resolvedInstrumentToken" : 2955009,
+    "matchedKey" : "NSE:COFORGE",
+    "expectedKeys" : [ "NSE:COFORGE", "NSE:COFORGE-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "CPPLUS",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 194267649,
+    "resolvedInstrumentToken" : 194267649,
+    "matchedKey" : "NSE:CPPLUS",
+    "expectedKeys" : [ "NSE:CPPLUS", "NSE:CPPLUS-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "CUMMINSIND",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 486657,
+    "resolvedInstrumentToken" : 486657,
+    "matchedKey" : "NSE:CUMMINSIND",
+    "expectedKeys" : [ "NSE:CUMMINSIND", "NSE:CUMMINSIND-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "DATAPATTNS",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 1883649,
+    "resolvedInstrumentToken" : 1883649,
+    "matchedKey" : "NSE:DATAPATTNS",
+    "expectedKeys" : [ "NSE:DATAPATTNS", "NSE:DATAPATTNS-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "DELHIVERY",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2457345,
+    "resolvedInstrumentToken" : 2457345,
+    "matchedKey" : "NSE:DELHIVERY",
+    "expectedKeys" : [ "NSE:DELHIVERY", "NSE:DELHIVERY-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "DELTACORP",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 3851265,
+    "resolvedInstrumentToken" : 3851265,
+    "matchedKey" : "NSE:DELTACORP",
+    "expectedKeys" : [ "NSE:DELTACORP", "NSE:DELTACORP-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "DIVISLAB",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2800641,
+    "resolvedInstrumentToken" : 2800641,
+    "matchedKey" : "NSE:DIVISLAB",
+    "expectedKeys" : [ "NSE:DIVISLAB", "NSE:DIVISLAB-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "DIXON",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 5552641,
+    "resolvedInstrumentToken" : 5552641,
+    "matchedKey" : "NSE:DIXON",
+    "expectedKeys" : [ "NSE:DIXON", "NSE:DIXON-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "DREDGECORP",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2885377,
+    "resolvedInstrumentToken" : 2885377,
+    "matchedKey" : "NSE:DREDGECORP",
+    "expectedKeys" : [ "NSE:DREDGECORP", "NSE:DREDGECORP-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "EICHERMOT",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 232961,
+    "resolvedInstrumentToken" : 232961,
+    "matchedKey" : "NSE:EICHERMOT",
+    "expectedKeys" : [ "NSE:EICHERMOT", "NSE:EICHERMOT-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "ELECON",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 3492609,
+    "resolvedInstrumentToken" : 3492609,
+    "matchedKey" : "NSE:ELECON",
+    "expectedKeys" : [ "NSE:ELECON", "NSE:ELECON-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "EMCURE",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 6245889,
+    "resolvedInstrumentToken" : 6245889,
+    "matchedKey" : "NSE:EMCURE",
+    "expectedKeys" : [ "NSE:EMCURE", "NSE:EMCURE-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "EMMVEE",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 194490369,
+    "resolvedInstrumentToken" : 194490369,
+    "matchedKey" : "NSE:EMMVEE",
+    "expectedKeys" : [ "NSE:EMMVEE", "NSE:EMMVEE-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "EPL",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 251137,
+    "resolvedInstrumentToken" : 251137,
+    "matchedKey" : "NSE:EPL",
+    "expectedKeys" : [ "NSE:EPL", "NSE:EPL-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "ETERNAL",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 1304833,
+    "resolvedInstrumentToken" : 1304833,
+    "matchedKey" : "NSE:ETERNAL",
+    "expectedKeys" : [ "NSE:ETERNAL", "NSE:ETERNAL-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "FORCEMOT",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2962689,
+    "resolvedInstrumentToken" : 2962689,
+    "matchedKey" : "NSE:FORCEMOT",
+    "expectedKeys" : [ "NSE:FORCEMOT", "NSE:FORCEMOT-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "FRACTAL",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 194806017,
+    "resolvedInstrumentToken" : 194806017,
+    "matchedKey" : "NSE:FRACTAL",
+    "expectedKeys" : [ "NSE:FRACTAL", "NSE:FRACTAL-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "GMDCLTD",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 1332225,
+    "resolvedInstrumentToken" : 1332225,
+    "matchedKey" : "NSE:GMDCLTD",
+    "expectedKeys" : [ "NSE:GMDCLTD", "NSE:GMDCLTD-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "GOLDIAM",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 3064577,
+    "resolvedInstrumentToken" : 3064577,
+    "matchedKey" : "NSE:GOLDIAM",
+    "expectedKeys" : [ "NSE:GOLDIAM", "NSE:GOLDIAM-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "GRASIM",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 315393,
+    "resolvedInstrumentToken" : 315393,
+    "matchedKey" : "NSE:GRASIM",
+    "expectedKeys" : [ "NSE:GRASIM", "NSE:GRASIM-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "GROWW",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 194510337,
+    "resolvedInstrumentToken" : 194510337,
+    "matchedKey" : "NSE:GROWW",
+    "expectedKeys" : [ "NSE:GROWW", "NSE:GROWW-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "GVT&D",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 4296449,
+    "resolvedInstrumentToken" : 4296449,
+    "matchedKey" : "NSE:GVT&D",
+    "expectedKeys" : [ "NSE:GVT&D", "NSE:GVT&D-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "HDFCBANK",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 341249,
+    "resolvedInstrumentToken" : 341249,
+    "matchedKey" : "NSE:HDFCBANK",
+    "expectedKeys" : [ "NSE:HDFCBANK", "NSE:HDFCBANK-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "HIMATSEIDE",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 348161,
+    "resolvedInstrumentToken" : 348161,
+    "matchedKey" : "NSE:HIMATSEIDE",
+    "expectedKeys" : [ "NSE:HIMATSEIDE", "NSE:HIMATSEIDE-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "ICICIBANK",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 1270529,
+    "resolvedInstrumentToken" : 1270529,
+    "matchedKey" : "NSE:ICICIBANK",
+    "expectedKeys" : [ "NSE:ICICIBANK", "NSE:ICICIBANK-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "IDBI",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 377857,
+    "resolvedInstrumentToken" : 377857,
+    "matchedKey" : "NSE:IDBI",
+    "expectedKeys" : [ "NSE:IDBI", "NSE:IDBI-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "IGL",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2883073,
+    "resolvedInstrumentToken" : 2883073,
+    "matchedKey" : "NSE:IGL",
+    "expectedKeys" : [ "NSE:IGL", "NSE:IGL-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "INDIAMART",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2745857,
+    "resolvedInstrumentToken" : 2745857,
+    "matchedKey" : "NSE:INDIAMART",
+    "expectedKeys" : [ "NSE:INDIAMART", "NSE:INDIAMART-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "INDIGO",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2865921,
+    "resolvedInstrumentToken" : 2865921,
+    "matchedKey" : "NSE:INDIGO",
+    "expectedKeys" : [ "NSE:INDIGO", "NSE:INDIGO-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "INFY",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 408065,
+    "resolvedInstrumentToken" : 408065,
+    "matchedKey" : "NSE:INFY",
+    "expectedKeys" : [ "NSE:INFY", "NSE:INFY-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "INOXWIND",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2010113,
+    "resolvedInstrumentToken" : 2010113,
+    "matchedKey" : "NSE:INOXWIND",
+    "expectedKeys" : [ "NSE:INOXWIND", "NSE:INOXWIND-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "IREDA",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 5186817,
+    "resolvedInstrumentToken" : 5186817,
+    "matchedKey" : "NSE:IREDA",
+    "expectedKeys" : [ "NSE:IREDA", "NSE:IREDA-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "ITC",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 424961,
+    "resolvedInstrumentToken" : 424961,
+    "matchedKey" : "NSE:ITC",
+    "expectedKeys" : [ "NSE:ITC", "NSE:ITC-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "JIOFIN",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 4644609,
+    "resolvedInstrumentToken" : 4644609,
+    "matchedKey" : "NSE:JIOFIN",
+    "expectedKeys" : [ "NSE:JIOFIN", "NSE:JIOFIN-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "KAYNES",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 3095553,
+    "resolvedInstrumentToken" : 3095553,
+    "matchedKey" : "NSE:KAYNES",
+    "expectedKeys" : [ "NSE:KAYNES", "NSE:KAYNES-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "KEC",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 3394561,
+    "resolvedInstrumentToken" : 3394561,
+    "matchedKey" : "NSE:KEC",
+    "expectedKeys" : [ "NSE:KEC", "NSE:KEC-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "KEI",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 3407361,
+    "resolvedInstrumentToken" : 3407361,
+    "matchedKey" : "NSE:KEI",
+    "expectedKeys" : [ "NSE:KEI", "NSE:KEI-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "KMEW",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 6933505,
+    "resolvedInstrumentToken" : 6933505,
+    "matchedKey" : "NSE:KMEW",
+    "expectedKeys" : [ "NSE:KMEW", "NSE:KMEW-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "KPRMILL",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 3817473,
+    "resolvedInstrumentToken" : 3817473,
+    "matchedKey" : "NSE:KPRMILL",
+    "expectedKeys" : [ "NSE:KPRMILL", "NSE:KPRMILL-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "KRISHANA",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 3288833,
+    "resolvedInstrumentToken" : 3288833,
+    "matchedKey" : "NSE:KRISHANA",
+    "expectedKeys" : [ "NSE:KRISHANA", "NSE:KRISHANA-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "KRN",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 6565121,
+    "resolvedInstrumentToken" : 6565121,
+    "matchedKey" : "NSE:KRN-BE",
+    "expectedKeys" : [ "NSE:KRN", "NSE:KRN-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "LENSKART",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 194458881,
+    "resolvedInstrumentToken" : 194458881,
+    "matchedKey" : "NSE:LENSKART",
+    "expectedKeys" : [ "NSE:LENSKART", "NSE:LENSKART-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "LT",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2939649,
+    "resolvedInstrumentToken" : 2939649,
+    "matchedKey" : "NSE:LT",
+    "expectedKeys" : [ "NSE:LT", "NSE:LT-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "M&M",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 519937,
+    "resolvedInstrumentToken" : 519937,
+    "matchedKey" : "NSE:M&M",
+    "expectedKeys" : [ "NSE:M&M", "NSE:M&M-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "MARUTI",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2815745,
+    "resolvedInstrumentToken" : 2815745,
+    "matchedKey" : "NSE:MARUTI",
+    "expectedKeys" : [ "NSE:MARUTI", "NSE:MARUTI-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "MEESHO",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 194618625,
+    "resolvedInstrumentToken" : 194618625,
+    "matchedKey" : "NSE:MEESHO",
+    "expectedKeys" : [ "NSE:MEESHO", "NSE:MEESHO-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "MGL",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 4488705,
+    "resolvedInstrumentToken" : 4488705,
+    "matchedKey" : "NSE:MGL",
+    "expectedKeys" : [ "NSE:MGL", "NSE:MGL-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "MOTHERSON",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 1076225,
+    "resolvedInstrumentToken" : 1076225,
+    "matchedKey" : "NSE:MOTHERSON",
+    "expectedKeys" : [ "NSE:MOTHERSON", "NSE:MOTHERSON-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "MTARTECH",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 693505,
+    "resolvedInstrumentToken" : 693505,
+    "matchedKey" : "NSE:MTARTECH",
+    "expectedKeys" : [ "NSE:MTARTECH", "NSE:MTARTECH-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "NATCOPHARM",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 1003009,
+    "resolvedInstrumentToken" : 1003009,
+    "matchedKey" : "NSE:NATCOPHARM",
+    "expectedKeys" : [ "NSE:NATCOPHARM", "NSE:NATCOPHARM-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "NATIONALUM",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 1629185,
+    "resolvedInstrumentToken" : 1629185,
+    "matchedKey" : "NSE:NATIONALUM",
+    "expectedKeys" : [ "NSE:NATIONALUM", "NSE:NATIONALUM-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "NAVINFLUOR",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 3756033,
+    "resolvedInstrumentToken" : 3756033,
+    "matchedKey" : "NSE:NAVINFLUOR",
+    "expectedKeys" : [ "NSE:NAVINFLUOR", "NSE:NAVINFLUOR-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "NETWEB",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 4462849,
+    "resolvedInstrumentToken" : 4462849,
+    "matchedKey" : "NSE:NETWEB",
+    "expectedKeys" : [ "NSE:NETWEB", "NSE:NETWEB-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "NHPC",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 4454401,
+    "resolvedInstrumentToken" : 4454401,
+    "matchedKey" : "NSE:NHPC",
+    "expectedKeys" : [ "NSE:NHPC", "NSE:NHPC-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "NIFTY 50",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 256265,
+    "resolvedInstrumentToken" : 256265,
+    "matchedKey" : "NSE:NIFTY 50",
+    "expectedKeys" : [ "NSE:NIFTY 50", "NSE:NIFTY 50-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "NLCINDIA",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2197761,
+    "resolvedInstrumentToken" : 2197761,
+    "matchedKey" : "NSE:NLCINDIA",
+    "expectedKeys" : [ "NSE:NLCINDIA", "NSE:NLCINDIA-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "NMDC",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 3924993,
+    "resolvedInstrumentToken" : 3924993,
+    "matchedKey" : "NSE:NMDC",
+    "expectedKeys" : [ "NSE:NMDC", "NSE:NMDC-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "NTPC",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2977281,
+    "resolvedInstrumentToken" : 2977281,
+    "matchedKey" : "NSE:NTPC",
+    "expectedKeys" : [ "NSE:NTPC", "NSE:NTPC-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "NYKAA",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 1675521,
+    "resolvedInstrumentToken" : 1675521,
+    "matchedKey" : "NSE:NYKAA",
+    "expectedKeys" : [ "NSE:NYKAA", "NSE:NYKAA-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "OFSS",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2748929,
+    "resolvedInstrumentToken" : 2748929,
+    "matchedKey" : "NSE:OFSS",
+    "expectedKeys" : [ "NSE:OFSS", "NSE:OFSS-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "PERSISTENT",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 4701441,
+    "resolvedInstrumentToken" : 4701441,
+    "matchedKey" : "NSE:PERSISTENT",
+    "expectedKeys" : [ "NSE:PERSISTENT", "NSE:PERSISTENT-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "PFIZER",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 676609,
+    "resolvedInstrumentToken" : 676609,
+    "matchedKey" : "NSE:PFIZER",
+    "expectedKeys" : [ "NSE:PFIZER", "NSE:PFIZER-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "PINELABS",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 194513921,
+    "resolvedInstrumentToken" : 194513921,
+    "matchedKey" : "NSE:PINELABS",
+    "expectedKeys" : [ "NSE:PINELABS", "NSE:PINELABS-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "PNB",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2730497,
+    "resolvedInstrumentToken" : 2730497,
+    "matchedKey" : "NSE:PNB",
+    "expectedKeys" : [ "NSE:PNB", "NSE:PNB-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "POLICYBZR",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 1703937,
+    "resolvedInstrumentToken" : 1703937,
+    "matchedKey" : "NSE:POLICYBZR",
+    "expectedKeys" : [ "NSE:POLICYBZR", "NSE:POLICYBZR-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "POLYCAB",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 2455041,
+    "resolvedInstrumentToken" : 2455041,
+    "matchedKey" : "NSE:POLYCAB",
+    "expectedKeys" : [ "NSE:POLYCAB", "NSE:POLYCAB-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "POWERGRID",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 3834113,
+    "resolvedInstrumentToken" : 3834113,
+    "matchedKey" : "NSE:POWERGRID",
+    "expectedKeys" : [ "NSE:POWERGRID", "NSE:POWERGRID-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "POWERINDIA",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 4724993,
+    "resolvedInstrumentToken" : 4724993,
+    "matchedKey" : "NSE:POWERINDIA",
+    "expectedKeys" : [ "NSE:POWERINDIA", "NSE:POWERINDIA-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "PWL",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 194489089,
+    "resolvedInstrumentToken" : 194489089,
+    "matchedKey" : "NSE:PWL",
+    "expectedKeys" : [ "NSE:PWL", "NSE:PWL-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "RAYMOND",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 731905,
+    "resolvedInstrumentToken" : 731905,
+    "matchedKey" : "NSE:RAYMOND",
+    "expectedKeys" : [ "NSE:RAYMOND", "NSE:RAYMOND-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "RBLBANK",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 4708097,
+    "resolvedInstrumentToken" : 4708097,
+    "matchedKey" : "NSE:RBLBANK",
+    "expectedKeys" : [ "NSE:RBLBANK", "NSE:RBLBANK-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "RELIANCE",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 738561,
+    "resolvedInstrumentToken" : 738561,
+    "matchedKey" : "NSE:RELIANCE",
+    "expectedKeys" : [ "NSE:RELIANCE", "NSE:RELIANCE-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "RRKABEL",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 4752897,
+    "resolvedInstrumentToken" : 4752897,
+    "matchedKey" : "NSE:RRKABEL",
+    "expectedKeys" : [ "NSE:RRKABEL", "NSE:RRKABEL-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "SAREGAMA",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 1252353,
+    "resolvedInstrumentToken" : 1252353,
+    "matchedKey" : "NSE:SAREGAMA",
+    "expectedKeys" : [ "NSE:SAREGAMA", "NSE:SAREGAMA-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "SBIN",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 779521,
+    "resolvedInstrumentToken" : 779521,
+    "matchedKey" : "NSE:SBIN",
+    "expectedKeys" : [ "NSE:SBIN", "NSE:SBIN-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "SCHAEFFLER",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 258817,
+    "resolvedInstrumentToken" : 258817,
+    "matchedKey" : "NSE:SCHAEFFLER",
+    "expectedKeys" : [ "NSE:SCHAEFFLER", "NSE:SCHAEFFLER-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "SCHNEIDER",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 7995905,
+    "resolvedInstrumentToken" : 7995905,
+    "matchedKey" : "NSE:SCHNEIDER",
+    "expectedKeys" : [ "NSE:SCHNEIDER", "NSE:SCHNEIDER-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "SIGNATURE",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 4798209,
+    "resolvedInstrumentToken" : 4798209,
+    "matchedKey" : "NSE:SIGNATURE",
+    "expectedKeys" : [ "NSE:SIGNATURE", "NSE:SIGNATURE-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "SMLMAH",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 867073,
+    "resolvedInstrumentToken" : 867073,
+    "matchedKey" : "NSE:SMLMAH",
+    "expectedKeys" : [ "NSE:SMLMAH", "NSE:SMLMAH-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "SONACOMS",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 1199105,
+    "resolvedInstrumentToken" : 1199105,
+    "matchedKey" : "NSE:SONACOMS",
+    "expectedKeys" : [ "NSE:SONACOMS", "NSE:SONACOMS-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "SONATSOFTW",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 1688577,
+    "resolvedInstrumentToken" : 1688577,
+    "matchedKey" : "NSE:SONATSOFTW",
+    "expectedKeys" : [ "NSE:SONATSOFTW", "NSE:SONATSOFTW-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "SUDEEPPHRM",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 194569985,
+    "resolvedInstrumentToken" : 194569985,
+    "matchedKey" : "NSE:SUDEEPPHRM",
+    "expectedKeys" : [ "NSE:SUDEEPPHRM", "NSE:SUDEEPPHRM-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "SUZLON",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 3076609,
+    "resolvedInstrumentToken" : 3076609,
+    "matchedKey" : "NSE:SUZLON",
+    "expectedKeys" : [ "NSE:SUZLON", "NSE:SUZLON-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "SWARAJENG",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 866305,
+    "resolvedInstrumentToken" : 866305,
+    "matchedKey" : "NSE:SWARAJENG",
+    "expectedKeys" : [ "NSE:SWARAJENG", "NSE:SWARAJENG-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "TARIL",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 3884545,
+    "resolvedInstrumentToken" : 3884545,
+    "matchedKey" : "NSE:TARIL",
+    "expectedKeys" : [ "NSE:TARIL", "NSE:TARIL-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "TATAPOWER",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 877057,
+    "resolvedInstrumentToken" : 877057,
+    "matchedKey" : "NSE:TATAPOWER",
+    "expectedKeys" : [ "NSE:TATAPOWER", "NSE:TATAPOWER-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "TATASTEEL",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 895745,
+    "resolvedInstrumentToken" : 895745,
+    "matchedKey" : "NSE:TATASTEEL",
+    "expectedKeys" : [ "NSE:TATASTEEL", "NSE:TATASTEEL-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "TECHM",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 3465729,
+    "resolvedInstrumentToken" : 3465729,
+    "matchedKey" : "NSE:TECHM",
+    "expectedKeys" : [ "NSE:TECHM", "NSE:TECHM-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "TECHNOE",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 1649921,
+    "resolvedInstrumentToken" : 1649921,
+    "matchedKey" : "NSE:TECHNOE",
+    "expectedKeys" : [ "NSE:TECHNOE", "NSE:TECHNOE-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "TENNIND",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 194529281,
+    "resolvedInstrumentToken" : 194529281,
+    "matchedKey" : "NSE:TENNIND",
+    "expectedKeys" : [ "NSE:TENNIND", "NSE:TENNIND-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "TITAN",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 897537,
+    "resolvedInstrumentToken" : 897537,
+    "matchedKey" : "NSE:TITAN",
+    "expectedKeys" : [ "NSE:TITAN", "NSE:TITAN-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "TMCV",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 194504193,
+    "resolvedInstrumentToken" : 194504193,
+    "matchedKey" : "NSE:TMCV",
+    "expectedKeys" : [ "NSE:TMCV", "NSE:TMCV-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "UNOMINDA",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 3623425,
+    "resolvedInstrumentToken" : 3623425,
+    "matchedKey" : "NSE:UNOMINDA",
+    "expectedKeys" : [ "NSE:UNOMINDA", "NSE:UNOMINDA-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "VBL",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 4843777,
+    "resolvedInstrumentToken" : 4843777,
+    "matchedKey" : "NSE:VBL",
+    "expectedKeys" : [ "NSE:VBL", "NSE:VBL-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "VEDL",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 784129,
+    "resolvedInstrumentToken" : 784129,
+    "matchedKey" : "NSE:VEDL",
+    "expectedKeys" : [ "NSE:VEDL", "NSE:VEDL-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "VOLTAMP",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 3475713,
+    "resolvedInstrumentToken" : 3475713,
+    "matchedKey" : "NSE:VOLTAMP",
+    "expectedKeys" : [ "NSE:VOLTAMP", "NSE:VOLTAMP-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "WAAREEENER",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 6632193,
+    "resolvedInstrumentToken" : 6632193,
+    "matchedKey" : "NSE:WAAREEENER",
+    "expectedKeys" : [ "NSE:WAAREEENER", "NSE:WAAREEENER-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "WAAREERTL",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 193545729,
+    "resolvedInstrumentToken" : 193545729,
+    "matchedKey" : "NSE:WAAREERTL",
+    "expectedKeys" : [ "NSE:WAAREERTL", "NSE:WAAREERTL-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "WALCHANNAG",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 956417,
+    "resolvedInstrumentToken" : 956417,
+    "matchedKey" : "NSE:WALCHANNAG",
+    "expectedKeys" : [ "NSE:WALCHANNAG", "NSE:WALCHANNAG-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  }, {
+    "symbol" : "WIPRO",
+    "exchange" : "NSE",
+    "dbInstrumentToken" : 969473,
+    "resolvedInstrumentToken" : 969473,
+    "matchedKey" : "NSE:WIPRO",
+    "expectedKeys" : [ "NSE:WIPRO", "NSE:WIPRO-BE" ],
+    "candidateKeys" : [ ],
+    "status" : "MATCHED"
+  } ]
+}

@@ -45,7 +45,7 @@ fun main() {
             val config = runtime.configLoader.load()
             val report = runtime.service.sync(config)
             val outputDir = writeArtifacts(report)
-            runtime.telegramNotifier.cronCompleted(jobName)
+            runtime.telegramNotifier.cronCompleted(jobName, report.toTelegramSummary())
 
             log.info(
                 "Index constituent sync completed: indices={} output={}",
@@ -187,5 +187,21 @@ private fun IndexSyncRunReport.toMarkdown(): String {
             appendLine("- Deactivated: `${row.deactivatedCount}`")
             appendLine("- Unresolved: `${row.unresolvedSymbols.size}`")
         }
+    }
+}
+
+private fun IndexSyncRunReport.toTelegramSummary(): String {
+    val totalFetched = indexReports.sumOf { row -> row.fetchedCount }
+    val totalParsed = indexReports.sumOf { row -> row.parsedCount }
+    val totalUpserted = indexReports.sumOf { row -> row.upsertedCount }
+    val totalDeactivated = indexReports.sumOf { row -> row.deactivatedCount }
+    val unresolvedTotal = indexReports.sumOf { row -> row.unresolvedSymbols.size }
+    return buildString {
+        appendLine("indices: `${indexReports.size}`")
+        appendLine("fetched: `${totalFetched}`")
+        appendLine("parsed: `${totalParsed}`")
+        appendLine("upserted: `${totalUpserted}`")
+        appendLine("deactivated: `${totalDeactivated}`")
+        append("unresolved tokens: `${unresolvedTotal}`")
     }
 }

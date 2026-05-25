@@ -100,4 +100,20 @@ interface StockWriteDao {
         @Bind("growwTagName") growwTagName: String,
         @Bind("growwTagJson") growwTagJson: String,
     ): Int
+
+    @SqlUpdate(
+        """
+        UPDATE public.${Tables.STOCKS}
+        SET
+            ${StockColumns.INSTRUMENT_TOKEN} = :instrumentToken,
+            ${StockColumns.UPDATED_AT} = NOW()
+        WHERE ${StockColumns.SYMBOL} = :symbol
+          AND ${StockColumns.EXCHANGE} = :exchange
+        """
+    )
+    fun updateInstrumentTokenBySymbolExchange(
+        @Bind("symbol") symbol: String,
+        @Bind("exchange") exchange: String,
+        @Bind("instrumentToken") instrumentToken: Long,
+    ): Int
 }

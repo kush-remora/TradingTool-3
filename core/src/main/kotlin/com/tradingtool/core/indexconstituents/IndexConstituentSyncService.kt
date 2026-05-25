@@ -1,5 +1,6 @@
 package com.tradingtool.core.indexconstituents
 
+import com.tradingtool.core.kite.InstrumentTokenResolution
 import java.time.OffsetDateTime
 
 class IndexConstituentSyncService(
@@ -12,11 +13,21 @@ class IndexConstituentSyncService(
 
         val startedAt = OffsetDateTime.now()
         val syncedAt = OffsetDateTime.now()
-        val reports = config.indices
+        val preparedIndexes = config.indices
             .filter { index -> index.enabled }
             .map { index ->
-                syncIndex(index = index, batchSize = config.batchSize, syncedAt = syncedAt)
+                prepareIndex(index)
             }
+
+        val unresolved = preparedIndexes
+            .flatMap { prepared -> prepared.unresolvedResolutions.map { resolution -> prepared.index.key to resolution } }
+        if (unresolved.isNotEmpty()) {
+            throw IllegalStateException(buildUnresolvedTokenMessage(unresolved))
+        }
+
+        val reports = preparedIndexes.map { prepared ->
+            persistIndex(prepared, batchSize = config.batchSize, syncedAt = syncedAt)
+        }
 
         return IndexSyncRunReport(
             startedAt = startedAt,
@@ -25,11 +36,9 @@ class IndexConstituentSyncService(
         )
     }
 
-    private suspend fun syncIndex(
+    private suspend fun prepareIndex(
         index: IndexDefinition,
-        batchSize: Int,
-        syncedAt: OffsetDateTime,
-    ): IndexSyncSingleReport {
+    ): PreparedIndexSync {
         val rawRows = source.fetchRows(index)
         val normalizedRows = rawRows
             .asSequence()
@@ -46,14 +55,15 @@ class IndexConstituentSyncService(
             .distinctBy { row -> row.symbol }
             .toList()
 
-        val unresolved = mutableListOf<String>()
+        val unresolvedResolutions = mutableListOf<InstrumentTokenResolution>()
         val rows = mutableListOf<IndexConstituentRow>()
 
         for (csvRow in normalizedRows) {
             val symbol = csvRow.symbol
-            val token = tokenResolver.resolve(exchange = NSE_EXCHANGE, symbol = symbol)
+            val resolution = tokenResolver.resolveDetailed(exchange = NSE_EXCHANGE, symbol = symbol)
+            val token = resolution.resolvedToken
             if (token == null || token <= 0L) {
-                unresolved += symbol
+                unresolvedResolutions += resolution
                 continue
             }
 
@@ -69,32 +79,70 @@ class IndexConstituentSyncService(
             )
         }
 
+        return PreparedIndexSync(
+            index = index,
+            sourceUrl = index.csvUrl,
+            fetchedCount = rawRows.size,
+            parsedCount = normalizedRows.size,
+            rows = rows,
+            unresolvedResolutions = unresolvedResolutions.sortedBy { resolution -> resolution.symbol },
+        )
+    }
+
+    private suspend fun persistIndex(
+        prepared: PreparedIndexSync,
+        batchSize: Int,
+        syncedAt: OffsetDateTime,
+    ): IndexSyncSingleReport {
         var upsertedCount = 0
-        val activeSymbols = rows.map { row -> row.symbol }.toSet()
-        rows.chunked(batchSize).forEach { batch ->
+        val activeSymbols = prepared.rows.map { row -> row.symbol }.toSet()
+        prepared.rows.chunked(batchSize).forEach { batch ->
             if (batch.isNotEmpty()) {
                 upsertedCount += gateway.upsertBatch(batch, syncedAt)
             }
         }
 
         val deactivatedCount = gateway.deactivateMissing(
-            indexKey = index.key,
+            indexKey = prepared.index.key,
             activeSymbols = activeSymbols,
             syncedAt = syncedAt,
         )
 
         return IndexSyncSingleReport(
-            indexKey = index.key,
-            sourceUrl = index.csvUrl,
-            fetchedCount = rawRows.size,
-            parsedCount = normalizedRows.size,
+            indexKey = prepared.index.key,
+            sourceUrl = prepared.sourceUrl,
+            fetchedCount = prepared.fetchedCount,
+            parsedCount = prepared.parsedCount,
             upsertedCount = upsertedCount,
             deactivatedCount = deactivatedCount,
-            unresolvedSymbols = unresolved.sorted(),
+            unresolvedSymbols = emptyList(),
         )
     }
 
+    private fun buildUnresolvedTokenMessage(
+        unresolved: List<Pair<String, InstrumentTokenResolution>>,
+    ): String {
+        val details = unresolved
+            .take(MAX_UNRESOLVED_SYMBOLS_IN_MESSAGE)
+            .joinToString(separator = "; ") { (indexKey, resolution) ->
+                val expected = resolution.expectedKeys.joinToString(" | ")
+                val candidates = if (resolution.candidateKeys.isEmpty()) "none" else resolution.candidateKeys.joinToString(" | ")
+                "${indexKey}:${resolution.symbol} (expected=$expected, candidates=$candidates)"
+            }
+        return "IndexConstituentSyncJob unresolved instrument tokens: count=${unresolved.size}; $details"
+    }
+
+    private data class PreparedIndexSync(
+        val index: IndexDefinition,
+        val sourceUrl: String,
+        val fetchedCount: Int,
+        val parsedCount: Int,
+        val rows: List<IndexConstituentRow>,
+        val unresolvedResolutions: List<InstrumentTokenResolution>,
+    )
+
     private companion object {
         const val NSE_EXCHANGE: String = "NSE"
+        const val MAX_UNRESOLVED_SYMBOLS_IN_MESSAGE: Int = 30
     }
 }

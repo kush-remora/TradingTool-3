@@ -2114,3 +2114,52 @@ Add Telegram notifications for `IndexConstituentSyncJob` so the weekly workflow 
 - Added start/failure/success notifier calls in the main run path.
 - Kept behavior unchanged for sync logic, DB writes, and artifact output.
 - Workflow now provides required Telegram env vars and Kotlin job consumes them through existing notifier utility.
+
+# Implementation Plan: Stock Instrument Token Audit Script
+
+## Overview
+Add a standalone Kotlin job to verify whether `stocks.instrument_token` values still match live Kite instrument tokens for the same NSE symbol.
+
+## Implementation Steps
+- [x] Add a new cron-job entrypoint to load all stocks from DB.
+- [x] Fetch live instruments from Kite and index by `exchange:symbol`.
+- [x] Compare DB token vs Kite token for NSE stocks.
+- [x] Classify rows as `MATCHED`, `MISMATCH`, or `MISSING_IN_KITE`.
+- [x] Write JSON and CSV reports under `build/reports/stock-instrument-token-audit`.
+- [x] Run compile check for cron-job module.
+- [x] Run Kotlin reviewer pass on the diff.
+
+## Review
+- Added `StockInstrumentTokenAuditJob` as a read-only verifier (no DB writes).
+- Reused existing DB and Kite token-loading patterns from other cron jobs.
+- Output artifacts are generated as `latest.json` and `latest.csv` for easy inspection and automation.
+- Compile validation passed for `cron-job` module.
+
+# Implementation Plan: Centralized Instrument Token Resolver + Audit Auto-Correct
+
+## Overview
+Create a single runtime token resolver (NSE exact + NSE `-BE` fallback) and reuse it across write workflows to eliminate repeated symbol/token mismatch handling. Add audit job modes to check or auto-correct token drift in both `stocks` and `index_constituents`.
+
+## Implementation Steps
+- [x] Add shared `InstrumentTokenResolverService` in core kite package.
+- [x] Route `KiteIndexConstituentTokenResolver` and Groww `KiteInstrumentTokenResolver` through shared service.
+- [x] Make `IndexConstituentSyncService` fail fast before writes when unresolved symbols exist.
+- [x] Include unresolved token detail payload (expected keys + candidate keys) in fail message for alerting.
+- [x] Make `DeliveryReconciliationService` use shared resolver and fail fast before writes when unresolved symbols exist.
+- [x] Add DAO update methods for token correction in `stocks` and `index_constituents`.
+- [x] Upgrade `StockInstrumentTokenAuditJob` to:
+  - check mode (default),
+  - apply mode (`--apply`) with automatic correction in both tables,
+  - detailed CSV/JSON output with expected/candidate keys.
+- [x] Add index sync Telegram completion summary payload.
+- [x] Run compile and focused tests.
+- [x] Run Kotlin reviewer pass.
+
+## Review
+- Central token logic now lives in one service and supports exactly the requested fallback scope (`NSE:SYMBOL`, then `NSE:SYMBOL-BE`).
+- Write-path workflows now share resolver behavior and fail-fast on unresolved tokens with actionable context.
+- Audit job now supports manual check and optional auto-correct updates across both target tables.
+- Validation passed:
+  - `mvn -q -pl core,cron-job -am -DskipTests compile`
+  - `mvn -q -pl core test -Dtest=IndexConstituentSyncServiceTest`
+  - `mvn -q -pl cron-job exec:java -Dexec.mainClass=com.tradingtool.cron.StockInstrumentTokenAuditJobKt --no-transfer-progress`
