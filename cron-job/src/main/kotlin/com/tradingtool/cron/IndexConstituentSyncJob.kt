@@ -14,14 +14,20 @@ import com.tradingtool.core.indexconstituents.JdbiIndexConstituentGateway
 import com.tradingtool.core.indexconstituents.KiteIndexConstituentTokenResolver
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentReadDao
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentWriteDao
+import com.tradingtool.core.http.HttpClientConfig
+import com.tradingtool.core.http.JdkHttpClientImpl
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConfig
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.kite.KiteTokenReadDao
 import com.tradingtool.core.kite.KiteTokenWriteDao
 import com.tradingtool.core.model.DatabaseConfig
+import com.tradingtool.core.telegram.TelegramApiClient
+import com.tradingtool.core.telegram.TelegramNotifier
+import com.tradingtool.core.telegram.TelegramSender
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
+import java.net.http.HttpClient as JdkHttpClient
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -31,12 +37,15 @@ private val log = LoggerFactory.getLogger("IndexConstituentSyncJob")
 
 fun main() {
     val runtime = IndexConstituentSyncRuntime.fromEnvironment()
+    val jobName = "IndexConstituentSyncJob"
 
     val exitCode = runBlocking {
+        runtime.telegramNotifier.cronStarted(jobName)
         runCatching {
             val config = runtime.configLoader.load()
             val report = runtime.service.sync(config)
             val outputDir = writeArtifacts(report)
+            runtime.telegramNotifier.cronCompleted(jobName)
 
             log.info(
                 "Index constituent sync completed: indices={} output={}",
@@ -46,6 +55,10 @@ fun main() {
             0
         }.getOrElse { error ->
             log.error("Index constituent sync failed: {}", error.message, error)
+            runtime.telegramNotifier.cronFailed(
+                jobName,
+                error as? Exception ?: RuntimeException(error.message ?: "Unknown failure", error),
+            )
             1
         }
     }
@@ -56,10 +69,12 @@ fun main() {
 private data class IndexConstituentSyncRuntime(
     val service: IndexConstituentSyncService,
     val configLoader: IndexSyncConfigLoader,
+    val telegramNotifier: TelegramNotifier,
 ) {
     companion object {
         fun fromEnvironment(): IndexConstituentSyncRuntime {
             val objectMapper = buildObjectMapper()
+            val httpClient = buildHttpClient()
             val databaseConfig = DatabaseConfig(
                 jdbcUrl = ConfigLoader.get("SUPABASE_DB_URL", "supabase.dbUrl"),
             )
@@ -81,9 +96,17 @@ private data class IndexConstituentSyncRuntime(
             return IndexConstituentSyncRuntime(
                 service = service,
                 configLoader = IndexSyncConfigLoader(objectMapper),
+                telegramNotifier = buildTelegramNotifier(httpClient, objectMapper),
             )
         }
     }
+}
+
+private fun buildHttpClient(): JdkHttpClientImpl {
+    return JdkHttpClientImpl(
+        JdkHttpClient.newBuilder().build(),
+        HttpClientConfig(),
+    )
 }
 
 private fun buildAuthenticatedKiteClient(
@@ -120,6 +143,21 @@ private fun buildObjectMapper(): ObjectMapper {
         .findAndRegisterModules()
         .registerKotlinModule()
         .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+}
+
+private fun buildTelegramNotifier(
+    httpClient: JdkHttpClientImpl,
+    objectMapper: ObjectMapper,
+): TelegramNotifier {
+    val botToken = ConfigLoader.getOptional("TELEGRAM_BOT_TOKEN", "telegram.botToken").orEmpty()
+    val chatId = ConfigLoader.getOptional("TELEGRAM_CHAT_ID", "telegram.chatId").orEmpty()
+    val apiClient = TelegramApiClient(
+        botToken = botToken,
+        chatId = chatId,
+        httpClient = httpClient,
+        objectMapper = objectMapper,
+    )
+    return TelegramNotifier(TelegramSender(apiClient))
 }
 
 private fun IndexSyncRunReport.toMarkdown(): String {

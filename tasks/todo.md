@@ -2094,3 +2094,23 @@ Add a simple export button on the `104W Live` screen to download current scan re
   - `frontend/src/pages/FiftyTwoWeekHighLivePage.tsx`
 - Validation:
   - `npm --prefix frontend run build` passed.
+
+# Implementation Plan: Index Constituent Weekly Sync Telegram Notifications
+
+## Overview
+Add Telegram notifications for `IndexConstituentSyncJob` so the weekly workflow reports job start, failure, and successful completion in the same style as existing cron jobs.
+
+## Implementation Steps
+- [x] Confirm workflow wiring includes `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
+- [x] Add `TelegramNotifier` wiring in `IndexConstituentSyncJob` runtime setup.
+- [x] Send `cronStarted` at job begin.
+- [x] Send `cronFailed` on exception path.
+- [x] Send `cronCompleted` on success path.
+- [x] Run a focused compile check for the cron module.
+- [x] Run Kotlin reviewer pass for the Kotlin diff.
+
+## Review
+- Added Telegram notifier dependencies and runtime wiring to `IndexConstituentSyncJob`.
+- Added start/failure/success notifier calls in the main run path.
+- Kept behavior unchanged for sync logic, DB writes, and artifact output.
+- Workflow now provides required Telegram env vars and Kotlin job consumes them through existing notifier utility.
