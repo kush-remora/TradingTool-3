@@ -8,6 +8,7 @@ import { ConsoleV2GrowwWatchlistImportPage } from "./pages/ConsoleV2GrowwWatchli
 import { CorporateResultsPage } from "./pages/CorporateResultsPage";
 import { DrawdownScannerPage } from "./pages/DrawdownScannerPage";
 import { DeliveryThresholdBacktestPage } from "./pages/DeliveryThresholdBacktestPage";
+import { WyckoffPhase1Page } from "./pages/WyckoffPhase1Page";
 import { EarningsDashboardPage } from "./pages/EarningsDashboardPage";
 import { FiftyTwoWeekHighBacktestPage } from "./pages/FiftyTwoWeekHighBacktestPage";
 import { FiftyTwoWeekHighLivePage } from "./pages/FiftyTwoWeekHighLivePage";
@@ -57,6 +58,7 @@ type V1PageKey =
   | "v2-dashboard"
   | "bollinger-squeeze"
   | "delivery-threshold-backtest"
+  | "wyckoff-phase1"
   | "fiftytwo-week-high-backtest"
   | "fiftytwo-week-high-live";
 
@@ -67,6 +69,7 @@ const menuItems: MenuProps["items"] = [
   { key: "watchlist", label: "Watchlist", icon: <UnorderedListOutlined /> },
   { key: "bollinger-squeeze", label: "Bollinger Squeeze", icon: <AreaChartOutlined /> },
   { key: "delivery-threshold-backtest", label: "Delivery Threshold BT", icon: <BarChartOutlined /> },
+  { key: "wyckoff-phase1", label: "Wyckoff Phase-1", icon: <BarChartOutlined /> },
   { key: "fiftytwo-week-high-backtest", label: "52W High BT", icon: <BarChartOutlined /> },
   { key: "fiftytwo-week-high-live", label: "104W Live", icon: <BarChartOutlined /> },
   {
@@ -127,6 +130,7 @@ const validPages: PageKey[] = [
   "v2-dashboard",
   "bollinger-squeeze",
   "delivery-threshold-backtest",
+  "wyckoff-phase1",
   "fiftytwo-week-high-backtest",
   "fiftytwo-week-high-live",
 ];
@@ -239,6 +243,7 @@ export default function App() {
             {route === "v2-dashboard" && <V2DashboardPage />}
             {route === "bollinger-squeeze" && <BollingerSqueezePage />}
             {route === "delivery-threshold-backtest" && <DeliveryThresholdBacktestPage />}
+            {route === "wyckoff-phase1" && <WyckoffPhase1Page />}
             {route === "fiftytwo-week-high-backtest" && <FiftyTwoWeekHighBacktestPage />}
             {route === "fiftytwo-week-high-live" && <FiftyTwoWeekHighLivePage />}
           </Layout.Content>

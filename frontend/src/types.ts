@@ -71,6 +71,11 @@ export interface Stock {
   updated_at: string;
 }
 
+export interface WatchlistSymbolOption {
+  symbol: string;
+  company_name: string;
+}
+
 // ==================== Kite Instruments ====================
 
 export interface InstrumentSearchResult {
@@ -1485,6 +1490,110 @@ export interface DeliveryThresholdBacktestResponse {
   config: DeliveryThresholdBacktestConfigSnapshot;
   summary: DeliveryThresholdBacktestSummary;
   rows: DeliveryThresholdBacktestRow[];
+}
+
+// ==================== Wyckoff Phase-1 Scanner ====================
+
+export interface WyckoffPhase1RunRequest {
+  universeKeys: string[];
+  symbols?: string[];
+  asOfDate?: string;
+}
+
+export type WyckoffPhase1SymbolSourceMode =
+  | "ALL_WATCHLIST"
+  | "SELECTED_WATCHLIST"
+  | "SINGLE_SYMBOL";
+
+export interface WyckoffPhase1Config {
+  enabled: boolean;
+  signalLookbackDays?: number;
+  trackA: {
+    deliveryThresholdByCap: Record<string, number>;
+    rollingDensity: {
+      enabled: boolean;
+      lookbackDays: number;
+      minThresholdBreaches: number;
+    };
+    deliveryVolumeZScore: {
+      enabled: boolean;
+      baselineDays: number;
+      minZScore: number;
+    };
+    lvqDq: {
+      enabled: boolean;
+      rollingMinDays: number;
+      nearMinPctOfRollingMin: number;
+      lookbackDays: number;
+      requireDeliveryPass: boolean;
+    };
+    absorptionCheck: {
+      enabled: boolean;
+      spreadLookbackDays: number;
+    };
+    lowVolumeHighDeliveryInfo: {
+      enabled: boolean;
+      mode: string;
+      volumeBaselineDays: number;
+      maxVolumeVsBaselineRatio: number;
+    };
+  };
+  contextFilter: {
+    roc20Range: {
+      enabled: boolean;
+      minDistancePct: number;
+      maxDistancePct: number;
+    };
+    dma200Proximity: {
+      enabled: boolean;
+      minDistancePct: number;
+      maxDistancePct: number;
+    };
+  };
+}
+
+export interface WyckoffPhase1TableColumnsConfig {
+  enabled: boolean;
+  defaultSort: Array<{ key: string; direction: string }>;
+  columns: Array<{ key: string; enabled: boolean }>;
+}
+
+export interface WyckoffPhase1Row {
+  symbol: string;
+  signal_date: string;
+  days_ago: number;
+  index_key: string;
+  delivery_pct: number;
+  delivery_threshold_pct: number;
+  delivery_pass: number;
+  density_breach_count_15d: number;
+  density_pass: number;
+  delivery_volume_zscore_60d: number | null;
+  zscore_pass: number;
+  lvq_dq_pass: number;
+  lvq_hit_count_15d: number;
+  spread_pct: number | null;
+  avg_spread_pct_20d: number | null;
+  absorption_pass: number;
+  roc20_pct: number | null;
+  roc20_range_pass: number;
+  sma200_distance_pct: number | null;
+  sma_window_used: number;
+  dma200_range_pass: number;
+  low_volume_high_delivery_info: number;
+  volume_vs_50d_ratio: number | null;
+  passed_count: number;
+  accumulation_run_length_days: number;
+}
+
+export interface WyckoffPhase1RunResponse {
+  rows: WyckoffPhase1Row[];
+  meta: {
+    as_of_date: string;
+    evaluated_trading_dates: string[];
+    universe_count: number;
+    matched_count: number;
+  };
 }
 
 // ==================== Bollinger Squeeze ====================

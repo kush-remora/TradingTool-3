@@ -2,6 +2,7 @@ package com.tradingtool.resources
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.inject.Inject
+import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.kite.TickSnapshot
@@ -38,6 +39,7 @@ data class RefreshRequest(val tags: List<String> = emptyList())
 class WatchlistResource @Inject constructor(
     private val indicatorService: IndicatorService,
     private val watchlistService: WatchlistService,
+    private val stockHandler: StockJdbiHandler,
     private val kiteClient: KiteConnectClient,
     private val resourceScope: ResourceScope,
     private val tickStore: TickStore,
@@ -86,6 +88,23 @@ class WatchlistResource @Inject constructor(
     fun getRows(@QueryParam("tag") tag: String?): CompletableFuture<Response> = ioScope.endpoint {
         
         ok(watchlistService.getRows(tag?.trim()?.takeIf { it.isNotEmpty() }))
+    }
+
+    /**
+     * Returns all watchlist symbols for selector UIs.
+     */
+    @GET
+    @Path("/symbols")
+    fun getWatchlistSymbols(): CompletableFuture<Response> = ioScope.endpoint {
+        val rows = stockHandler.read { dao -> dao.listAll() }
+            .map { stock ->
+                WatchlistSymbolOption(
+                    symbol = stock.symbol.trim().uppercase(),
+                    company_name = stock.companyName,
+                )
+            }
+            .sortedBy { row -> row.symbol }
+        ok(rows)
     }
 
     /**
@@ -211,3 +230,8 @@ class WatchlistResource @Inject constructor(
         ok(remoraService.getSignals(type?.trim()?.uppercase()?.takeIf { it.isNotBlank() }))
     }
 }
+
+data class WatchlistSymbolOption(
+    val symbol: String,
+    val company_name: String,
+)

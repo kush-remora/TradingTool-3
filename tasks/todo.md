@@ -1,3 +1,27 @@
+# Implementation Plan: Wyckoff Phase-1 Symbol Source UX + Backend Hardening
+
+## Overview
+Improve Phase-1 scanner symbol selection to be watchlist-first with clear source modes, while making backend dedupe authoritative and preserving single-symbol debug speed.
+
+## Implementation Steps
+- [x] Add `GET /api/watchlist/symbols` endpoint to return watchlist symbol options.
+- [x] Refactor Phase-1 UI to use a single symbol-source control (`ALL_WATCHLIST`, `SELECTED_WATCHLIST`, `SINGLE_SYMBOL`).
+- [x] Make backend request normalization/dedupe the authoritative behavior and keep frontend payload simple.
+- [x] Add tests for symbol-source modes and backend normalization/dedupe behavior.
+- [x] Persist last-used Phase-1 filters in local storage and restore on page load.
+- [x] Run frontend tests/build and targeted backend tests.
+- [x] Update journey notes with this UX/backend hardening slice.
+
+## Review
+- Added dedicated watchlist symbols API (`/api/watchlist/symbols`) for Phase-1 selector usage.
+- Replaced dual symbol input with clear source modes: all watchlist, selected watchlist, or single symbol.
+- Kept backend as source of truth for request normalization/dedupe (`universeKeys` normalized, symbols normalized/deduped).
+- Expanded page tests to cover all 3 source modes and persisted filter restore.
+- Validation run:
+  - `npm --prefix frontend run test:run -- WyckoffPhase1Page.test.tsx` passed (5 tests).
+  - `npm --prefix frontend run build` passed.
+  - `mvn -q -pl core,resources -am test -Dtest=WyckoffPhase1RequestValidationTest -Dsurefire.failIfNoSpecifiedTests=false` passed.
+
 # Documentation Plan: Manual NSE Inputs + Event Screens
 
 ## Overview
@@ -2163,3 +2187,44 @@ Create a single runtime token resolver (NSE exact + NSE `-BE` fallback) and reus
   - `mvn -q -pl core,cron-job -am -DskipTests compile`
   - `mvn -q -pl core test -Dtest=IndexConstituentSyncServiceTest`
   - `mvn -q -pl cron-job exec:java -Dexec.mainClass=com.tradingtool.cron.StockInstrumentTokenAuditJobKt --no-transfer-progress`
+
+# Implementation Plan: Wyckoff Phase-1 Scanner (New Page + API)
+
+## Overview
+Add a dedicated Wyckoff Phase-1 scanner flow while keeping the existing Delivery Threshold Backtest intact.
+
+## Implementation Steps
+- [x] Add new backend config and column endpoints:
+  - `GET /api/strategy/wyckoff/phase1/config`
+  - `GET /api/strategy/wyckoff/phase1/columns`
+- [x] Add new backend run endpoint:
+  - `POST /api/strategy/wyckoff/phase1/run`
+- [x] Implement Phase-1 scanner service + engine for latest matched date (last 5 sessions).
+- [x] Implement union universe resolution (selected indices + WATCHLIST + manual symbols).
+- [x] Add Phase-1 request validation and tests.
+- [x] Add new frontend page and menu route.
+- [x] Apply column enable/disable from `wyckoff_phase1_table_columns.json` in UI.
+- [x] Add frontend tests for payload/run and column visibility.
+- [x] Run backend targeted tests and frontend test/build checks.
+
+## Review
+- Added new core module package:
+  - `core/.../strategy/wyckoff/phase1` (models, config service, engine, scanner service)
+- Added StrategyResource endpoints and validation for Phase-1 run.
+- Added frontend hook + page + route (`Wyckoff Phase-1`) while preserving existing delivery-threshold backtest page.
+- Added/kept root config artifacts:
+  - `wyckoff_phase1_config.json`
+  - `wyckoff_phase1_table_columns.json`
+- Validation run:
+  - `mvn -q -pl core,resources -am test -Dtest=WyckoffPhase1ScannerEngineTest,WyckoffPhase1RequestValidationTest -Dsurefire.failIfNoSpecifiedTests=false`
+  - `npm --prefix frontend run test:run -- WyckoffPhase1Page.test.tsx`
+  - `npm --prefix frontend run build`
+
+## Phase-1 LVQ_DQ Follow-up (2026-05-26)
+- [x] Add configurable LVQ_DQ definition in `wyckoff_phase1_config.json`.
+- [x] Implement LVQ 15-day hit count (`lvq_hit_count_15d`) requiring delivery threshold pass.
+- [x] Include LVQ pass in `passed_count` (7 flags total).
+- [x] Update row-inclusion logic to `delivery_pass OR zscore_pass`.
+- [x] Add LVQ columns to table columns config and UI labels.
+- [x] Update tests for LVQ and OR-inclusion behavior.
+- [x] Add configurable `signalLookbackDays` (default 10) to Phase-1 config and engine.

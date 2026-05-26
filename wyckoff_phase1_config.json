@@ -1,0 +1,46 @@
+{
+  "enabled": true,
+  "signalLookbackDays": 10,
+  "trackA": {
+    "deliveryThresholdByCap": {
+      "MID_CAP": 55.0,
+      "SMALL_CAP": 70.0,
+      "MICRO_CAP": 85.0,
+      "NANO_CAP": 92.0
+    },
+    "rollingDensity": {
+      "enabled": true,
+      "lookbackDays": 15,
+      "minThresholdBreaches": 4
+    },
+    "deliveryVolumeZScore": {
+      "enabled": true,
+      "baselineDays": 60,
+      "minZScore": 2.0
+    },
+    "lvqDq": {
+      "enabled": true,
+      "rollingMinDays": 63,
+      "nearMinPctOfRollingMin": 95.0,
+      "lookbackDays": 15,
+      "requireDeliveryPass": true
+    },
+    "absorptionCheck": {
+      "enabled": true,
+      "spreadLookbackDays": 20
+    },
+    "lowVolumeHighDeliveryInfo": {
+      "enabled": true,
+      "mode": "INFO_ONLY",
+      "volumeBaselineDays": 50,
+      "maxVolumeVsBaselineRatio": 0.8
+    }
+  },
+  "contextFilter": {
+    "dma200Proximity": {
+      "enabled": true,
+      "minDistancePct": -5.0,
+      "maxDistancePct": 5.0
+    }
+  }
+}

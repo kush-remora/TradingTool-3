@@ -1,0 +1,44 @@
+{
+  "enabled": true,
+  "defaultSort": [
+    {
+      "key": "signal_date",
+      "direction": "desc"
+    }
+  ],
+  "columns": [
+    { "key": "symbol", "enabled": true },
+    { "key": "signal_date", "enabled": true },
+    { "key": "days_ago", "enabled": false },
+    { "key": "index_key", "enabled": true },
+
+    { "key": "delivery_pct", "enabled": true },
+    { "key": "delivery_threshold_pct", "enabled": false },
+    { "key": "delivery_pass", "enabled": true },
+
+    { "key": "density_breach_count_15d", "enabled": true },
+    { "key": "density_pass", "enabled": true },
+
+    { "key": "delivery_volume_zscore_60d", "enabled": true },
+    { "key": "zscore_pass", "enabled": true },
+    { "key": "lvq_dq_pass", "enabled": true },
+    { "key": "lvq_hit_count_15d", "enabled": true },
+
+    { "key": "spread_pct", "enabled": true },
+    { "key": "avg_spread_pct_20d", "enabled": true },
+    { "key": "absorption_pass", "enabled": true },
+
+    { "key": "roc20_pct", "enabled": true },
+    { "key": "roc20_range_pass", "enabled": true },
+
+    { "key": "sma200_distance_pct", "enabled": true },
+    { "key": "sma_window_used", "enabled": true },
+    { "key": "dma200_range_pass", "enabled": true },
+
+    { "key": "low_volume_high_delivery_info", "enabled": true },
+    { "key": "volume_vs_50d_ratio", "enabled": true },
+
+    { "key": "passed_count", "enabled": true },
+    { "key": "accumulation_run_length_days", "enabled": true }
+  ]
+}

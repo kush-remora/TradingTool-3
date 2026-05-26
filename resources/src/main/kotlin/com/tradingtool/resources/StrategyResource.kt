@@ -16,6 +16,10 @@ import com.tradingtool.core.strategy.wyckoff.deliverythreshold.DeliveryThreshold
 import com.tradingtool.core.strategy.wyckoff.deliverythreshold.DeliveryThresholdBacktestService
 import com.tradingtool.core.strategy.wyckoff.deliverythreshold.DeliveryThresholdBacktestConfigService
 import com.tradingtool.core.strategy.wyckoff.deliverythreshold.DeliveryThresholdBacktestConfig
+import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1ConfigService
+import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1RunConfig
+import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1RunRequest
+import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1ScannerService
 import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighBacktestRequest
 import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighBacktestRunConfig
 import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighBacktestService
@@ -77,6 +81,8 @@ class StrategyResource @Inject constructor(
     private val bollingerMeanReversionBacktestService: BollingerMeanReversionBacktestService,
     private val deliveryThresholdBacktestService: DeliveryThresholdBacktestService,
     private val deliveryThresholdBacktestConfigService: DeliveryThresholdBacktestConfigService,
+    private val wyckoffPhase1ScannerService: WyckoffPhase1ScannerService,
+    private val wyckoffPhase1ConfigService: WyckoffPhase1ConfigService,
     private val fiftyTwoWeekHighBacktestService: FiftyTwoWeekHighBacktestService,
     private val fiftyTwoWeekHighLiveService: FiftyTwoWeekHighLiveService,
     private val telegramSender: TelegramSender,
@@ -468,6 +474,34 @@ class StrategyResource @Inject constructor(
     @Path("/delivery-threshold/config")
     fun getDeliveryThresholdBacktestConfig(): CompletableFuture<Response> = ioScope.endpoint {
         ok(deliveryThresholdBacktestConfigService.loadConfig())
+    }
+
+    @GET
+    @Path("/wyckoff/phase1/config")
+    fun getWyckoffPhase1Config(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(wyckoffPhase1ConfigService.loadPhase1Config())
+    }
+
+    @GET
+    @Path("/wyckoff/phase1/columns")
+    fun getWyckoffPhase1ColumnsConfig(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(wyckoffPhase1ConfigService.loadTableColumnsConfig())
+    }
+
+    @POST
+    @Path("/wyckoff/phase1/run")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runWyckoffPhase1(request: WyckoffPhase1RunRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val validatedRequest = runCatching {
+            validateWyckoffPhase1RunRequest(request)
+        }.getOrElse { error ->
+            if (error is IllegalArgumentException) {
+                return@endpoint badRequest(error.message ?: "Invalid request.")
+            }
+            throw error
+        }
+        val config = wyckoffPhase1ConfigService.loadPhase1Config()
+        ok(wyckoffPhase1ScannerService.run(validatedRequest, config))
     }
 
     @GET
@@ -875,6 +909,36 @@ internal fun validateDeliveryThresholdBacktestRequest(
         sma200ByIndex = sma200ByIndex,
         fromDate = fromDate,
         toDate = toDate,
+    )
+}
+
+internal fun validateWyckoffPhase1RunRequest(
+    request: WyckoffPhase1RunRequest?,
+): WyckoffPhase1RunConfig {
+    val body = request ?: throw IllegalArgumentException("Request body is required.")
+    val universeKeys = body.universeKeys
+        .map { value -> normalizeIndexKey(value) }
+        .filter { value -> value.isNotEmpty() }
+        .distinct()
+
+    if (universeKeys.isEmpty()) {
+        throw IllegalArgumentException("universeKeys must contain at least one value.")
+    }
+
+    val symbols = body.symbols
+        .map { value -> value.trim().uppercase() }
+        .filter { value -> value.isNotEmpty() }
+        .distinct()
+
+    val asOfDate = body.asOfDate?.let { value ->
+        runCatching { LocalDate.parse(value) }.getOrNull()
+            ?: throw IllegalArgumentException("asOfDate must be in YYYY-MM-DD format.")
+    } ?: LocalDate.now()
+
+    return WyckoffPhase1RunConfig(
+        universeKeys = universeKeys,
+        symbols = symbols,
+        asOfDate = asOfDate,
     )
 }
 
