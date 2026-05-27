@@ -40,3 +40,4 @@
 ## 2026-05-26
 
 - In symbol selection UX, prefer broker/watchlist-backed selectors over freeform text by default, but keep a one-off manual symbol input for debugging so both operational and debug workflows stay intact.
+- In scanner controls, do not hard-block run behind universe selection if symbol selection is already present; allow symbol-only runs for fast debug workflows.

@@ -21,6 +21,12 @@ data class WyckoffPhase1Config(
     val signalLookbackDays: Int = 10,
     val trackA: WyckoffPhase1TrackAConfig = WyckoffPhase1TrackAConfig(),
     val contextFilter: WyckoffPhase1ContextFilter = WyckoffPhase1ContextFilter(),
+    val runtime: WyckoffPhase1RuntimeConfig = WyckoffPhase1RuntimeConfig(),
+)
+
+data class WyckoffPhase1RuntimeConfig(
+    val enableCandleBackfill: Boolean = false,
+    val maxParallelSymbols: Int = 16,
 )
 
 data class WyckoffPhase1TrackAConfig(

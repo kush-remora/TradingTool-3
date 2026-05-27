@@ -21,17 +21,30 @@ class WyckoffPhase1RequestValidationTest {
     }
 
     @Test
-    fun `validate fails when universe keys missing`() {
+    fun `validate allows symbols when universe keys missing`() {
+        val result = validateWyckoffPhase1RunRequest(
+            WyckoffPhase1RunRequest(
+                universeKeys = emptyList(),
+                symbols = listOf("INFY"),
+            ),
+        )
+
+        assertEquals(emptyList<String>(), result.universeKeys)
+        assertEquals(listOf("INFY"), result.symbols)
+    }
+
+    @Test
+    fun `validate fails when both universe keys and symbols missing`() {
         val error = assertThrows(IllegalArgumentException::class.java) {
             validateWyckoffPhase1RunRequest(
                 WyckoffPhase1RunRequest(
                     universeKeys = emptyList(),
-                    symbols = listOf("INFY"),
+                    symbols = emptyList(),
                 ),
             )
         }
 
-        assertEquals("universeKeys must contain at least one value.", error.message)
+        assertEquals("Provide at least one universe key or one symbol.", error.message)
     }
 
     @Test

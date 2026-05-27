@@ -1503,7 +1503,7 @@ export interface WyckoffPhase1RunRequest {
 export type WyckoffPhase1SymbolSourceMode =
   | "ALL_WATCHLIST"
   | "SELECTED_WATCHLIST"
-  | "SINGLE_SYMBOL";
+  | "MANUAL_SYMBOLS";
 
 export interface WyckoffPhase1Config {
   enabled: boolean;

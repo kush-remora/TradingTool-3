@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Card, Col, Empty, Input, Radio, Row, Select, Space, Spin, Statistic, Table, Typography, message } from "antd";
+import { Alert, Button, Card, Col, Empty, Radio, Row, Select, Space, Spin, Statistic, Table, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { getJson } from "../utils/api";
 import { useWyckoffPhase1Scanner } from "../hooks/useWyckoffPhase1Scanner";
@@ -13,27 +13,32 @@ import type {
   WatchlistSymbolOption,
 } from "../types";
 
-function parseSingleSymbol(input: string): string[] {
-  const normalized = input.trim();
-  return normalized.length === 0 ? [] : [normalized];
+function normalizeSymbols(values: string[]): string[] {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => value.trim().toUpperCase())
+        .filter((value) => value.length > 0),
+    ),
+  );
 }
 
 const FILTERS_STORAGE_KEY = "wyckoff-phase1-filters-v1";
 const SYMBOL_SOURCE_OPTIONS: Array<{ label: string; value: WyckoffPhase1SymbolSourceMode }> = [
   { label: "All Watchlist", value: "ALL_WATCHLIST" },
   { label: "Selected Watchlist", value: "SELECTED_WATCHLIST" },
-  { label: "Single Symbol", value: "SINGLE_SYMBOL" },
+  { label: "Manual Symbols", value: "MANUAL_SYMBOLS" },
 ];
 
 type StoredFilters = {
   universeKeys: string[];
   symbolSourceMode: WyckoffPhase1SymbolSourceMode;
   selectedWatchlistSymbols: string[];
-  singleSymbol: string;
+  manualSymbols: string[];
 };
 
 function isValidSymbolSourceMode(value: unknown): value is WyckoffPhase1SymbolSourceMode {
-  return value === "ALL_WATCHLIST" || value === "SELECTED_WATCHLIST" || value === "SINGLE_SYMBOL";
+  return value === "ALL_WATCHLIST" || value === "SELECTED_WATCHLIST" || value === "MANUAL_SYMBOLS";
 }
 
 function loadStoredFilters(): StoredFilters | null {
@@ -43,13 +48,18 @@ function loadStoredFilters(): StoredFilters | null {
   }
   try {
     const parsed = JSON.parse(raw) as Partial<StoredFilters>;
+    const legacySingleSymbol = typeof (parsed as { singleSymbol?: unknown }).singleSymbol === "string"
+      ? ((parsed as { singleSymbol: string }).singleSymbol).trim()
+      : "";
     return {
       universeKeys: Array.isArray(parsed.universeKeys) ? parsed.universeKeys.filter((value): value is string => typeof value === "string") : [],
       symbolSourceMode: isValidSymbolSourceMode(parsed.symbolSourceMode) ? parsed.symbolSourceMode : "ALL_WATCHLIST",
       selectedWatchlistSymbols: Array.isArray(parsed.selectedWatchlistSymbols)
         ? parsed.selectedWatchlistSymbols.filter((value): value is string => typeof value === "string")
         : [],
-      singleSymbol: typeof parsed.singleSymbol === "string" ? parsed.singleSymbol : "",
+      manualSymbols: Array.isArray(parsed.manualSymbols)
+        ? parsed.manualSymbols.filter((value): value is string => typeof value === "string")
+        : legacySingleSymbol.length > 0 ? [legacySingleSymbol] : [],
     };
   } catch {
     return null;
@@ -129,7 +139,7 @@ export function WyckoffPhase1Page() {
   const [watchlistSymbolOptions, setWatchlistSymbolOptions] = useState<Array<{ label: string; value: string }>>([]);
   const [symbolSourceMode, setSymbolSourceMode] = useState<WyckoffPhase1SymbolSourceMode>("ALL_WATCHLIST");
   const [selectedWatchlistSymbols, setSelectedWatchlistSymbols] = useState<string[]>([]);
-  const [singleSymbol, setSingleSymbol] = useState("");
+  const [manualSymbols, setManualSymbols] = useState<string[]>([]);
   const [filtersHydrated, setFiltersHydrated] = useState(false);
 
   const [scannerConfig, setScannerConfig] = useState<WyckoffPhase1Config | null>(null);
@@ -166,7 +176,7 @@ export function WyckoffPhase1Page() {
       setSelectedUniverseKeys(stored.universeKeys);
       setSymbolSourceMode(stored.symbolSourceMode);
       setSelectedWatchlistSymbols(stored.selectedWatchlistSymbols);
-      setSingleSymbol(stored.singleSymbol);
+      setManualSymbols(stored.manualSymbols);
     }
     setFiltersHydrated(true);
   }, []);
@@ -181,10 +191,10 @@ export function WyckoffPhase1Page() {
         universeKeys: selectedUniverseKeys,
         symbolSourceMode,
         selectedWatchlistSymbols,
-        singleSymbol,
+        manualSymbols,
       } satisfies StoredFilters),
     );
-  }, [filtersHydrated, selectedUniverseKeys, selectedWatchlistSymbols, singleSymbol, symbolSourceMode]);
+  }, [filtersHydrated, manualSymbols, selectedUniverseKeys, selectedWatchlistSymbols, symbolSourceMode]);
 
   useEffect(() => {
     let mounted = true;
@@ -243,20 +253,20 @@ export function WyckoffPhase1Page() {
 
   const resolvedSymbols = useMemo(() => {
     if (symbolSourceMode === "ALL_WATCHLIST") {
-      return watchlistSymbolOptions.map((option) => option.value);
+      return normalizeSymbols(watchlistSymbolOptions.map((option) => option.value));
     }
     if (symbolSourceMode === "SELECTED_WATCHLIST") {
-      return selectedWatchlistSymbols;
+      return normalizeSymbols(selectedWatchlistSymbols);
     }
-    return parseSingleSymbol(singleSymbol);
-  }, [selectedWatchlistSymbols, singleSymbol, symbolSourceMode, watchlistSymbolOptions]);
+    return normalizeSymbols(manualSymbols);
+  }, [manualSymbols, selectedWatchlistSymbols, symbolSourceMode, watchlistSymbolOptions]);
 
   const columns = useMemo<ColumnsType<WyckoffPhase1Row>>(() => {
     const enabledKeys = (columnsConfig?.columns ?? [])
       .filter((column) => column.enabled)
       .map((column) => column.key);
 
-    const keys = enabledKeys.length > 0 ? enabledKeys : ["symbol", "signal_date", "delivery_pct", "delivery_pass", "passed_count"];
+    const keys = enabledKeys.length > 0 ? enabledKeys : ["symbol", "index_key", "signal_date", "delivery_pct", "delivery_pass", "passed_count"];
 
     const defaultSort = columnsConfig?.defaultSort?.[0];
 
@@ -287,8 +297,8 @@ export function WyckoffPhase1Page() {
   }, [columnsConfig]);
 
   const runScanner = async (): Promise<void> => {
-    if (selectedUniverseKeys.length === 0) {
-      messageApi.warning("Select at least one universe key (index or WATCHLIST).");
+    if (selectedUniverseKeys.length === 0 && resolvedSymbols.length === 0) {
+      messageApi.warning("Select at least one universe key or at least one symbol.");
       return;
     }
 
@@ -348,12 +358,17 @@ export function WyckoffPhase1Page() {
                     placeholder="Select watchlist symbols"
                   />
                 )}
-                {symbolSourceMode === "SINGLE_SYMBOL" && (
-                  <Input
-                    style={{ marginTop: 8 }}
-                    value={singleSymbol}
-                    onChange={(event) => setSingleSymbol(event.target.value)}
-                    placeholder="Single symbol (manual or watchlist)"
+                {symbolSourceMode === "MANUAL_SYMBOLS" && (
+                  <Select
+                    mode="tags"
+                    showSearch
+                    optionFilterProp="label"
+                    style={{ width: "100%", marginTop: 8 }}
+                    value={manualSymbols}
+                    options={watchlistSymbolOptions}
+                    onChange={(value) => setManualSymbols(value)}
+                    tokenSeparators={[",", " "]}
+                    placeholder="Select or type multiple symbols"
                   />
                 )}
                 {symbolSourceMode === "ALL_WATCHLIST" && (
@@ -368,7 +383,7 @@ export function WyckoffPhase1Page() {
               <Button
                 type="primary"
                 loading={loading}
-                disabled={selectedUniverseKeys.length === 0}
+                disabled={selectedUniverseKeys.length === 0 && resolvedSymbols.length === 0}
                 onClick={() => void runScanner()}
               >
                 Run Scan

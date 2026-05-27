@@ -1,11 +1,11 @@
 name: Kite Daily Login Reminder
 
-# Runs at 10:30 AM IST (05:00 UTC) on weekdays only.
-# IST = UTC+5:30, so 10:30 AM IST = 05:00 UTC.
+# Runs at 7:00 AM IST (01:30 UTC) on weekdays only.
+# IST = UTC+5:30, so 7:00 AM IST = 01:30 UTC.
 # Markets are closed on weekends — no login needed Sat/Sun.
 on:
   schedule:
-    - cron: '0 5 * * 1-5'
+    - cron: '30 1 * * 1-5'
   workflow_dispatch: # allow manual trigger from GitHub UI for testing
 
 jobs:

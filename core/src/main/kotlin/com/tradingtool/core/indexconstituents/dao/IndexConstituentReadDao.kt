@@ -57,6 +57,24 @@ interface IndexConstituentReadDao {
 
     @SqlQuery(
         """
+        SELECT 
+            ${IndexConstituentColumns.INDEX_KEY},
+            ${IndexConstituentColumns.SYMBOL},
+            ${IndexConstituentColumns.INSTRUMENT_TOKEN},
+            ${IndexConstituentColumns.COMPANY_NAME},
+            ${IndexConstituentColumns.INDUSTRY},
+            ${IndexConstituentColumns.SERIES},
+            ${IndexConstituentColumns.ISIN_CODE},
+            ${IndexConstituentColumns.SOURCE_URL}
+        FROM public.${Tables.INDEX_CONSTITUENTS}
+        WHERE ${IndexConstituentColumns.IS_ACTIVE} = true
+        ORDER BY ${IndexConstituentColumns.SYMBOL}
+        """
+    )
+    fun listAllActive(): List<IndexConstituentUpsertRow>
+
+    @SqlQuery(
+        """
         SELECT
             ${IndexConstituentColumns.INSTRUMENT_TOKEN} AS instrument_token,
             MIN(${IndexConstituentColumns.INDEX_KEY}) AS universe

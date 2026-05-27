@@ -42,5 +42,9 @@
       "minDistancePct": -5.0,
       "maxDistancePct": 5.0
     }
+  },
+  "runtime": {
+    "enableCandleBackfill": false,
+    "maxParallelSymbols": 16
   }
 }

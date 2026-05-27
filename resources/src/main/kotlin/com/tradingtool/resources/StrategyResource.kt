@@ -921,14 +921,14 @@ internal fun validateWyckoffPhase1RunRequest(
         .filter { value -> value.isNotEmpty() }
         .distinct()
 
-    if (universeKeys.isEmpty()) {
-        throw IllegalArgumentException("universeKeys must contain at least one value.")
-    }
-
     val symbols = body.symbols
         .map { value -> value.trim().uppercase() }
         .filter { value -> value.isNotEmpty() }
         .distinct()
+
+    if (universeKeys.isEmpty() && symbols.isEmpty()) {
+        throw IllegalArgumentException("Provide at least one universe key or one symbol.")
+    }
 
     val asOfDate = body.asOfDate?.let { value ->
         runCatching { LocalDate.parse(value) }.getOrNull()
