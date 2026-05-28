@@ -420,7 +420,30 @@ export function WyckoffPhase1Page() {
               <Col><Card size="small"><Statistic title="As Of" value={data.meta.as_of_date} /></Card></Col>
             </Row>
 
-            <Card size="small" title="Result Table">
+            <Card 
+              size="small" 
+              title="Result Table"
+              extra={
+                <Button
+                  size="small"
+                  disabled={!data?.rows || data.rows.length === 0}
+                  onClick={() => {
+                    if (!data) return;
+                    const blob = new Blob([JSON.stringify(data.rows, null, 2)], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `wyckoff_phase1_${new Date().toISOString().split("T")[0]}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  Export JSON
+                </Button>
+              }
+            >
               <Table
                 rowKey={(row) => row.symbol}
                 columns={columns}
