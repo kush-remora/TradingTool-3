@@ -2,39 +2,24 @@
   "batchSize": 50,
   "indices": [
     {
-      "key": "nifty_50",
-      "enabled": true,
-      "csvUrl": "https://www.niftyindices.com/IndexConstituent/ind_nifty50list.csv"
-    },
-    {
       "key": "nifty_100",
       "enabled": true,
       "csvUrl": "https://www.niftyindices.com/IndexConstituent/ind_nifty100list.csv"
     },
     {
-      "key": "nifty_midcap_150",
+      "key": "nifty_midcap_100",
       "enabled": true,
-      "csvUrl": "https://www.niftyindices.com/IndexConstituent/ind_niftymidcap150list.csv"
+      "csvUrl": "https://www.niftyindices.com/IndexConstituent/ind_niftymidcap100list.csv"
     },
     {
-      "key": "nifty_midcap_50",
+      "key": "nifty_smallcap_100",
       "enabled": true,
-      "csvUrl": "https://www.niftyindices.com/IndexConstituent/ind_niftymidcap50list.csv"
+      "csvUrl": "https://www.niftyindices.com/IndexConstituent/ind_niftysmallcap100list.csv"
     },
     {
-      "key": "nifty_smallcap_50",
+      "key": "nifty_500",
       "enabled": true,
-      "csvUrl": "https://www.niftyindices.com/IndexConstituent/ind_niftysmallcap50list.csv"
-    },
-    {
-      "key": "nifty_smallcap_250",
-      "enabled": true,
-      "csvUrl": "https://www.niftyindices.com/IndexConstituent/ind_niftysmallcap250list.csv"
-    },
-    {
-      "key": "nifty_microcap_250",
-      "enabled": true,
-      "csvUrl": "https://www.niftyindices.com/IndexConstituent/ind_niftymicrocap250_list.csv"
+      "csvUrl": "https://www.niftyindices.com/IndexConstituent/ind_nifty500list.csv"
     }
   ]
 }
