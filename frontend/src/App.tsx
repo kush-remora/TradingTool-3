@@ -28,6 +28,7 @@ import { TradePage } from "./pages/TradePage";
 import { TradeReadyPage } from "./pages/TradeReadyPage";
 import { V2DashboardPage } from "./pages/V2DashboardPage";
 import { VolumeSpikeBacktestPage } from "./pages/VolumeSpikeBacktestPage";
+import { IntradayShockBacktestPage } from "./pages/IntradayShockBacktestPage";
 import { WatchlistPage } from "./pages/WatchlistPage";
 import { WeeklyCycleSuccessPage } from "./pages/WeeklyCycleSuccessPage";
 import { WeeklySwingPage } from "./pages/WeeklySwingPage";
@@ -60,7 +61,8 @@ type V1PageKey =
   | "delivery-threshold-backtest"
   | "wyckoff-phase1"
   | "fiftytwo-week-high-backtest"
-  | "fiftytwo-week-high-live";
+  | "fiftytwo-week-high-live"
+  | "intraday-shock-backtest";
 
 type PageKey = V1PageKey | "watchlist-import";
 
@@ -97,6 +99,7 @@ const menuItems: MenuProps["items"] = [
   { key: "weekly-cycle-success", label: "Weekly Cycle Success", icon: <BarChartOutlined /> },
   { key: "s4-volume-spike", label: "S4 Volume Spike", icon: <FundOutlined /> },
   { key: "volume-spike-backtest", label: "Volume Backtest", icon: <FundOutlined /> },
+  { key: "intraday-shock-backtest", label: "Intraday Volume Shock", icon: <FundOutlined /> },
   { key: "screener", label: "Weekly Screener", icon: <BarChartOutlined /> },
   { key: "corporate-results", label: "Results Export", icon: <DownloadOutlined /> },
   { key: "earnings-dashboard", label: "Earnings Dashboard", icon: <FundOutlined /> },
@@ -237,6 +240,7 @@ export default function App() {
             {route === "weekly-cycle-success" && <WeeklyCycleSuccessPage />}
             {route === "s4-volume-spike" && <S4VolumeSpikePage />}
             {route === "volume-spike-backtest" && <VolumeSpikeBacktestPage />}
+            {route === "intraday-shock-backtest" && <IntradayShockBacktestPage />}
             {route === "screener" && <ScreenerPage />}
             {route === "corporate-results" && <CorporateResultsPage />}
             {route === "earnings-dashboard" && <EarningsDashboardPage />}

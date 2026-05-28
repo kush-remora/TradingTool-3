@@ -1985,3 +1985,56 @@ export interface SwingAnalysisResponse {
   candles: SwingCandle[];
   stats: SwingStats;
 }
+
+// ==================== Intraday Volume Shock ====================
+
+export interface IntradayShockBacktestRequest {
+  fromDate?: string;
+  toDate?: string;
+  universe?: string;
+  manualSymbols?: string[];
+  scanEndMinutes?: number;
+  entryDelayMinutes?: number;
+  gapUpTolerancePct?: number;
+  targetPct?: number;
+  hardStopPct?: number;
+  minTurnover?: number;
+  minVolumeSma?: number;
+  positionSizeInr?: number;
+  feePerTradeInr?: number;
+}
+
+export interface IntradayShockBacktestTrade {
+  symbol: string;
+  entryTime: string;
+  exitTime: string;
+  exitReason: "TARGET_HIT" | "STOP_HIT" | "EOD";
+  quantity: number;
+  entryPrice: number;
+  exitPrice: number;
+  gapUpPct: number;
+  morningVolume: number;
+  maxDailyVolume60d: number;
+  maxDailyVolume63d: number;
+  maxDailyVolume126d: number;
+  maxDailyVolume252d: number;
+  netPnlInr: number;
+  netReturnPct: number;
+}
+
+export interface IntradayShockBacktestConfigSnapshot {
+  fromDate: string;
+  toDate: string;
+  universe?: string;
+  manualSymbols: string[];
+  scanEndMinutes: number;
+  entryDelayMinutes: number;
+  gapUpTolerancePct: number;
+  targetPct: number;
+  hardStopPct: number;
+}
+
+export interface IntradayShockBacktestResponse {
+  config: IntradayShockBacktestConfigSnapshot;
+  trades: IntradayShockBacktestTrade[];
+}

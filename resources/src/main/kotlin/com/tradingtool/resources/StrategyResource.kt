@@ -11,6 +11,9 @@ import com.tradingtool.core.strategy.volume.EarningsFilterMode
 import com.tradingtool.core.strategy.volume.VolumeSpikeBacktestRequest
 import com.tradingtool.core.strategy.volume.VolumeSpikeBacktestRunConfig
 import com.tradingtool.core.strategy.volume.VolumeSpikeBacktestService
+import com.tradingtool.core.strategy.volume.IntradayShockBacktestRequest
+import com.tradingtool.core.strategy.volume.IntradayShockRunConfig
+import com.tradingtool.core.strategy.volume.IntradayShockBacktestService
 import com.tradingtool.core.strategy.wyckoff.deliverythreshold.DeliveryThresholdBacktestRequest
 import com.tradingtool.core.strategy.wyckoff.deliverythreshold.DeliveryThresholdBacktestRunConfig
 import com.tradingtool.core.strategy.wyckoff.deliverythreshold.DeliveryThresholdBacktestService
@@ -77,6 +80,7 @@ class StrategyResource @Inject constructor(
     private val momentumDataPrepService: MomentumDataPrepService,
     private val s4Service: S4Service,
     private val volumeSpikeBacktestService: VolumeSpikeBacktestService,
+    private val intradayShockBacktestService: IntradayShockBacktestService,
     private val bollingerSqueezeBacktestService: BollingerSqueezeBacktestService,
     private val bollingerMeanReversionBacktestService: BollingerMeanReversionBacktestService,
     private val deliveryThresholdBacktestService: DeliveryThresholdBacktestService,
@@ -454,6 +458,26 @@ class StrategyResource @Inject constructor(
     }
 
     @POST
+    @Path("/intraday-shock/backtest")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runIntradayShockBacktest(request: IntradayShockBacktestRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        if (!kiteClient.isAuthenticated) {
+            return@endpoint serviceUnavailable("Kite is not authenticated")
+        }
+
+        val validatedRequest = runCatching {
+            validateIntradayShockBacktestRequest(request)
+        }.getOrElse { error ->
+            if (error is IllegalArgumentException) {
+                return@endpoint badRequest(error.message ?: "Invalid request.")
+            }
+            throw error
+        }
+
+        ok(intradayShockBacktestService.runBacktest(validatedRequest))
+    }
+
+    @POST
     @Path("/delivery-threshold/backtest")
     @Consumes(MediaType.APPLICATION_JSON)
     fun runDeliveryThresholdBacktest(request: DeliveryThresholdBacktestRequest?): CompletableFuture<Response> = ioScope.endpoint {
@@ -810,6 +834,66 @@ internal fun validateVolumeSpikeBacktestRequest(request: VolumeSpikeBacktestRequ
         feePerTradeInr = feePerTradeInr,
     )
 }
+
+internal fun validateIntradayShockBacktestRequest(request: IntradayShockBacktestRequest?): IntradayShockRunConfig {
+    val body = request ?: throw IllegalArgumentException("Request body is required.")
+
+    val fromDate = body.fromDate?.let { value ->
+        runCatching { LocalDate.parse(value) }.getOrNull()
+            ?: throw IllegalArgumentException("fromDate must be in YYYY-MM-DD format.")
+    } ?: LocalDate.now().minusMonths(1)
+
+    val toDate = body.toDate?.let { value ->
+        runCatching { LocalDate.parse(value) }.getOrNull()
+            ?: throw IllegalArgumentException("toDate must be in YYYY-MM-DD format.")
+    } ?: LocalDate.now()
+
+    if (fromDate.isAfter(toDate)) {
+        throw IllegalArgumentException("fromDate must be on or before toDate.")
+    }
+
+    val scanEndMinutes = body.scanEndMinutes ?: 15
+    if (scanEndMinutes !in 1..120) throw IllegalArgumentException("scanEndMinutes must be between 1 and 120.")
+
+    val entryDelayMinutes = body.entryDelayMinutes ?: 30
+    if (entryDelayMinutes < scanEndMinutes) throw IllegalArgumentException("entryDelayMinutes must be >= scanEndMinutes.")
+    if (entryDelayMinutes > 240) throw IllegalArgumentException("entryDelayMinutes must be <= 240.")
+
+    val normalizedManualSymbols = body.manualSymbols
+        ?.map { value -> value.trim().uppercase() }
+        ?.filter { value -> value.isNotEmpty() }
+        ?.distinct() ?: emptyList()
+
+    val universe = body.universe?.trim()?.takeIf { it.isNotEmpty() }
+
+    val gapUpTolerancePct = body.gapUpTolerancePct ?: 5.0
+    val targetPct = body.targetPct ?: 5.0
+    val hardStopPct = body.hardStopPct ?: 3.0
+    val minTurnover = body.minTurnover ?: 5_000_000.0
+    val minVolumeSma = body.minVolumeSma ?: 100_000.0
+    val positionSizeInr = body.positionSizeInr ?: 50_000.0
+    val feePerTradeInr = body.feePerTradeInr ?: 40.0
+    val exitTime = java.time.LocalTime.of(14, 30) // Hardcoded to 14:30 based on requirements
+
+    return IntradayShockRunConfig(
+        fromDate = fromDate,
+        toDate = toDate,
+        universe = universe,
+        manualSymbols = normalizedManualSymbols,
+        scanEndMinutes = scanEndMinutes,
+        entryDelayMinutes = entryDelayMinutes,
+        gapUpTolerancePct = gapUpTolerancePct,
+        targetPct = targetPct,
+        hardStopPct = hardStopPct,
+        minTurnover = minTurnover,
+        minVolumeSma = minVolumeSma,
+        positionSizeInr = positionSizeInr,
+        feePerTradeInr = feePerTradeInr,
+        exitTime = exitTime,
+    )
+}
+
+
 
 internal fun validateDeliveryThresholdBacktestRequest(
     request: DeliveryThresholdBacktestRequest?,
