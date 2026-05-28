@@ -1560,29 +1560,25 @@ export interface WyckoffPhase1TableColumnsConfig {
 
 export interface WyckoffPhase1Row {
   symbol: string;
+  company_name: string;
   signal_date: string;
   days_ago: number;
   index_key: string;
-  delivery_pct: number;
-  delivery_threshold_pct: number;
-  delivery_pass: number;
-  density_breach_count_15d: number;
-  density_pass: number;
+  tier_80_count_15d: number;
+  tier_70_count_15d: number;
+  tier_65_count_15d: number;
+  tier_60_count_15d: number;
+  tier_55_count_15d: number;
   delivery_volume_zscore_60d: number | null;
-  zscore_pass: number;
-  lvq_dq_pass: number;
   lvq_hit_count_15d: number;
   spread_pct: number | null;
   avg_spread_pct_20d: number | null;
-  absorption_pass: number;
+  rsi_14: number | null;
   roc20_pct: number | null;
-  roc20_range_pass: number;
+  sma50_distance_pct: number | null;
   sma200_distance_pct: number | null;
-  sma_window_used: number;
-  dma200_range_pass: number;
-  low_volume_high_delivery_info: number;
+  distance_from_52w_low_pct: number | null;
   volume_vs_50d_ratio: number | null;
-  passed_count: number;
   accumulation_run_length_days: number;
 }
 

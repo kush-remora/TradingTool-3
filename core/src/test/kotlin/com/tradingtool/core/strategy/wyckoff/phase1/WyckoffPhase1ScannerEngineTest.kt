@@ -110,7 +110,6 @@ class WyckoffPhase1ScannerEngineTest {
         )
 
         val row = response.rows.first()
-        assertEquals(100, row.sma_window_used)
         assertNotNull(row.sma200_distance_pct)
     }
 
@@ -174,7 +173,7 @@ class WyckoffPhase1ScannerEngineTest {
         )
 
         val row = response.rows.first()
-        assertEquals(7, row.passed_count)
+        assertEquals(6, row.lvq_hit_count_15d)
     }
 
     @Test
@@ -221,8 +220,7 @@ class WyckoffPhase1ScannerEngineTest {
         assertEquals(1, response.rows.size)
         val row = response.rows.first()
         assertEquals(start.plusDays(69).toString(), row.signal_date)
-        assertEquals(0, row.delivery_pass)
-        assertEquals(1, row.zscore_pass)
+        assertNotNull(row.delivery_volume_zscore_60d)
     }
 
     private fun delivery(

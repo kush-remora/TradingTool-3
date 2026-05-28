@@ -11,6 +11,7 @@ import org.ta4j.core.indicators.helpers.VolumeIndicator
 import org.ta4j.core.indicators.helpers.LowestValueIndicator
 import org.ta4j.core.indicators.SMAIndicator
 import org.ta4j.core.indicators.ROCIndicator
+import org.ta4j.core.indicators.RSIIndicator
 import org.ta4j.core.indicators.statistics.StandardDeviationIndicator
 import org.ta4j.core.num.Num
 import java.time.LocalDate
@@ -35,7 +36,7 @@ class WyckoffPhase1ScannerEngine {
             )
         }.sortedWith(
             compareByDescending<WyckoffPhase1Row> { row -> row.signal_date }
-                .thenByDescending { row -> row.passed_count }
+                .thenByDescending { row -> row.tier_80_count_15d }
                 .thenBy { row -> row.symbol },
         )
 
@@ -90,12 +91,16 @@ class WyckoffPhase1ScannerEngine {
 
         val closePrice = ClosePriceIndicator(series)
         val volumeInd = VolumeIndicator(series)
+        val deliveryVolumeInd = DeliveryVolumeIndicator(series, alignedData)
         
+        val sma50 = SMAIndicator(closePrice, 50)
         val sma200 = SMAIndicator(closePrice, SMA_TARGET_WINDOW_DAYS)
         val roc20 = ROCIndicator(closePrice, ROC_LOOKBACK_DAYS)
+        val rsiInd = RSIIndicator(closePrice, RSI_LOOKBACK_DAYS)
+        val lowest52w = LowestValueIndicator(closePrice, 252)
         
-        val volSma60 = SMAIndicator(volumeInd, config.trackA.deliveryVolumeZScore.baselineDays)
-        val volStdDev60 = StandardDeviationIndicator(volumeInd, config.trackA.deliveryVolumeZScore.baselineDays)
+        val volSma60 = SMAIndicator(deliveryVolumeInd, config.trackA.deliveryVolumeZScore.baselineDays)
+        val volStdDev60 = StandardDeviationIndicator(deliveryVolumeInd, config.trackA.deliveryVolumeZScore.baselineDays)
         
         val spreadPctInd = SpreadPctIndicator(series)
         val avgSpread20d = SMAIndicator(spreadPctInd, config.trackA.absorptionCheck.spreadLookbackDays)
@@ -110,12 +115,13 @@ class WyckoffPhase1ScannerEngine {
             val day = alignedData[i]
             val signalDate = day.candle.candleDate
             val signalVolume = volumeInd.getValue(i).doubleValue()
+            val signalDeliveryVolume = deliveryVolumeInd.getValue(i).doubleValue()
             val signalDeliveryPct = day.delivery?.delivPer
 
             val isDeliveryPass = signalDeliveryPct != null && signalDeliveryPct >= context.deliveryThresholdPct
             
             val zscore = if (i >= config.trackA.deliveryVolumeZScore.baselineDays && !volStdDev60.getValue(i).isZero) {
-                (signalVolume - volSma60.getValue(i).doubleValue()) / volStdDev60.getValue(i).doubleValue()
+                (signalDeliveryVolume - volSma60.getValue(i).doubleValue()) / volStdDev60.getValue(i).doubleValue()
             } else null
             
             val isZscorePass = config.trackA.deliveryVolumeZScore.enabled && zscore != null && zscore >= config.trackA.deliveryVolumeZScore.minZScore
@@ -123,83 +129,69 @@ class WyckoffPhase1ScannerEngine {
             // Must pass either delivery threshold OR zscore threshold to be a signal date
             if (!isDeliveryPass && !isZscorePass) continue
 
-            // Evaluate the rest of the qualifiers for this valid signal date
-            val densityCount = computeDensityCount(alignedData, i, config.trackA.rollingDensity.lookbackDays, context.deliveryThresholdPct)
-            val isDensityPass = config.trackA.rollingDensity.enabled && densityCount >= config.trackA.rollingDensity.minThresholdBreaches
-
-            val minVol = minVolLvq.getValue(i).doubleValue()
-            val isLvqNearMin = if (minVol > 0.0) {
-                val nearFactor = config.trackA.lvqDq.nearMinPctOfRollingMin / 100.0
-                signalVolume <= (minVol / nearFactor)
-            } else false
-            val isLvqDqPass = config.trackA.lvqDq.enabled && isLvqNearMin && (!config.trackA.lvqDq.requireDeliveryPass || isDeliveryPass)
-            
+            val tiers = computeTierCounts(alignedData, i, 15)
             val lvqHitCount15d = computeLvqHitCount(alignedData, volumeInd, minVolLvq, i, config.trackA.lvqDq, context.deliveryThresholdPct)
-
+            
             val spreadPct = spreadPctInd.getValue(i).doubleValue()
-            val avgSpreadPct20d = avgSpread20d.getValue(i-1)?.doubleValue() // avg spread *before* index. The previous implementation checked avg before index! Wait, the original was `subList(startIndex, signalIndex).average()`. Let's use i-1.
-            val isAbsorptionPass = config.trackA.absorptionCheck.enabled && avgSpreadPct20d != null && spreadPct < avgSpreadPct20d
-
+            val avgSpreadPct20d = avgSpread20d.getValue(i-1)?.doubleValue()
             val roc20Pct = if (i >= ROC_LOOKBACK_DAYS) roc20.getValue(i).doubleValue() else null
-            val isRoc20Pass = config.contextFilter.roc20Range.enabled && roc20Pct != null && 
-                roc20Pct >= config.contextFilter.roc20Range.minDistancePct && 
-                roc20Pct <= config.contextFilter.roc20Range.maxDistancePct
+            val rsiPct = if (i >= RSI_LOOKBACK_DAYS) rsiInd.getValue(i).doubleValue() else null
+
+            val sma50Val = sma50.getValue(i).doubleValue()
+            val dma50DistancePct = if (sma50Val > 0.0) ((day.candle.close / sma50Val) - 1.0) * 100.0 else null
 
             val sma200Val = sma200.getValue(i).doubleValue()
-            val dmaDistancePct = if (sma200Val > 0.0) ((day.candle.close / sma200Val) - 1.0) * 100.0 else null
-            val isDma200Pass = config.contextFilter.dma200Proximity.enabled && dmaDistancePct != null &&
-                dmaDistancePct >= config.contextFilter.dma200Proximity.minDistancePct &&
-                dmaDistancePct <= config.contextFilter.dma200Proximity.maxDistancePct
+            val dma200DistancePct = if (sma200Val > 0.0) ((day.candle.close / sma200Val) - 1.0) * 100.0 else null
+
+            val low52wVal = lowest52w.getValue(i).doubleValue()
+            val distanceFrom52wLowPct = if (low52wVal > 0.0) ((day.candle.close / low52wVal) - 1.0) * 100.0 else null
 
             val volSma50Val = volSma50.getValue(i).doubleValue()
             val volumeVs50dRatio = if (volSma50Val > 0.0) signalVolume / volSma50Val else null
-            val isLowVolumeHighDeliveryInfo = config.trackA.lowVolumeHighDeliveryInfo.enabled && isDeliveryPass && 
-                volumeVs50dRatio != null && volumeVs50dRatio <= config.trackA.lowVolumeHighDeliveryInfo.maxVolumeVsBaselineRatio
 
-            val passedCount = listOf(isDeliveryPass, isDensityPass, isZscorePass, isLvqDqPass, isAbsorptionPass, isRoc20Pass, isDma200Pass).count { it }
-            
             val accumulationRunLengthDays = computeAccumulationRunLength(alignedData, i, context.deliveryThresholdPct)
             
             return WyckoffPhase1Row(
                 symbol = context.symbol,
+                company_name = context.companyName,
                 signal_date = signalDate.toString(),
                 days_ago = lastIndex - i,
                 index_key = context.indexKey,
-                delivery_pct = signalDeliveryPct?.roundTo2() ?: 0.0,
-                delivery_threshold_pct = context.deliveryThresholdPct.roundTo2(),
-                delivery_pass = if (isDeliveryPass) 1 else 0,
-                density_breach_count_15d = densityCount,
-                density_pass = if (isDensityPass) 1 else 0,
+                tier_80_count_15d = tiers.t80,
+                tier_70_count_15d = tiers.t70,
+                tier_65_count_15d = tiers.t65,
+                tier_60_count_15d = tiers.t60,
+                tier_55_count_15d = tiers.t55,
                 delivery_volume_zscore_60d = zscore?.roundTo2(),
-                zscore_pass = if (isZscorePass) 1 else 0,
-                lvq_dq_pass = if (isLvqDqPass) 1 else 0,
                 lvq_hit_count_15d = lvqHitCount15d,
                 spread_pct = spreadPct.roundTo2(),
                 avg_spread_pct_20d = avgSpreadPct20d?.roundTo2(),
-                absorption_pass = if (isAbsorptionPass) 1 else 0,
+                rsi_14 = rsiPct?.roundTo2(),
                 roc20_pct = roc20Pct?.roundTo2(),
-                roc20_range_pass = if (isRoc20Pass) 1 else 0,
-                sma200_distance_pct = dmaDistancePct?.roundTo2(),
-                sma_window_used = minOf(i + 1, SMA_TARGET_WINDOW_DAYS),
-                dma200_range_pass = if (isDma200Pass) 1 else 0,
-                low_volume_high_delivery_info = if (isLowVolumeHighDeliveryInfo) 1 else 0,
+                sma50_distance_pct = dma50DistancePct?.roundTo2(),
+                sma200_distance_pct = dma200DistancePct?.roundTo2(),
+                distance_from_52w_low_pct = distanceFrom52wLowPct?.roundTo2(),
                 volume_vs_50d_ratio = volumeVs50dRatio?.roundTo2(),
-                passed_count = passedCount,
                 accumulation_run_length_days = accumulationRunLengthDays,
             )
         }
         return null
     }
 
-    private fun computeDensityCount(alignedData: List<AlignedMarketDay>, signalIndex: Int, lookbackDays: Int, threshold: Double): Int {
-        if (lookbackDays <= 0) return 0
+    data class TierCounts(val t55: Int, val t60: Int, val t65: Int, val t70: Int, val t80: Int)
+    private fun computeTierCounts(alignedData: List<AlignedMarketDay>, signalIndex: Int, lookbackDays: Int): TierCounts {
+        if (lookbackDays <= 0) return TierCounts(0, 0, 0, 0, 0)
         val startIndex = max(0, signalIndex - lookbackDays + 1)
-        var count = 0
+        var t55 = 0; var t60 = 0; var t65 = 0; var t70 = 0; var t80 = 0
         for (i in startIndex..signalIndex) {
             val pct = alignedData[i].delivery?.delivPer ?: continue
-            if (pct >= threshold) count++
+            if (pct >= 80.0) t80++
+            if (pct >= 70.0) t70++
+            if (pct >= 65.0) t65++
+            if (pct >= 60.0) t60++
+            if (pct >= 55.0) t55++
         }
-        return count
+        return TierCounts(t55, t60, t65, t70, t80)
     }
 
     private fun computeLvqHitCount(
@@ -248,8 +240,20 @@ class WyckoffPhase1ScannerEngine {
         override fun getUnstableBars(): Int = 0
     }
 
+    private class DeliveryVolumeIndicator(
+        private val series: BarSeries,
+        private val alignedData: List<AlignedMarketDay>
+    ) : CachedIndicator<Num>(series) {
+        override fun calculate(index: Int): Num {
+            val delivQty = alignedData.getOrNull(index)?.delivery?.delivQty?.toDouble() ?: 0.0
+            return series.numOf(delivQty)
+        }
+        override fun getUnstableBars(): Int = 0
+    }
+
     companion object {
         private const val ROC_LOOKBACK_DAYS = 20
         private const val SMA_TARGET_WINDOW_DAYS = 200
+        private const val RSI_LOOKBACK_DAYS = 14
     }
 }
