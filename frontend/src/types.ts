@@ -2008,11 +2008,11 @@ export interface IntradayShockBacktestTrade {
   symbol: string;
   entryTime: string;
   exitTime: string;
-  exitReason: "TARGET_HIT" | "STOP_HIT" | "EOD";
+  exitReason: "TARGET_HIT" | "STOP_HIT" | "EOD" | "EOD_FORCED";
   quantity: number;
   entryPrice: number;
   exitPrice: number;
-  gapUpPct: number;
+  gapPct: number;
   morningVolume: number;
   maxDailyVolume60d: number;
   maxDailyVolume63d: number;
@@ -2034,7 +2034,33 @@ export interface IntradayShockBacktestConfigSnapshot {
   hardStopPct: number;
 }
 
+export interface IntradayShockBacktestSummary {
+  symbolsConsidered: number;
+  totalTrades: number;
+  winningTrades: number;
+  losingTrades: number;
+  winRatePct: number;
+  grossPnlInr: number;
+  totalFeesInr: number;
+  netPnlInr: number;
+  avgNetReturnPct: number;
+  maxDrawdownInr: number;
+}
+
+export interface IntradayShockBacktestDiagnostics {
+  symbolsConsidered: number;
+  symbolsWithResolvedToken: number;
+  symbolsWithNoToken: string[];
+  symbolsWithNoIntradayData: string[];
+  symbolsWithNoTrades: string[];
+  cacheHits: number;
+  cacheMisses: number;
+  kiteFetchFailures: string[];
+}
+
 export interface IntradayShockBacktestResponse {
   config: IntradayShockBacktestConfigSnapshot;
+  summary: IntradayShockBacktestSummary;
+  diagnostics: IntradayShockBacktestDiagnostics;
   trades: IntradayShockBacktestTrade[];
 }

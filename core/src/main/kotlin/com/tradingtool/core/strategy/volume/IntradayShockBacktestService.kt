@@ -50,7 +50,18 @@ class IntradayShockBacktestService @Inject constructor(
             stocks = stocks.filter { it.symbol.uppercase() in symbolSet }
         } else if (!request.universe.isNullOrBlank()) {
             val constituents = indexConstituentHandler.read { dao ->
-                dao.listActiveByIndex(request.universe)
+                val directMatches = dao.listActiveByIndex(request.universe)
+                if (directMatches.isNotEmpty()) {
+                    directMatches
+                } else {
+                    val normalizedRequested = normalizeIndexKey(request.universe)
+                    val resolvedIndexKeys = dao.listUniqueIndices()
+                        .map { summary -> summary.indexKey }
+                        .filter { indexKey -> normalizeIndexKey(indexKey) == normalizedRequested }
+
+                    resolvedIndexKeys
+                        .flatMap { indexKey -> dao.listActiveByIndex(indexKey) }
+                }
             }
             val symbolSet = constituents.map { it.symbol.uppercase() }.toSet()
             stocks = stocks.filter { it.symbol.uppercase() in symbolSet }
@@ -231,7 +242,7 @@ class IntradayShockBacktestService @Inject constructor(
 
             for (i in dayBars.indices) {
                 val bar = dayBars[i]
-                if (bar.timestamp.isBefore(scanEndTarget) || bar.timestamp == scanEndTarget) {
+                if (bar.timestamp.isBefore(scanEndTarget)) {
                     morningVolume += bar.volume
                     morningLow = minOf(morningLow, bar.low)
                     scanBarIndex = i
@@ -460,6 +471,14 @@ class IntradayShockBacktestService @Inject constructor(
 
     private fun buildCacheKey(symbol: String, fromDate: LocalDate, toDate: LocalDate): String =
         "backtest:intradayshock:candles:${symbol.uppercase()}:5minute:$fromDate:$toDate"
+
+    private fun normalizeIndexKey(raw: String): String {
+        return raw.trim()
+            .uppercase()
+            .replace(Regex("[^A-Z0-9]+"), "_")
+            .replace(Regex("_+"), "_")
+            .trim('_')
+    }
 
     private data class IntradayBar(
         val timestamp: LocalDateTime,

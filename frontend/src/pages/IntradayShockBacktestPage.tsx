@@ -24,7 +24,7 @@ const tradeColumns: ColumnsType<IntradayShockBacktestTrade> = [
   { title: "Qty", dataIndex: "quantity", key: "quantity", width: 80 },
   { title: "Entry", dataIndex: "entryPrice", key: "entryPrice", width: 90, render: (value: number) => value.toFixed(2) },
   { title: "Exit", dataIndex: "exitPrice", key: "exitPrice", width: 90, render: (value: number) => value.toFixed(2) },
-  { title: "Gap Up %", dataIndex: "gapUpPct", key: "gapUpPct", width: 90, render: (value: number) => `${value.toFixed(2)}%` },
+  { title: "Gap %", dataIndex: "gapPct", key: "gapPct", width: 90, render: (value: number) => `${value.toFixed(2)}%` },
   { title: "9:15-9:30 Vol", dataIndex: "morningVolume", key: "morningVolume", width: 120, render: (value: number) => value.toLocaleString("en-IN", { maximumFractionDigits: 0 }) },
   { title: "Max Daily 60d", dataIndex: "maxDailyVolume60d", key: "maxDailyVolume60d", width: 120, render: (value: number) => value.toLocaleString("en-IN", { maximumFractionDigits: 0 }) },
   { title: "Net P&L", dataIndex: "netPnlInr", key: "netPnlInr", width: 120, render: (value: number) => `₹${value.toFixed(2)}` },
@@ -32,15 +32,13 @@ const tradeColumns: ColumnsType<IntradayShockBacktestTrade> = [
 ];
 
 const universeOptions = [
-  { label: "NIFTY 50", value: "NIFTY 50" },
-  { label: "NIFTY NEXT 50", value: "NIFTY NEXT 50" },
-  { label: "NIFTY 100", value: "NIFTY 100" },
-  { label: "NIFTY MIDCAP 50", value: "NIFTY MIDCAP 50" },
-  { label: "NIFTY MIDCAP 150", value: "NIFTY MIDCAP 150" },
-  { label: "NIFTY SMALLCAP 50", value: "NIFTY SMALLCAP 50" },
-  { label: "NIFTY SMALLCAP 250", value: "NIFTY SMALLCAP 250" },
-  { label: "NIFTY MICROCAP 250", value: "NIFTY MICROCAP 250" },
-  { label: "NIFTY 500", value: "NIFTY 500" },
+  { label: "NIFTY 50", value: "nifty_50" },
+  { label: "NIFTY 100", value: "nifty_100" },
+  { label: "NIFTY MIDCAP 50", value: "nifty_midcap_50" },
+  { label: "NIFTY MIDCAP 150", value: "nifty_midcap_150" },
+  { label: "NIFTY SMALLCAP 50", value: "nifty_smallcap_50" },
+  { label: "NIFTY SMALLCAP 250", value: "nifty_smallcap_250" },
+  { label: "NIFTY MICROCAP 250", value: "nifty_microcap_250" },
   { label: "ALL NSE", value: "" },
 ];
 
@@ -51,7 +49,7 @@ export function IntradayShockBacktestPage() {
     dayjs().subtract(1, "month"),
     dayjs(),
   ]);
-  const [universe, setUniverse] = useState<string>("NIFTY 50");
+  const [universe, setUniverse] = useState<string>("nifty_50");
   const [manualSymbolsText, setManualSymbolsText] = useState<string>("");
   const [scanEndMinutes, setScanEndMinutes] = useState<number>(15);
   const [entryDelayMinutes, setEntryDelayMinutes] = useState<number>(30);
@@ -196,7 +194,7 @@ export function IntradayShockBacktestPage() {
             <Row gutter={16}>
               <Col span={8}>
                 <Card size="small">
-                  <Statistic title="Total Signals" value={data.trades.length} />
+                  <Statistic title="Total Signals" value={data.summary.totalTrades} />
                 </Card>
               </Col>
               <Col span={8}>

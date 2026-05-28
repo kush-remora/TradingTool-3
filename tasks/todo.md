@@ -1,26 +1,30 @@
-# Wyckoff Phase-1 Market Cap Threshold Calculation Fix
+# Intraday Volume Shock Review & Fix
 
 ## Goal Description
-Ensure the Wyckoff Phase-1 Scanner assigns the correct delivery threshold (market cap bucket) to a symbol based on its actual highest-threshold index membership in the database, regardless of which `universeKeys` were selected for the current scan run.
-
-## Proposed Changes
-1. `core/src/main/kotlin/com/tradingtool/core/indexconstituents/dao/IndexConstituentReadDao.kt`:
-   - Added a `listAllActive()` method to fetch all active index memberships from `index_constituents` table. This provides a global view of all symbol memberships.
-2. `core/src/main/kotlin/com/tradingtool/core/strategy/wyckoff/phase1/WyckoffPhase1ScannerService.kt`:
-   - Updated `resolveUniverse()` to fetch all active memberships using `listAllActive()` and create a global `allMembershipBySymbol` lookup.
-   - Applied `resolveMembershipByHighestThreshold()` using this global lookup for all seed symbols. This ensures a symbol like `CASTROLIND` receives its 70% `SMALLCAP` threshold even if the run was triggered with only `WATCHLIST`.
-3. `frontend/src/pages/WyckoffPhase1Page.tsx`:
-   - Added `index_key` to the default table columns to ensure it is visible by default in the frontend UI.
+Review Intraday Volume Shock implementation, identify concrete issues across backend/frontend behavior, and apply minimal, readable fixes.
 
 ## Task List
-- [x] Create `tasks/todo.md` with plan and checkable items
-- [x] Update `IndexConstituentReadDao.kt` to add `listAllActive()`
-- [x] Update `WyckoffPhase1ScannerService.kt` to use global index memberships via `listAllActive()`
-- [x] Update `WyckoffPhase1Page.tsx` default columns to include `index_key`
-- [x] Run backend build (`mvn clean compile`) and verify
+- [x] Verify request/response contract consistency between backend and frontend
+- [x] Verify strategy rule implementation against requirements doc
+- [x] Fix confirmed issues with minimal diffs
+- [x] Run frontend/backend compile checks
+- [x] Run Kotlin review gate and add findings
 - [x] Add Review Section
 
 ## Review Section
-- The application was verified successfully via Maven (`mvn clean compile`), ensuring the addition of `listAllActive()` to `IndexConstituentReadDao.kt` doesn't break compilation.
-- The correct threshold mapping is now applied to all scanned symbols using the global data.
-- The UI defaults now display the `index_key` so the used market-cap bucket is transparent.
+### Confirmed issues found
+1. Morning scan window was inclusive of the scan-end timestamp in backend (`<=` behavior), which incorrectly included the next 5m bar (for 9:15-9:30 this included 9:30 candle).
+2. Frontend used `gapUpPct` while backend returns `gapPct`, so gap values were not mapped correctly.
+3. Frontend trade `exitReason` type missed `EOD_FORCED`, which can be returned by backend.
+4. Frontend response type was stale (missing `summary` and `diagnostics`), creating contract drift.
+
+### Fixes applied
+- Changed scan window check to end-exclusive (`bar.timestamp.isBefore(scanEndTarget)`).
+- Aligned frontend trade field to `gapPct` and label to `Gap %`.
+- Added `EOD_FORCED` to frontend `exitReason` union.
+- Added `IntradayShockBacktestSummary` and `IntradayShockBacktestDiagnostics` interfaces and wired them into `IntradayShockBacktestResponse`.
+- Updated Total Signals card to use backend summary (`data.summary.totalTrades`).
+
+### Verification
+- `mvn -q -DskipTests compile` passed.
+- `npm run frontend:build` passed.

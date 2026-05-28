@@ -127,6 +127,7 @@ const validPages: PageKey[] = [
   "weekly-cycle-success",
   "s4-volume-spike",
   "volume-spike-backtest",
+  "intraday-shock-backtest",
   "screener",
   "corporate-results",
   "earnings-dashboard",
