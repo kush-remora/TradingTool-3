@@ -5,7 +5,6 @@ import java.time.OffsetDateTime
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 
 class IndexConstituentSyncServiceTest {
 
@@ -50,7 +49,7 @@ class IndexConstituentSyncServiceTest {
     }
 
     @Test
-    fun `sync fails fast when unresolved symbols are present`() = runBlocking {
+    fun `sync reports unresolved symbols and continues`() = runBlocking {
         val source = FakeSource(
             mapOf(
                 "nifty_50" to listOf(
@@ -63,15 +62,14 @@ class IndexConstituentSyncServiceTest {
         val gateway = FakeGateway()
 
         val service = IndexConstituentSyncService(source, resolver, gateway)
-        assertFailsWith<IllegalStateException> {
-            service.sync(
-                IndexSyncConfig(
-                    batchSize = 50,
-                    indices = listOf(IndexDefinition("nifty_50", true, "https://example.com/nifty50.csv")),
-                ),
-            )
-        }
-        assertEquals(emptyList(), gateway.batchSizes)
+        val report = service.sync(
+            IndexSyncConfig(
+                batchSize = 50,
+                indices = listOf(IndexDefinition("nifty_50", true, "https://example.com/nifty50.csv")),
+            ),
+        )
+        assertEquals(listOf(1), gateway.batchSizes)
+        assertEquals(listOf("UNKNOWN"), report.indexReports.first().unresolvedSymbols)
     }
 
     private class FakeSource(

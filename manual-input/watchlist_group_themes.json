@@ -1,0 +1,610 @@
+{
+  "theme_count": 9,
+  "themes": [
+    {
+      "theme": "AI, High-Performance Computing (HPC) & Digital Infrastructure",
+      "stocks": [
+        {
+          "symbol": "NETWEB",
+          "company_name": "Netweb Technologies India"
+        },
+        {
+          "symbol": "BBOX",
+          "company_name": "Black Box"
+        },
+        {
+          "symbol": "KAYNES",
+          "company_name": "Kaynes Technology India"
+        },
+        {
+          "symbol": "DIXON",
+          "company_name": "Dixon Technologies (India)"
+        },
+        {
+          "symbol": "STLTECH",
+          "company_name": "Sterlite Technologies"
+        },
+        {
+          "symbol": "CPPLUS",
+          "company_name": "Aditya Infotech"
+        },
+        {
+          "symbol": "PERSISTENT",
+          "company_name": "Persistent Systems"
+        },
+        {
+          "symbol": "COFORGE",
+          "company_name": "Coforge"
+        },
+        {
+          "symbol": "FRACTAL",
+          "company_name": "Fractal Analytics"
+        },
+        {
+          "symbol": "KPITTECH",
+          "company_name": "KPIT Technologies"
+        },
+        {
+          "symbol": "OFSS",
+          "company_name": "Oracle Financial Services Software"
+        },
+        {
+          "symbol": "TECHM",
+          "company_name": "Tech Mahindra"
+        },
+        {
+          "symbol": "SONATSOFTW",
+          "company_name": "Sonata Software"
+        },
+        {
+          "symbol": "INFY",
+          "company_name": "Infosys"
+        },
+        {
+          "symbol": "WIPRO",
+          "company_name": "Wipro"
+        }
+      ]
+    },
+    {
+      "theme": "SHANTI Act Beneficiaries & Nuclear Energy Infrastructure",
+      "stocks": [
+        {
+          "symbol": "MTARTECH",
+          "company_name": "MTAR Technologies"
+        },
+        {
+          "symbol": "WALCHANNAG",
+          "company_name": "Walchandnagar Industries"
+        },
+        {
+          "symbol": "LT",
+          "company_name": "Larsen & Toubro"
+        },
+        {
+          "symbol": "BHEL",
+          "company_name": "Bharat Heavy Electricals"
+        },
+        {
+          "symbol": "BHARATFORG",
+          "company_name": "Bharat Forge"
+        },
+        {
+          "symbol": "NTPC",
+          "company_name": "NTPC"
+        },
+        {
+          "symbol": "TATAPOWER",
+          "company_name": "Tata Power Company"
+        },
+        {
+          "symbol": "POWERGRID",
+          "company_name": "Power Grid Corporation Of India"
+        },
+        {
+          "symbol": "KEC",
+          "company_name": "KEC International"
+        },
+        {
+          "symbol": "ABB",
+          "company_name": "ABB India"
+        },
+        {
+          "symbol": "GVT&D",
+          "company_name": "GE Vernova T&D India"
+        }
+      ]
+    },
+    {
+      "theme": "Energy Transition, Power Grid & Renewable Utilities",
+      "stocks": [
+        {
+          "symbol": "POWERINDIA",
+          "company_name": "Hitachi Energy India"
+        },
+        {
+          "symbol": "SCHNEIDER",
+          "company_name": "Schneider Electric Infrastructure"
+        },
+        {
+          "symbol": "VOLTAMP",
+          "company_name": "Voltamp Transformers"
+        },
+        {
+          "symbol": "TARIL",
+          "company_name": "Transformers & Rectifiers (India)"
+        },
+        {
+          "symbol": "TECHNOE",
+          "company_name": "Techno Electric & Engineering Company"
+        },
+        {
+          "symbol": "POLYCAB",
+          "company_name": "Polycab India"
+        },
+        {
+          "symbol": "KEI",
+          "company_name": "KEI Industries"
+        },
+        {
+          "symbol": "RRKABEL",
+          "company_name": "RR Kabel"
+        },
+        {
+          "symbol": "NHPC",
+          "company_name": "NHPC"
+        },
+        {
+          "symbol": "WAAREEENER",
+          "company_name": "Waaree Energies"
+        },
+        {
+          "symbol": "WAAREERTL",
+          "company_name": "Waaree Renewables"
+        },
+        {
+          "symbol": "SUZLON",
+          "company_name": "Suzlon Energy"
+        },
+        {
+          "symbol": "INOXWIND",
+          "company_name": "INOX Wind"
+        },
+        {
+          "symbol": "IREDA",
+          "company_name": "Indian Renewable Energy Development Agency"
+        },
+        {
+          "symbol": "ADANIGREEN",
+          "company_name": "Adani Green Energy"
+        },
+        {
+          "symbol": "ADANIPOWER",
+          "company_name": "Adani Power"
+        },
+        {
+          "symbol": "EMMVEE",
+          "company_name": "Emmvee Photovoltaic Power"
+        },
+        {
+          "symbol": "NLCINDIA",
+          "company_name": "NLC India"
+        },
+        {
+          "symbol": "ADANIENSOL",
+          "company_name": "Adani Energy Solutions"
+        },
+        {
+          "symbol": "CGPOWER",
+          "company_name": "CG Power & Industrial Solutions"
+        }
+      ]
+    },
+    {
+      "theme": "Defense, Aerospace & Industrial Capital Goods",
+      "stocks": [
+        {
+          "symbol": "BEL",
+          "company_name": "Bharat Electronics"
+        },
+        {
+          "symbol": "DATAPATTNS",
+          "company_name": "Data Patterns (India)"
+        },
+        {
+          "symbol": "ASTRAMICRO",
+          "company_name": "Astra Micro Wave Products"
+        },
+        {
+          "symbol": "APOLLO",
+          "company_name": "Apollo Micro Systems"
+        },
+        {
+          "symbol": "ELECON",
+          "company_name": "Elecon Engineering Company"
+        },
+        {
+          "symbol": "CEMPRO",
+          "company_name": "Cemindia Projects"
+        },
+        {
+          "symbol": "KMEW",
+          "company_name": "Knowledge Marine & Engineering Works"
+        },
+        {
+          "symbol": "DREDGECORP",
+          "company_name": "Dredging Corporation of India"
+        },
+        {
+          "symbol": "KRN",
+          "company_name": "KRN Heat Exchanger And Refrigeration"
+        },
+        {
+          "symbol": "AEROFLEX",
+          "company_name": "Aeroflex Industries"
+        },
+        {
+          "symbol": "BHAGYANGR",
+          "company_name": "Bhagyanagar India"
+        },
+        {
+          "symbol": "ACE",
+          "company_name": "Action Construction Equipment"
+        }
+      ]
+    },
+    {
+      "theme": "Advanced Mobility & Automotive Ecosystem",
+      "stocks": [
+        {
+          "symbol": "M&M",
+          "company_name": "Mahindra & Mahindra"
+        },
+        {
+          "symbol": "MARUTI",
+          "company_name": "Maruti Suzuki India"
+        },
+        {
+          "symbol": "EICHERMOT",
+          "company_name": "Eicher Motors"
+        },
+        {
+          "symbol": "ASHOKLEY",
+          "company_name": "Ashok Leyland"
+        },
+        {
+          "symbol": "FORCEMOT",
+          "company_name": "Force Motors"
+        },
+        {
+          "symbol": "SMLMAH",
+          "company_name": "SML Mahindra"
+        },
+        {
+          "symbol": "SONACOMS",
+          "company_name": "Sona BLW Precision Forgings"
+        },
+        {
+          "symbol": "UNOMINDA",
+          "company_name": "UNO Minda"
+        },
+        {
+          "symbol": "MOTHERSON",
+          "company_name": "Samvardhana Motherson International"
+        },
+        {
+          "symbol": "ARE&M",
+          "company_name": "Amara Raja Energy & Mobility"
+        },
+        {
+          "symbol": "SCHAEFFLER",
+          "company_name": "Schaeffler India"
+        },
+        {
+          "symbol": "CUMMINSIND",
+          "company_name": "Cummins India"
+        },
+        {
+          "symbol": "SWARAJENG",
+          "company_name": "Swaraj Engines"
+        },
+        {
+          "symbol": "TMCV",
+          "company_name": "Tata Motors"
+        },
+        {
+          "symbol": "ATHERENERG",
+          "company_name": "Ather Energy"
+        },
+        {
+          "symbol": "BOSCHLTD",
+          "company_name": "Bosch"
+        },
+        {
+          "symbol": "TENNIND",
+          "company_name": "Tenneco Clean Air India"
+        }
+      ]
+    },
+    {
+      "theme": "Banking, Financial Services & Wealth Management",
+      "stocks": [
+        {
+          "symbol": "HDFCBANK",
+          "company_name": "HDFC Bank"
+        },
+        {
+          "symbol": "ICICIBANK",
+          "company_name": "ICICI Bank"
+        },
+        {
+          "symbol": "SBIN",
+          "company_name": "State Bank of India"
+        },
+        {
+          "symbol": "JIOFIN",
+          "company_name": "JIO Financial Services"
+        },
+        {
+          "symbol": "GROWW",
+          "company_name": "Groww (Billionbrains Garage Ventures)"
+        },
+        {
+          "symbol": "PINELABS",
+          "company_name": "Pine Labs"
+        },
+        {
+          "symbol": "ANANDRATHI",
+          "company_name": "Anand Rathi Wealth"
+        },
+        {
+          "symbol": "ABSLAMC",
+          "company_name": "Aditya Birla Sun Life AMC"
+        },
+        {
+          "symbol": "RBLBANK",
+          "company_name": "RBL Bank"
+        },
+        {
+          "symbol": "PNB",
+          "company_name": "Punjab National Bank"
+        },
+        {
+          "symbol": "IDBI",
+          "company_name": "IDBI Bank"
+        },
+        {
+          "symbol": "LAXMIINDIA",
+          "company_name": "Laxmi India Finance"
+        },
+        {
+          "symbol": "POLICYBZR",
+          "company_name": "PolicyBazaar - PB Fintech Ltd."
+        }
+      ]
+    },
+    {
+      "theme": "Healthcare, Lifesciences & Specialty Chemicals",
+      "stocks": [
+        {
+          "symbol": "DIVISLAB",
+          "company_name": "Divi's Laboratories"
+        },
+        {
+          "symbol": "ABBOTINDIA",
+          "company_name": "Abbott India"
+        },
+        {
+          "symbol": "NATCOPHARM",
+          "company_name": "Natco Pharma"
+        },
+        {
+          "symbol": "EMCURE",
+          "company_name": "Emcure Pharmaceuticals"
+        },
+        {
+          "symbol": "ACUTAAS",
+          "company_name": "Acutaas Chemicals"
+        },
+        {
+          "symbol": "NAVINFLUOR",
+          "company_name": "Navin Fluorine International"
+        },
+        {
+          "symbol": "KRISHANA",
+          "company_name": "Krishana Phoschem"
+        },
+        {
+          "symbol": "SYNGENE",
+          "company_name": "Syngene International"
+        },
+        {
+          "symbol": "POLYMED",
+          "company_name": "Poly Medicure"
+        },
+        {
+          "symbol": "PFIZER",
+          "company_name": "Pfizer"
+        },
+        {
+          "symbol": "KPL",
+          "company_name": "Kwality Pharmaceuticals"
+        },
+        {
+          "symbol": "SUDEEPPHRM",
+          "company_name": "Sudeep Pharma"
+        }
+      ]
+    },
+    {
+      "theme": "Consumption, Modern Retail & Digital Commerce",
+      "stocks": [
+        {
+          "symbol": "MEESHO",
+          "company_name": "Meesho"
+        },
+        {
+          "symbol": "NYKAA",
+          "company_name": "Nykaa - FSN E-Commerce Ventures Ltd."
+        },
+        {
+          "symbol": "LENSKART",
+          "company_name": "Lenskart Solutions"
+        },
+        {
+          "symbol": "INDIAMART",
+          "company_name": "Indiamart Intermesh"
+        },
+        {
+          "symbol": "DELHIVERY",
+          "company_name": "Delhivery"
+        },
+        {
+          "symbol": "ITC",
+          "company_name": "ITC"
+        },
+        {
+          "symbol": "VBL",
+          "company_name": "Varun Beverages"
+        },
+        {
+          "symbol": "TITAN",
+          "company_name": "Titan Company"
+        },
+        {
+          "symbol": "IFBIND",
+          "company_name": "IFB Industries"
+        },
+        {
+          "symbol": "INDIGO",
+          "company_name": "Interglobe Aviation"
+        },
+        {
+          "symbol": "RAYMOND",
+          "company_name": "Raymond"
+        },
+        {
+          "symbol": "KPRMILL",
+          "company_name": "K.P.R. Mill"
+        },
+        {
+          "symbol": "HIMATSEIDE",
+          "company_name": "Himatsingka Seide"
+        },
+        {
+          "symbol": "GOLDIAM",
+          "company_name": "Goldiam International"
+        },
+        {
+          "symbol": "APEX",
+          "company_name": "Apex Frozen Foods"
+        },
+        {
+          "symbol": "AVANTIFEED",
+          "company_name": "Avanti Feeds"
+        },
+        {
+          "symbol": "DELTACORP",
+          "company_name": "Delta Corp"
+        },
+        {
+          "symbol": "PWL",
+          "company_name": "Physicswallah"
+        },
+        {
+          "symbol": "ETERNAL",
+          "company_name": "Eternal"
+        }
+      ]
+    },
+    {
+      "theme": "Core Commodities, Materials & Urban Infrastructure",
+      "stocks": [
+        {
+          "symbol": "TATASTEEL",
+          "company_name": "Tata Steel"
+        },
+        {
+          "symbol": "NATIONALUM",
+          "company_name": "National Aluminium Co"
+        },
+        {
+          "symbol": "VEDL",
+          "company_name": "Vedanta"
+        },
+        {
+          "symbol": "ULTRACEMCO",
+          "company_name": "UltraTech Cement"
+        },
+        {
+          "symbol": "GRASIM",
+          "company_name": "Grasim Industries"
+        },
+        {
+          "symbol": "ADANIENT",
+          "company_name": "Adani Enterprises"
+        },
+        {
+          "symbol": "IOC",
+          "company_name": "Indian Oil Corporation"
+        },
+        {
+          "symbol": "SIGNATURE",
+          "company_name": "Signatureglobal (India)"
+        },
+        {
+          "symbol": "ANANTRAJ",
+          "company_name": "Anant Raj"
+        },
+        {
+          "symbol": "IGL",
+          "company_name": "Indraprastha Gas"
+        },
+        {
+          "symbol": "ATGL",
+          "company_name": "Adani Total Gas"
+        },
+        {
+          "symbol": "SAIL",
+          "company_name": "Steel Authority Of India"
+        },
+        {
+          "symbol": "NMDC",
+          "company_name": "NMDC"
+        },
+        {
+          "symbol": "GMDCLTD",
+          "company_name": "Gujarat Mineral Development Corporation"
+        },
+        {
+          "symbol": "MGL",
+          "company_name": "Mahanagar Gas"
+        },
+        {
+          "symbol": "ELLEN",
+          "company_name": "Ellenbarrie Industrial Gases"
+        },
+        {
+          "symbol": "EPL",
+          "company_name": "EPL Limited"
+        },
+        {
+          "symbol": "JINDALPOLY",
+          "company_name": "Jindal Poly Films"
+        },
+        {
+          "symbol": "RPPL",
+          "company_name": "Rajshree Polypack"
+        },
+        {
+          "symbol": "CASTROLIND",
+          "company_name": "Castrol India"
+        },
+        {
+          "symbol": "RELIANCE",
+          "company_name": "Reliance Industries"
+        }
+      ]
+    }
+  ]
+}

@@ -10,7 +10,7 @@ class GrowwWatchlistSyncService(
 
         var syncedCount = 0
         for (stock in stocks) {
-            syncedCount += stockGateway.upsertGrowwStock(stock)
+            syncedCount += stockGateway.upsertGrowwStock(stock, request.indexKey)
         }
 
         return GrowwWatchlistSyncResult(

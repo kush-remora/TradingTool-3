@@ -1,0 +1,7 @@
+{
+  "inputFile" : "manual-input/watchlist_group_themes.json",
+  "themeCount" : 9,
+  "stockCount" : 140,
+  "upsertedCount" : 140,
+  "unresolved" : [ ]
+}

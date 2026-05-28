@@ -3,7 +3,7 @@ package com.tradingtool.resources
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.google.inject.Inject
-import com.tradingtool.core.database.StockJdbiHandler
+import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConnectClient
@@ -44,7 +44,7 @@ data class GrowwWatchlistImportResponse(
 @Produces(MediaType.APPLICATION_JSON)
 class ConsoleV2Resource @Inject constructor(
     private val resourceScope: ResourceScope,
-    private val stockHandler: StockJdbiHandler,
+    private val indexHandler: IndexConstituentJdbiHandler,
     private val kiteClient: KiteConnectClient,
     private val instrumentCache: InstrumentCache,
 ) {
@@ -103,8 +103,7 @@ class ConsoleV2Resource @Inject constructor(
             objectMapper = objectMapper,
         )
         val stockGateway = JdbiGrowwWatchlistStockGateway(
-            stockHandler = stockHandler,
-            objectMapper = objectMapper,
+            indexHandler = indexHandler,
             instrumentTokenResolver = instrumentTokenResolver,
         )
 
@@ -115,7 +114,7 @@ class ConsoleV2Resource @Inject constructor(
         val skipped = mutableListOf<GrowwWatchlistImportRowSkip>()
         var syncedCount = 0
         for (row in rows) {
-            val result = stockGateway.upsertGrowwStock(row)
+            val result = stockGateway.upsertGrowwStock(row, GROWW_INDEX_KEY)
             if (result <= 0) {
                 skipped += GrowwWatchlistImportRowSkip(
                     symbol = row.symbol,
@@ -136,3 +135,4 @@ class ConsoleV2Resource @Inject constructor(
     }
 }
 
+private const val GROWW_INDEX_KEY = "groww"

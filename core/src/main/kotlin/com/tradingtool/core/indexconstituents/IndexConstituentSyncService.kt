@@ -19,12 +19,6 @@ class IndexConstituentSyncService(
                 prepareIndex(index)
             }
 
-        val unresolved = preparedIndexes
-            .flatMap { prepared -> prepared.unresolvedResolutions.map { resolution -> prepared.index.key to resolution } }
-        if (unresolved.isNotEmpty()) {
-            throw IllegalStateException(buildUnresolvedTokenMessage(unresolved))
-        }
-
         val reports = preparedIndexes.map { prepared ->
             persistIndex(prepared, batchSize = config.batchSize, syncedAt = syncedAt)
         }
@@ -115,21 +109,8 @@ class IndexConstituentSyncService(
             parsedCount = prepared.parsedCount,
             upsertedCount = upsertedCount,
             deactivatedCount = deactivatedCount,
-            unresolvedSymbols = emptyList(),
+            unresolvedSymbols = prepared.unresolvedResolutions.map { resolution -> resolution.symbol },
         )
-    }
-
-    private fun buildUnresolvedTokenMessage(
-        unresolved: List<Pair<String, InstrumentTokenResolution>>,
-    ): String {
-        val details = unresolved
-            .take(MAX_UNRESOLVED_SYMBOLS_IN_MESSAGE)
-            .joinToString(separator = "; ") { (indexKey, resolution) ->
-                val expected = resolution.expectedKeys.joinToString(" | ")
-                val candidates = if (resolution.candidateKeys.isEmpty()) "none" else resolution.candidateKeys.joinToString(" | ")
-                "${indexKey}:${resolution.symbol} (expected=$expected, candidates=$candidates)"
-            }
-        return "IndexConstituentSyncJob unresolved instrument tokens: count=${unresolved.size}; $details"
     }
 
     private data class PreparedIndexSync(
@@ -143,6 +124,5 @@ class IndexConstituentSyncService(
 
     private companion object {
         const val NSE_EXCHANGE: String = "NSE"
-        const val MAX_UNRESOLVED_SYMBOLS_IN_MESSAGE: Int = 30
     }
 }

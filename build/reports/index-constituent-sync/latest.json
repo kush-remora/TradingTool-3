@@ -1,15 +1,7 @@
 {
-  "startedAt" : "2026-05-21T04:10:18.852969+05:30",
-  "finishedAt" : "2026-05-21T04:10:22.162217+05:30",
+  "startedAt" : "2026-05-29T01:45:22.195573+05:30",
+  "finishedAt" : "2026-05-29T01:45:25.492722+05:30",
   "indexReports" : [ {
-    "indexKey" : "nifty_50",
-    "sourceUrl" : "https://www.niftyindices.com/IndexConstituent/ind_nifty50list.csv",
-    "fetchedCount" : 50,
-    "parsedCount" : 50,
-    "upsertedCount" : 50,
-    "deactivatedCount" : 0,
-    "unresolvedSymbols" : [ ]
-  }, {
     "indexKey" : "nifty_100",
     "sourceUrl" : "https://www.niftyindices.com/IndexConstituent/ind_nifty100list.csv",
     "fetchedCount" : 104,
@@ -18,44 +10,28 @@
     "deactivatedCount" : 0,
     "unresolvedSymbols" : [ "DUMMYVEDL1", "DUMMYVEDL2", "DUMMYVEDL3", "DUMMYVEDL4" ]
   }, {
-    "indexKey" : "nifty_midcap_150",
-    "sourceUrl" : "https://www.niftyindices.com/IndexConstituent/ind_niftymidcap150list.csv",
-    "fetchedCount" : 150,
-    "parsedCount" : 150,
-    "upsertedCount" : 150,
+    "indexKey" : "nifty_midcap_100",
+    "sourceUrl" : "https://www.niftyindices.com/IndexConstituent/ind_niftymidcap100list.csv",
+    "fetchedCount" : 100,
+    "parsedCount" : 100,
+    "upsertedCount" : 100,
     "deactivatedCount" : 0,
     "unresolvedSymbols" : [ ]
   }, {
-    "indexKey" : "nifty_midcap_50",
-    "sourceUrl" : "https://www.niftyindices.com/IndexConstituent/ind_niftymidcap50list.csv",
-    "fetchedCount" : 50,
-    "parsedCount" : 50,
-    "upsertedCount" : 50,
+    "indexKey" : "nifty_smallcap_100",
+    "sourceUrl" : "https://www.niftyindices.com/IndexConstituent/ind_niftysmallcap100list.csv",
+    "fetchedCount" : 100,
+    "parsedCount" : 100,
+    "upsertedCount" : 100,
     "deactivatedCount" : 0,
     "unresolvedSymbols" : [ ]
   }, {
-    "indexKey" : "nifty_smallcap_50",
-    "sourceUrl" : "https://www.niftyindices.com/IndexConstituent/ind_niftysmallcap50list.csv",
-    "fetchedCount" : 50,
-    "parsedCount" : 50,
-    "upsertedCount" : 50,
+    "indexKey" : "nifty_500",
+    "sourceUrl" : "https://www.niftyindices.com/IndexConstituent/ind_nifty500list.csv",
+    "fetchedCount" : 504,
+    "parsedCount" : 504,
+    "upsertedCount" : 500,
     "deactivatedCount" : 0,
-    "unresolvedSymbols" : [ ]
-  }, {
-    "indexKey" : "nifty_smallcap_250",
-    "sourceUrl" : "https://www.niftyindices.com/IndexConstituent/ind_niftysmallcap250list.csv",
-    "fetchedCount" : 250,
-    "parsedCount" : 250,
-    "upsertedCount" : 250,
-    "deactivatedCount" : 0,
-    "unresolvedSymbols" : [ ]
-  }, {
-    "indexKey" : "nifty_microcap_250",
-    "sourceUrl" : "https://www.niftyindices.com/IndexConstituent/ind_niftymicrocap250_list.csv",
-    "fetchedCount" : 251,
-    "parsedCount" : 251,
-    "upsertedCount" : 250,
-    "deactivatedCount" : 0,
-    "unresolvedSymbols" : [ "DUMMYALCAR" ]
+    "unresolvedSymbols" : [ "DUMMYVEDL1", "DUMMYVEDL2", "DUMMYVEDL3", "DUMMYVEDL4" ]
   } ]
 }

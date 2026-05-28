@@ -19,9 +19,11 @@ class GrowwWatchlistSyncServiceTest {
         }
 
         val upsertedSymbols = mutableListOf<String>()
+        val upsertedIndexKeys = mutableListOf<String>()
         val gateway = object : GrowwWatchlistStockGateway {
-            override suspend fun upsertGrowwStock(stock: GrowwWatchlistStock): Int {
+            override suspend fun upsertGrowwStock(stock: GrowwWatchlistStock, indexKey: String): Int {
                 upsertedSymbols += stock.symbol
+                upsertedIndexKeys += indexKey
                 return 1
             }
         }
@@ -32,5 +34,6 @@ class GrowwWatchlistSyncServiceTest {
         assertEquals(2, result.fetchedCount)
         assertEquals(2, result.syncedCount)
         assertEquals(listOf("INFY", "TCS"), upsertedSymbols)
+        assertEquals(listOf("groww", "groww"), upsertedIndexKeys)
     }
 }

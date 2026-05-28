@@ -9,6 +9,7 @@ data class GrowwWatchlistStock(
 
 data class GrowwWatchlistSyncRequest(
     val watchlistId: String,
+    val indexKey: String = "groww",
 )
 
 data class GrowwWatchlistSyncResult(
@@ -22,7 +23,7 @@ interface GrowwWatchlistSource {
 }
 
 interface GrowwWatchlistStockGateway {
-    suspend fun upsertGrowwStock(stock: GrowwWatchlistStock): Int
+    suspend fun upsertGrowwStock(stock: GrowwWatchlistStock, indexKey: String): Int
 }
 
 interface GrowwWatchlistInstrumentTokenResolver {

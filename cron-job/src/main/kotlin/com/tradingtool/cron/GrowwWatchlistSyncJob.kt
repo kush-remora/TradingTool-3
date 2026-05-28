@@ -5,14 +5,14 @@ import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.tradingtool.core.config.ConfigLoader
 import com.tradingtool.core.database.JdbiHandler
+import com.tradingtool.core.indexconstituents.dao.IndexConstituentReadDao
+import com.tradingtool.core.indexconstituents.dao.IndexConstituentWriteDao
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConfig
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.kite.KiteTokenReadDao
 import com.tradingtool.core.kite.KiteTokenWriteDao
 import com.tradingtool.core.model.DatabaseConfig
-import com.tradingtool.core.stock.dao.StockReadDao
-import com.tradingtool.core.stock.dao.StockWriteDao
 import com.tradingtool.core.watchlist.groww.FileGrowwWatchlistAdapter
 import com.tradingtool.core.watchlist.groww.GrowwWatchlistSyncRequest
 import com.tradingtool.core.watchlist.groww.GrowwWatchlistSyncResult
@@ -34,7 +34,10 @@ fun main(args: Array<String>) {
     val exitCode = runBlocking {
         runCatching {
             val result = runtime.service.sync(
-                GrowwWatchlistSyncRequest(watchlistId = runtime.watchlistId),
+                GrowwWatchlistSyncRequest(
+                    watchlistId = runtime.watchlistId,
+                    indexKey = runtime.indexKey,
+                ),
             )
             val outputDir = writeArtifacts(result)
             log.info(
@@ -56,6 +59,7 @@ fun main(args: Array<String>) {
 
 private data class GrowwWatchlistSyncRuntime(
     val watchlistId: String,
+    val indexKey: String,
     val service: GrowwWatchlistSyncService,
 ) {
     companion object {
@@ -64,7 +68,7 @@ private data class GrowwWatchlistSyncRuntime(
             val databaseConfig = DatabaseConfig(
                 jdbcUrl = ConfigLoader.get("SUPABASE_DB_URL", "supabase.dbUrl"),
             )
-            val stockHandler = JdbiHandler(databaseConfig, StockReadDao::class.java, StockWriteDao::class.java)
+            val indexHandler = JdbiHandler(databaseConfig, IndexConstituentReadDao::class.java, IndexConstituentWriteDao::class.java)
             val tokenHandler = JdbiHandler(databaseConfig, KiteTokenReadDao::class.java, KiteTokenWriteDao::class.java)
 
             val instrumentTokenResolver = runCatching {
@@ -85,18 +89,19 @@ private data class GrowwWatchlistSyncRuntime(
                     objectMapper = objectMapper,
                 ),
                 stockGateway = JdbiGrowwWatchlistStockGateway(
-                    stockHandler = stockHandler,
-                    objectMapper = objectMapper,
+                    indexHandler = indexHandler,
                     instrumentTokenResolver = instrumentTokenResolver,
                 ),
             )
 
             return GrowwWatchlistSyncRuntime(
                 watchlistId = watchlistId,
+                indexKey = DEFAULT_INDEX_KEY,
                 service = service,
             )
         }
         private const val DEFAULT_WATCHLIST_ID = "GWL_1729712098800"
+        private const val DEFAULT_INDEX_KEY = "groww"
     }
 }
 

@@ -1,25 +1,20 @@
 package com.tradingtool.core.watchlist.groww
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.tradingtool.core.database.StockJdbiHandler
-import com.tradingtool.core.model.stock.StockTag
+import com.tradingtool.core.database.IndexConstituentJdbiHandler
+import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
 import org.slf4j.LoggerFactory
+import java.time.OffsetDateTime
 
 class JdbiGrowwWatchlistStockGateway(
-    private val stockHandler: StockJdbiHandler,
-    private val objectMapper: ObjectMapper,
+    private val indexHandler: IndexConstituentJdbiHandler,
     private val instrumentTokenResolver: GrowwWatchlistInstrumentTokenResolver? = null,
 ) : GrowwWatchlistStockGateway {
     private val log = LoggerFactory.getLogger(JdbiGrowwWatchlistStockGateway::class.java)
 
-    override suspend fun upsertGrowwStock(stock: GrowwWatchlistStock): Int {
-        val existing = stockHandler.read { dao ->
-            dao.getBySymbol(stock.symbol, stock.exchange)
-        }
+    override suspend fun upsertGrowwStock(stock: GrowwWatchlistStock, indexKey: String): Int {
         val resolvedBySymbol = instrumentTokenResolver?.resolve(stock.exchange, stock.symbol)
         val resolvedToken = when {
             resolvedBySymbol != null && resolvedBySymbol > 0L -> resolvedBySymbol
-            existing?.instrumentToken != null && existing.instrumentToken > 0L -> existing.instrumentToken
             stock.instrumentToken > 0L -> stock.instrumentToken
             else -> null
         }
@@ -28,20 +23,27 @@ class JdbiGrowwWatchlistStockGateway(
             return 0
         }
 
-        return stockHandler.write { dao ->
-            dao.upsertFromGrowwWatchlist(
+        val syncedAt = OffsetDateTime.now()
+        val payload = listOf(
+            IndexConstituentUpsertRow(
+                indexKey = indexKey,
                 symbol = stock.symbol,
                 instrumentToken = resolvedToken,
                 companyName = stock.companyName,
-                exchange = stock.exchange,
-                growwTagName = GROWW_TAG_NAME,
-                growwTagJson = objectMapper.writeValueAsString(listOf(StockTag(name = GROWW_TAG_NAME, color = GROWW_TAG_COLOR))),
+                industry = DUMMY_VALUE,
+                series = DUMMY_VALUE,
+                isinCode = DUMMY_VALUE,
+                sourceUrl = DUMMY_SOURCE_URL,
             )
+        )
+
+        return indexHandler.write { dao ->
+            dao.upsertBatch(payload, syncedAt).sum()
         }
     }
 
     companion object {
-        private const val GROWW_TAG_NAME = "GROWW"
-        private const val GROWW_TAG_COLOR = "#0ea5e9"
+        private const val DUMMY_VALUE = ""
+        private const val DUMMY_SOURCE_URL = "groww://watchlist"
     }
 }
