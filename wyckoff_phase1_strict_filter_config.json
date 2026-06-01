@@ -1,0 +1,24 @@
+{
+  "dma200Proximity": {
+    "enabled": true,
+    "minDistancePct": -2.0,
+    "maxDistancePct": 2.0
+  },
+  "roc20Proximity": {
+    "enabled": true,
+    "minPct": -2.0,
+    "maxPct": 2.0
+  },
+  "movingAverageCompression": {
+    "enabled": true,
+    "maxDma50To200DistancePct": 3.0
+  },
+  "volatilityContraction": {
+    "enabled": true,
+    "requireSpreadLessThan20dAverage": true
+  },
+  "accumulationDensity": {
+    "enabled": true,
+    "minTier55Count": 3
+  }
+}

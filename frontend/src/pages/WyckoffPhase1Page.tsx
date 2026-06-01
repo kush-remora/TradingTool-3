@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Card, Col, Empty, Radio, Row, Select, Space, Spin, Statistic, Table, Typography, message } from "antd";
+import { Alert, Button, Card, Col, Empty, Radio, Row, Select, Space, Spin, Statistic, Table, Typography, message, Switch } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { getJson } from "../utils/api";
 import { useWyckoffPhase1Scanner } from "../hooks/useWyckoffPhase1Scanner";
@@ -35,6 +35,7 @@ type StoredFilters = {
   symbolSourceMode: WyckoffPhase1SymbolSourceMode;
   selectedWatchlistSymbols: string[];
   manualSymbols: string[];
+  strictBaseFilter: boolean;
 };
 
 function isValidSymbolSourceMode(value: unknown): value is WyckoffPhase1SymbolSourceMode {
@@ -60,6 +61,7 @@ function loadStoredFilters(): StoredFilters | null {
       manualSymbols: Array.isArray(parsed.manualSymbols)
         ? parsed.manualSymbols.filter((value): value is string => typeof value === "string")
         : legacySingleSymbol.length > 0 ? [legacySingleSymbol] : [],
+      strictBaseFilter: typeof parsed.strictBaseFilter === "boolean" ? parsed.strictBaseFilter : false,
     };
   } catch {
     return null;
@@ -140,6 +142,7 @@ export function WyckoffPhase1Page() {
   const [symbolSourceMode, setSymbolSourceMode] = useState<WyckoffPhase1SymbolSourceMode>("ALL_WATCHLIST");
   const [selectedWatchlistSymbols, setSelectedWatchlistSymbols] = useState<string[]>([]);
   const [manualSymbols, setManualSymbols] = useState<string[]>([]);
+  const [strictBaseFilter, setStrictBaseFilter] = useState(false);
   const [filtersHydrated, setFiltersHydrated] = useState(false);
 
   const [scannerConfig, setScannerConfig] = useState<WyckoffPhase1Config | null>(null);
@@ -177,6 +180,7 @@ export function WyckoffPhase1Page() {
       setSymbolSourceMode(stored.symbolSourceMode);
       setSelectedWatchlistSymbols(stored.selectedWatchlistSymbols);
       setManualSymbols(stored.manualSymbols);
+      setStrictBaseFilter(stored.strictBaseFilter);
     }
     setFiltersHydrated(true);
   }, []);
@@ -192,9 +196,10 @@ export function WyckoffPhase1Page() {
         symbolSourceMode,
         selectedWatchlistSymbols,
         manualSymbols,
+        strictBaseFilter,
       } satisfies StoredFilters),
     );
-  }, [filtersHydrated, manualSymbols, selectedUniverseKeys, selectedWatchlistSymbols, symbolSourceMode]);
+  }, [filtersHydrated, manualSymbols, selectedUniverseKeys, selectedWatchlistSymbols, symbolSourceMode, strictBaseFilter]);
 
   useEffect(() => {
     let mounted = true;
@@ -305,6 +310,7 @@ export function WyckoffPhase1Page() {
     const request: WyckoffPhase1RunRequest = {
       universeKeys: selectedUniverseKeys,
       symbols: resolvedSymbols.length > 0 ? resolvedSymbols : undefined,
+      applyStrictBaseFilter: strictBaseFilter,
     };
 
     await run(request);
@@ -389,6 +395,16 @@ export function WyckoffPhase1Page() {
                 Run Scan
               </Button>
               <Typography.Text type="secondary">Selected symbols: {resolvedSymbols.length}</Typography.Text>
+              
+              <div style={{ marginLeft: 24, display: 'inline-flex', alignItems: 'center' }}>
+                <Switch 
+                  checked={strictBaseFilter} 
+                  onChange={(checked) => setStrictBaseFilter(checked)} 
+                />
+                <Typography.Text style={{ marginLeft: 8 }} strong>
+                  Strict Phase 2 Filter (Dead Base Only)
+                </Typography.Text>
+              </div>
             </Space>
           </Space>
         </Card>
@@ -428,7 +444,7 @@ export function WyckoffPhase1Page() {
                   size="small"
                   disabled={!data?.rows || data.rows.length === 0}
                   onClick={() => {
-                    if (!data) return;
+                    if (!data?.rows || data.rows.length === 0) return;
                     const blob = new Blob([JSON.stringify(data.rows, null, 2)], { type: "application/json" });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");

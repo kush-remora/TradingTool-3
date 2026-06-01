@@ -1498,6 +1498,7 @@ export interface WyckoffPhase1RunRequest {
   universeKeys: string[];
   symbols?: string[];
   asOfDate?: string;
+  applyStrictBaseFilter?: boolean;
 }
 
 export type WyckoffPhase1SymbolSourceMode =

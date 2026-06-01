@@ -46,6 +46,7 @@ class WyckoffPhase1ScannerEngineTest {
                 universeKeys = listOf("NIFTY_SMALLCAP_250"),
                 symbols = emptyList(),
                 asOfDate = start.plusDays(39),
+                applyStrictBaseFilter = false,
             ),
             contexts = listOf(
                 WyckoffPhase1SymbolContext(
@@ -95,6 +96,7 @@ class WyckoffPhase1ScannerEngineTest {
                 universeKeys = listOf("WATCHLIST"),
                 symbols = emptyList(),
                 asOfDate = start.plusDays(99),
+                applyStrictBaseFilter = false,
             ),
             contexts = listOf(
                 WyckoffPhase1SymbolContext(
@@ -158,6 +160,7 @@ class WyckoffPhase1ScannerEngineTest {
                 universeKeys = listOf("NIFTY_LARGEMIDCAP_250"),
                 symbols = emptyList(),
                 asOfDate = start.plusDays(79),
+                applyStrictBaseFilter = false,
             ),
             contexts = listOf(
                 WyckoffPhase1SymbolContext(
@@ -203,6 +206,7 @@ class WyckoffPhase1ScannerEngineTest {
                 universeKeys = listOf("NIFTY_LARGEMIDCAP_250"),
                 symbols = emptyList(),
                 asOfDate = start.plusDays(69),
+                applyStrictBaseFilter = false,
             ),
             contexts = listOf(
                 WyckoffPhase1SymbolContext(

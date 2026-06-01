@@ -18,10 +18,14 @@ class WyckoffPhase1ConfigService @Inject constructor() {
 
     private val phase1ConfigFile = File(PHASE1_CONFIG_FILE)
     private val tableColumnsFile = File(TABLE_COLUMNS_CONFIG_FILE)
+    private val strictFilterConfigFile = File(STRICT_FILTER_CONFIG_FILE)
 
     init {
         if (!phase1ConfigFile.exists()) {
             savePhase1Config(WyckoffPhase1Config())
+        }
+        if (!strictFilterConfigFile.exists()) {
+            saveStrictFilterConfig(WyckoffPhase1StrictFilterConfig())
         }
         if (!tableColumnsFile.exists()) {
             saveTableColumnsConfig(defaultTableColumnsConfig())
@@ -29,15 +33,29 @@ class WyckoffPhase1ConfigService @Inject constructor() {
     }
 
     fun loadPhase1Config(): WyckoffPhase1Config = lock.read {
-        if (!phase1ConfigFile.exists()) {
-            return WyckoffPhase1Config()
-        }
-        return try {
-            mapper.readValue(phase1ConfigFile, WyckoffPhase1Config::class.java)
-        } catch (error: Exception) {
-            log.error("Failed to read {}: {}", PHASE1_CONFIG_FILE, error.message)
+        val baseConfig = if (!phase1ConfigFile.exists()) {
             WyckoffPhase1Config()
+        } else {
+            try {
+                mapper.readValue(phase1ConfigFile, WyckoffPhase1Config::class.java)
+            } catch (error: Exception) {
+                log.error("Failed to read {}: {}", PHASE1_CONFIG_FILE, error.message)
+                WyckoffPhase1Config()
+            }
         }
+
+        val strictFilter = if (!strictFilterConfigFile.exists()) {
+            WyckoffPhase1StrictFilterConfig()
+        } else {
+            try {
+                mapper.readValue(strictFilterConfigFile, WyckoffPhase1StrictFilterConfig::class.java)
+            } catch (error: Exception) {
+                log.error("Failed to read {}: {}", STRICT_FILTER_CONFIG_FILE, error.message)
+                WyckoffPhase1StrictFilterConfig()
+            }
+        }
+
+        return baseConfig.copy(strictFilter = strictFilter)
     }
 
     fun loadTableColumnsConfig(): WyckoffPhase1TableColumnsConfig = lock.read {
@@ -57,6 +75,14 @@ class WyckoffPhase1ConfigService @Inject constructor() {
             mapper.writerWithDefaultPrettyPrinter().writeValue(phase1ConfigFile, config)
         } catch (error: Exception) {
             log.error("Failed to write {}: {}", PHASE1_CONFIG_FILE, error.message)
+        }
+    }
+
+    private fun saveStrictFilterConfig(config: WyckoffPhase1StrictFilterConfig) = lock.write {
+        try {
+            mapper.writerWithDefaultPrettyPrinter().writeValue(strictFilterConfigFile, config)
+        } catch (error: Exception) {
+            log.error("Failed to write {}: {}", STRICT_FILTER_CONFIG_FILE, error.message)
         }
     }
 
@@ -107,5 +133,6 @@ class WyckoffPhase1ConfigService @Inject constructor() {
     companion object {
         private const val PHASE1_CONFIG_FILE = "wyckoff_phase1_config.json"
         private const val TABLE_COLUMNS_CONFIG_FILE = "wyckoff_phase1_table_columns.json"
+        private const val STRICT_FILTER_CONFIG_FILE = "wyckoff_phase1_strict_filter_config.json"
     }
 }

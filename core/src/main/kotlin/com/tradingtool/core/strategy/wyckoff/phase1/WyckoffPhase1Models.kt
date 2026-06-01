@@ -8,12 +8,14 @@ data class WyckoffPhase1RunRequest(
     val universeKeys: List<String> = emptyList(),
     val symbols: List<String> = emptyList(),
     val asOfDate: String? = null,
+    val applyStrictBaseFilter: Boolean = false,
 )
 
 data class WyckoffPhase1RunConfig(
     val universeKeys: List<String>,
     val symbols: List<String>,
     val asOfDate: LocalDate,
+    val applyStrictBaseFilter: Boolean,
 )
 
 data class WyckoffPhase1Config(
@@ -22,6 +24,7 @@ data class WyckoffPhase1Config(
     val trackA: WyckoffPhase1TrackAConfig = WyckoffPhase1TrackAConfig(),
     val contextFilter: WyckoffPhase1ContextFilter = WyckoffPhase1ContextFilter(),
     val runtime: WyckoffPhase1RuntimeConfig = WyckoffPhase1RuntimeConfig(),
+    val strictFilter: WyckoffPhase1StrictFilterConfig = WyckoffPhase1StrictFilterConfig(),
 )
 
 data class WyckoffPhase1RuntimeConfig(
@@ -84,6 +87,35 @@ data class WyckoffPhase1RangeConfig(
     val enabled: Boolean = true,
     val minDistancePct: Double = -5.0,
     val maxDistancePct: Double = 5.0,
+)
+
+data class WyckoffPhase1StrictFilterConfig(
+    val dma200Proximity: WyckoffPhase1RangeConfig = WyckoffPhase1RangeConfig(minDistancePct = -2.0, maxDistancePct = 2.0),
+    val roc20Proximity: WyckoffPhase1RocRangeConfig = WyckoffPhase1RocRangeConfig(),
+    val movingAverageCompression: WyckoffPhase1MovingAverageCompressionConfig = WyckoffPhase1MovingAverageCompressionConfig(),
+    val volatilityContraction: WyckoffPhase1VolatilityContractionConfig = WyckoffPhase1VolatilityContractionConfig(),
+    val accumulationDensity: WyckoffPhase1AccumulationDensityConfig = WyckoffPhase1AccumulationDensityConfig(),
+)
+
+data class WyckoffPhase1RocRangeConfig(
+    val enabled: Boolean = true,
+    val minPct: Double = -2.0,
+    val maxPct: Double = 2.0,
+)
+
+data class WyckoffPhase1MovingAverageCompressionConfig(
+    val enabled: Boolean = true,
+    val maxDma50To200DistancePct: Double = 3.0,
+)
+
+data class WyckoffPhase1VolatilityContractionConfig(
+    val enabled: Boolean = true,
+    val requireSpreadLessThan20dAverage: Boolean = true,
+)
+
+data class WyckoffPhase1AccumulationDensityConfig(
+    val enabled: Boolean = true,
+    val minTier55Count: Int = 3,
 )
 
 data class WyckoffPhase1TableColumnsConfig(

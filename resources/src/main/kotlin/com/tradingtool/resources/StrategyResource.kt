@@ -1023,6 +1023,7 @@ internal fun validateWyckoffPhase1RunRequest(
         universeKeys = universeKeys,
         symbols = symbols,
         asOfDate = asOfDate,
+        applyStrictBaseFilter = body.applyStrictBaseFilter,
     )
 }
 

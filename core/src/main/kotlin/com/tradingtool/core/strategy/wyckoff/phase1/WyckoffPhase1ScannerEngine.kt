@@ -33,6 +33,7 @@ class WyckoffPhase1ScannerEngine {
                 asOfDate = runConfig.asOfDate,
                 context = context,
                 signalLookbackDays = signalLookbackDays,
+                applyStrictBaseFilter = runConfig.applyStrictBaseFilter,
             )
         }.sortedWith(
             compareByDescending<WyckoffPhase1Row> { row -> row.signal_date }
@@ -69,6 +70,7 @@ class WyckoffPhase1ScannerEngine {
         asOfDate: LocalDate,
         context: WyckoffPhase1SymbolContext,
         signalLookbackDays: Int,
+        applyStrictBaseFilter: Boolean,
     ): WyckoffPhase1Row? {
         val deliveryByDate = context.deliveries.associateBy { it.tradingDate }
         val alignedData = context.candles
@@ -142,6 +144,34 @@ class WyckoffPhase1ScannerEngine {
 
             val sma200Val = sma200.getValue(i).doubleValue()
             val dma200DistancePct = if (sma200Val > 0.0) ((day.candle.close / sma200Val) - 1.0) * 100.0 else null
+
+            if (applyStrictBaseFilter) {
+                val strict = config.strictFilter
+                
+                if (strict.dma200Proximity.enabled) {
+                    if (dma200DistancePct == null) continue
+                    if (dma200DistancePct < strict.dma200Proximity.minDistancePct || dma200DistancePct > strict.dma200Proximity.maxDistancePct) continue
+                }
+                
+                if (strict.roc20Proximity.enabled) {
+                    if (roc20Pct == null) continue
+                    if (roc20Pct < strict.roc20Proximity.minPct || roc20Pct > strict.roc20Proximity.maxPct) continue
+                }
+                
+                if (strict.movingAverageCompression.enabled) {
+                    if (dma50DistancePct == null || dma200DistancePct == null) continue
+                    if (kotlin.math.abs(dma50DistancePct - dma200DistancePct) > strict.movingAverageCompression.maxDma50To200DistancePct) continue
+                }
+                
+                if (strict.volatilityContraction.enabled && strict.volatilityContraction.requireSpreadLessThan20dAverage) {
+                    if (avgSpreadPct20d == null) continue
+                    if (spreadPct >= avgSpreadPct20d) continue
+                }
+                
+                if (strict.accumulationDensity.enabled) {
+                    if (tiers.t55 < strict.accumulationDensity.minTier55Count) continue
+                }
+            }
 
             val low52wVal = lowest52w.getValue(i).doubleValue()
             val distanceFrom52wLowPct = if (low52wVal > 0.0) ((day.candle.close / low52wVal) - 1.0) * 100.0 else null

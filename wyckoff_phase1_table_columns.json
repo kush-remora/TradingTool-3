@@ -10,8 +10,8 @@
     { "key": "symbol", "enabled": true },
     { "key": "company_name", "enabled": true },
     { "key": "index_key", "enabled": true },
-    { "key": "signal_date", "enabled": false },
-    { "key": "days_ago", "enabled": false },
+    { "key": "signal_date", "enabled": true },
+    { "key": "days_ago", "enabled": true },
 
     { "key": "delivery_volume_zscore_60d", "enabled": true },
 
