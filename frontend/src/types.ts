@@ -1501,11 +1501,6 @@ export interface WyckoffPhase1RunRequest {
   applyStrictBaseFilter?: boolean;
 }
 
-export type WyckoffPhase1SymbolSourceMode =
-  | "ALL_WATCHLIST"
-  | "SELECTED_WATCHLIST"
-  | "MANUAL_SYMBOLS";
-
 export interface WyckoffPhase1Config {
   enabled: boolean;
   signalLookbackDays?: number;

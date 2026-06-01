@@ -43,10 +43,7 @@ vi.mock("../utils/api", async (importOriginal) => {
         });
       }
       if (path === "/api/watchlist/symbols") {
-        return Promise.resolve([
-          { symbol: "INFY", company_name: "Infosys" },
-          { symbol: "TCS", company_name: "TCS" },
-        ]);
+        return Promise.resolve([]);
       }
       return Promise.resolve({
         options: [
@@ -64,7 +61,7 @@ describe("WyckoffPhase1Page", () => {
     vi.clearAllMocks();
   });
 
-  it("runs with selected universe and manual symbols", async () => {
+  it("runs with selected universe keys only", async () => {
     const run = vi.fn().mockResolvedValue(undefined);
     useWyckoffPhase1ScannerMock.mockReturnValue({ data: null, loading: false, error: null, run });
 
@@ -77,12 +74,6 @@ describe("WyckoffPhase1Page", () => {
     fireEvent.mouseDown(screen.getAllByRole("combobox")[0]);
     fireEvent.click(await screen.findByText("WATCHLIST (20)"));
 
-    fireEvent.click(screen.getByRole("radio", { name: "Manual Symbols" }));
-    fireEvent.mouseDown(screen.getAllByRole("combobox")[1]);
-    fireEvent.click(await screen.findByText("INFY - Infosys"));
-    fireEvent.mouseDown(screen.getAllByRole("combobox")[1]);
-    fireEvent.click(await screen.findByText("TCS - TCS"));
-
     fireEvent.click(screen.getByRole("button", { name: /Run Scan/i }));
 
     await waitFor(() => {
@@ -91,10 +82,10 @@ describe("WyckoffPhase1Page", () => {
 
     const payload = run.mock.calls[0][0];
     expect(payload.universeKeys).toEqual(["WATCHLIST"]);
-    expect(payload.symbols).toEqual(["INFY", "TCS"]);
+    expect(payload.symbols).toBeUndefined();
   });
 
-  it("runs with selected watchlist mode", async () => {
+  it("does not render symbol source controls", async () => {
     const run = vi.fn().mockResolvedValue(undefined);
     useWyckoffPhase1ScannerMock.mockReturnValue({ data: null, loading: false, error: null, run });
 
@@ -104,45 +95,8 @@ describe("WyckoffPhase1Page", () => {
       expect(screen.getByText("Run Scan")).toBeInTheDocument();
     });
 
-    fireEvent.mouseDown(screen.getAllByRole("combobox")[0]);
-    fireEvent.click(await screen.findByText("WATCHLIST (20)"));
-
-    fireEvent.click(screen.getByRole("radio", { name: "Selected Watchlist" }));
-    fireEvent.mouseDown(screen.getAllByRole("combobox")[1]);
-    fireEvent.click(await screen.findByText("INFY - Infosys"));
-
-    fireEvent.click(screen.getByRole("button", { name: /Run Scan/i }));
-
-    await waitFor(() => {
-      expect(run).toHaveBeenCalledTimes(1);
-    });
-
-    const payload = run.mock.calls[0][0];
-    expect(payload.universeKeys).toEqual(["WATCHLIST"]);
-    expect(payload.symbols).toEqual(["INFY"]);
-  });
-
-  it("runs with all watchlist mode by default", async () => {
-    const run = vi.fn().mockResolvedValue(undefined);
-    useWyckoffPhase1ScannerMock.mockReturnValue({ data: null, loading: false, error: null, run });
-
-    render(<WyckoffPhase1Page />);
-
-    await waitFor(() => {
-      expect(screen.getByText("Run Scan")).toBeInTheDocument();
-    });
-
-    fireEvent.mouseDown(screen.getAllByRole("combobox")[0]);
-    fireEvent.click(await screen.findByText("WATCHLIST (20)"));
-    fireEvent.click(screen.getByRole("button", { name: /Run Scan/i }));
-
-    await waitFor(() => {
-      expect(run).toHaveBeenCalledTimes(1);
-    });
-
-    const payload = run.mock.calls[0][0];
-    expect(payload.universeKeys).toEqual(["WATCHLIST"]);
-    expect(payload.symbols).toEqual(["INFY", "TCS"]);
+    expect(screen.queryByText("Symbol Source (optional)")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Selected symbols:/)).not.toBeInTheDocument();
   });
 
   it("restores persisted filters from local storage", async () => {
@@ -150,9 +104,6 @@ describe("WyckoffPhase1Page", () => {
       "wyckoff-phase1-filters-v1",
       JSON.stringify({
         universeKeys: ["WATCHLIST"],
-        symbolSourceMode: "MANUAL_SYMBOLS",
-        selectedWatchlistSymbols: [],
-        manualSymbols: ["ITC"],
       }),
     );
 
@@ -173,32 +124,7 @@ describe("WyckoffPhase1Page", () => {
 
     const payload = run.mock.calls[0][0];
     expect(payload.universeKeys).toEqual(["WATCHLIST"]);
-    expect(payload.symbols).toEqual(["ITC"]);
-  });
-
-  it("enables run with symbols even when universe keys are empty", async () => {
-    const run = vi.fn().mockResolvedValue(undefined);
-    useWyckoffPhase1ScannerMock.mockReturnValue({ data: null, loading: false, error: null, run });
-
-    render(<WyckoffPhase1Page />);
-
-    await waitFor(() => {
-      expect(screen.getByText("Run Scan")).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("radio", { name: "Manual Symbols" }));
-    fireEvent.mouseDown(screen.getAllByRole("combobox")[1]);
-    fireEvent.click(await screen.findByText("INFY - Infosys"));
-
-    fireEvent.click(screen.getByRole("button", { name: /Run Scan/i }));
-
-    await waitFor(() => {
-      expect(run).toHaveBeenCalledTimes(1);
-    });
-
-    const payload = run.mock.calls[0][0];
-    expect(payload.universeKeys).toEqual([]);
-    expect(payload.symbols).toEqual(["INFY"]);
+    expect(payload.symbols).toBeUndefined();
   });
 
   it("applies enabled columns from config", async () => {

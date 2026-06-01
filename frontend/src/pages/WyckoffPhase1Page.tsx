@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Card, Col, Empty, Radio, Row, Select, Space, Spin, Statistic, Table, Typography, message, Switch } from "antd";
+import { Alert, Button, Card, Col, Empty, Row, Select, Space, Spin, Statistic, Table, Typography, message, Switch } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { getJson } from "../utils/api";
 import { useWyckoffPhase1Scanner } from "../hooks/useWyckoffPhase1Scanner";
@@ -8,39 +8,15 @@ import type {
   WyckoffPhase1Config,
   WyckoffPhase1Row,
   WyckoffPhase1RunRequest,
-  WyckoffPhase1SymbolSourceMode,
   WyckoffPhase1TableColumnsConfig,
-  WatchlistSymbolOption,
 } from "../types";
 
-function normalizeSymbols(values: string[]): string[] {
-  return Array.from(
-    new Set(
-      values
-        .map((value) => value.trim().toUpperCase())
-        .filter((value) => value.length > 0),
-    ),
-  );
-}
-
 const FILTERS_STORAGE_KEY = "wyckoff-phase1-filters-v1";
-const SYMBOL_SOURCE_OPTIONS: Array<{ label: string; value: WyckoffPhase1SymbolSourceMode }> = [
-  { label: "All Watchlist", value: "ALL_WATCHLIST" },
-  { label: "Selected Watchlist", value: "SELECTED_WATCHLIST" },
-  { label: "Manual Symbols", value: "MANUAL_SYMBOLS" },
-];
 
 type StoredFilters = {
   universeKeys: string[];
-  symbolSourceMode: WyckoffPhase1SymbolSourceMode;
-  selectedWatchlistSymbols: string[];
-  manualSymbols: string[];
   strictBaseFilter: boolean;
 };
-
-function isValidSymbolSourceMode(value: unknown): value is WyckoffPhase1SymbolSourceMode {
-  return value === "ALL_WATCHLIST" || value === "SELECTED_WATCHLIST" || value === "MANUAL_SYMBOLS";
-}
 
 function loadStoredFilters(): StoredFilters | null {
   const raw = window.localStorage.getItem(FILTERS_STORAGE_KEY);
@@ -49,18 +25,8 @@ function loadStoredFilters(): StoredFilters | null {
   }
   try {
     const parsed = JSON.parse(raw) as Partial<StoredFilters>;
-    const legacySingleSymbol = typeof (parsed as { singleSymbol?: unknown }).singleSymbol === "string"
-      ? ((parsed as { singleSymbol: string }).singleSymbol).trim()
-      : "";
     return {
       universeKeys: Array.isArray(parsed.universeKeys) ? parsed.universeKeys.filter((value): value is string => typeof value === "string") : [],
-      symbolSourceMode: isValidSymbolSourceMode(parsed.symbolSourceMode) ? parsed.symbolSourceMode : "ALL_WATCHLIST",
-      selectedWatchlistSymbols: Array.isArray(parsed.selectedWatchlistSymbols)
-        ? parsed.selectedWatchlistSymbols.filter((value): value is string => typeof value === "string")
-        : [],
-      manualSymbols: Array.isArray(parsed.manualSymbols)
-        ? parsed.manualSymbols.filter((value): value is string => typeof value === "string")
-        : legacySingleSymbol.length > 0 ? [legacySingleSymbol] : [],
       strictBaseFilter: typeof parsed.strictBaseFilter === "boolean" ? parsed.strictBaseFilter : false,
     };
   } catch {
@@ -138,10 +104,6 @@ export function WyckoffPhase1Page() {
   const [universeLoading, setUniverseLoading] = useState(false);
   const [indexOptions, setIndexOptions] = useState<Array<{ label: string; value: string }>>([]);
   const [selectedUniverseKeys, setSelectedUniverseKeys] = useState<string[]>([]);
-  const [watchlistSymbolOptions, setWatchlistSymbolOptions] = useState<Array<{ label: string; value: string }>>([]);
-  const [symbolSourceMode, setSymbolSourceMode] = useState<WyckoffPhase1SymbolSourceMode>("ALL_WATCHLIST");
-  const [selectedWatchlistSymbols, setSelectedWatchlistSymbols] = useState<string[]>([]);
-  const [manualSymbols, setManualSymbols] = useState<string[]>([]);
   const [strictBaseFilter, setStrictBaseFilter] = useState(false);
   const [filtersHydrated, setFiltersHydrated] = useState(false);
 
@@ -177,9 +139,6 @@ export function WyckoffPhase1Page() {
     const stored = loadStoredFilters();
     if (stored) {
       setSelectedUniverseKeys(stored.universeKeys);
-      setSymbolSourceMode(stored.symbolSourceMode);
-      setSelectedWatchlistSymbols(stored.selectedWatchlistSymbols);
-      setManualSymbols(stored.manualSymbols);
       setStrictBaseFilter(stored.strictBaseFilter);
     }
     setFiltersHydrated(true);
@@ -193,40 +152,10 @@ export function WyckoffPhase1Page() {
       FILTERS_STORAGE_KEY,
       JSON.stringify({
         universeKeys: selectedUniverseKeys,
-        symbolSourceMode,
-        selectedWatchlistSymbols,
-        manualSymbols,
         strictBaseFilter,
       } satisfies StoredFilters),
     );
-  }, [filtersHydrated, manualSymbols, selectedUniverseKeys, selectedWatchlistSymbols, symbolSourceMode, strictBaseFilter]);
-
-  useEffect(() => {
-    let mounted = true;
-    void getJson<WatchlistSymbolOption[]>("/api/watchlist/symbols")
-      .then((stocks) => {
-        if (!mounted) return;
-        const options = stocks
-          .map((stock) => {
-            const symbol = stock.symbol.trim().toUpperCase();
-            const company = stock.company_name?.trim();
-            return {
-              value: symbol,
-              label: company && company.length > 0 ? `${symbol} - ${company}` : symbol,
-            };
-          })
-          .sort((left, right) => left.value.localeCompare(right.value));
-        setWatchlistSymbolOptions(options);
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setWatchlistSymbolOptions([]);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  }, [filtersHydrated, selectedUniverseKeys, strictBaseFilter]);
 
   useEffect(() => {
     let mounted = true;
@@ -255,16 +184,6 @@ export function WyckoffPhase1Page() {
       mounted = false;
     };
   }, []);
-
-  const resolvedSymbols = useMemo(() => {
-    if (symbolSourceMode === "ALL_WATCHLIST") {
-      return normalizeSymbols(watchlistSymbolOptions.map((option) => option.value));
-    }
-    if (symbolSourceMode === "SELECTED_WATCHLIST") {
-      return normalizeSymbols(selectedWatchlistSymbols);
-    }
-    return normalizeSymbols(manualSymbols);
-  }, [manualSymbols, selectedWatchlistSymbols, symbolSourceMode, watchlistSymbolOptions]);
 
   const columns = useMemo<ColumnsType<WyckoffPhase1Row>>(() => {
     const enabledKeys = (columnsConfig?.columns ?? [])
@@ -302,14 +221,13 @@ export function WyckoffPhase1Page() {
   }, [columnsConfig]);
 
   const runScanner = async (): Promise<void> => {
-    if (selectedUniverseKeys.length === 0 && resolvedSymbols.length === 0) {
-      messageApi.warning("Select at least one universe key or at least one symbol.");
+    if (selectedUniverseKeys.length === 0) {
+      messageApi.warning("Select at least one universe key.");
       return;
     }
 
     const request: WyckoffPhase1RunRequest = {
       universeKeys: selectedUniverseKeys,
-      symbols: resolvedSymbols.length > 0 ? resolvedSymbols : undefined,
       applyStrictBaseFilter: strictBaseFilter,
     };
 
@@ -330,7 +248,7 @@ export function WyckoffPhase1Page() {
         <Card size="small" title="Controls">
           <Space orientation="vertical" size={12} style={{ width: "100%" }}>
             <Row gutter={12}>
-              <Col xs={24} md={14}>
+              <Col xs={24} md={24}>
                 <Typography.Text strong>Universe Keys</Typography.Text>
                 <Select
                   mode="multiple"
@@ -342,61 +260,19 @@ export function WyckoffPhase1Page() {
                   placeholder="Select one or more index keys or WATCHLIST"
                 />
               </Col>
-              <Col xs={24} md={10}>
-                <Typography.Text strong>Symbol Source (optional)</Typography.Text>
-                <Radio.Group
-                  style={{ display: "block", marginTop: 8 }}
-                  optionType="button"
-                  buttonStyle="solid"
-                  options={SYMBOL_SOURCE_OPTIONS}
-                  value={symbolSourceMode}
-                  onChange={(event) => setSymbolSourceMode(event.target.value as WyckoffPhase1SymbolSourceMode)}
-                />
-                {symbolSourceMode === "SELECTED_WATCHLIST" && (
-                  <Select
-                    mode="multiple"
-                    showSearch
-                    optionFilterProp="label"
-                    style={{ width: "100%", marginTop: 8 }}
-                    value={selectedWatchlistSymbols}
-                    options={watchlistSymbolOptions}
-                    onChange={(value) => setSelectedWatchlistSymbols(value)}
-                    placeholder="Select watchlist symbols"
-                  />
-                )}
-                {symbolSourceMode === "MANUAL_SYMBOLS" && (
-                  <Select
-                    mode="tags"
-                    showSearch
-                    optionFilterProp="label"
-                    style={{ width: "100%", marginTop: 8 }}
-                    value={manualSymbols}
-                    options={watchlistSymbolOptions}
-                    onChange={(value) => setManualSymbols(value)}
-                    tokenSeparators={[",", " "]}
-                    placeholder="Select or type multiple symbols"
-                  />
-                )}
-                {symbolSourceMode === "ALL_WATCHLIST" && (
-                  <Typography.Text type="secondary" style={{ display: "block", marginTop: 8 }}>
-                    All {watchlistSymbolOptions.length} watchlist symbols will be included.
-                  </Typography.Text>
-                )}
-              </Col>
             </Row>
 
             <Space>
               <Button
                 type="primary"
                 loading={loading}
-                disabled={selectedUniverseKeys.length === 0 && resolvedSymbols.length === 0}
+                disabled={selectedUniverseKeys.length === 0}
                 onClick={() => void runScanner()}
               >
                 Run Scan
               </Button>
-              <Typography.Text type="secondary">Selected symbols: {resolvedSymbols.length}</Typography.Text>
-              
-              <div style={{ marginLeft: 24, display: 'inline-flex', alignItems: 'center' }}>
+
+              <div style={{ marginLeft: 24, display: "inline-flex", alignItems: "center" }}>
                 <Switch 
                   checked={strictBaseFilter} 
                   onChange={(checked) => setStrictBaseFilter(checked)} 

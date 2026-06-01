@@ -1,54 +1,44 @@
-# Hot SMA Pullback Scanner (Index-Key Hot Stocks)
+# Wyckoff Phase-1 Scanner Symbol Source Removal
 
 ## Goal Description
-Create a simple Hot SMA scanner for index-key hot stocks with three signals (Aggressive/Standard/Watch), row-level Telegram send, and CSV export of filtered/sorted results.
+Fix Wyckoff Phase-1 scanner so it no longer defaults to watchlist symbols. Remove symbol-source controls and run scanner only from selected `index_key` universe keys.
+
+## Skill Invocation (Mandatory)
+- [x] `coding-standards` invoked (readability-first, small diff)
+- [x] `backend-architect` invoked (no backend contract change required)
+- [x] `kotlin-patterns` invoked (no Kotlin implementation change required)
+- [x] `frontend-patterns` invoked (UI/state simplification)
+- [x] `kotlin-reviewer` queued as final review gate note (no Kotlin diff expected)
 
 ## Task List
-- [x] Add backend Hot SMA models and scanner service under `core/.../strategy/hotsma`
-- [x] Add strategy APIs for universes/run/telegram in `StrategyResource`
-- [x] Add request validation tests for Hot SMA APIs
-- [x] Add core unit tests for SMA low-touch and signal priority rules
-- [x] Add frontend types and `useHotSmaScanner` hook
-- [x] Add `HotSmaScannerPage` with index select, filters, sorting, Telegram send, and CSV export
-- [x] Wire new page into `App.tsx` menu/routes
-- [x] Add frontend page test for run/filter/export flow
-- [x] Run required backend/frontend tests
-- [x] Run Kotlin reviewer gate and document findings
-- [x] Add Review Section
+- [x] Remove symbol-source UI and state from Wyckoff Phase-1 page
+- [x] Make run payload universe-key-only from multiselect
+- [x] Remove now-unused frontend symbol-source type
+- [x] Update Wyckoff Phase-1 frontend tests for new behavior
+- [x] Run targeted frontend test and build verification
+- [x] Add feature journey doc for today
+- [x] Add Review Section outcomes
 
 ## Review Section
 ### What was implemented
-1. Added a new Hot SMA scanner domain under `core` with explicit models and scanner logic:
-   - signal rules: `AGGRESSIVE_BUY` (SMA200 low touch, last 5), `STANDARD_BUY` (SMA100 low touch, last 5), `WATCH_ZONE` (0% to +10% above SMA200)
-   - SMA50/SMA100/SMA200 from close
-   - SMA200 uses available history (`min(availableBars, 200)`)
-   - RSI14 included in output
-2. Added APIs under `StrategyResource`:
-   - `GET /api/strategy/hot-sma/universes`
-   - `POST /api/strategy/hot-sma/run`
-   - `POST /api/strategy/hot-sma/telegram`
-3. Added frontend flow:
-   - new `HotSmaScannerPage`
-   - single index select, run action, filter chips, sort selector
-   - row-level Telegram send
-   - CSV export for the currently filtered/sorted rows
-4. Added tests:
-   - core unit tests for touch logic/signal precedence/watch-zone bounds/partial-history SMA200
-   - resource validation tests for request normalization and required fields
-   - frontend page test for run + filter + CSV export
+1. Simplified `WyckoffPhase1Page` control model to universe-only selection:
+   - Removed `Symbol Source` radio options and dependent symbol selectors.
+   - Removed watchlist symbol loading/state from this page.
+   - Removed `Selected symbols` indicator.
+2. Scanner run payload now always sends:
+   - `universeKeys` from the multiselect.
+   - `applyStrictBaseFilter` as before.
+   - no `symbols` override by default.
+3. Updated persisted filter handling:
+   - Store only `universeKeys` and `strictBaseFilter` for this screen.
+4. Updated frontend test coverage to match new UX behavior.
+5. Removed unused `WyckoffPhase1SymbolSourceMode` type.
 
 ### Verification
-1. `mvn -pl core -Dtest=HotSmaScannerServiceTest test` ✅ passed
-2. `mvn -pl resources -Dtest=HotSmaRequestValidationTest test` ⚠️ fails in this repo because `resources` module alone does not resolve required cross-module classes (existing workspace condition)
-3. `mvn -pl resources -am -Dtest=HotSmaRequestValidationTest -Dsurefire.failIfNoSpecifiedTests=false test` ✅ build success (reactor mode)
-4. `npm --prefix frontend run test:run -- HotSmaScannerPage` ✅ passed
-5. `npm --prefix frontend run build` ✅ passed
+1. `npm --prefix frontend run test:run -- WyckoffPhase1Page` ✅ passed (4 tests)
+2. `npm --prefix frontend run build` ✅ passed
 
 ### Kotlin Reviewer Gate
-- Review scope: `HotSmaModels.kt`, `HotSmaScannerService.kt`, `ServiceModule.kt`, `StrategyResource.kt`, and new Kotlin tests.
-- Findings:
-  - CRITICAL: 0
-  - HIGH: 0
-  - MEDIUM: 0
-  - LOW: 0
-- Verdict: PASS
+- Kotlin reviewer invocation acknowledged per policy.
+- Kotlin/KTS diff scope check: none (`git diff --name-only | rg '\.(kt|kts)$'` returned empty).
+- Verdict: PASS (no Kotlin-related implementation in this change).
