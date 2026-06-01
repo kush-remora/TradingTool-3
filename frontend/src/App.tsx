@@ -12,6 +12,7 @@ import { WyckoffPhase1Page } from "./pages/WyckoffPhase1Page";
 import { EarningsDashboardPage } from "./pages/EarningsDashboardPage";
 import { FiftyTwoWeekHighBacktestPage } from "./pages/FiftyTwoWeekHighBacktestPage";
 import { FiftyTwoWeekHighLivePage } from "./pages/FiftyTwoWeekHighLivePage";
+import { HotSmaScannerPage } from "./pages/HotSmaScannerPage";
 import { MomentumDataPrepPage } from "./pages/MomentumDataPrepPage";
 import { RemoraPage } from "./pages/RemoraPage";
 import { RemoraRsiFloorPage } from "./pages/RemoraRsiFloorPage";
@@ -62,6 +63,7 @@ type V1PageKey =
   | "wyckoff-phase1"
   | "fiftytwo-week-high-backtest"
   | "fiftytwo-week-high-live"
+  | "hot-sma-scanner"
   | "intraday-shock-backtest";
 
 type PageKey = V1PageKey | "watchlist-import";
@@ -74,6 +76,7 @@ const menuItems: MenuProps["items"] = [
   { key: "wyckoff-phase1", label: "Wyckoff Phase-1", icon: <BarChartOutlined /> },
   { key: "fiftytwo-week-high-backtest", label: "52W High BT", icon: <BarChartOutlined /> },
   { key: "fiftytwo-week-high-live", label: "104W Live", icon: <BarChartOutlined /> },
+  { key: "hot-sma-scanner", label: "Hot SMA Scanner", icon: <BarChartOutlined /> },
   {
     key: "unused",
     label: "Unused",
@@ -137,6 +140,7 @@ const validPages: PageKey[] = [
   "wyckoff-phase1",
   "fiftytwo-week-high-backtest",
   "fiftytwo-week-high-live",
+  "hot-sma-scanner",
 ];
 
 export default function App() {
@@ -251,6 +255,7 @@ export default function App() {
             {route === "wyckoff-phase1" && <WyckoffPhase1Page />}
             {route === "fiftytwo-week-high-backtest" && <FiftyTwoWeekHighBacktestPage />}
             {route === "fiftytwo-week-high-live" && <FiftyTwoWeekHighLivePage />}
+            {route === "hot-sma-scanner" && <HotSmaScannerPage />}
           </Layout.Content>
         </Layout>
       </Layout>

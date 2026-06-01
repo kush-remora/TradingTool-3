@@ -56,6 +56,7 @@ import com.tradingtool.core.strategy.rsimomentum.RsiMomentumBackfillService
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumConfigService
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumHistoryService
 import com.tradingtool.core.strategy.rsimomentum.RsiMomentumService
+import com.tradingtool.core.strategy.hotsma.HotSmaScannerService
 import com.tradingtool.core.strategy.rsimomentum.dao.RsiMomentumSnapshotReadDao
 import com.tradingtool.core.strategy.rsimomentum.dao.RsiMomentumSnapshotWriteDao
 import com.tradingtool.core.stock.service.StockDetailService
@@ -420,6 +421,19 @@ class ServiceModule(
         candleHandler: CandleJdbiHandler,
         instrumentCache: InstrumentCache,
     ): CandleDataService = CandleDataService(stockHandler, candleHandler, instrumentCache)
+
+    @Provides @Singleton
+    fun provideHotSmaScannerService(
+        indexConstituentHandler: IndexConstituentJdbiHandler,
+        candleCacheService: CandleCacheService,
+        candleDataService: CandleDataService,
+        kiteClient: KiteConnectClient,
+    ): HotSmaScannerService = HotSmaScannerService(
+        indexConstituentHandler = indexConstituentHandler,
+        candleCacheService = candleCacheService,
+        candleDataService = candleDataService,
+        kiteClient = kiteClient,
+    )
 
     @Provides @Singleton
     fun provideWeeklyPatternService(

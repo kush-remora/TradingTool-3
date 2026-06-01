@@ -1731,6 +1731,72 @@ export interface FiftyTwoWeekHighLiveResponse {
   hitToday: FiftyTwoWeekHighLiveRow[];
 }
 
+export type HotSmaSignalTag = "AGGRESSIVE_BUY" | "STANDARD_BUY" | "WATCH_ZONE";
+
+export interface HotSmaRunRequest {
+  indexKey: string;
+}
+
+export interface HotSmaTelegramRequest {
+  indexKey: string;
+  symbol: string;
+  signalTag: HotSmaSignalTag;
+  currentPrice: number;
+  sma50: number | null;
+  sma100: number | null;
+  sma200: number | null;
+  pctToSma50: number | null;
+  pctToSma100: number | null;
+  pctToSma200: number | null;
+  rsi14: number | null;
+}
+
+export interface HotSmaRow {
+  symbol: string;
+  companyName: string;
+  indexKey: string;
+  instrumentToken: number;
+  latestDate: string;
+  currentPrice: number;
+  sma50: number | null;
+  sma100: number | null;
+  sma200: number | null;
+  pctToSma50: number | null;
+  pctToSma100: number | null;
+  pctToSma200: number | null;
+  rsi14: number | null;
+  sma100TouchedInLast5d: boolean;
+  sma100TouchDate: string | null;
+  sma200TouchedInLast5d: boolean;
+  sma200TouchDate: string | null;
+  signalTag: HotSmaSignalTag;
+}
+
+export interface HotSmaSummary {
+  totalSignals: number;
+  aggressiveCount: number;
+  standardCount: number;
+  watchCount: number;
+}
+
+export interface HotSmaConfigSnapshot {
+  touchLookbackDays: number;
+  watchZoneUpperPct: number;
+  rsiPeriod: number;
+  sma50Window: number;
+  sma100Window: number;
+  sma200Window: number;
+  useAvailableHistoryForSma200: boolean;
+}
+
+export interface HotSmaRunResponse {
+  runAt: string;
+  selectedIndexKey: string;
+  config: HotSmaConfigSnapshot;
+  summary: HotSmaSummary;
+  rows: HotSmaRow[];
+}
+
 export interface SqueezePositionInput {
   symbol: string;
   buyDate: string;

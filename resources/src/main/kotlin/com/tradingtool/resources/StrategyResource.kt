@@ -30,6 +30,10 @@ import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighLiveRequest
 import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighLiveRunConfig
 import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighLiveService
 import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighLiveTelegramRequest
+import com.tradingtool.core.strategy.hotsma.HotSmaRunConfig
+import com.tradingtool.core.strategy.hotsma.HotSmaRunRequest
+import com.tradingtool.core.strategy.hotsma.HotSmaScannerService
+import com.tradingtool.core.strategy.hotsma.HotSmaTelegramRequest
 import com.tradingtool.core.telegram.TelegramSender
 import com.tradingtool.core.model.telegram.TelegramSendTextRequest
 import com.tradingtool.core.strategy.profitlookback.ProfitLookbackRequest
@@ -89,6 +93,7 @@ class StrategyResource @Inject constructor(
     private val wyckoffPhase1ConfigService: WyckoffPhase1ConfigService,
     private val fiftyTwoWeekHighBacktestService: FiftyTwoWeekHighBacktestService,
     private val fiftyTwoWeekHighLiveService: FiftyTwoWeekHighLiveService,
+    private val hotSmaScannerService: HotSmaScannerService,
     private val telegramSender: TelegramSender,
     private val profitLookbackService: ProfitLookbackService,
     private val kiteClient: com.tradingtool.core.kite.KiteConnectClient,
@@ -610,6 +615,65 @@ class StrategyResource @Inject constructor(
         }
         ok(telegramSender.sendText(TelegramSendTextRequest(text = message)))
     }
+
+    @GET
+    @Path("/hot-sma/universes")
+    fun getHotSmaUniverseOptions(): CompletableFuture<Response> = ioScope.endpoint {
+        val options = hotSmaScannerService.listUniverseOptions().map { option ->
+            com.tradingtool.core.model.screener.UniverseOption(
+                label = option.value,
+                value = option.value,
+                count = option.count,
+            )
+        }
+        ok(com.tradingtool.core.model.screener.UniverseOptionsResponse(options))
+    }
+
+    @POST
+    @Path("/hot-sma/run")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runHotSma(request: HotSmaRunRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val validated = runCatching {
+            validateHotSmaRunRequest(request)
+        }.getOrElse { error ->
+            if (error is IllegalArgumentException) {
+                return@endpoint badRequest(error.message ?: "Invalid request.")
+            }
+            throw error
+        }
+        ok(hotSmaScannerService.run(validated))
+    }
+
+    @POST
+    @Path("/hot-sma/telegram")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun sendHotSmaTelegram(request: HotSmaTelegramRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val body = runCatching {
+            validateHotSmaTelegramRequest(request)
+        }.getOrElse { error ->
+            if (error is IllegalArgumentException) {
+                return@endpoint badRequest(error.message ?: "Invalid request.")
+            }
+            throw error
+        }
+
+        val message = buildString {
+            append("Hot SMA Signal\\n")
+            append("Index: ").append(body.indexKey).append("\\n")
+            append("Symbol: ").append(body.symbol).append("\\n")
+            append("Signal: ").append(body.signalTag.name).append("\\n")
+            append("Current: ").append(String.format("%.2f", body.currentPrice)).append("\\n")
+            append("SMA50: ").append(body.sma50?.let { String.format("%.2f", it) } ?: "-").append("\\n")
+            append("SMA100: ").append(body.sma100?.let { String.format("%.2f", it) } ?: "-").append("\\n")
+            append("SMA200: ").append(body.sma200?.let { String.format("%.2f", it) } ?: "-").append("\\n")
+            append("% to SMA50: ").append(body.pctToSma50?.let { String.format("%.2f%%", it) } ?: "-").append("\\n")
+            append("% to SMA100: ").append(body.pctToSma100?.let { String.format("%.2f%%", it) } ?: "-").append("\\n")
+            append("% to SMA200: ").append(body.pctToSma200?.let { String.format("%.2f%%", it) } ?: "-").append("\\n")
+            append("RSI14: ").append(body.rsi14?.let { String.format("%.2f", it) } ?: "-").append("\\n")
+        }
+
+        ok(telegramSender.sendText(TelegramSendTextRequest(text = message)))
+    }
 }
 
 internal fun validateProfitLookbackRequest(request: ProfitLookbackRequest?): ProfitLookbackRequest {
@@ -1098,5 +1162,40 @@ internal fun validate52WeekHighLiveRequest(
     return FiftyTwoWeekHighLiveRunConfig(
         universeKeys = universeKeys,
         symbols = symbols,
+    )
+}
+
+internal fun validateHotSmaRunRequest(
+    request: HotSmaRunRequest?,
+): HotSmaRunConfig {
+    val body = request ?: throw IllegalArgumentException("Request body is required.")
+    val normalizedIndexKey = normalizeIndexKey(body.indexKey)
+    if (normalizedIndexKey.isEmpty()) {
+        throw IllegalArgumentException("indexKey is required.")
+    }
+
+    return HotSmaRunConfig(indexKey = normalizedIndexKey)
+}
+
+internal fun validateHotSmaTelegramRequest(
+    request: HotSmaTelegramRequest?,
+): HotSmaTelegramRequest {
+    val body = request ?: throw IllegalArgumentException("Request body is required.")
+    val normalizedIndexKey = normalizeIndexKey(body.indexKey)
+    if (normalizedIndexKey.isEmpty()) {
+        throw IllegalArgumentException("indexKey is required.")
+    }
+
+    val normalizedSymbol = body.symbol.trim().uppercase()
+    if (normalizedSymbol.isEmpty()) {
+        throw IllegalArgumentException("symbol is required.")
+    }
+    if (!body.currentPrice.isFinite() || body.currentPrice <= 0.0) {
+        throw IllegalArgumentException("currentPrice must be a positive number.")
+    }
+
+    return body.copy(
+        indexKey = normalizedIndexKey,
+        symbol = normalizedSymbol,
     )
 }
