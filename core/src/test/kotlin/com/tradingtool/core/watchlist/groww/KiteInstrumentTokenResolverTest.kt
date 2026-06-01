@@ -36,6 +36,18 @@ class KiteInstrumentTokenResolverTest {
     }
 
     @Test
+    fun `resolve falls back to IV symbol on NSE`() = runBlocking {
+        val cache = populatedCache(
+            instrument("NSE", "PGINVIT-IV", 894465L),
+        )
+        val resolver = KiteInstrumentTokenResolver(kiteClient = KiteConnectClient(KiteConfig(apiKey = "test", apiSecret = "test")), instrumentCache = cache)
+
+        val token = resolver.resolve(exchange = "NSE", symbol = "PGINVIT")
+
+        assertEquals(894465L, token)
+    }
+
+    @Test
     fun `resolve returns null when regex fallback has multiple NSE variants`() = runBlocking {
         val cache = populatedCache(
             instrument("NSE", "ABC-BL", 1L),

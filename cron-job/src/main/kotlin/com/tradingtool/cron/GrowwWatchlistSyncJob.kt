@@ -101,7 +101,7 @@ private data class GrowwWatchlistSyncRuntime(
             )
         }
         private const val DEFAULT_WATCHLIST_ID = "GWL_1729712098800"
-        private const val DEFAULT_INDEX_KEY = "groww"
+        private const val DEFAULT_INDEX_KEY = "curated"
     }
 }
 

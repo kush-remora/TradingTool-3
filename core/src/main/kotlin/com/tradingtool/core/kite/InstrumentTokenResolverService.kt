@@ -45,16 +45,18 @@ class InstrumentTokenResolverService(
         }
 
         if (normalizedExchange == NSE_EXCHANGE) {
-            val nseBeMatch = instrumentCache.find(normalizedExchange, "$normalizedSymbol-BE")
-            if (nseBeMatch != null) {
-                return InstrumentTokenResolution(
-                    exchange = normalizedExchange,
-                    symbol = normalizedSymbol,
-                    expectedKeys = expectedKeys,
-                    resolvedToken = nseBeMatch.instrument_token,
-                    matchedKey = "${nseBeMatch.exchange.uppercase()}:${nseBeMatch.tradingsymbol.uppercase()}",
-                    candidateKeys = emptyList(),
-                )
+            for (suffix in NSE_FALLBACK_SUFFIXES) {
+                val fallbackMatch = instrumentCache.find(normalizedExchange, "$normalizedSymbol$suffix")
+                if (fallbackMatch != null) {
+                    return InstrumentTokenResolution(
+                        exchange = normalizedExchange,
+                        symbol = normalizedSymbol,
+                        expectedKeys = expectedKeys,
+                        resolvedToken = fallbackMatch.instrument_token,
+                        matchedKey = "${fallbackMatch.exchange.uppercase()}:${fallbackMatch.tradingsymbol.uppercase()}",
+                        candidateKeys = emptyList(),
+                    )
+                }
             }
         }
 
@@ -72,7 +74,12 @@ class InstrumentTokenResolverService(
         if (exchange != NSE_EXCHANGE) {
             return listOf("$exchange:$symbol")
         }
-        return listOf("$exchange:$symbol", "$exchange:$symbol-BE")
+        return buildList {
+            add("$exchange:$symbol")
+            NSE_FALLBACK_SUFFIXES.forEach { suffix ->
+                add("$exchange:$symbol$suffix")
+            }
+        }
     }
 
     private fun findCandidateKeys(symbol: String): List<String> {
@@ -112,5 +119,6 @@ class InstrumentTokenResolverService(
     private companion object {
         const val NSE_EXCHANGE: String = "NSE"
         const val MAX_CANDIDATES: Int = 8
+        val NSE_FALLBACK_SUFFIXES: List<String> = listOf("-BE", "-IV")
     }
 }

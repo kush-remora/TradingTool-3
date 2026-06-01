@@ -1,30 +1,28 @@
-# Intraday Volume Shock Review & Fix
+# Instrument Token Resolver - NSE `-IV` Fallback
 
 ## Goal Description
-Review Intraday Volume Shock implementation, identify concrete issues across backend/frontend behavior, and apply minimal, readable fixes.
+Handle additional NSE symbol resolution case where app symbol is base form (for example `PGINVIT`) and Kite tradingsymbol is suffixed form (`PGINVIT-IV`).
 
 ## Task List
-- [x] Verify request/response contract consistency between backend and frontend
-- [x] Verify strategy rule implementation against requirements doc
-- [x] Fix confirmed issues with minimal diffs
-- [x] Run frontend/backend compile checks
-- [x] Run Kotlin review gate and add findings
+- [x] Inspect resolver behavior for NSE suffix fallbacks
+- [x] Implement minimal fallback support for NSE `-IV`
+- [x] Add focused unit test for `PGINVIT -> PGINVIT-IV`
+- [x] Run relevant Kotlin test
+- [x] Run Kotlin reviewer pass and document result
 - [x] Add Review Section
 
 ## Review Section
-### Confirmed issues found
-1. Morning scan window was inclusive of the scan-end timestamp in backend (`<=` behavior), which incorrectly included the next 5m bar (for 9:15-9:30 this included 9:30 candle).
-2. Frontend used `gapUpPct` while backend returns `gapPct`, so gap values were not mapped correctly.
-3. Frontend trade `exitReason` type missed `EOD_FORCED`, which can be returned by backend.
-4. Frontend response type was stale (missing `summary` and `diagnostics`), creating contract drift.
+### Confirmed issue found
+1. Resolver only had explicit NSE fallback for `-BE`, so valid instruments like `NSE:PGINVIT-IV` were unresolved when queried as `PGINVIT`.
 
 ### Fixes applied
-- Changed scan window check to end-exclusive (`bar.timestamp.isBefore(scanEndTarget)`).
-- Aligned frontend trade field to `gapPct` and label to `Gap %`.
-- Added `EOD_FORCED` to frontend `exitReason` union.
-- Added `IntradayShockBacktestSummary` and `IntradayShockBacktestDiagnostics` interfaces and wired them into `IntradayShockBacktestResponse`.
-- Updated Total Signals card to use backend summary (`data.summary.totalTrades`).
+- Added NSE fallback suffixes list in `InstrumentTokenResolverService`: `-BE`, `-IV`.
+- Resolver now tries each fallback suffix in order and returns first match.
+- Updated expected key diagnostics to include `NSE:<SYMBOL>-IV`.
+- Added unit test to confirm `PGINVIT` resolves to `PGINVIT-IV` token.
 
 ### Verification
-- `mvn -q -DskipTests compile` passed.
-- `npm run frontend:build` passed.
+- `mvn -pl core -Dtest=KiteInstrumentTokenResolverTest test` passed.
+
+### Kotlin Reviewer Gate
+- No CRITICAL/HIGH/MEDIUM/LOW issues found in this minimal change set.
