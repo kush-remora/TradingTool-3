@@ -117,9 +117,14 @@ class CandleCacheService(
     }
 
     suspend fun invalidateDailyCandles(symbol: String) {
-        val key = "candles:${symbol.trim().uppercase()}:day"
+        val pattern = "candles:${symbol.trim().uppercase()}:day:*"
         try {
-            redis.delete(key)
+            redis.withJedis { jedis ->
+                val keys = jedis.keys(pattern)
+                if (keys.isNotEmpty()) {
+                    jedis.del(*keys.toTypedArray())
+                }
+            }
         } catch (e: Exception) {
             log.warn("Failed to invalidate daily cache for {}: {}", symbol, e.message)
         }

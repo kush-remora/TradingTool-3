@@ -44,7 +44,7 @@
     }
   },
   "runtime": {
-    "enableCandleBackfill": false,
+    "enableCandleBackfill": true,
     "maxParallelSymbols": 16
   }
 }

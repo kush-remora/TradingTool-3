@@ -79,25 +79,29 @@ class DeliveryReconciliationService @Inject constructor(
         }
 
         val sourceSymbols = sourceRowsBySymbol.rowsBySymbol.keys.toList()
-        val trackedStocksBySymbol = stockHandler.read { dao ->
-            dao.listBySymbols(sourceSymbols, NSE_EXCHANGE)
-        }.associateBy { stock -> stock.symbol.uppercase() }
+        val trackedStocksBySymbol = if (sourceSymbols.isEmpty()) {
+            emptyMap()
+        } else {
+            stockHandler.read { dao ->
+                dao.listBySymbols(sourceSymbols, NSE_EXCHANGE)
+            }.associateBy { stock -> stock.symbol.uppercase() }
+        }
 
-        val unresolvedResolutions = mutableListOf<InstrumentTokenResolution>()
+        val unresolvedResolutions = mutableListOf<UnresolvedDeliverySymbol>()
         val resolvedPairs = sourceRowsBySymbol.rowsBySymbol.values.mapNotNull { sourceRow ->
             val resolution = resolveInstrumentToken(sourceRow)
             val resolvedToken = resolution.resolvedToken
             if (resolvedToken == null) {
-                unresolvedResolutions += resolution
+                unresolvedResolutions += UnresolvedDeliverySymbol(
+                    symbol = sourceRow.symbol.uppercase(),
+                    companyName = trackedStocksBySymbol[sourceRow.symbol.uppercase()]?.companyName?.takeIf { it.isNotBlank() },
+                    resolution = resolution,
+                )
                 null
             } else {
                 sourceRow to resolvedToken
             }
         }
-        if (unresolvedResolutions.isNotEmpty()) {
-            throw IllegalStateException(buildUnresolvedTokenMessage(unresolvedResolutions))
-        }
-
         val resolvedTokens = resolvedPairs.map { (_, token) -> token }.distinct()
         val universeByToken = loadUniverseByInstrumentToken(resolvedTokens)
         val upserts = resolvedPairs.map { (sourceRow, token) ->
@@ -148,11 +152,12 @@ class DeliveryReconciliationService @Inject constructor(
 
         return DeliveryDateReconciliationResult(
             tradingDate = tradingDate,
-            expectedCount = upserts.size,
+            expectedCount = sourceRowsBySymbol.rowsBySymbol.size,
             alreadyComplete = false,
             fetchedFromSource = true,
             presentCount = upserts.size,
             missingFromSourceCount = 0,
+            unresolvedSymbols = unresolvedResolutions.map { unresolved -> unresolved.symbol },
         )
     }
 
@@ -223,13 +228,11 @@ class DeliveryReconciliationService @Inject constructor(
         return tokenResolver.resolveDetailed(NSE_EXCHANGE, sourceRow.symbol)
     }
 
-    private fun buildUnresolvedTokenMessage(unresolvedResolutions: List<InstrumentTokenResolution>): String {
+    private fun buildUnresolvedTokenMessage(unresolvedResolutions: List<UnresolvedDeliverySymbol>): String {
         val details = unresolvedResolutions
             .take(MAX_UNRESOLVED_SYMBOLS_IN_MESSAGE)
-            .joinToString(separator = "; ") { resolution ->
-                val expected = resolution.expectedKeys.joinToString(" | ")
-                val candidates = if (resolution.candidateKeys.isEmpty()) "none" else resolution.candidateKeys.joinToString(" | ")
-                "${resolution.symbol} (expected=$expected, candidates=$candidates)"
+            .joinToString(separator = "; ") { unresolved ->
+                formatUnresolvedDeliverySymbol(unresolved)
             }
         return "DeliveryReconciliationJob unresolved instrument tokens: count=${unresolvedResolutions.size}; $details"
     }
@@ -250,6 +253,22 @@ class DeliveryReconciliationService @Inject constructor(
         const val MAX_UNRESOLVED_SYMBOLS_IN_MESSAGE: Int = 30
         val MARKET_ZONE: ZoneId = ZoneId.of("Asia/Kolkata")
     }
+}
+
+internal data class UnresolvedDeliverySymbol(
+    val symbol: String,
+    val companyName: String?,
+    val resolution: InstrumentTokenResolution,
+)
+
+internal fun formatUnresolvedDeliverySymbol(unresolved: UnresolvedDeliverySymbol): String {
+    val displayName = unresolved.companyName?.takeIf { it.isNotBlank() } ?: unresolved.symbol
+    val candidates = if (unresolved.resolution.candidateKeys.isEmpty()) {
+        "none"
+    } else {
+        unresolved.resolution.candidateKeys.joinToString(" | ")
+    }
+    return "${unresolved.symbol} [$displayName] (candidates=$candidates)"
 }
 
 private data class ResolvedSourcePayload(

@@ -80,13 +80,12 @@ object DeliveryReconciliationRunReportFactory {
         val missingRows = rows.filter { row -> row.reconciliationStatus == DeliveryReconciliationStatus.MISSING_FROM_SOURCE }
         val nullableStockRows = rows.filter { row -> row.stockId == null }
         val toleratedAvailabilityGap = isToleratedAvailabilityGap(
-            expectedCount = result.expectedCount,
             unresolvedCount = result.unresolvedSymbols.size,
         )
         val warningIssues = mutableListOf<String>()
         if (toleratedAvailabilityGap && result.unresolvedSymbols.isNotEmpty()) {
             warningIssues +=
-                "Ignoring ${result.unresolvedSymbols.size} unresolved symbol(s) because availability gap is under 1% of the configured universe: ${result.unresolvedSymbols.joinToString(", ")}."
+                "Ignoring ${result.unresolvedSymbols.size} unresolved symbol(s) because unresolved count is within the tolerated per-date limit: ${result.unresolvedSymbols.joinToString(", ")}."
         }
         val blockingIssues = buildList {
             result.unresolvedSymbols.forEach { symbol ->
@@ -131,13 +130,12 @@ object DeliveryReconciliationRunReportFactory {
     }
 
     private fun isToleratedAvailabilityGap(
-        expectedCount: Int,
         unresolvedCount: Int,
     ): Boolean {
-        if (expectedCount <= 0 || unresolvedCount <= 0) {
+        if (unresolvedCount <= 0) {
             return false
         }
-        return unresolvedCount.toDouble() / expectedCount.toDouble() < MAX_TOLERATED_UNAVAILABLE_RATIO
+        return unresolvedCount <= MAX_TOLERATED_UNRESOLVED_SYMBOLS
     }
 
     private fun toSampleRow(row: StockDeliveryDaily): DeliveryReconciliationSampleRow {
@@ -150,5 +148,5 @@ object DeliveryReconciliationRunReportFactory {
         )
     }
 
-    private const val MAX_TOLERATED_UNAVAILABLE_RATIO: Double = 0.01
+    private const val MAX_TOLERATED_UNRESOLVED_SYMBOLS: Int = 5
 }

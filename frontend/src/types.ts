@@ -1676,6 +1676,49 @@ export interface FiftyTwoWeekHighBacktestResponse {
   rows: FiftyTwoWeekHighBacktestRow[];
 }
 
+export interface FiftyTwoWeekLowBacktestConfig {
+  profitPct: number;
+  lookbackDays: number;
+  toDate?: string;
+}
+
+export interface FiftyTwoWeekLowBacktestRequest {
+  indexKeys: string[];
+  symbols: string[];
+  config: FiftyTwoWeekLowBacktestConfig;
+}
+
+export interface FiftyTwoWeekLowBacktestRow {
+  symbol: string;
+  indexBucket: string;
+  enterTrade: string;
+  exitTrade: string | null;
+  buyPrice: number;
+  sellPrice: number | null;
+  holdingDays: number;
+  profitPct: number | null;
+  status: "OPEN" | "CLOSED" | string;
+}
+
+export interface FiftyTwoWeekLowBacktestSummary {
+  totalTrades: number;
+  closedTrades: number;
+  openTrades: number;
+  avgDaysHeldClosed: number | null;
+}
+
+export interface FiftyTwoWeekLowBacktestConfigSnapshot extends FiftyTwoWeekLowBacktestConfig {
+  indexKeys: string[];
+  symbols: string[];
+  fromDate: string;
+}
+
+export interface FiftyTwoWeekLowBacktestResponse {
+  config: FiftyTwoWeekLowBacktestConfigSnapshot;
+  summary: FiftyTwoWeekLowBacktestSummary;
+  rows: FiftyTwoWeekLowBacktestRow[];
+}
+
 export interface FiftyTwoWeekHighLiveRequest {
   universeKeys: string[];
   symbols: string[];

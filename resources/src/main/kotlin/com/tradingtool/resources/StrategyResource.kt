@@ -26,6 +26,9 @@ import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1ScannerService
 import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighBacktestRequest
 import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighBacktestRunConfig
 import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighBacktestService
+import com.tradingtool.core.strategy.fiftytwolow.FiftyTwoWeekLowBacktestRequest
+import com.tradingtool.core.strategy.fiftytwolow.FiftyTwoWeekLowBacktestRunConfig
+import com.tradingtool.core.strategy.fiftytwolow.FiftyTwoWeekLowBacktestService
 import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighLiveRequest
 import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighLiveRunConfig
 import com.tradingtool.core.strategy.fiftytwohigh.FiftyTwoWeekHighLiveService
@@ -92,6 +95,7 @@ class StrategyResource @Inject constructor(
     private val wyckoffPhase1ScannerService: WyckoffPhase1ScannerService,
     private val wyckoffPhase1ConfigService: WyckoffPhase1ConfigService,
     private val fiftyTwoWeekHighBacktestService: FiftyTwoWeekHighBacktestService,
+    private val fiftyTwoWeekLowBacktestService: FiftyTwoWeekLowBacktestService,
     private val fiftyTwoWeekHighLiveService: FiftyTwoWeekHighLiveService,
     private val hotSmaScannerService: HotSmaScannerService,
     private val telegramSender: TelegramSender,
@@ -560,6 +564,22 @@ class StrategyResource @Inject constructor(
         }
 
         ok(fiftyTwoWeekHighBacktestService.runBacktest(validatedRequest))
+    }
+
+    @POST
+    @Path("/52-week-low/backtest")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun run52WeekLowBacktest(request: FiftyTwoWeekLowBacktestRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val validatedRequest = runCatching {
+            validate52WeekLowBacktestRequest(request)
+        }.getOrElse { error ->
+            if (error is IllegalArgumentException) {
+                return@endpoint badRequest(error.message ?: "Invalid request.")
+            }
+            throw error
+        }
+
+        ok(fiftyTwoWeekLowBacktestService.runBacktest(validatedRequest))
     }
 
     @GET
@@ -1097,6 +1117,45 @@ internal fun normalizeIndexKey(raw: String): String {
         .replace(Regex("[^A-Z0-9]+"), "_")
         .replace(Regex("_+"), "_")
         .trim('_')
+}
+
+internal fun validate52WeekLowBacktestRequest(
+    request: FiftyTwoWeekLowBacktestRequest?,
+): FiftyTwoWeekLowBacktestRunConfig {
+    val body = request ?: throw IllegalArgumentException("Request body is required.")
+    val indexKeys = body.indexKeys
+        .map { value -> value.trim() }
+        .filter { value -> value.isNotEmpty() }
+        .distinct()
+    if (indexKeys.isEmpty()) {
+        throw IllegalArgumentException("indexKeys must contain at least one value.")
+    }
+
+    val symbols = body.symbols
+        .map { value -> value.trim().uppercase() }
+        .filter { value -> value.isNotEmpty() }
+        .distinct()
+
+    if (!body.config.profitPct.isFinite() || body.config.profitPct <= 0.0) {
+        throw IllegalArgumentException("profitPct must be a positive number.")
+    }
+    if (body.config.backtestDays < 1) {
+        throw IllegalArgumentException("backtestDays must be at least 1.")
+    }
+
+    val toDate = body.config.toDate?.let { raw ->
+        runCatching { LocalDate.parse(raw) }.getOrNull()
+            ?: throw IllegalArgumentException("toDate must be in YYYY-MM-DD format.")
+    } ?: LocalDate.now()
+
+    return FiftyTwoWeekLowBacktestRunConfig(
+        indexKeys = indexKeys,
+        symbols = symbols,
+        profitPct = body.config.profitPct,
+        historyDays = body.config.historyDays,
+        backtestDays = body.config.backtestDays,
+        toDate = toDate,
+    )
 }
 
 internal fun validate52WeekHighBacktestRequest(

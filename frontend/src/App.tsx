@@ -11,6 +11,7 @@ import { DeliveryThresholdBacktestPage } from "./pages/DeliveryThresholdBacktest
 import { WyckoffPhase1Page } from "./pages/WyckoffPhase1Page";
 import { EarningsDashboardPage } from "./pages/EarningsDashboardPage";
 import { FiftyTwoWeekHighBacktestPage } from "./pages/FiftyTwoWeekHighBacktestPage";
+import { FiftyTwoWeekLowBacktestPage } from "./pages/FiftyTwoWeekLowBacktestPage";
 import { FiftyTwoWeekHighLivePage } from "./pages/FiftyTwoWeekHighLivePage";
 import { HotSmaScannerPage } from "./pages/HotSmaScannerPage";
 import { MomentumDataPrepPage } from "./pages/MomentumDataPrepPage";
@@ -62,6 +63,7 @@ type V1PageKey =
   | "delivery-threshold-backtest"
   | "wyckoff-phase1"
   | "fiftytwo-week-high-backtest"
+  | "fiftytwo-week-low-backtest"
   | "fiftytwo-week-high-live"
   | "hot-sma-scanner"
   | "intraday-shock-backtest";
@@ -75,6 +77,7 @@ const menuItems: MenuProps["items"] = [
   { key: "delivery-threshold-backtest", label: "Delivery Threshold BT", icon: <BarChartOutlined /> },
   { key: "wyckoff-phase1", label: "Wyckoff Phase-1", icon: <BarChartOutlined /> },
   { key: "fiftytwo-week-high-backtest", label: "52W High BT", icon: <BarChartOutlined /> },
+  { key: "fiftytwo-week-low-backtest", label: "52W Low BT", icon: <BarChartOutlined /> },
   { key: "fiftytwo-week-high-live", label: "104W Live", icon: <BarChartOutlined /> },
   { key: "hot-sma-scanner", label: "Hot SMA Scanner", icon: <BarChartOutlined /> },
   {
@@ -139,6 +142,7 @@ const validPages: PageKey[] = [
   "delivery-threshold-backtest",
   "wyckoff-phase1",
   "fiftytwo-week-high-backtest",
+  "fiftytwo-week-low-backtest",
   "fiftytwo-week-high-live",
   "hot-sma-scanner",
 ];
@@ -254,6 +258,7 @@ export default function App() {
             {route === "delivery-threshold-backtest" && <DeliveryThresholdBacktestPage />}
             {route === "wyckoff-phase1" && <WyckoffPhase1Page />}
             {route === "fiftytwo-week-high-backtest" && <FiftyTwoWeekHighBacktestPage />}
+            {route === "fiftytwo-week-low-backtest" && <FiftyTwoWeekLowBacktestPage />}
             {route === "fiftytwo-week-high-live" && <FiftyTwoWeekHighLivePage />}
             {route === "hot-sma-scanner" && <HotSmaScannerPage />}
           </Layout.Content>

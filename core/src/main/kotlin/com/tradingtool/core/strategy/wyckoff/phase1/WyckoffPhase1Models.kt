@@ -111,6 +111,10 @@ data class WyckoffPhase1MovingAverageCompressionConfig(
 data class WyckoffPhase1VolatilityContractionConfig(
     val enabled: Boolean = true,
     val requireSpreadLessThan20dAverage: Boolean = true,
+    val relaxIfBelowDma200: Boolean = false,
+    val relaxedMultiplierIfBelowDma200: Double = 1.5,
+    val bypassIfBelowDma200AndDeliveryHigh: Boolean = false,
+    val bypassDeliveryThreshold: Double = 70.0,
 )
 
 data class WyckoffPhase1AccumulationDensityConfig(

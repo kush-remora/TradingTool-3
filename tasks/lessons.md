@@ -46,3 +46,6 @@
 
 - When working with Ant Design tables, prefer the framework's built-in column filter UX over building a parallel external filter strip unless the user explicitly asks for a custom filtering surface.
 - When the user shows a concrete UI screenshot, match that interaction pattern closely instead of extending it with a more powerful but different custom behavior.
+- In cron backfill jobs, never report only aggregate failure counts when the unit of failure is a date; always include the failing dates and reasons in the summary/error so stale-data debugging is immediate.
+- In operational error messages, lead with stock symbols and human-readable company names; keep broker/internal lookup keys only as secondary debug context.
+- When a backfill failure threshold is meant to express data quality on a single trading date, encode it directly as a per-date unresolved-symbol rule instead of an indirect failed-date counter.

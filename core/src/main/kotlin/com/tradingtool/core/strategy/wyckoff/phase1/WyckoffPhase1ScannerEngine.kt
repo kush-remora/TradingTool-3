@@ -3,6 +3,7 @@ package com.tradingtool.core.strategy.wyckoff.phase1
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.delivery.model.StockDeliveryDaily
 import com.tradingtool.core.technical.roundTo2
+import org.slf4j.LoggerFactory
 import org.ta4j.core.BarSeries
 import org.ta4j.core.BaseBarSeriesBuilder
 import org.ta4j.core.indicators.CachedIndicator
@@ -20,6 +21,13 @@ import java.time.ZonedDateTime
 import kotlin.math.max
 
 class WyckoffPhase1ScannerEngine {
+
+    companion object {
+        private const val ROC_LOOKBACK_DAYS = 20
+        private const val SMA_TARGET_WINDOW_DAYS = 200
+        private const val RSI_LOOKBACK_DAYS = 14
+        private val log = LoggerFactory.getLogger(WyckoffPhase1ScannerEngine::class.java)
+    }
 
     fun evaluate(
         config: WyckoffPhase1Config,
@@ -72,6 +80,10 @@ class WyckoffPhase1ScannerEngine {
         signalLookbackDays: Int,
         applyStrictBaseFilter: Boolean,
     ): WyckoffPhase1Row? {
+        if (context.symbol == "BEL" || context.symbol == "HINDUNILVR") {
+            log.info("DEBUG ${context.symbol} evaluateSymbol: asOfDate=$asOfDate, total_raw_candles=${context.candles.size}")
+        }
+
         val deliveryByDate = context.deliveries.associateBy { it.tradingDate }
         val alignedData = context.candles
             .filter { it.candleDate <= asOfDate }
@@ -79,6 +91,10 @@ class WyckoffPhase1ScannerEngine {
             .map { candle ->
                 AlignedMarketDay(candle, deliveryByDate[candle.candleDate])
             }
+
+        if (context.symbol == "BEL" || context.symbol == "HINDUNILVR") {
+            log.info("DEBUG ${context.symbol} alignedData size=${alignedData.size}, latest_aligned_date=${alignedData.lastOrNull()?.candle?.candleDate}")
+        }
 
         if (alignedData.isEmpty()) return null
 
@@ -129,7 +145,12 @@ class WyckoffPhase1ScannerEngine {
             val isZscorePass = config.trackA.deliveryVolumeZScore.enabled && zscore != null && zscore >= config.trackA.deliveryVolumeZScore.minZScore
 
             // Must pass either delivery threshold OR zscore threshold to be a signal date
-            if (!isDeliveryPass && !isZscorePass) continue
+            if (!isDeliveryPass && !isZscorePass) {
+                if ((context.symbol == "BEL" || context.symbol == "HINDUNILVR") && signalDate.toString() >= "2026-05-27") {
+                    log.info("DEBUG ${context.symbol} failed isDeliveryPass and isZscorePass on $signalDate. delivPct=$signalDeliveryPct threshold=${context.deliveryThresholdPct}")
+                }
+                continue
+            }
 
             val tiers = computeTierCounts(alignedData, i, 15)
             val lvqHitCount15d = computeLvqHitCount(alignedData, volumeInd, minVolLvq, i, config.trackA.lvqDq, context.deliveryThresholdPct)
@@ -148,28 +169,66 @@ class WyckoffPhase1ScannerEngine {
             if (applyStrictBaseFilter) {
                 val strict = config.strictFilter
                 
+                if (context.symbol == "BEL" || context.symbol == "HINDUNILVR") {
+                    log.info("DEBUG ${context.symbol} $signalDate: dma200DistancePct=$dma200DistancePct, roc20Pct=$roc20Pct, spreadPct=$spreadPct, avgSpreadPct20d=$avgSpreadPct20d, t55=${tiers.t55}, isDeliveryPass=$isDeliveryPass")
+                }
+
                 if (strict.dma200Proximity.enabled) {
                     if (dma200DistancePct == null) continue
-                    if (dma200DistancePct < strict.dma200Proximity.minDistancePct || dma200DistancePct > strict.dma200Proximity.maxDistancePct) continue
+                    if (dma200DistancePct < strict.dma200Proximity.minDistancePct || dma200DistancePct > strict.dma200Proximity.maxDistancePct) {
+                        if (context.symbol == "BEL" || context.symbol == "HINDUNILVR") log.info("DEBUG ${context.symbol} $signalDate failed dma200Proximity")
+                        continue
+                    }
                 }
                 
                 if (strict.roc20Proximity.enabled) {
                     if (roc20Pct == null) continue
-                    if (roc20Pct < strict.roc20Proximity.minPct || roc20Pct > strict.roc20Proximity.maxPct) continue
+                    if (roc20Pct < strict.roc20Proximity.minPct || roc20Pct > strict.roc20Proximity.maxPct) {
+                        if (context.symbol == "BEL" || context.symbol == "HINDUNILVR") log.info("DEBUG ${context.symbol} $signalDate failed roc20Proximity")
+                        continue
+                    }
                 }
                 
                 if (strict.movingAverageCompression.enabled && dma200DistancePct != null && dma200DistancePct >= 0.0) {
                     if (dma50DistancePct == null || dma200DistancePct == null) continue
-                    if (kotlin.math.abs(dma50DistancePct - dma200DistancePct) > strict.movingAverageCompression.maxDma50To200DistancePct) continue
+                    if (kotlin.math.abs(dma50DistancePct - dma200DistancePct) > strict.movingAverageCompression.maxDma50To200DistancePct) {
+                        if (context.symbol == "BEL" || context.symbol == "HINDUNILVR") log.info("DEBUG ${context.symbol} $signalDate failed movingAverageCompression")
+                        continue
+                    }
                 }
                 
                 if (strict.volatilityContraction.enabled && strict.volatilityContraction.requireSpreadLessThan20dAverage) {
                     if (avgSpreadPct20d == null) continue
-                    if (spreadPct >= avgSpreadPct20d) continue
+
+                    val isBelowDma200 = dma200DistancePct != null && dma200DistancePct < 0.0
+
+                    var isBypassed = false
+                    if (isBelowDma200 && strict.volatilityContraction.bypassIfBelowDma200AndDeliveryHigh) {
+                        val pct = alignedData[i].delivery?.delivPer
+                        if (pct != null && pct >= strict.volatilityContraction.bypassDeliveryThreshold) {
+                            isBypassed = true
+                        }
+                    }
+
+                    if (!isBypassed) {
+                        val maxAllowedSpread = if (isBelowDma200 && strict.volatilityContraction.relaxIfBelowDma200) {
+                            avgSpreadPct20d * strict.volatilityContraction.relaxedMultiplierIfBelowDma200
+                        } else {
+                            avgSpreadPct20d
+                        }
+
+                        if (spreadPct >= maxAllowedSpread) {
+                            if (context.symbol == "BEL" || context.symbol == "HINDUNILVR") log.info("DEBUG ${context.symbol} $signalDate failed volatilityContraction: spread=$spreadPct max=$maxAllowedSpread")
+                            continue
+                        }
+                    }
                 }
                 
                 if (strict.accumulationDensity.enabled) {
-                    if (tiers.t55 < strict.accumulationDensity.minTier55Count) continue
+                    if (tiers.t55 < strict.accumulationDensity.minTier55Count) {
+                        if (context.symbol == "BEL" || context.symbol == "HINDUNILVR") log.info("DEBUG ${context.symbol} $signalDate failed accumulationDensity: t55=${tiers.t55} min=${strict.accumulationDensity.minTier55Count}")
+                        continue
+                    }
                 }
             }
 
@@ -279,11 +338,5 @@ class WyckoffPhase1ScannerEngine {
             return series.numOf(delivQty)
         }
         override fun getUnstableBars(): Int = 0
-    }
-
-    companion object {
-        private const val ROC_LOOKBACK_DAYS = 20
-        private const val SMA_TARGET_WINDOW_DAYS = 200
-        private const val RSI_LOOKBACK_DAYS = 14
     }
 }

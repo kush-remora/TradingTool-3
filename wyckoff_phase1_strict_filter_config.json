@@ -15,7 +15,11 @@
   },
   "volatilityContraction": {
     "enabled": true,
-    "requireSpreadLessThan20dAverage": true
+    "requireSpreadLessThan20dAverage": true,
+    "relaxIfBelowDma200": true,
+    "relaxedMultiplierIfBelowDma200": 1.5,
+    "bypassIfBelowDma200AndDeliveryHigh": true,
+    "bypassDeliveryThreshold": 70.0
   },
   "accumulationDensity": {
     "enabled": true,

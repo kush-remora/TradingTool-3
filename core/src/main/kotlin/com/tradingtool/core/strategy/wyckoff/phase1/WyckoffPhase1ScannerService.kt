@@ -83,6 +83,10 @@ class WyckoffPhase1ScannerService @Inject constructor(
                 )
             }
 
+            symbolsNeedingBackfillSet.forEach { symbol ->
+                candleCacheService.invalidateDailyCandles(symbol)
+            }
+
             val refreshedCandles = loadCandlesForSymbols(
                 symbols = resolvedSymbols.filter { resolved -> symbolsNeedingBackfillSet.contains(resolved.symbol) },
                 fromDate = warmupFrom,

@@ -1,17 +1,17 @@
 # Delivery Reconciliation Report
 
 - Requested date: `latest`
-- Resolved date: `2026-05-18`
-- Expected symbols: `526`
-- Present rows: `521`
-- Missing from source: `1`
-- Nullable stock_id rows: `396`
-- Watchlist-linked rows: `126`
-- Non-watchlist rows: `396`
+- Resolved date: `2026-06-01`
+- Expected symbols: `2474`
+- Present rows: `2474`
+- Missing from source: `0`
+- Nullable stock_id rows: `2349`
+- Watchlist-linked rows: `125`
+- Non-watchlist rows: `2349`
 - Fetched from source: `false`
 - Already complete: `true`
 - Blocking issues: `0`
-- Warnings: `2`
+- Warnings: `0`
 
 ## Samples
 
@@ -19,29 +19,22 @@
 
 | Symbol | Token | stock_id | Status | Delivery % |
 |---|---:|---:|---|---:|
-| `AARTIIND` | `1793` | `-` | `PRESENT` | `45.19` |
-| `ABB` | `3329` | `-` | `PRESENT` | `48.22` |
-| `ACC` | `5633` | `-` | `PRESENT` | `55.48` |
-| `ADANIENT` | `6401` | `414` | `PRESENT` | `20.01` |
-| `AEGISLOG` | `10241` | `-` | `PRESENT` | `29.23` |
+| `21STCENMGM` | `1025` | `-` | `PRESENT` | `91.1` |
+| `AARTIIND` | `1793` | `-` | `PRESENT` | `43.3` |
+| `ABB` | `3329` | `-` | `PRESENT` | `42.39` |
+| `GATECHDVR` | `4353` | `-` | `PRESENT` | `56.97` |
+| `STYRENIX` | `4865` | `-` | `PRESENT` | `56.86` |
 
 ### Missing From Source
 
-| Symbol | Token | stock_id | Status | Delivery % |
-|---|---:|---:|---|---:|
-| `NIFTY 50` | `256265` | `747` | `MISSING_FROM_SOURCE` | `-` |
+_None_
 
 ### Nullable stock_id
 
 | Symbol | Token | stock_id | Status | Delivery % |
 |---|---:|---:|---|---:|
-| `AARTIIND` | `1793` | `-` | `PRESENT` | `45.19` |
-| `ABB` | `3329` | `-` | `PRESENT` | `48.22` |
-| `ACC` | `5633` | `-` | `PRESENT` | `55.48` |
-| `AEGISLOG` | `10241` | `-` | `PRESENT` | `29.23` |
-| `APOLLOHOSP` | `40193` | `-` | `PRESENT` | `63.01` |
-
-## Warnings
-
-- Ignoring 4 unresolved symbol(s) because availability gap is under 1% of the configured universe: AKZOINDIA, BHAGYANGR, GSPL, SCHNEIDER.
-- Expected 526 reconciled rows but found 522 rows in stock_delivery_daily.
+| `21STCENMGM` | `1025` | `-` | `PRESENT` | `91.1` |
+| `AARTIIND` | `1793` | `-` | `PRESENT` | `43.3` |
+| `ABB` | `3329` | `-` | `PRESENT` | `42.39` |
+| `GATECHDVR` | `4353` | `-` | `PRESENT` | `56.97` |
+| `STYRENIX` | `4865` | `-` | `PRESENT` | `56.86` |

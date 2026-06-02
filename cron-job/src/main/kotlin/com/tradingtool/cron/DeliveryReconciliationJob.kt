@@ -31,9 +31,6 @@ import com.tradingtool.core.indexconstituents.dao.IndexConstituentWriteDao
 import com.tradingtool.core.telegram.TelegramApiClient
 import com.tradingtool.core.telegram.TelegramNotifier
 import com.tradingtool.core.telegram.TelegramSender
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import java.net.http.HttpClient as JdkHttpClient
@@ -144,9 +141,8 @@ private data class DeliveryReconciliationRuntime(
 
 private data class DeliveryBackfillSettings(
     val requiredTradingDays: Int,
-    val parallelBatchSize: Int,
     val extraCandidateTradingDays: Int,
-    val maxFailedDates: Int,
+    val maxUnresolvedSymbolsPerDate: Int,
 )
 
 private suspend fun executeDeliveryReconciliation(
@@ -162,24 +158,21 @@ private suspend fun executeDeliveryReconciliation(
             service = service,
             anchorDate = anchorDate,
             requiredTradingDays = backfillSettings.requiredTradingDays,
-            parallelBatchSize = backfillSettings.parallelBatchSize,
             extraCandidateTradingDays = backfillSettings.extraCandidateTradingDays,
+            maxUnresolvedSymbolsPerDate = backfillSettings.maxUnresolvedSymbolsPerDate,
         )
         log.info(
-            "Delivery backfill summary: covered={} candidates={} skippedUnavailable={} reconciled={} alreadyComplete={} failed={}",
+            "Delivery backfill summary: covered={} candidates={} skippedUnavailable={} reconciled={} alreadyComplete={} warnings={}",
             backfillSummary.checkedDates,
             backfillSummary.candidateDates,
             backfillSummary.skippedUnavailableDates,
             backfillSummary.reconciledDates,
             backfillSummary.alreadyCompleteDates,
-            backfillSummary.failedDates,
+            summarizeBackfillWarnings(backfillSummary.warningDetails),
         )
 
         require(backfillSummary.checkedDates >= backfillSettings.requiredTradingDays) {
             "Backfill coverage shortfall. required=${backfillSettings.requiredTradingDays}, covered=${backfillSummary.checkedDates}"
-        }
-        require(backfillSummary.failedDates <= backfillSettings.maxFailedDates) {
-            "Backfill failures exceeded threshold. failed=${backfillSummary.failedDates}, maxAllowed=${backfillSettings.maxFailedDates}"
         }
     }
 
@@ -187,6 +180,10 @@ private suspend fun executeDeliveryReconciliation(
         service.reconcileDate(requestedDate)
     } else {
         service.reconcileDate(anchorDate)
+    }
+    require(reconciliationResult.unresolvedSymbols.size <= backfillSettings.maxUnresolvedSymbolsPerDate) {
+        val symbols = reconciliationResult.unresolvedSymbols.take(20).joinToString(", ")
+        "Delivery unresolved symbols exceeded threshold for ${reconciliationResult.tradingDate}. unresolved=${reconciliationResult.unresolvedSymbols.size}, maxAllowed=${backfillSettings.maxUnresolvedSymbolsPerDate}, symbols=$symbols"
     }
 
     return buildRunReport(service, requestedDate, reconciliationResult)
@@ -198,23 +195,21 @@ private data class DeliveryBackfillSummary(
     val skippedUnavailableDates: Int,
     val reconciledDates: Int,
     val alreadyCompleteDates: Int,
-    val failedDates: Int,
+    val warningDetails: List<DeliveryBackfillWarning> = emptyList(),
 )
 
-private enum class DeliveryBackfillOutcome {
-    SKIPPED_SOURCE_UNAVAILABLE,
-    RECONCILED,
-    ALREADY_COMPLETE,
-    FAILED,
-}
+internal data class DeliveryBackfillWarning(
+    val tradingDate: LocalDate,
+    val reason: String,
+)
 
 private suspend fun backfillRecentTradingDays(
     service: DeliveryReconciliationService,
     anchorDate: LocalDate,
     requiredTradingDays: Int,
-    parallelBatchSize: Int,
     extraCandidateTradingDays: Int,
-): DeliveryBackfillSummary = coroutineScope {
+    maxUnresolvedSymbolsPerDate: Int,
+): DeliveryBackfillSummary {
     val candidateDates = buildRecentTradingDates(
         anchorDate = anchorDate,
         requiredTradingDays = requiredTradingDays + extraCandidateTradingDays,
@@ -223,75 +218,81 @@ private suspend fun backfillRecentTradingDays(
     var skippedUnavailable = 0
     var reconciled = 0
     var complete = 0
-    var failed = 0
+    val warningDetails = mutableListOf<DeliveryBackfillWarning>()
 
-    for (tradingDateBatch in candidateDates.chunked(parallelBatchSize)) {
+    for (tradingDate in candidateDates) {
         if (coveredDates >= requiredTradingDays) break
 
-        val outcomes = tradingDateBatch.map { tradingDate ->
-            async {
-                val alreadyReconciled = runCatching { service.isDateReconciled(tradingDate) }
-                    .onFailure { error ->
-                        log.warn("Failed to check reconciliation status for {}: {}", tradingDate, error.message)
-                    }
-                    .getOrDefault(false)
-
-                if (alreadyReconciled) {
-                    return@async DeliveryBackfillOutcome.ALREADY_COMPLETE
-                }
-
-                runCatching { service.reconcileDate(tradingDate) }
-                    .onFailure { error ->
-                        if (isSourceUnavailableError(error)) {
-                            log.info("Skipping unavailable delivery source date {}", tradingDate)
-                        } else {
-                            log.warn("Failed to reconcile delivery for {}: {}", tradingDate, error.message)
-                        }
-                    }
-                    .map { result ->
-                        if (result.alreadyComplete) {
-                            DeliveryBackfillOutcome.ALREADY_COMPLETE
-                        } else {
-                            DeliveryBackfillOutcome.RECONCILED
-                        }
-                    }
-                    .getOrElse { error ->
-                        if (isSourceUnavailableError(error)) {
-                            DeliveryBackfillOutcome.SKIPPED_SOURCE_UNAVAILABLE
-                        } else {
-                            DeliveryBackfillOutcome.FAILED
-                        }
-                    }
+        val alreadyReconciled = runCatching { service.isDateReconciled(tradingDate) }
+            .onFailure { error ->
+                log.warn("Failed to check reconciliation status for {}: {}", tradingDate, error.message)
             }
+            .getOrDefault(false)
+
+        if (alreadyReconciled) {
+            coveredDates++
+            complete++
+            continue
         }
-            .awaitAll()
 
-        outcomes.forEach { outcome ->
-            when (outcome) {
-                DeliveryBackfillOutcome.SKIPPED_SOURCE_UNAVAILABLE -> skippedUnavailable++
-                DeliveryBackfillOutcome.RECONCILED -> {
-                    coveredDates++
-                    reconciled++
-                }
-                DeliveryBackfillOutcome.ALREADY_COMPLETE -> {
-                    coveredDates++
-                    complete++
-                }
-                DeliveryBackfillOutcome.FAILED -> {
-                    failed++
+        val result = runCatching { service.reconcileDate(tradingDate) }
+            .onFailure { error ->
+                if (isSourceUnavailableError(error)) {
+                    log.info("Skipping unavailable delivery source date {}", tradingDate)
+                } else {
+                    log.warn("Failed to reconcile delivery for {}: {}", tradingDate, error.message)
                 }
             }
+            .getOrElse { error ->
+                if (isSourceUnavailableError(error)) {
+                    skippedUnavailable++
+                    return@getOrElse null
+                }
+                throw IllegalStateException("Backfill failed for $tradingDate: ${error.message}", error)
+            } ?: continue
+
+        if (result.unresolvedSymbols.size > maxUnresolvedSymbolsPerDate) {
+            val symbols = result.unresolvedSymbols.take(20).joinToString(", ")
+            throw IllegalArgumentException(
+                "Backfill unresolved symbols exceeded threshold for $tradingDate. unresolved=${result.unresolvedSymbols.size}, maxAllowed=$maxUnresolvedSymbolsPerDate, symbols=$symbols",
+            )
+        }
+
+        if (result.unresolvedSymbols.isNotEmpty()) {
+            val symbols = result.unresolvedSymbols.take(10).joinToString(", ")
+            val warning = "${result.unresolvedSymbols.size} unresolved symbol(s): $symbols"
+            log.warn("Tolerating unresolved symbols for {}: {}", tradingDate, warning)
+            warningDetails += DeliveryBackfillWarning(
+                tradingDate = tradingDate,
+                reason = warning,
+            )
+        }
+
+        coveredDates++
+        if (result.alreadyComplete) {
+            complete++
+        } else {
+            reconciled++
         }
     }
 
-    DeliveryBackfillSummary(
+    return DeliveryBackfillSummary(
         candidateDates = candidateDates.size,
         checkedDates = coveredDates,
         skippedUnavailableDates = skippedUnavailable,
         reconciledDates = reconciled,
         alreadyCompleteDates = complete,
-        failedDates = failed,
+        warningDetails = warningDetails.toList(),
     )
+}
+
+internal fun summarizeBackfillWarnings(warnings: List<DeliveryBackfillWarning>): String {
+    if (warnings.isEmpty()) {
+        return "none"
+    }
+    return warnings.joinToString(" | ") { warning ->
+        "${warning.tradingDate}: ${warning.reason}"
+    }
 }
 
 private fun buildRecentTradingDates(anchorDate: LocalDate, requiredTradingDays: Int): List<LocalDate> {
@@ -410,27 +411,21 @@ private fun loadBackfillSettings(): DeliveryBackfillSettings {
         yamlKey = "delivery.backfillRequiredTradingDays",
         defaultValue = 365,
     )
-    val parallelBatchSize = readPositiveIntConfig(
-        envKey = "DELIVERY_BACKFILL_PARALLEL_BATCH_SIZE",
-        yamlKey = "delivery.backfillParallelBatchSize",
-        defaultValue = 5,
-    )
     val extraCandidateTradingDays = readPositiveIntConfig(
         envKey = "DELIVERY_BACKFILL_EXTRA_CANDIDATE_DAYS",
         yamlKey = "delivery.backfillExtraCandidateDays",
         defaultValue = 80,
     )
-    val maxFailedDates = readNonNegativeIntConfig(
-        envKey = "DELIVERY_BACKFILL_MAX_FAILED_DATES",
-        yamlKey = "delivery.backfillMaxFailedDates",
-        defaultValue = 2,
+    val maxUnresolvedSymbolsPerDate = readNonNegativeIntConfig(
+        envKey = "DELIVERY_BACKFILL_MAX_UNRESOLVED_SYMBOLS_PER_DATE",
+        yamlKey = "delivery.backfillMaxUnresolvedSymbolsPerDate",
+        defaultValue = 750,
     )
 
     return DeliveryBackfillSettings(
         requiredTradingDays = requiredTradingDays,
-        parallelBatchSize = parallelBatchSize,
         extraCandidateTradingDays = extraCandidateTradingDays,
-        maxFailedDates = maxFailedDates,
+        maxUnresolvedSymbolsPerDate = maxUnresolvedSymbolsPerDate,
     )
 }
 

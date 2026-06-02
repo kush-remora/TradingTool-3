@@ -68,7 +68,7 @@ class DeliveryReconciliationRunReportTest {
     }
 
     @Test
-    fun `factory surfaces unresolved symbol issues`() {
+    fun `factory tolerates up to five unresolved symbols`() {
         val report = DeliveryReconciliationRunReportFactory.create(
             requestedDate = null,
             result = DeliveryDateReconciliationResult(
@@ -78,7 +78,7 @@ class DeliveryReconciliationRunReportTest {
                 fetchedFromSource = true,
                 presentCount = 2,
                 missingFromSourceCount = 0,
-                unresolvedSymbols = listOf("SCHNEIDER"),
+                unresolvedSymbols = listOf("SCHNEIDER", "ABC", "DEF", "GHI", "JKL"),
             ),
             rows = listOf(
                 deliveryRow(symbol = "RELIANCE", instrumentToken = 101L, stockId = 1L, status = DeliveryReconciliationStatus.PRESENT, delivPer = 64.2),
@@ -86,8 +86,31 @@ class DeliveryReconciliationRunReportTest {
             ),
         )
 
-        assertTrue(report.warningIssues.any { issue -> issue.contains("SCHNEIDER") && issue.contains("under 1%") })
+        assertTrue(report.warningIssues.any { issue -> issue.contains("SCHNEIDER") && issue.contains("tolerated per-date limit") })
         assertTrue(report.blockingIssues.isEmpty())
+    }
+
+    @Test
+    fun `factory blocks when unresolved symbols exceed five`() {
+        val report = DeliveryReconciliationRunReportFactory.create(
+            requestedDate = null,
+            result = DeliveryDateReconciliationResult(
+                tradingDate = tradingDate,
+                expectedCount = 200,
+                alreadyComplete = false,
+                fetchedFromSource = true,
+                presentCount = 2,
+                missingFromSourceCount = 0,
+                unresolvedSymbols = listOf("A", "B", "C", "D", "E", "F"),
+            ),
+            rows = listOf(
+                deliveryRow(symbol = "RELIANCE", instrumentToken = 101L, stockId = 1L, status = DeliveryReconciliationStatus.PRESENT, delivPer = 64.2),
+                deliveryRow(symbol = "ABFRL", instrumentToken = 202L, stockId = null, status = DeliveryReconciliationStatus.PRESENT, delivPer = 51.3),
+            ),
+        )
+
+        assertTrue(report.warningIssues.isEmpty())
+        assertTrue(report.blockingIssues.any { issue -> issue.contains("configured symbol A") })
     }
 
     private fun deliveryRow(

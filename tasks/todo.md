@@ -1,3 +1,125 @@
+# Delivery Reconciliation Failure Diagnostics
+
+## Goal Description
+Make delivery backfill failures actionable by logging failed dates with reasons instead of only a raw failed count.
+
+## Skill Invocation (Mandatory)
+- [x] `coding-standards` invoked (small readable logging fix)
+- [x] `backend-architect` invoked (keep failure boundary explicit at cron/job layer)
+- [x] `kotlin-patterns` invoked (typed failure detail model, minimal diff)
+- [x] `frontend-patterns` invoked (no direct UI change in this slice)
+- [x] `kotlin-reviewer` acknowledged (Kotlin review gate required)
+- [x] `code-reviewer` acknowledged (post-change review required)
+
+## Task List
+- [x] Capture failed backfill dates with reasons
+- [x] Include failure details in summary and threshold error
+- [x] Add focused cron test for summary formatting
+- [x] Run targeted cron test
+- [x] Add today's journey note
+- [x] Add Review Section outcomes
+
+## Review Section
+### What was implemented
+1. Changed delivery backfill tracking to retain failed dates with their error reasons.
+2. Added failed-date details to the backfill summary log line and threshold exception message.
+3. Kept unavailable-source dates separate from true failures.
+4. Added a focused cron-job unit test for the new failure summary formatter.
+
+### Verification
+1. `mvn -q -pl cron-job -Dtest=DeliveryReconciliationJobTest test` ⚠️ blocked by existing `cron-job` compile errors:
+   - `cron-job/src/main/kotlin/com/tradingtool/cron/GrowwWatchlistSyncJob.kt:39` no parameter `indexKey`
+   - `cron-job/src/main/kotlin/com/tradingtool/cron/GrowwWatchlistSyncJob.kt:92` no parameter `indexHandler`
+   - `cron-job/src/main/kotlin/com/tradingtool/cron/GrowwWatchlistSyncJob.kt:93` missing `stockHandler`
+   - `cron-job/src/main/kotlin/com/tradingtool/cron/GrowwWatchlistSyncJob.kt:93` missing `objectMapper`
+
+### Kotlin Reviewer Gate
+- Kotlin review findings: no blocking coroutine, cancellation, or architecture issues in the failed-date diagnostics patch.
+- Verdict: PASS
+
+### Code Reviewer Gate
+- Code review findings: no critical or high-confidence blocking issues on the diff.
+- Verdict: APPROVE
+
+# Delivery Reconciliation Symbol Debug Names
+
+## Goal Description
+Make unresolved delivery-token failures show stock symbols and company names first, instead of only broker lookup keys.
+
+## Skill Invocation (Mandatory)
+- [x] `coding-standards` invoked (keep error message simple and readable)
+- [x] `backend-architect` invoked (improve failure diagnostics at service boundary)
+- [x] `kotlin-patterns` invoked (small typed formatter helper)
+- [x] `frontend-patterns` invoked (no direct UI change in this slice)
+- [x] `kotlin-reviewer` acknowledged (Kotlin review gate required)
+- [x] `code-reviewer` acknowledged (post-change review required)
+
+## Task List
+- [x] Prefer symbol/company in unresolved-token message
+- [x] Keep candidate broker keys as secondary debug info
+- [x] Add focused formatter test
+- [x] Run targeted core test
+- [x] Update today's notes
+
+## Review Section
+### What was implemented
+1. Changed unresolved delivery-token diagnostics to format `symbol [companyName]` first.
+2. Kept candidate broker keys as secondary debug context instead of leading with `expected=` noise.
+3. Added a focused core formatter test for both company-name and symbol-only cases.
+
+### Verification
+1. `mvn -q -pl core -Dtest=DeliveryReconciliationServiceFormatTest test` ✅ passed
+
+### Kotlin Reviewer Gate
+- Kotlin review findings: no blocking coroutine, cancellation, or architecture issues in the formatting change.
+- Verdict: PASS
+
+### Code Reviewer Gate
+- Code review findings: no critical or high-confidence blocking issues on the diff.
+- Verdict: APPROVE
+
+# Delivery Reconciliation Unresolved Threshold
+
+## Goal Description
+Skip unavailable holiday/source dates, but fail immediately when any single trading date has more than 5 unresolved delivery symbols.
+
+## Skill Invocation (Mandatory)
+- [x] `coding-standards` invoked (prefer simple sequential backfill flow)
+- [x] `backend-architect` invoked (move from failed-date counting to per-date unresolved threshold)
+- [x] `kotlin-patterns` invoked (minimal behavior change, explicit threshold checks)
+- [x] `frontend-patterns` invoked (no direct UI change in this slice)
+- [x] `kotlin-reviewer` acknowledged (Kotlin review gate required)
+- [x] `code-reviewer` acknowledged (post-change review required)
+
+## Task List
+- [x] Let reconciliation return partial unresolved symbols
+- [x] Change report tolerance to `<= 5` unresolved
+- [x] Make backfill sequential and fail fast above threshold
+- [x] Keep unavailable source dates as skips
+- [x] Add/update focused core tests
+- [x] Run targeted core tests
+- [x] Update today’s notes
+
+## Review Section
+### What was implemented
+1. Stopped throwing immediately on every unresolved delivery symbol and returned unresolved symbols from reconciliation results instead.
+2. Changed run-report tolerance from a percentage rule to a simple `<= 5 unresolved symbols per date` rule.
+3. Simplified backfill execution to sequential processing so the job stops on the first fatal date.
+4. Kept `DeliverySourceUnavailableException` dates as skips, which covers holiday/no-file days cleanly.
+5. Added/updated focused core tests for unresolved-symbol tolerance and formatting.
+
+### Verification
+1. `mvn -q -pl core -Dtest=DeliveryReconciliationRunReportTest,DeliveryReconciliationServiceFormatTest test` ✅ passed
+2. `cron-job` module targeted validation remains blocked by existing unrelated compile errors in `GrowwWatchlistSyncJob.kt`
+
+### Kotlin Reviewer Gate
+- Kotlin review findings: no blocking coroutine, cancellation, or architecture issues in the threshold change.
+- Verdict: PASS
+
+### Code Reviewer Gate
+- Code review findings: no critical or high-confidence blocking issues on the diff.
+- Verdict: APPROVE
+
 # Wyckoff Phase-1 UI Column Filters
 
 ## Goal Description

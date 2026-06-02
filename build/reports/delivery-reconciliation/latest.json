@@ -1,83 +1,77 @@
 {
   "requestedDate" : null,
-  "resolvedDate" : "2026-05-18",
-  "expectedSymbolCount" : 526,
-  "presentCount" : 521,
-  "missingFromSourceCount" : 1,
-  "nullableStockIdCount" : 396,
-  "watchlistLinkedCount" : 126,
-  "nonWatchlistCount" : 396,
+  "resolvedDate" : "2026-06-01",
+  "expectedSymbolCount" : 2474,
+  "presentCount" : 2474,
+  "missingFromSourceCount" : 0,
+  "nullableStockIdCount" : 2349,
+  "watchlistLinkedCount" : 125,
+  "nonWatchlistCount" : 2349,
   "fetchedFromSource" : false,
   "alreadyComplete" : true,
   "blockingIssues" : [ ],
-  "warningIssues" : [ "Ignoring 4 unresolved symbol(s) because availability gap is under 1% of the configured universe: AKZOINDIA, BHAGYANGR, GSPL, SCHNEIDER.", "Expected 526 reconciled rows but found 522 rows in stock_delivery_daily." ],
+  "warningIssues" : [ ],
   "presentSamples" : [ {
+    "instrumentToken" : 1025,
+    "symbol" : "21STCENMGM",
+    "stockId" : null,
+    "reconciliationStatus" : "PRESENT",
+    "delivPer" : 91.1
+  }, {
     "instrumentToken" : 1793,
     "symbol" : "AARTIIND",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 45.19
+    "delivPer" : 43.3
   }, {
     "instrumentToken" : 3329,
     "symbol" : "ABB",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 48.22
+    "delivPer" : 42.39
   }, {
-    "instrumentToken" : 5633,
-    "symbol" : "ACC",
+    "instrumentToken" : 4353,
+    "symbol" : "GATECHDVR",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 55.48
+    "delivPer" : 56.97
   }, {
-    "instrumentToken" : 6401,
-    "symbol" : "ADANIENT",
-    "stockId" : 414,
-    "reconciliationStatus" : "PRESENT",
-    "delivPer" : 20.01
-  }, {
-    "instrumentToken" : 10241,
-    "symbol" : "AEGISLOG",
+    "instrumentToken" : 4865,
+    "symbol" : "STYRENIX",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 29.23
+    "delivPer" : 56.86
   } ],
-  "missingFromSourceSamples" : [ {
-    "instrumentToken" : 256265,
-    "symbol" : "NIFTY 50",
-    "stockId" : 747,
-    "reconciliationStatus" : "MISSING_FROM_SOURCE",
-    "delivPer" : null
-  } ],
+  "missingFromSourceSamples" : [ ],
   "nullableStockIdSamples" : [ {
+    "instrumentToken" : 1025,
+    "symbol" : "21STCENMGM",
+    "stockId" : null,
+    "reconciliationStatus" : "PRESENT",
+    "delivPer" : 91.1
+  }, {
     "instrumentToken" : 1793,
     "symbol" : "AARTIIND",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 45.19
+    "delivPer" : 43.3
   }, {
     "instrumentToken" : 3329,
     "symbol" : "ABB",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 48.22
+    "delivPer" : 42.39
   }, {
-    "instrumentToken" : 5633,
-    "symbol" : "ACC",
+    "instrumentToken" : 4353,
+    "symbol" : "GATECHDVR",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 55.48
+    "delivPer" : 56.97
   }, {
-    "instrumentToken" : 10241,
-    "symbol" : "AEGISLOG",
+    "instrumentToken" : 4865,
+    "symbol" : "STYRENIX",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 29.23
-  }, {
-    "instrumentToken" : 40193,
-    "symbol" : "APOLLOHOSP",
-    "stockId" : null,
-    "reconciliationStatus" : "PRESENT",
-    "delivPer" : 63.01
+    "delivPer" : 56.86
   } ]
 }
