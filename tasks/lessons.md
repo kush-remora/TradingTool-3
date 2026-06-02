@@ -41,3 +41,8 @@
 
 - In symbol selection UX, prefer broker/watchlist-backed selectors over freeform text by default, but keep a one-off manual symbol input for debugging so both operational and debug workflows stay intact.
 - In scanner controls, do not hard-block run behind universe selection if symbol selection is already present; allow symbol-only runs for fast debug workflows.
+
+## 2026-06-02
+
+- When working with Ant Design tables, prefer the framework's built-in column filter UX over building a parallel external filter strip unless the user explicitly asks for a custom filtering surface.
+- When the user shows a concrete UI screenshot, match that interaction pattern closely instead of extending it with a more powerful but different custom behavior.

@@ -208,7 +208,7 @@ describe("WyckoffPhase1Page", () => {
     expect(screen.queryByText("Delivery Threshold %")).not.toBeInTheDocument();
   });
 
-  it("filters visible rows and shows filtered count", async () => {
+  it("uses built in table filters instead of external filter inputs", async () => {
     useWyckoffPhase1ScannerMock.mockReturnValue({
       loading: false,
       error: null,
@@ -286,14 +286,8 @@ describe("WyckoffPhase1Page", () => {
       expect(screen.getByText("TCS")).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByPlaceholderText("Filter Symbol"), {
-      target: { value: "INFY" },
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText("INFY")).toBeInTheDocument();
-      expect(screen.queryByText("TCS")).not.toBeInTheDocument();
-      expect(screen.getByText("Filtered")).toBeInTheDocument();
-    });
+    expect(screen.queryByPlaceholderText("Filter Symbol")).not.toBeInTheDocument();
+    expect(screen.getByText(/Use each column header filter menu/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Clear Filters/i })).toBeDisabled();
   });
 });

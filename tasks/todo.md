@@ -1,7 +1,7 @@
 # Wyckoff Phase-1 UI Column Filters
 
 ## Goal Description
-Add per-column filtering to the Wyckoff Phase-1 result table and make JSON export respect the filtered rows.
+Add Ant Table built-in column filtering to the Wyckoff Phase-1 result table and make JSON export respect the filtered rows.
 
 ## Skill Invocation (Mandatory)
 - [x] `coding-standards` invoked (simple, readable UI state)
@@ -11,7 +11,7 @@ Add per-column filtering to the Wyckoff Phase-1 result table and make JSON expor
 - [x] `kotlin-reviewer` acknowledged (no Kotlin/KTS diff in this slice)
 
 ## Task List
-- [x] Add visible filter inputs for each enabled table column
+- [x] Add built-in filter menus for each enabled table column
 - [x] Apply filters to the rendered Phase-1 rows
 - [x] Export only the filtered rows
 - [x] Add focused frontend test coverage
@@ -21,11 +21,11 @@ Add per-column filtering to the Wyckoff Phase-1 result table and make JSON expor
 
 ## Review Section
 ### What was implemented
-1. Added lightweight filter inputs above the Phase-1 result table for every visible column.
-2. Applied local filtering to the current result set before rendering the table.
-3. Updated export so JSON contains only the currently filtered rows.
-4. Added a filtered row-count summary and a `Clear Filters` action.
-5. Added a focused page test proving Symbol filtering narrows visible rows.
+1. Added Ant Table built-in checkbox-style column filter dropdowns for every visible Phase-1 column.
+2. Used each column’s current result-set values as the filter options, with Ant’s built-in search inside the dropdown.
+3. Tracked the table’s current filtered rows and reused that exact subset for export.
+4. Added a `Clear Filters` action and kept the filtered row-count summary.
+5. Added focused page tests for the built-in filter UX.
 
 ### Verification
 1. `npm --prefix frontend run test:run -- WyckoffPhase1Page` ✅ passed

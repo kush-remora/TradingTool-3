@@ -1,6 +1,8 @@
+import type { Key } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Card, Col, Empty, Input, Row, Select, Space, Spin, Statistic, Table, Typography, message, Switch } from "antd";
+import { Alert, Button, Card, Col, Empty, Row, Select, Space, Spin, Statistic, Table, Typography, message, Switch } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import type { FilterValue, TableCurrentDataSource, TablePaginationConfig, TableProps } from "antd/es/table/interface";
 import { getJson } from "../utils/api";
 import { useWyckoffPhase1Scanner } from "../hooks/useWyckoffPhase1Scanner";
 import type {
@@ -17,8 +19,6 @@ type StoredFilters = {
   universeKeys: string[];
   strictBaseFilter: boolean;
 };
-
-type ColumnFilters = Record<string, string>;
 
 function loadStoredFilters(): StoredFilters | null {
   const raw = window.localStorage.getItem(FILTERS_STORAGE_KEY);
@@ -99,18 +99,12 @@ function valueForSort(value: unknown): string | number {
   return String(value);
 }
 
-function matchesColumnFilter(row: WyckoffPhase1Row, key: string, rawFilterValue: string): boolean {
-  const filterValue = rawFilterValue.trim().toLowerCase();
-  if (!filterValue) {
-    return true;
-  }
-
+function matchesColumnFilter(row: WyckoffPhase1Row, key: string, filterValue: string): boolean {
   const rowValue = row[key as keyof WyckoffPhase1Row];
   if (rowValue == null) {
     return false;
   }
-
-  return String(rowValue).toLowerCase().includes(filterValue);
+  return String(rowValue) === filterValue;
 }
 
 export function WyckoffPhase1Page() {
@@ -122,7 +116,8 @@ export function WyckoffPhase1Page() {
   const [selectedUniverseKeys, setSelectedUniverseKeys] = useState<string[]>([]);
   const [strictBaseFilter, setStrictBaseFilter] = useState(false);
   const [filtersHydrated, setFiltersHydrated] = useState(false);
-  const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
+  const [filteredInfo, setFilteredInfo] = useState<Record<string, FilterValue | null>>({});
+  const [filteredRows, setFilteredRows] = useState<WyckoffPhase1Row[]>([]);
 
   const [scannerConfig, setScannerConfig] = useState<WyckoffPhase1Config | null>(null);
   const [columnsConfig, setColumnsConfig] = useState<WyckoffPhase1TableColumnsConfig | null>(null);
@@ -212,10 +207,31 @@ export function WyckoffPhase1Page() {
     const defaultSort = columnsConfig?.defaultSort?.[0];
 
     return keys.map((key) => {
+      const uniqueValues = Array.from(
+        new Set((data?.rows ?? []).map((row) => row[key as keyof WyckoffPhase1Row]).filter((value) => value != null)),
+      )
+        .sort((left, right) => {
+          const leftSortable = valueForSort(left);
+          const rightSortable = valueForSort(right);
+          if (typeof leftSortable === "number" && typeof rightSortable === "number") {
+            return leftSortable - rightSortable;
+          }
+          return String(leftSortable).localeCompare(String(rightSortable));
+        })
+        .map((value) => ({
+          text: formatValue(key, value),
+          value: String(value),
+        }));
+
       const column = {
         title: COLUMN_LABELS[key] ?? key,
         dataIndex: key,
         key,
+        filteredValue: filteredInfo[key] ?? null,
+        filters: uniqueValues,
+        filterSearch: true,
+        onFilter: (filterValue: boolean | Key, row: WyckoffPhase1Row) =>
+          matchesColumnFilter(row, key, String(filterValue)),
         sorter: (a: WyckoffPhase1Row, b: WyckoffPhase1Row) => {
           const left = valueForSort(a[key as keyof WyckoffPhase1Row]);
           const right = valueForSort(b[key as keyof WyckoffPhase1Row]);
@@ -235,29 +251,26 @@ export function WyckoffPhase1Page() {
       }
       return column;
     });
-  }, [columnsConfig]);
+  }, [columnsConfig, data?.rows, filteredInfo]);
 
-  const filteredRows = useMemo(() => {
-    const rows = data?.rows ?? [];
-    const activeFilters = Object.entries(columnFilters).filter(([, value]) => value.trim().length > 0);
-    if (activeFilters.length === 0) {
-      return rows;
-    }
+  useEffect(() => {
+    setFilteredRows(data?.rows ?? []);
+    setFilteredInfo({});
+  }, [data]);
 
-    return rows.filter((row) =>
-      activeFilters.every(([key, value]) => matchesColumnFilter(row, key, value)),
-    );
-  }, [columnFilters, data?.rows]);
-
-  const updateColumnFilter = (key: string, value: string): void => {
-    setColumnFilters((current) => ({
-      ...current,
-      [key]: value,
-    }));
+  const handleTableChange: TableProps<WyckoffPhase1Row>["onChange"] = (
+    _pagination: TablePaginationConfig,
+    filters: Record<string, FilterValue | null>,
+    _sorter,
+    extra: TableCurrentDataSource<WyckoffPhase1Row>,
+  ) => {
+    setFilteredInfo(filters);
+    setFilteredRows(extra.currentDataSource);
   };
 
   const clearColumnFilters = (): void => {
-    setColumnFilters({});
+    setFilteredInfo({});
+    setFilteredRows(data?.rows ?? []);
   };
 
   const runScanner = async (): Promise<void> => {
@@ -360,7 +373,7 @@ export function WyckoffPhase1Page() {
                 <Space>
                   <Button
                     size="small"
-                    disabled={Object.values(columnFilters).every((value) => value.trim().length === 0)}
+                    disabled={Object.values(filteredInfo).every((value) => !value || value.length === 0)}
                     onClick={clearColumnFilters}
                   >
                     Clear Filters
@@ -386,27 +399,9 @@ export function WyckoffPhase1Page() {
                 </Space>
               }
             >
-              <Space orientation="vertical" size={12} style={{ width: "100%", marginBottom: 12 }}>
-                <Typography.Text type="secondary">
-                  Column filters apply to the current result set and export only the filtered rows.
-                </Typography.Text>
-                <Row gutter={[12, 12]}>
-                  {columns.map((column) => {
-                    const key = String(column.key ?? column.dataIndex ?? "");
-                    return (
-                      <Col key={key} xs={24} sm={12} md={8} lg={6} xl={4}>
-                        <Typography.Text strong>{COLUMN_LABELS[key] ?? key}</Typography.Text>
-                        <Input
-                          value={columnFilters[key] ?? ""}
-                          onChange={(event) => updateColumnFilter(key, event.target.value)}
-                          placeholder={`Filter ${COLUMN_LABELS[key] ?? key}`}
-                          allowClear
-                        />
-                      </Col>
-                    );
-                  })}
-                </Row>
-              </Space>
+              <Typography.Text type="secondary" style={{ display: "block", marginBottom: 12 }}>
+                Use each column header filter menu to select values from the result set. Export uses the filtered rows.
+              </Typography.Text>
               <Table
                 rowKey={(row) => row.symbol}
                 columns={columns}
@@ -414,6 +409,7 @@ export function WyckoffPhase1Page() {
                 size="small"
                 pagination={{ pageSize: 25, showSizeChanger: true }}
                 scroll={{ x: 1800 }}
+                onChange={handleTableChange}
               />
             </Card>
           </Space>
