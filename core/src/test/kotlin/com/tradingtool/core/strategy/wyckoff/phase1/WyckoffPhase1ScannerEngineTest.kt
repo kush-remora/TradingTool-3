@@ -5,6 +5,7 @@ import com.tradingtool.core.delivery.model.DeliveryReconciliationStatus
 import com.tradingtool.core.delivery.model.StockDeliveryDaily
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
@@ -225,6 +226,126 @@ class WyckoffPhase1ScannerEngineTest {
         val row = response.rows.first()
         assertEquals(start.plusDays(69).toString(), row.signal_date)
         assertNotNull(row.delivery_volume_zscore_60d)
+    }
+
+    @Test
+    fun `skips moving average compression when price is below 200 sma`() {
+        val start = LocalDate.of(2025, 1, 1)
+        val candles = (0 until 220).map { index ->
+            val close = if (index < 170) {
+                120.0
+            } else {
+                100.0
+            }
+            DailyCandle(
+                instrumentToken = 5,
+                symbol = "BELOW200",
+                candleDate = start.plusDays(index.toLong()),
+                open = close,
+                high = close + 1.0,
+                low = close - 1.0,
+                close = close,
+                volume = 100_000L + index,
+            )
+        }
+        val deliveries = (0 until 220).map { index ->
+            val date = start.plusDays(index.toLong())
+            val pct = if (index in 205..219) 60.0 else 40.0
+            delivery(date, pct, 100_000L + index.toLong())
+        }
+
+        val response = engine.evaluate(
+            config = WyckoffPhase1Config(
+                strictFilter = WyckoffPhase1StrictFilterConfig(
+                    dma200Proximity = WyckoffPhase1RangeConfig(enabled = true, minDistancePct = -100.0, maxDistancePct = 2.0),
+                    roc20Proximity = WyckoffPhase1RocRangeConfig(enabled = false),
+                    movingAverageCompression = WyckoffPhase1MovingAverageCompressionConfig(enabled = true, maxDma50To200DistancePct = 3.0),
+                    volatilityContraction = WyckoffPhase1VolatilityContractionConfig(enabled = false, requireSpreadLessThan20dAverage = false),
+                    accumulationDensity = WyckoffPhase1AccumulationDensityConfig(enabled = true, minTier55Count = 3),
+                ),
+            ),
+            runConfig = WyckoffPhase1RunConfig(
+                universeKeys = listOf("NIFTY_100"),
+                symbols = emptyList(),
+                asOfDate = start.plusDays(219),
+                applyStrictBaseFilter = true,
+            ),
+            contexts = listOf(
+                WyckoffPhase1SymbolContext(
+                    symbol = "BELOW200",
+                    instrumentToken = 5,
+                    companyName = "BELOW200 LTD",
+                    indexKey = "NIFTY_100",
+                    deliveryThresholdPct = 55.0,
+                    candles = candles,
+                    deliveries = deliveries,
+                ),
+            ),
+        )
+
+        assertEquals(1, response.rows.size)
+        val row = response.rows.first()
+        assertTrue((row.sma200_distance_pct ?: 0.0) < 0.0)
+    }
+
+    @Test
+    fun `allows negative roc20 when strict filter is enabled`() {
+        val start = LocalDate.of(2025, 1, 1)
+        val candles = (0 until 220).map { index ->
+            val close = if (index < 200) {
+                120.0
+            } else {
+                100.0
+            }
+            DailyCandle(
+                instrumentToken = 6,
+                symbol = "NEGROC",
+                candleDate = start.plusDays(index.toLong()),
+                open = close,
+                high = close + 1.0,
+                low = close - 1.0,
+                close = close,
+                volume = 100_000L + index,
+            )
+        }
+        val deliveries = (0 until 220).map { index ->
+            val date = start.plusDays(index.toLong())
+            val pct = if (index in 205..219) 60.0 else 40.0
+            delivery(date, pct, 100_000L + index.toLong())
+        }
+
+        val response = engine.evaluate(
+            config = WyckoffPhase1Config(
+                strictFilter = WyckoffPhase1StrictFilterConfig(
+                    dma200Proximity = WyckoffPhase1RangeConfig(enabled = true, minDistancePct = -100.0, maxDistancePct = 2.0),
+                    roc20Proximity = WyckoffPhase1RocRangeConfig(enabled = true, minPct = -100.0, maxPct = 2.0),
+                    movingAverageCompression = WyckoffPhase1MovingAverageCompressionConfig(enabled = false),
+                    volatilityContraction = WyckoffPhase1VolatilityContractionConfig(enabled = false, requireSpreadLessThan20dAverage = false),
+                    accumulationDensity = WyckoffPhase1AccumulationDensityConfig(enabled = true, minTier55Count = 3),
+                ),
+            ),
+            runConfig = WyckoffPhase1RunConfig(
+                universeKeys = listOf("NIFTY_100"),
+                symbols = emptyList(),
+                asOfDate = start.plusDays(219),
+                applyStrictBaseFilter = true,
+            ),
+            contexts = listOf(
+                WyckoffPhase1SymbolContext(
+                    symbol = "NEGROC",
+                    instrumentToken = 6,
+                    companyName = "NEGROC LTD",
+                    indexKey = "NIFTY_100",
+                    deliveryThresholdPct = 55.0,
+                    candles = candles,
+                    deliveries = deliveries,
+                ),
+            ),
+        )
+
+        assertEquals(1, response.rows.size)
+        val row = response.rows.first()
+        assertTrue((row.roc20_pct ?: 0.0) < 0.0)
     }
 
     private fun delivery(

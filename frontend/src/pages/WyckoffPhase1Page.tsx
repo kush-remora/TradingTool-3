@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Card, Col, Empty, Row, Select, Space, Spin, Statistic, Table, Typography, message, Switch } from "antd";
+import { Alert, Button, Card, Col, Empty, Input, Row, Select, Space, Spin, Statistic, Table, Typography, message, Switch } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { getJson } from "../utils/api";
 import { useWyckoffPhase1Scanner } from "../hooks/useWyckoffPhase1Scanner";
@@ -17,6 +17,8 @@ type StoredFilters = {
   universeKeys: string[];
   strictBaseFilter: boolean;
 };
+
+type ColumnFilters = Record<string, string>;
 
 function loadStoredFilters(): StoredFilters | null {
   const raw = window.localStorage.getItem(FILTERS_STORAGE_KEY);
@@ -97,6 +99,20 @@ function valueForSort(value: unknown): string | number {
   return String(value);
 }
 
+function matchesColumnFilter(row: WyckoffPhase1Row, key: string, rawFilterValue: string): boolean {
+  const filterValue = rawFilterValue.trim().toLowerCase();
+  if (!filterValue) {
+    return true;
+  }
+
+  const rowValue = row[key as keyof WyckoffPhase1Row];
+  if (rowValue == null) {
+    return false;
+  }
+
+  return String(rowValue).toLowerCase().includes(filterValue);
+}
+
 export function WyckoffPhase1Page() {
   const [messageApi, contextHolder] = message.useMessage();
   const { data, loading, error, run } = useWyckoffPhase1Scanner();
@@ -106,6 +122,7 @@ export function WyckoffPhase1Page() {
   const [selectedUniverseKeys, setSelectedUniverseKeys] = useState<string[]>([]);
   const [strictBaseFilter, setStrictBaseFilter] = useState(false);
   const [filtersHydrated, setFiltersHydrated] = useState(false);
+  const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
 
   const [scannerConfig, setScannerConfig] = useState<WyckoffPhase1Config | null>(null);
   const [columnsConfig, setColumnsConfig] = useState<WyckoffPhase1TableColumnsConfig | null>(null);
@@ -220,6 +237,29 @@ export function WyckoffPhase1Page() {
     });
   }, [columnsConfig]);
 
+  const filteredRows = useMemo(() => {
+    const rows = data?.rows ?? [];
+    const activeFilters = Object.entries(columnFilters).filter(([, value]) => value.trim().length > 0);
+    if (activeFilters.length === 0) {
+      return rows;
+    }
+
+    return rows.filter((row) =>
+      activeFilters.every(([key, value]) => matchesColumnFilter(row, key, value)),
+    );
+  }, [columnFilters, data?.rows]);
+
+  const updateColumnFilter = (key: string, value: string): void => {
+    setColumnFilters((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  };
+
+  const clearColumnFilters = (): void => {
+    setColumnFilters({});
+  };
+
   const runScanner = async (): Promise<void> => {
     if (selectedUniverseKeys.length === 0) {
       messageApi.warning("Select at least one universe key.");
@@ -309,6 +349,7 @@ export function WyckoffPhase1Page() {
             <Row gutter={12}>
               <Col><Card size="small"><Statistic title="Universe" value={data.meta.universe_count} /></Card></Col>
               <Col><Card size="small"><Statistic title="Matched" value={data.meta.matched_count} /></Card></Col>
+              <Col><Card size="small"><Statistic title="Filtered" value={filteredRows.length} /></Card></Col>
               <Col><Card size="small"><Statistic title="As Of" value={data.meta.as_of_date} /></Card></Col>
             </Row>
 
@@ -316,30 +357,60 @@ export function WyckoffPhase1Page() {
               size="small" 
               title="Result Table"
               extra={
-                <Button
-                  size="small"
-                  disabled={!data?.rows || data.rows.length === 0}
-                  onClick={() => {
-                    if (!data?.rows || data.rows.length === 0) return;
-                    const blob = new Blob([JSON.stringify(data.rows, null, 2)], { type: "application/json" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `wyckoff_phase1_${new Date().toISOString().split("T")[0]}.json`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                  }}
-                >
-                  Export JSON
-                </Button>
+                <Space>
+                  <Button
+                    size="small"
+                    disabled={Object.values(columnFilters).every((value) => value.trim().length === 0)}
+                    onClick={clearColumnFilters}
+                  >
+                    Clear Filters
+                  </Button>
+                  <Button
+                    size="small"
+                    disabled={filteredRows.length === 0}
+                    onClick={() => {
+                      if (filteredRows.length === 0) return;
+                      const blob = new Blob([JSON.stringify(filteredRows, null, 2)], { type: "application/json" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `wyckoff_phase1_${new Date().toISOString().split("T")[0]}.json`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }}
+                  >
+                    Export JSON
+                  </Button>
+                </Space>
               }
             >
+              <Space orientation="vertical" size={12} style={{ width: "100%", marginBottom: 12 }}>
+                <Typography.Text type="secondary">
+                  Column filters apply to the current result set and export only the filtered rows.
+                </Typography.Text>
+                <Row gutter={[12, 12]}>
+                  {columns.map((column) => {
+                    const key = String(column.key ?? column.dataIndex ?? "");
+                    return (
+                      <Col key={key} xs={24} sm={12} md={8} lg={6} xl={4}>
+                        <Typography.Text strong>{COLUMN_LABELS[key] ?? key}</Typography.Text>
+                        <Input
+                          value={columnFilters[key] ?? ""}
+                          onChange={(event) => updateColumnFilter(key, event.target.value)}
+                          placeholder={`Filter ${COLUMN_LABELS[key] ?? key}`}
+                          allowClear
+                        />
+                      </Col>
+                    );
+                  })}
+                </Row>
+              </Space>
               <Table
                 rowKey={(row) => row.symbol}
                 columns={columns}
-                dataSource={data.rows}
+                dataSource={filteredRows}
                 size="small"
                 pagination={{ pageSize: 25, showSizeChanger: true }}
                 scroll={{ x: 1800 }}

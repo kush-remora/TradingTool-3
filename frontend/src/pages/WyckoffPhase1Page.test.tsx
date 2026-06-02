@@ -17,7 +17,7 @@ vi.mock("../utils/api", async (importOriginal) => {
         return Promise.resolve({
           enabled: true,
           trackA: {
-            deliveryThresholdByCap: { MID_CAP: 55, SMALL_CAP: 70, MICRO_CAP: 85, NANO_CAP: 92 },
+            deliveryThresholdByCap: { MID_CAP: 55, SMALL_CAP: 55, MICRO_CAP: 55, NANO_CAP: 55 },
             rollingDensity: { enabled: true, lookbackDays: 15, minThresholdBreaches: 4 },
             deliveryVolumeZScore: { enabled: true, baselineDays: 60, minZScore: 2 },
             lvqDq: { enabled: true, rollingMinDays: 63, nearMinPctOfRollingMin: 95, lookbackDays: 15, requireDeliveryPass: true },
@@ -167,6 +167,33 @@ describe("WyckoffPhase1Page", () => {
             passed_count: 6,
             accumulation_run_length_days: 2,
           },
+          {
+            symbol: "TCS",
+            signal_date: "2026-05-25",
+            days_ago: 1,
+            index_key: "NIFTY_50",
+            delivery_pct: 68,
+            delivery_threshold_pct: 55,
+            delivery_pass: 1,
+            density_breach_count_15d: 4,
+            density_pass: 1,
+            delivery_volume_zscore_60d: 2.1,
+            zscore_pass: 1,
+            lvq_dq_pass: 1,
+            lvq_hit_count_15d: 2,
+            spread_pct: 1.2,
+            avg_spread_pct_20d: 2.0,
+            absorption_pass: 1,
+            roc20_pct: -0.8,
+            roc20_range_pass: 1,
+            sma200_distance_pct: -0.4,
+            sma_window_used: 200,
+            dma200_range_pass: 1,
+            low_volume_high_delivery_info: 0,
+            volume_vs_50d_ratio: 1.2,
+            passed_count: 6,
+            accumulation_run_length_days: 3,
+          },
         ],
       },
     });
@@ -179,5 +206,94 @@ describe("WyckoffPhase1Page", () => {
     });
 
     expect(screen.queryByText("Delivery Threshold %")).not.toBeInTheDocument();
+  });
+
+  it("filters visible rows and shows filtered count", async () => {
+    useWyckoffPhase1ScannerMock.mockReturnValue({
+      loading: false,
+      error: null,
+      run: vi.fn(),
+      data: {
+        meta: {
+          as_of_date: "2026-05-26",
+          evaluated_trading_dates: ["2026-05-26"],
+          universe_count: 10,
+          matched_count: 2,
+        },
+        rows: [
+          {
+            symbol: "INFY",
+            signal_date: "2026-05-26",
+            days_ago: 0,
+            index_key: "NIFTY_50",
+            delivery_pct: 70,
+            delivery_threshold_pct: 55,
+            delivery_pass: 1,
+            density_breach_count_15d: 4,
+            density_pass: 1,
+            delivery_volume_zscore_60d: 2.4,
+            zscore_pass: 1,
+            lvq_dq_pass: 1,
+            lvq_hit_count_15d: 3,
+            spread_pct: 1.4,
+            avg_spread_pct_20d: 2.1,
+            absorption_pass: 1,
+            roc20_pct: -1.0,
+            roc20_range_pass: 1,
+            sma200_distance_pct: -0.5,
+            sma_window_used: 200,
+            dma200_range_pass: 1,
+            low_volume_high_delivery_info: 0,
+            volume_vs_50d_ratio: 1.4,
+            passed_count: 6,
+            accumulation_run_length_days: 2,
+          },
+          {
+            symbol: "TCS",
+            signal_date: "2026-05-25",
+            days_ago: 1,
+            index_key: "NIFTY_50",
+            delivery_pct: 68,
+            delivery_threshold_pct: 55,
+            delivery_pass: 1,
+            density_breach_count_15d: 4,
+            density_pass: 1,
+            delivery_volume_zscore_60d: 2.1,
+            zscore_pass: 1,
+            lvq_dq_pass: 1,
+            lvq_hit_count_15d: 2,
+            spread_pct: 1.2,
+            avg_spread_pct_20d: 2.0,
+            absorption_pass: 1,
+            roc20_pct: -0.8,
+            roc20_range_pass: 1,
+            sma200_distance_pct: -0.4,
+            sma_window_used: 200,
+            dma200_range_pass: 1,
+            low_volume_high_delivery_info: 0,
+            volume_vs_50d_ratio: 1.2,
+            passed_count: 6,
+            accumulation_run_length_days: 3,
+          },
+        ],
+      },
+    });
+
+    render(<WyckoffPhase1Page />);
+
+    await waitFor(() => {
+      expect(screen.getByText("INFY")).toBeInTheDocument();
+      expect(screen.getByText("TCS")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("Filter Symbol"), {
+      target: { value: "INFY" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("INFY")).toBeInTheDocument();
+      expect(screen.queryByText("TCS")).not.toBeInTheDocument();
+      expect(screen.getByText("Filtered")).toBeInTheDocument();
+    });
   });
 });

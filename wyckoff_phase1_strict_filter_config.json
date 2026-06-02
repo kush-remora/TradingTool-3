@@ -1,12 +1,12 @@
 {
   "dma200Proximity": {
     "enabled": true,
-    "minDistancePct": -2.0,
+    "minDistancePct": -100.0,
     "maxDistancePct": 2.0
   },
   "roc20Proximity": {
     "enabled": true,
-    "minPct": -2.0,
+    "minPct": -100.0,
     "maxPct": 2.0
   },
   "movingAverageCompression": {

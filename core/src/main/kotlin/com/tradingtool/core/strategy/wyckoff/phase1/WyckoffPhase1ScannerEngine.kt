@@ -158,7 +158,7 @@ class WyckoffPhase1ScannerEngine {
                     if (roc20Pct < strict.roc20Proximity.minPct || roc20Pct > strict.roc20Proximity.maxPct) continue
                 }
                 
-                if (strict.movingAverageCompression.enabled) {
+                if (strict.movingAverageCompression.enabled && dma200DistancePct != null && dma200DistancePct >= 0.0) {
                     if (dma50DistancePct == null || dma200DistancePct == null) continue
                     if (kotlin.math.abs(dma50DistancePct - dma200DistancePct) > strict.movingAverageCompression.maxDma50To200DistancePct) continue
                 }

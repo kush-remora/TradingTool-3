@@ -35,9 +35,9 @@ data class WyckoffPhase1RuntimeConfig(
 data class WyckoffPhase1TrackAConfig(
     val deliveryThresholdByCap: Map<String, Double> = mapOf(
         "MID_CAP" to 55.0,
-        "SMALL_CAP" to 70.0,
-        "MICRO_CAP" to 85.0,
-        "NANO_CAP" to 92.0,
+        "SMALL_CAP" to 55.0,
+        "MICRO_CAP" to 55.0,
+        "NANO_CAP" to 55.0,
     ),
     val rollingDensity: WyckoffPhase1RollingDensityConfig = WyckoffPhase1RollingDensityConfig(),
     val deliveryVolumeZScore: WyckoffPhase1ZScoreConfig = WyckoffPhase1ZScoreConfig(),
@@ -90,7 +90,7 @@ data class WyckoffPhase1RangeConfig(
 )
 
 data class WyckoffPhase1StrictFilterConfig(
-    val dma200Proximity: WyckoffPhase1RangeConfig = WyckoffPhase1RangeConfig(minDistancePct = -2.0, maxDistancePct = 2.0),
+    val dma200Proximity: WyckoffPhase1RangeConfig = WyckoffPhase1RangeConfig(minDistancePct = -100.0, maxDistancePct = 2.0),
     val roc20Proximity: WyckoffPhase1RocRangeConfig = WyckoffPhase1RocRangeConfig(),
     val movingAverageCompression: WyckoffPhase1MovingAverageCompressionConfig = WyckoffPhase1MovingAverageCompressionConfig(),
     val volatilityContraction: WyckoffPhase1VolatilityContractionConfig = WyckoffPhase1VolatilityContractionConfig(),
@@ -99,7 +99,7 @@ data class WyckoffPhase1StrictFilterConfig(
 
 data class WyckoffPhase1RocRangeConfig(
     val enabled: Boolean = true,
-    val minPct: Double = -2.0,
+    val minPct: Double = -100.0,
     val maxPct: Double = 2.0,
 )
 

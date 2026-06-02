@@ -28,6 +28,7 @@ class KiteConnectClient(private val config: KiteConfig) {
             // Token expired — log and wait for cron-job / manual refresh.
             // Do not crash the service; just mark the client as unauthenticated.
             isAuthenticated = false
+            accessToken = ""
         }
     }
 
@@ -87,10 +88,46 @@ class KiteConnectClient(private val config: KiteConfig) {
 
     /** Apply a new access token — called by the cron-job after daily refresh. */
     fun applyAccessToken(token: String) {
-        kite.setAccessToken(token)
-        accessToken = token
+        val normalizedToken = token.trim()
+        kite.setAccessToken(normalizedToken)
+        accessToken = normalizedToken
         isAuthenticated = true
-        onTokenRefreshed?.invoke(token)
+        onTokenRefreshed?.invoke(normalizedToken)
+    }
+
+    /**
+     * Verifies that the currently applied access token is still accepted by Kite.
+     * This prevents the service from treating yesterday's token as healthy at startup.
+     */
+    fun validateSession(): Result<Unit> = runCatching {
+        check(accessToken.isNotBlank()) { "Kite access token is blank." }
+        kite.getProfile()
+        Unit
+    }.fold(
+        onSuccess = { Result.Success(Unit) },
+        onFailure = { error ->
+            isAuthenticated = false
+            accessToken = ""
+            Result.Failure(
+                HttpError.UnknownError(error, "Failed to validate Kite session: ${describe(error)}")
+            )
+        }
+    )
+
+    private fun describe(error: Throwable): String {
+        val typeName = error::class.simpleName ?: error.javaClass.simpleName
+        val message = error.message?.takeIf { it.isNotBlank() }
+        val causeMessage = error.cause?.message?.takeIf { it.isNotBlank() }
+        return buildString {
+            append(typeName)
+            if (message != null) {
+                append(": ")
+                append(message)
+            } else if (causeMessage != null) {
+                append(": ")
+                append(causeMessage)
+            }
+        }
     }
 
     /**

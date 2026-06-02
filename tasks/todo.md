@@ -1,44 +1,79 @@
-# Wyckoff Phase-1 Scanner Symbol Source Removal
+# Wyckoff Phase-1 UI Column Filters
 
 ## Goal Description
-Fix Wyckoff Phase-1 scanner so it no longer defaults to watchlist symbols. Remove symbol-source controls and run scanner only from selected `index_key` universe keys.
+Add per-column filtering to the Wyckoff Phase-1 result table and make JSON export respect the filtered rows.
 
 ## Skill Invocation (Mandatory)
-- [x] `coding-standards` invoked (readability-first, small diff)
-- [x] `backend-architect` invoked (no backend contract change required)
-- [x] `kotlin-patterns` invoked (no Kotlin implementation change required)
-- [x] `frontend-patterns` invoked (UI/state simplification)
-- [x] `kotlin-reviewer` queued as final review gate note (no Kotlin diff expected)
+- [x] `coding-standards` invoked (simple, readable UI state)
+- [x] `backend-architect` invoked (no backend/API change needed)
+- [x] `kotlin-patterns` invoked (no Kotlin implementation change in this slice)
+- [x] `frontend-patterns` invoked (table/filter UX and state behavior)
+- [x] `kotlin-reviewer` acknowledged (no Kotlin/KTS diff in this slice)
 
 ## Task List
-- [x] Remove symbol-source UI and state from Wyckoff Phase-1 page
-- [x] Make run payload universe-key-only from multiselect
-- [x] Remove now-unused frontend symbol-source type
-- [x] Update Wyckoff Phase-1 frontend tests for new behavior
-- [x] Run targeted frontend test and build verification
-- [x] Add feature journey doc for today
+- [x] Add visible filter inputs for each enabled table column
+- [x] Apply filters to the rendered Phase-1 rows
+- [x] Export only the filtered rows
+- [x] Add focused frontend test coverage
+- [x] Run targeted frontend verification
+- [x] Add feature journey note for today
 - [x] Add Review Section outcomes
 
 ## Review Section
 ### What was implemented
-1. Simplified `WyckoffPhase1Page` control model to universe-only selection:
-   - Removed `Symbol Source` radio options and dependent symbol selectors.
-   - Removed watchlist symbol loading/state from this page.
-   - Removed `Selected symbols` indicator.
-2. Scanner run payload now always sends:
-   - `universeKeys` from the multiselect.
-   - `applyStrictBaseFilter` as before.
-   - no `symbols` override by default.
-3. Updated persisted filter handling:
-   - Store only `universeKeys` and `strictBaseFilter` for this screen.
-4. Updated frontend test coverage to match new UX behavior.
-5. Removed unused `WyckoffPhase1SymbolSourceMode` type.
+1. Added lightweight filter inputs above the Phase-1 result table for every visible column.
+2. Applied local filtering to the current result set before rendering the table.
+3. Updated export so JSON contains only the currently filtered rows.
+4. Added a filtered row-count summary and a `Clear Filters` action.
+5. Added a focused page test proving Symbol filtering narrows visible rows.
 
 ### Verification
-1. `npm --prefix frontend run test:run -- WyckoffPhase1Page` ✅ passed (4 tests)
+1. `npm --prefix frontend run test:run -- WyckoffPhase1Page` ✅ passed
 2. `npm --prefix frontend run build` ✅ passed
 
 ### Kotlin Reviewer Gate
-- Kotlin reviewer invocation acknowledged per policy.
-- Kotlin/KTS diff scope check: none (`git diff --name-only | rg '\.(kt|kts)$'` returned empty).
-- Verdict: PASS (no Kotlin-related implementation in this change).
+- No Kotlin/KTS files changed in this slice.
+- Verdict: PASS
+
+# Kite Startup Token Validation
+
+## Goal Description
+Prevent `KiteTicker` from attempting a WebSocket handshake with an expired `kite_tokens` entry at startup.
+
+## Skill Invocation (Mandatory)
+- [x] `coding-standards` invoked (keep the fix small and readable)
+- [x] `backend-architect` invoked (fix startup auth boundary before market services start)
+- [x] `kotlin-patterns` invoked (small Kotlin helper + explicit validation flow)
+- [x] `frontend-patterns` invoked (no direct UI change in this slice)
+- [x] `kotlin-reviewer` review gate completed
+- [x] `code-reviewer` review completed
+
+## Task List
+- [x] Confirm stale-token startup failure path
+- [x] Add explicit Kite session validation after DB token load
+- [x] Keep token normalization at the auth boundary
+- [x] Add focused startup validation regression test
+- [x] Run focused service/core tests
+- [x] Add today's journey note for this fix
+- [x] Add Review Section outcomes
+
+## Review Section
+### What was implemented
+1. Added `KiteConnectClient.validateSession()` so startup can prove the persisted token still works before market services boot.
+2. Normalized access tokens with `trim()` at apply-time and cleared cached token state when Kite marks the session expired.
+3. Added a small startup helper in `service` to fail fast with a clear expired-token message instead of reaching a `KiteTicker` WebSocket `403`.
+4. Added focused regression tests for core token normalization/state handling and for the service startup helper.
+
+### Verification
+1. `mvn -pl core -Dtest=KiteConnectClientTest test` ✅ passed (`core/target/surefire-reports/com.tradingtool.core.kite.KiteConnectClientTest.txt`)
+2. `mvn -q -pl service -Dtest=KiteStartupTokenValidationTest,ApplicationTest test` ⚠️ blocked by existing service compile errors:
+   - `service/src/main/kotlin/com/tradingtool/di/ServiceModule.kt` unresolved `hotsma` / `HotSmaScannerService`
+   - initial `validateSession` unresolved was from running `service` without `-am`, then the build stopped on the pre-existing `HotSma` errors
+
+### Kotlin Reviewer Gate
+- Kotlin review findings: no blocking coroutine, lifecycle, or architecture issues in the auth-validation change.
+- Verdict: PASS
+
+### Code Reviewer Gate
+- Code review findings: no critical or high-confidence blocking issues on the diff.
+- Verdict: APPROVE

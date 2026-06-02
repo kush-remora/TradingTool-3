@@ -4,9 +4,9 @@
   "trackA": {
     "deliveryThresholdByCap": {
       "MID_CAP": 55.0,
-      "SMALL_CAP": 70.0,
-      "MICRO_CAP": 85.0,
-      "NANO_CAP": 92.0
+      "SMALL_CAP": 55.0,
+      "MICRO_CAP": 55.0,
+      "NANO_CAP": 55.0
     },
     "rollingDensity": {
       "enabled": true,

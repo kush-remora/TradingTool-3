@@ -6,6 +6,7 @@ import com.google.inject.Key
 import com.google.inject.TypeLiteral
 import com.tradingtool.config.AppConfig
 import com.tradingtool.config.DropwizardConfig
+import com.tradingtool.core.http.Result
 import com.tradingtool.di.ServiceModule
 import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.kite.KiteTokenReadDao
@@ -209,20 +210,45 @@ private fun requireLatestKiteTokenFromDb(
     try {
         val latestToken: String? = runBlocking {
             tokenDb.read { dao -> dao.getLatestToken() }
-        }?.takeIf { token -> token.isNotBlank() }
-
-        if (latestToken != null) {
-            kiteClient.applyAccessToken(latestToken)
-            log.info("[KiteToken] Applied latest token from kite_tokens table at startup.")
-        } else {
-            throw IllegalStateException(
-                "Kite authentication required to start. No token found in kite_tokens table."
-            )
         }
+        requireValidKiteStartupToken(
+            latestToken = latestToken,
+            applyAccessToken = kiteClient::applyAccessToken,
+            validateSession = kiteClient::validateSession,
+        )
     } catch (error: Exception) {
+        if (error is IllegalStateException) {
+            throw error
+        }
         throw IllegalStateException(
             "Kite authentication required to start. Failed to load token from kite_tokens table.",
             error,
         )
+    }
+}
+
+internal fun requireValidKiteStartupToken(
+    latestToken: String?,
+    applyAccessToken: (String) -> Unit,
+    validateSession: () -> Result<Unit>,
+) {
+    val normalizedToken = latestToken?.trim()?.takeIf { token -> token.isNotEmpty() }
+        ?: throw IllegalStateException(
+            "Kite authentication required to start. No token found in kite_tokens table."
+        )
+
+    applyAccessToken(normalizedToken)
+
+    when (val validationResult = validateSession()) {
+        is Result.Success -> {
+            log.info("[KiteToken] Applied and validated latest token from kite_tokens table at startup.")
+        }
+        is Result.Failure -> {
+            throw IllegalStateException(
+                "Kite authentication required to start. " +
+                    "The latest token in kite_tokens is expired or invalid. " +
+                    "Refresh Kite login and restart the backend. ${validationResult.error.describe()}"
+            )
+        }
     }
 }
