@@ -33,9 +33,11 @@ class FiftyTwoWeekLowBacktestService @Inject constructor(
             rows += runSymbolBacktest(symbol, candles, fromDate, toDate, config)
         }
 
-        val sortedRows = rows.sortedWith(compareBy<FiftyTwoWeekLowBacktestRow> { it.symbol }.thenBy { it.buyDate })
-        val closed = sortedRows.count { it.status == "CLOSED" }
-        val open = sortedRows.count { it.status == "OPEN" }
+        val sortedRows = rows.sortedWith(compareBy<FiftyTwoWeekLowBacktestRow> { it.symbol }.thenBy { it.enterTrade })
+        val closedRows = sortedRows.filter { it.status == "CLOSED" }
+        val closedCount = closedRows.size
+        val openCount = sortedRows.size - closedCount
+        val avgDaysHeld = if (closedCount > 0) closedRows.map { it.holdingDays }.average() else null
 
         return FiftyTwoWeekLowBacktestResponse(
             config = FiftyTwoWeekLowBacktestConfigSnapshot(
@@ -49,8 +51,9 @@ class FiftyTwoWeekLowBacktestService @Inject constructor(
             ),
             summary = FiftyTwoWeekLowBacktestSummary(
                 totalTrades = sortedRows.size,
-                closedTrades = closed,
-                openTrades = open,
+                closedTrades = closedCount,
+                openTrades = openCount,
+                avgDaysHeldClosed = avgDaysHeld,
             ),
             rows = sortedRows,
         )
@@ -107,10 +110,12 @@ class FiftyTwoWeekLowBacktestService @Inject constructor(
             val targetPrice = entryPrice * targetFactor
 
             var exitDate: LocalDate? = null
+            var exitPrice: Double? = null
             for (j in (i + 1)..candles.lastIndex) {
                 val day = candles[j]
                 if (day.high >= targetPrice) {
                     exitDate = day.candleDate
+                    exitPrice = targetPrice // or day.high, but targetPrice represents filling the limit order
                     break
                 }
             }
@@ -121,13 +126,25 @@ class FiftyTwoWeekLowBacktestService @Inject constructor(
                 ChronoUnit.DAYS.between(entryDate, toDate).toInt()
             }
 
+            var ltp: Double? = null
+            var currentProfitPct: Double? = null
+            if (exitDate == null && candles.isNotEmpty()) {
+                ltp = candles.last().close
+                currentProfitPct = ((ltp - entryPrice) / entryPrice) * 100.0
+            }
+
             rows += FiftyTwoWeekLowBacktestRow(
                 symbol = symbol.symbol,
-                buyDate = entryDate.toString(),
-                sellDate = exitDate?.toString(),
-                daysHeld = holdingDays,
-                profitPercentage = config.profitPct,
+                indexBucket = symbol.memberships.joinToString(", "),
+                enterTrade = entryDate.toString(),
+                exitTrade = exitDate?.toString(),
+                buyPrice = entryPrice,
+                sellPrice = exitPrice,
+                holdingDays = holdingDays,
+                profitPct = config.profitPct,
                 status = if (exitDate == null) "OPEN" else "CLOSED",
+                ltp = ltp,
+                currentProfitPct = currentProfitPct,
             )
 
             if (exitDate == null) {

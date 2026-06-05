@@ -1698,6 +1698,8 @@ export interface FiftyTwoWeekLowBacktestRow {
   holdingDays: number;
   profitPct: number | null;
   status: "OPEN" | "CLOSED" | string;
+  ltp: number | null;
+  currentProfitPct: number | null;
 }
 
 export interface FiftyTwoWeekLowBacktestSummary {

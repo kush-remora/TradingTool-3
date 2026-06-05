@@ -13,8 +13,10 @@ const baseColumns: ColumnsType<FiftyTwoWeekLowBacktestRow> = [
   { title: "Buy Price", dataIndex: "buyPrice", key: "buyPrice", sorter: (a, b) => a.buyPrice - b.buyPrice, render: (value: number) => value.toFixed(2) },
   { title: "Exit Trade", dataIndex: "exitTrade", key: "exitTrade", sorter: (a, b) => (a.exitTrade ?? "OPEN").localeCompare(b.exitTrade ?? "OPEN"), render: (value: string | null) => value ?? "OPEN" },
   { title: "Sell Price", dataIndex: "sellPrice", key: "sellPrice", sorter: (a, b) => (a.sellPrice ?? 0) - (b.sellPrice ?? 0), render: (value: number | null) => value != null ? value.toFixed(2) : "-" },
+  { title: "LTP (Open)", dataIndex: "ltp", key: "ltp", sorter: (a, b) => (a.ltp ?? 0) - (b.ltp ?? 0), render: (value: number | null) => value != null ? value.toFixed(2) : "-" },
   { title: "Holding Days", dataIndex: "holdingDays", key: "holdingDays", sorter: (a, b) => a.holdingDays - b.holdingDays },
-  { title: "Profit %", dataIndex: "profitPct", key: "profitPct", sorter: (a, b) => (a.profitPct ?? 0) - (b.profitPct ?? 0), render: (value: number | null) => value != null ? `${value.toFixed(2)}%` : "-" },
+  { title: "Target Profit %", dataIndex: "profitPct", key: "profitPct", sorter: (a, b) => (a.profitPct ?? 0) - (b.profitPct ?? 0), render: (value: number | null) => value != null ? `${value.toFixed(2)}%` : "-" },
+  { title: "Current Profit %", dataIndex: "currentProfitPct", key: "currentProfitPct", sorter: (a, b) => (a.currentProfitPct ?? 0) - (b.currentProfitPct ?? 0), render: (value: number | null, record) => record.status === "OPEN" && value != null ? <span style={{ color: value > 0 ? "green" : "red" }}>{value.toFixed(2)}%</span> : "-" },
   { title: "Status", dataIndex: "status", key: "status", sorter: (a, b) => a.status.localeCompare(b.status) },
 ];
 
@@ -126,11 +128,11 @@ export function FiftyTwoWeekLowBacktestPage() {
     markdown += `- **Avg Days Held (Closed):** ${data.summary.avgDaysHeldClosed?.toFixed(1) ?? "-"}\n\n`;
 
     markdown += `### Trades\n\n`;
-    markdown += `| Symbol | Index | Enter Date | Buy Price | Exit Date | Sell Price | Days Held | Profit % | Status |\n`;
-    markdown += `|---|---|---|---|---|---|---|---|---|\n`;
+    markdown += `| Symbol | Index | Enter Date | Buy Price | Exit Date | Sell Price | LTP | Holding Days | Target % | Current % | Status |\n`;
+    markdown += `|---|---|---|---|---|---|---|---|---|---|---|\n`;
     
     data.rows.forEach(row => {
-      markdown += `| ${row.symbol} | ${row.indexBucket} | ${row.enterTrade} | ${row.buyPrice.toFixed(2)} | ${row.exitTrade ?? "-"} | ${row.sellPrice ? row.sellPrice.toFixed(2) : "-"} | ${row.holdingDays} | ${row.profitPct ? row.profitPct.toFixed(2) + "%" : "-"} | ${row.status} |\n`;
+      markdown += `| ${row.symbol} | ${row.indexBucket} | ${row.enterTrade} | ${row.buyPrice.toFixed(2)} | ${row.exitTrade ?? "-"} | ${row.sellPrice ? row.sellPrice.toFixed(2) : "-"} | ${row.ltp ? row.ltp.toFixed(2) : "-"} | ${row.holdingDays} | ${row.profitPct ? row.profitPct.toFixed(2) + "%" : "-"} | ${row.currentProfitPct ? row.currentProfitPct.toFixed(2) + "%" : "-"} | ${row.status} |\n`;
     });
 
     const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8;" });

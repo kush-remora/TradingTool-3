@@ -26,17 +26,23 @@ data class FiftyTwoWeekLowBacktestRunConfig(
 
 data class FiftyTwoWeekLowBacktestRow(
     val symbol: String,
-    val buyDate: String,
-    val sellDate: String?,
-    val daysHeld: Int,
-    val profitPercentage: Double,
+    val indexBucket: String,
+    val enterTrade: String,
+    val exitTrade: String?,
+    val buyPrice: Double,
+    val sellPrice: Double?,
+    val holdingDays: Int,
+    val profitPct: Double,
     val status: String,
+    val ltp: Double?,
+    val currentProfitPct: Double?,
 )
 
 data class FiftyTwoWeekLowBacktestSummary(
     val totalTrades: Int,
     val closedTrades: Int,
     val openTrades: Int,
+    val avgDaysHeldClosed: Double?,
 )
 
 data class FiftyTwoWeekLowBacktestConfigSnapshot(
