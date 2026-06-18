@@ -199,3 +199,47 @@ Prevent `KiteTicker` from attempting a WebSocket handshake with an expired `kite
 ### Code Reviewer Gate
 - Code review findings: no critical or high-confidence blocking issues on the diff.
 - Verdict: APPROVE
+# Groww API Probe POC
+
+## Goal Description
+Prove that the app can fetch Groww website API data for stock/company/news endpoints, starting with the two user-provided URLs and keeping the path reusable for later backend integration.
+
+## Skill Invocation (Mandatory)
+- [x] `coding-standards` invoked (keep the POC small and readable)
+- [x] `backend-architect` invoked (define a simple read-only integration boundary)
+- [x] `kotlin-patterns` invoked (review existing Kotlin patterns and decide whether Kotlin is needed in this slice)
+- [x] `frontend-patterns` invoked (no direct UI change in this slice)
+- [x] `kotlin-reviewer` acknowledged (review gate still required even if no Kotlin files change)
+- [x] `code-reviewer` acknowledged (post-change review required)
+
+## Task List
+- [x] Verify whether the sample Groww endpoints require an authenticated Chrome session
+- [x] Add a small read-only Groww API probe script for the two sample endpoints
+- [x] Support optional cookie/header injection for future authenticated endpoints
+- [x] Save probe output to a local report/artifact for inspection
+- [x] Add a short runbook/doc for daily manual use
+- [x] Run a smoke test for the probe
+- [x] Add today's journey note
+- [x] Add Review Section outcomes
+
+## Review Section
+### What was implemented
+1. Added a small typed `tsx` probe script that calls the Groww company and stock-news endpoints from the command line.
+2. Added optional `Cookie`, `Authorization`, and extra-header environment variable support so the same probe can be reused for authenticated endpoints later.
+3. Wrote response artifacts to `build/reports/groww-api-probe/` and documented the runbook in `docs/infrastructure/groww-web-api-poc.md`.
+4. Added a feature journal entry under `docs/features/manual-market-inputs/` for today.
+
+### Verification
+1. `npm run groww:probe` ✅ passed
+2. Probe output confirmed both sample Groww endpoints returned `HTTP 200` on 2026-06-11 without Chrome session reuse:
+   - company endpoint saved to `build/reports/groww-api-probe/company.json`
+   - news endpoint saved to `build/reports/groww-api-probe/news.json`
+   - summary saved to `build/reports/groww-api-probe/summary.json`
+
+### Kotlin Reviewer Gate
+- No Kotlin/KTS files changed in this slice.
+- Verdict: PASS
+
+### Code Reviewer Gate
+- Code review findings: no critical or high-confidence blocking issues on the diff.
+- Verdict: APPROVE

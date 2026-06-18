@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-06-11T13:32:39.609Z",
+  "searchId": "mtar-technologies-ltd",
+  "companyId": "GSTK543270",
+  "usedCookieHeader": false,
+  "usedAuthorizationHeader": false,
+  "results": [
+    {
+      "label": "company",
+      "url": "https://groww.in/v1/api/stocks_data/v1/company/search_id/mtar-technologies-ltd?page=0&size=10",
+      "status": 200,
+      "ok": true,
+      "savedTo": "build/reports/groww-api-probe/company.json"
+    },
+    {
+      "label": "news",
+      "url": "https://groww.in/v1/api/groww-news/v2/stocks/news/GSTK543270?page=0&size=10",
+      "status": 200,
+      "ok": true,
+      "savedTo": "build/reports/groww-api-probe/news.json"
+    }
+  ]
+}

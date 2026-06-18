@@ -1,12 +1,12 @@
 {
   "requestedDate" : null,
-  "resolvedDate" : "2026-06-01",
-  "expectedSymbolCount" : 2474,
-  "presentCount" : 2474,
+  "resolvedDate" : "2026-06-12",
+  "expectedSymbolCount" : 2441,
+  "presentCount" : 2441,
   "missingFromSourceCount" : 0,
-  "nullableStockIdCount" : 2349,
+  "nullableStockIdCount" : 2316,
   "watchlistLinkedCount" : 125,
-  "nonWatchlistCount" : 2349,
+  "nonWatchlistCount" : 2316,
   "fetchedFromSource" : false,
   "alreadyComplete" : true,
   "blockingIssues" : [ ],
@@ -16,31 +16,31 @@
     "symbol" : "21STCENMGM",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 91.1
+    "delivPer" : 80.81
   }, {
     "instrumentToken" : 1793,
     "symbol" : "AARTIIND",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 43.3
+    "delivPer" : 46.29
   }, {
     "instrumentToken" : 3329,
     "symbol" : "ABB",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 42.39
+    "delivPer" : 34.6
   }, {
     "instrumentToken" : 4353,
     "symbol" : "GATECHDVR",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 56.97
+    "delivPer" : 79.28
   }, {
     "instrumentToken" : 4865,
     "symbol" : "STYRENIX",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 56.86
+    "delivPer" : 58.29
   } ],
   "missingFromSourceSamples" : [ ],
   "nullableStockIdSamples" : [ {
@@ -48,30 +48,30 @@
     "symbol" : "21STCENMGM",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 91.1
+    "delivPer" : 80.81
   }, {
     "instrumentToken" : 1793,
     "symbol" : "AARTIIND",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 43.3
+    "delivPer" : 46.29
   }, {
     "instrumentToken" : 3329,
     "symbol" : "ABB",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 42.39
+    "delivPer" : 34.6
   }, {
     "instrumentToken" : 4353,
     "symbol" : "GATECHDVR",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 56.97
+    "delivPer" : 79.28
   }, {
     "instrumentToken" : 4865,
     "symbol" : "STYRENIX",
     "stockId" : null,
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 56.86
+    "delivPer" : 58.29
   } ]
 }

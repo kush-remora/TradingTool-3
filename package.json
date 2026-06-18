@@ -7,6 +7,7 @@
     "frontend:dev": "npm --prefix frontend run dev -- --host 0.0.0.0 --port 5173",
     "frontend:build": "npm --prefix frontend run build",
     "groww:events:fetch": "tsx scripts/fetch-groww-events.ts",
+    "groww:probe": "tsx scripts/groww-api-probe.ts",
     "backend:dev": "mvn -f pom.xml -pl service -am clean install -DskipTests && mvn -f pom.xml -pl service exec:java",
     "backend:test": "mvn -f pom.xml -pl service -am test",
     "backend:package": "mvn -f pom.xml -pl service -am clean package -DskipTests",

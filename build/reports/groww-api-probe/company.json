@@ -1,0 +1,678 @@
+{
+  "header": {
+    "searchId": "mtar-technologies-ltd",
+    "growwCompanyId": "GSTK543270",
+    "isin": "INE864I01014",
+    "industryName": "Engineering",
+    "displayName": "MTAR Technologies",
+    "shortName": "MTAR Technologies",
+    "type": "STOCK",
+    "isFnoEnabled": false,
+    "nseScriptCode": "MTARTECH",
+    "bseScriptCode": "543270",
+    "nseTradingSymbol": "MTARTECH-EQ",
+    "bseTradingSymbol": "MTARTECH",
+    "isBseTradable": true,
+    "isNseTradable": true,
+    "logoUrl": "https://assets-netstorage.groww.in/stock-assets/logos2/MTARTECH.webp",
+    "floatingShares": 17371665,
+    "isBseFnoEnabled": false,
+    "isNseFnoEnabled": false,
+    "industryUrlDark": "https://assets-netstorage.groww.in/stock-assets/sectors-logo/dark/industry_33_dark.png",
+    "industryUrlLight": "https://assets-netstorage.groww.in/stock-assets/sectors-logo/light/industry_33_light.png",
+    "industryCodeV2": "GIC-00033"
+  },
+  "details": {
+    "fullName": "MTAR Technologies",
+    "parentCompany": "MTAR Technologies Limited",
+    "headquarters": "HYDERABAD",
+    "ceo": "Parvat Srinivas Reddy",
+    "managingDirector": "Parvat Srinivas Reddy",
+    "foundedYear": 1999,
+    "businessSummary": "MTAR Technologies Limited manufactures precision components for nuclear, space, defense, and clean energy sectors.",
+    "websiteUrl": "https://mtar.in/"
+  },
+  "brandDtos": [],
+  "stats": {
+    "marketCap": 21859.92,
+    "pbRatio": 26.57,
+    "peRatio": 232.47,
+    "divYield": 0,
+    "bookValue": 267.4253994,
+    "epsTtm": 30.57,
+    "roe": 11.431,
+    "industryPe": 47.33747587041958,
+    "cappedType": "Large Cap",
+    "dividendYieldInPercent": 0,
+    "faceValue": 10,
+    "debtToEquity": 0.4578,
+    "returnOnAssets": 5.547111154448415,
+    "returnOnEquity": 11.431,
+    "operatingProfitMargin": 22.016408597180494,
+    "netProfitMargin": 11.175179107926972,
+    "quickRatio": 0.8636013427989654,
+    "cashRatio": 0.029194870948214185,
+    "debtToAsset": 0.2159937594282535,
+    "evToSales": 26.9191633926508,
+    "evToEbitda": 32.55,
+    "earningsYield": 0,
+    "sectorPb": 10.00566588972734,
+    "sectorDivYield": 0.5037094775635064,
+    "sectorRoe": 19.873431591486472,
+    "sectorRoce": 10.927676127610965,
+    "priceToOcf": 111.02041645505331,
+    "priceToFcf": 1005.08,
+    "roic": 13.012332485890877,
+    "pePremiumVsSector": 3.9109082333911838,
+    "pbPremiumVsSector": 1.655495425574724,
+    "divYieldVsSector": -0.5037094775635064,
+    "currentRatio": 2.2355,
+    "sectorPe": 47.33747587041958,
+    "priceToSales": 26.51,
+    "pegRatio": -12.945188571428606
+  },
+  "fundamentals": [
+    {
+      "name": "Market Cap",
+      "shortName": "Mkt Cap",
+      "value": "₹21,860Cr"
+    },
+    {
+      "name": "ROE",
+      "shortName": "ROE",
+      "value": "11.43%"
+    },
+    {
+      "name": "P/E Ratio(TTM)",
+      "shortName": "P/E Ratio(TTM)",
+      "value": "232.47"
+    },
+    {
+      "name": "EPS(TTM)",
+      "shortName": "EPS(TTM)",
+      "value": "30.57"
+    },
+    {
+      "name": "P/B Ratio",
+      "shortName": "P/B Ratio",
+      "value": "26.57"
+    },
+    {
+      "name": "Dividend Yield",
+      "shortName": "Div Yield",
+      "value": "0.00%"
+    },
+    {
+      "name": "Industry P/E",
+      "shortName": "Industry P/E",
+      "value": "47.34"
+    },
+    {
+      "name": "Book Value",
+      "shortName": "Book Value",
+      "value": "267.43"
+    },
+    {
+      "name": "Debt to Equity",
+      "shortName": "Debt to Equity",
+      "value": "0.46"
+    },
+    {
+      "name": "Face Value",
+      "shortName": "Face Value",
+      "value": "10"
+    }
+  ],
+  "shareHoldingPattern": {
+    "Mar '25": {
+      "promoters": {
+        "individual": {
+          "percent": 31.766
+        },
+        "government": {
+          "percent": 0
+        },
+        "corporation": {
+          "percent": 0
+        }
+      },
+      "mutualFunds": {
+        "percent": 19.3573
+      },
+      "otherDomesticInstitutions": {
+        "insurance": {
+          "percent": 5.041400000000003
+        },
+        "otherFirms": {
+          "percent": 0
+        }
+      },
+      "foreignInstitutions": {
+        "percent": 6.7362
+      },
+      "retailAndOthers": {
+        "percent": 37.09910000000002
+      }
+    },
+    "Jun '25": {
+      "promoters": {
+        "individual": {
+          "percent": 31.6522
+        },
+        "government": {
+          "percent": 0
+        },
+        "corporation": {
+          "percent": 0
+        }
+      },
+      "mutualFunds": {
+        "percent": 18.7124
+      },
+      "otherDomesticInstitutions": {
+        "insurance": {
+          "percent": 4.8065999999999995
+        },
+        "otherFirms": {
+          "percent": 0
+        }
+      },
+      "foreignInstitutions": {
+        "percent": 7.567
+      },
+      "retailAndOthers": {
+        "percent": 37.26180000000001
+      }
+    },
+    "Sep '25": {
+      "promoters": {
+        "individual": {
+          "percent": 31.408
+        },
+        "government": {
+          "percent": 0
+        },
+        "corporation": {
+          "percent": 0
+        }
+      },
+      "mutualFunds": {
+        "percent": 19.8118
+      },
+      "otherDomesticInstitutions": {
+        "insurance": {
+          "percent": 4.9955
+        },
+        "otherFirms": {
+          "percent": 0
+        }
+      },
+      "foreignInstitutions": {
+        "percent": 9.2035
+      },
+      "retailAndOthers": {
+        "percent": 34.5812
+      }
+    },
+    "Dec '25": {
+      "promoters": {
+        "individual": {
+          "percent": 30.5953
+        },
+        "government": {
+          "percent": 0
+        },
+        "corporation": {
+          "percent": 0
+        }
+      },
+      "mutualFunds": {
+        "percent": 24.8031
+      },
+      "otherDomesticInstitutions": {
+        "insurance": {
+          "percent": 5.1601
+        },
+        "otherFirms": {
+          "percent": 0
+        }
+      },
+      "foreignInstitutions": {
+        "percent": 12.2446
+      },
+      "retailAndOthers": {
+        "percent": 27.1969
+      }
+    },
+    "Mar '26": {
+      "promoters": {
+        "individual": {
+          "percent": 30.4448
+        },
+        "government": {
+          "percent": 0
+        },
+        "corporation": {
+          "percent": 0
+        }
+      },
+      "mutualFunds": {
+        "percent": 23.4894
+      },
+      "otherDomesticInstitutions": {
+        "insurance": {
+          "percent": 4.176400000000001
+        },
+        "otherFirms": {
+          "percent": 0
+        }
+      },
+      "foreignInstitutions": {
+        "percent": 17.307
+      },
+      "retailAndOthers": {
+        "percent": 24.58239999999999
+      }
+    }
+  },
+  "fundsInvested": [
+    {
+      "name": "Mahindra Manulife Flexi Cap Fund Direct Growth",
+      "searchId": "mahindra-manulife-flexi-cap-fund-direct-growth",
+      "investedAumPercent": 0.84,
+      "rating": 3,
+      "return3y": 12.49,
+      "return1y": -5.1,
+      "logoUrl": "https://assets-netstorage.groww.in/mf-assets/logos/mahindra_groww.png"
+    },
+    {
+      "name": "HSBC Multi Cap Fund Direct Growth",
+      "searchId": "hsbc-multi-cap-fund-direct-growth",
+      "investedAumPercent": 1.63,
+      "rating": 5,
+      "return3y": 20.85,
+      "return1y": 2.06,
+      "logoUrl": "https://assets-netstorage.groww.in/mf-assets/logos/hsbc_groww.png"
+    },
+    {
+      "name": "Sundaram Small Cap Fund Direct Growth",
+      "searchId": "sundaram-smile-fund-direct-growth",
+      "investedAumPercent": 5.253593,
+      "rating": 4,
+      "return3y": 19.22,
+      "return1y": 5.49,
+      "return5y": 18.18,
+      "logoUrl": "https://assets-netstorage.groww.in/mf-assets/logos/sundaram_groww.png"
+    },
+    {
+      "name": "Kotak Balanced Advantage Fund Direct Growth",
+      "searchId": "kotak-balanced-advantage-fund-direct-growth",
+      "investedAumPercent": 0.00491857,
+      "rating": 3,
+      "return3y": 10.22,
+      "return1y": -0.21,
+      "return5y": 9.54,
+      "logoUrl": "https://assets-netstorage.groww.in/mf-assets/logos/kotak_groww.png"
+    }
+  ],
+  "priceData": {
+    "nse": {
+      "yearLowPrice": 1390.5,
+      "yearHighPrice": 8449.5
+    },
+    "bse": {
+      "yearLowPrice": 1391,
+      "yearHighPrice": 8447.95
+    }
+  },
+  "financialStatement": [
+    {
+      "title": "Revenue",
+      "yearly": {
+        "2021": 247.742,
+        "2022": 330.759,
+        "2023": 593.228,
+        "2024": 586.559,
+        "2025": 681.145
+      },
+      "quarterly": {
+        "Mar '25": 183.11,
+        "Jun '25": 157.19,
+        "Sep '25": 139.27,
+        "Dec '25": 280.37,
+        "Mar '26": 322.46999999999997
+      },
+      "cagr": {
+        "oneYearTtm": 0.76,
+        "threeYearCagr": 0.27
+      }
+    },
+    {
+      "title": "Profit",
+      "yearly": {
+        "2021": 46.066,
+        "2022": 60.874,
+        "2023": 103.419,
+        "2024": 56.113,
+        "2025": 52.887
+      },
+      "quarterly": {
+        "Mar '25": 13.72,
+        "Jun '25": 10.81,
+        "Sep '25": 4.25,
+        "Dec '25": 34.69,
+        "Mar '26": 44.28
+      },
+      "cagr": {
+        "oneYearTtm": 2.23,
+        "threeYearCagr": -0.05
+      }
+    },
+    {
+      "title": "Net Worth",
+      "yearly": {
+        "2021": 476.74,
+        "2022": 519.739,
+        "2023": 620.132,
+        "2024": 676.33,
+        "2025": 728.918
+      }
+    }
+  ],
+  "financialStatementV2": {
+    "CONSOLIDATED": [
+      {
+        "title": "Revenue",
+        "yearly": {
+          "2021": 247.742,
+          "2022": 330.759,
+          "2023": 593.228,
+          "2024": 586.559,
+          "2025": 681.145
+        },
+        "quarterly": {
+          "Mar '25": 183.11,
+          "Jun '25": 157.19,
+          "Sep '25": 139.27,
+          "Dec '25": 280.37,
+          "Mar '26": 322.46999999999997
+        }
+      },
+      {
+        "title": "Profit",
+        "yearly": {
+          "2021": 46.066,
+          "2022": 60.874,
+          "2023": 103.419,
+          "2024": 56.113,
+          "2025": 52.887
+        },
+        "quarterly": {
+          "Mar '25": 13.72,
+          "Jun '25": 10.81,
+          "Sep '25": 4.25,
+          "Dec '25": 34.69,
+          "Mar '26": 44.28
+        }
+      },
+      {
+        "title": "Net Worth",
+        "yearly": {
+          "2021": 476.74,
+          "2022": 519.739,
+          "2023": 620.132,
+          "2024": 676.33,
+          "2025": 728.918
+        }
+      }
+    ],
+    "STANDALONE": [
+      {
+        "title": "Revenue",
+        "yearly": {
+          "2021": 247.742,
+          "2022": 330.759,
+          "2023": 593.049,
+          "2024": 586.396,
+          "2025": 681.693
+        },
+        "quarterly": {
+          "Mar '25": 183.26999999999998,
+          "Jun '25": 157.33999999999997,
+          "Sep '25": 139.42000000000002,
+          "Dec '25": 280.46,
+          "Mar '26": 322.57
+        }
+      },
+      {
+        "title": "Profit",
+        "yearly": {
+          "2021": 46.083,
+          "2022": 60.881,
+          "2023": 104.075,
+          "2024": 56.268,
+          "2025": 53.853
+        },
+        "quarterly": {
+          "Mar '25": 14.2,
+          "Jun '25": 11.23,
+          "Sep '25": 4.59,
+          "Dec '25": 35.17,
+          "Mar '26": 44.34
+        }
+      },
+      {
+        "title": "Net Worth",
+        "yearly": {
+          "2021": 476.757,
+          "2022": 519.764,
+          "2023": 620.812,
+          "2024": 677.165,
+          "2025": 730.719
+        }
+      }
+    ]
+  },
+  "similarAssets": {
+    "type": "STOCK",
+    "size": 7,
+    "peerList": [
+      {
+        "companyHeader": {
+          "searchId": "lakshmi-machine-works-ltd",
+          "growwCompanyId": "GSTK500252",
+          "isin": "INE269B01029",
+          "displayName": "LMW",
+          "shortName": "LMW",
+          "nseScriptCode": "LMW",
+          "bseScriptCode": "500252",
+          "nseTradingSymbol": "LMW-EQ",
+          "bseTradingSymbol": "LMW",
+          "isBseTradable": true,
+          "isNseTradable": true,
+          "logoUrl": "https://assets-netstorage.groww.in/stock-assets/logos2/LMW.png",
+          "isBseFnoEnabled": false,
+          "isNseFnoEnabled": false,
+          "industryUrlDark": "https://assets-netstorage.groww.in/stock-assets/sectors-logo/dark/industry_33_dark.png",
+          "industryUrlLight": "https://assets-netstorage.groww.in/stock-assets/sectors-logo/light/industry_33_light.png",
+          "industryCodeV2": "GIC-00033"
+        },
+        "nseYearLow": 11920,
+        "nseYearHigh": 17160,
+        "bseYearLow": 11729.45,
+        "bseYearHigh": 17179.95,
+        "marketCap": 16631.94,
+        "peRatio": 127.23,
+        "pbRatio": 5.8
+      },
+      {
+        "companyHeader": {
+          "searchId": "usha-martin-ltd",
+          "growwCompanyId": "GSTK517146",
+          "isin": "INE228A01035",
+          "displayName": "Usha Martin",
+          "shortName": "Usha Martin",
+          "nseScriptCode": "USHAMART",
+          "bseScriptCode": "517146",
+          "nseTradingSymbol": "USHAMART-EQ",
+          "bseTradingSymbol": "USHAMART",
+          "isBseTradable": true,
+          "isNseTradable": true,
+          "logoUrl": "https://assets-netstorage.groww.in/stock-assets/logos2/USHAMART.webp",
+          "isBseFnoEnabled": false,
+          "isNseFnoEnabled": false,
+          "industryUrlDark": "https://assets-netstorage.groww.in/stock-assets/sectors-logo/dark/industry_33_dark.png",
+          "industryUrlLight": "https://assets-netstorage.groww.in/stock-assets/sectors-logo/light/industry_33_light.png",
+          "industryCodeV2": "GIC-00033"
+        },
+        "nseYearLow": 302.3,
+        "nseYearHigh": 527.5,
+        "bseYearLow": 302.3,
+        "bseYearHigh": 527,
+        "marketCap": 14639.8,
+        "peRatio": 31.4,
+        "pbRatio": 4.43
+      },
+      {
+        "companyHeader": {
+          "searchId": "azad-engineering-ltd",
+          "growwCompanyId": "GSTK544061",
+          "isin": "INE02IJ01035",
+          "displayName": "Azad Engineering",
+          "shortName": "Azad Engineering",
+          "nseScriptCode": "AZAD",
+          "bseScriptCode": "544061",
+          "nseTradingSymbol": "AZAD-EQ",
+          "bseTradingSymbol": "AZAD",
+          "isBseTradable": true,
+          "isNseTradable": true,
+          "logoUrl": "https://assets-netstorage.groww.in/stock-assets/logos2/AZAD.png",
+          "isBseFnoEnabled": false,
+          "isNseFnoEnabled": false,
+          "industryUrlDark": "https://assets-netstorage.groww.in/stock-assets/sectors-logo/dark/industry_33_dark.png",
+          "industryUrlLight": "https://assets-netstorage.groww.in/stock-assets/sectors-logo/light/industry_33_light.png",
+          "industryCodeV2": "GIC-00033"
+        },
+        "nseYearLow": 1360,
+        "nseYearHigh": 2350,
+        "bseYearLow": 1358.7,
+        "bseYearHigh": 2348.25,
+        "marketCap": 13951.92,
+        "peRatio": 104.47,
+        "pbRatio": 9.13
+      },
+      {
+        "companyHeader": {
+          "searchId": "tega-industries-ltd",
+          "growwCompanyId": "GSTK543413",
+          "isin": "INE011K01018",
+          "displayName": "Tega Industries",
+          "shortName": "Tega Industries",
+          "nseScriptCode": "TEGA",
+          "bseScriptCode": "543413",
+          "nseTradingSymbol": "TEGA-EQ",
+          "bseTradingSymbol": "TEGA",
+          "isBseTradable": true,
+          "isNseTradable": true,
+          "logoUrl": "https://assets-netstorage.groww.in/stock-assets/logos2/Tega-Industries-Limited_71088132_35139.png",
+          "isBseFnoEnabled": false,
+          "isNseFnoEnabled": false,
+          "industryUrlDark": "https://assets-netstorage.groww.in/stock-assets/sectors-logo/dark/industry_33_dark.png",
+          "industryUrlLight": "https://assets-netstorage.groww.in/stock-assets/sectors-logo/light/industry_33_light.png",
+          "industryCodeV2": "GIC-00033"
+        },
+        "nseYearLow": 1467,
+        "nseYearHigh": 2125,
+        "bseYearLow": 1466.9,
+        "bseYearHigh": 2130,
+        "marketCap": 13091.38,
+        "peRatio": 91.76,
+        "pbRatio": 3.84
+      },
+      {
+        "companyHeader": {
+          "searchId": "elecon-engineering-company-ltd",
+          "growwCompanyId": "GSTK505700",
+          "isin": "INE205B01031",
+          "displayName": "Elecon Engineering Company",
+          "shortName": "Elecon Engg Co",
+          "nseScriptCode": "ELECON",
+          "bseScriptCode": "505700",
+          "nseTradingSymbol": "ELECON-EQ",
+          "bseTradingSymbol": "ELECON",
+          "isBseTradable": true,
+          "isNseTradable": true,
+          "logoUrl": "https://assets-netstorage.groww.in/stock-assets/logos2/ELECON.webp",
+          "isBseFnoEnabled": false,
+          "isNseFnoEnabled": false,
+          "industryUrlDark": "https://assets-netstorage.groww.in/stock-assets/sectors-logo/dark/industry_33_dark.png",
+          "industryUrlLight": "https://assets-netstorage.groww.in/stock-assets/sectors-logo/light/industry_33_light.png",
+          "industryCodeV2": "GIC-00033"
+        },
+        "nseYearLow": 352,
+        "nseYearHigh": 704,
+        "bseYearLow": 352,
+        "bseYearHigh": 704.65,
+        "marketCap": 11741.73,
+        "peRatio": 34.42,
+        "pbRatio": 5.09
+      },
+      {
+        "companyHeader": {
+          "searchId": "lloyds-steels-industries-ltd",
+          "growwCompanyId": "GSTK539992",
+          "isin": "INE093R01011",
+          "displayName": "Lloyds Engineering Works",
+          "shortName": "Lloyds Engr Works",
+          "nseScriptCode": "LLOYDSENGG",
+          "bseScriptCode": "539992",
+          "nseTradingSymbol": "LLOYDSENGG-EQ",
+          "bseTradingSymbol": "LLOYDSENGG",
+          "isBseTradable": true,
+          "isNseTradable": true,
+          "logoUrl": "https://assets-netstorage.groww.in/stock-assets/logos2/LloydsSteelsIndustriesLtd_74513842593_67056.png",
+          "isBseFnoEnabled": false,
+          "isNseFnoEnabled": false,
+          "industryUrlDark": "https://assets-netstorage.groww.in/stock-assets/sectors-logo/dark/industry_33_dark.png",
+          "industryUrlLight": "https://assets-netstorage.groww.in/stock-assets/sectors-logo/light/industry_33_light.png",
+          "industryCodeV2": "GIC-00033"
+        },
+        "nseYearLow": 37.4,
+        "nseYearHigh": 84.27,
+        "bseYearLow": 37.41,
+        "bseYearHigh": 84.26,
+        "marketCap": 10188.47,
+        "peRatio": 51.65,
+        "pbRatio": 6.09
+      },
+      {
+        "companyHeader": {
+          "searchId": "esab-india-ltd",
+          "growwCompanyId": "GSTK500133",
+          "isin": "INE284A01012",
+          "displayName": "Esab India",
+          "shortName": "Esab india",
+          "nseScriptCode": "ESABINDIA",
+          "bseScriptCode": "500133",
+          "nseTradingSymbol": "ESABINDIA-EQ",
+          "bseTradingSymbol": "ESABINDIA",
+          "isBseTradable": true,
+          "isNseTradable": true,
+          "logoUrl": "https://assets-netstorage.groww.in/stock-assets/logos2/EsabIndia_52007396120_1147.png",
+          "isBseFnoEnabled": false,
+          "isNseFnoEnabled": false,
+          "industryUrlDark": "https://assets-netstorage.groww.in/stock-assets/sectors-logo/dark/industry_33_dark.png",
+          "industryUrlLight": "https://assets-netstorage.groww.in/stock-assets/sectors-logo/light/industry_33_light.png",
+          "industryCodeV2": "GIC-00033"
+        },
+        "nseYearLow": 4710,
+        "nseYearHigh": 7319.5,
+        "bseYearLow": 4714.55,
+        "bseYearHigh": 7325,
+        "marketCap": 8655.19,
+        "peRatio": 41.87,
+        "pbRatio": 20.16
+      }
+    ]
+  }
+}
