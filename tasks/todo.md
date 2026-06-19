@@ -142,6 +142,49 @@ Make delivery backfill failures actionable by logging failed dates with reasons 
 - Code review findings: no critical or high-confidence blocking issues on the diff.
 - Verdict: APPROVE
 
+# Groww Watchlist Sync Cleanup
+
+## Goal Description
+Remove the unused Groww watchlist HTTP adapter and the leftover fake watchlist-ID model plumbing so the sync path stays explicitly file-based and only carries data the current workflow actually uses.
+
+## Skill Invocation (Mandatory)
+- [x] `coding-standards` invoked (keep the cleanup small and explicit)
+- [x] `backend-architect` invoked (preserve a single clear watchlist source boundary)
+- [x] `kotlin-patterns` invoked (prefer deletion over a new abstraction)
+- [x] `frontend-patterns` invoked (no direct UI change in this slice)
+- [x] `kotlin-reviewer` review gate completed
+- [x] `code-reviewer` review completed
+
+## Task List
+- [x] Confirm whether any runtime code still uses the Groww watchlist HTTP adapter
+- [x] Remove the unused Groww watchlist HTTP adapter and its dedicated test
+- [x] Remove `watchlistId` from the sync request/result model and cron runtime
+- [x] Run focused core verification
+- [x] Add today's feature journey note
+- [x] Add Review Section outcomes
+
+## Review Section
+### What was implemented
+1. Deleted the unused `GrowwWatchlistAdapter` HTTP source so the codebase no longer advertises a direct Groww watchlist fetch path.
+2. Deleted the dedicated unit test that only exercised that removed adapter.
+3. Removed `watchlistId` from the sync request/result model and dropped `DEFAULT_WATCHLIST_ID` from the cron runtime.
+4. Kept the active file-based and string-based watchlist import paths, but simplified them to use the slimmer request model.
+
+### Verification
+1. `rg -n "GrowwWatchlistAdapter|v1/api/presentation/v2/watchlist|include_index_fno=true" . -S` ✅ confirmed no remaining runtime code references to the removed adapter or endpoint.
+2. `mvn -q -pl core -Dtest=GrowwWatchlistSyncServiceTest,KiteInstrumentTokenResolverTest test` ✅ passed.
+3. `rg -n "watchlistId|DEFAULT_WATCHLIST_ID|GWL_" cron-job core resources -S` ✅ returned no matches in active source files.
+4. `mvn -q -pl cron-job -DskipTests compile` ⚠️ failed when run without `-am` because it picked up stale dependent artifacts instead of the current `core` source.
+5. `mvn -q -pl cron-job -am -DskipTests compile` ✅ passed.
+
+### Kotlin Reviewer Gate
+- Kotlin review findings: no blocking coroutine, cancellation, lifecycle, or architecture issues in this deletion-only Kotlin diff.
+- Verdict: PASS
+
+### Code Reviewer Gate
+- Code review findings: no critical or high-confidence blocking issues on the diff.
+- Verdict: APPROVE
+
 # Delivery Reconciliation Symbol Debug Names
 
 ## Goal Description

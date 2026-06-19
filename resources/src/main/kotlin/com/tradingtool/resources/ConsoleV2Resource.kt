@@ -107,8 +107,7 @@ class ConsoleV2Resource @Inject constructor(
             instrumentTokenResolver = instrumentTokenResolver,
         )
 
-        // We don't have a real Groww watchlist ID here (upload-based), so use a stable label.
-        val request = GrowwWatchlistSyncRequest(watchlistId = "UPLOAD")
+        val request = GrowwWatchlistSyncRequest()
         val rows: List<GrowwWatchlistStock> = source.fetchStocks(request)
 
         val skipped = mutableListOf<GrowwWatchlistImportRowSkip>()

@@ -17,18 +17,18 @@ class StringGrowwWatchlistAdapter(
     private val log = LoggerFactory.getLogger(StringGrowwWatchlistAdapter::class.java)
 
     override suspend fun fetchStocks(request: GrowwWatchlistSyncRequest): List<GrowwWatchlistStock> {
-        val root = parsePayloadTree(request.watchlistId)
+        val root = parsePayloadTree()
         val rawRows = mutableListOf<GrowwWatchlistStock>()
         collectStocks(root, rawRows)
         return rawRows.distinctBy { row -> row.symbol to row.exchange }
     }
 
-    private fun parsePayloadTree(watchlistId: String): JsonNode {
+    private fun parsePayloadTree(): JsonNode {
         if (json.isBlank()) {
             throw IllegalStateException("Empty Groww watchlist JSON payload.")
         }
         return runCatching { objectMapper.readTree(json) }.getOrElse { error ->
-            log.error("Failed to parse Groww watchlist JSON for {}: {}", watchlistId, error.message, error)
+            log.error("Failed to parse uploaded Groww watchlist JSON: {}", error.message, error)
             throw IllegalStateException("Invalid Groww watchlist JSON.", error)
         }
     }
@@ -124,4 +124,3 @@ class StringGrowwWatchlistAdapter(
         return null
     }
 }
-

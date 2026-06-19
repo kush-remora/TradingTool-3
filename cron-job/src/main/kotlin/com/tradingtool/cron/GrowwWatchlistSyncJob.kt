@@ -33,16 +33,11 @@ fun main(args: Array<String>) {
 
     val exitCode = runBlocking {
         runCatching {
-            val result = runtime.service.sync(
-                GrowwWatchlistSyncRequest(
-                    watchlistId = runtime.watchlistId,
-                    indexKey = runtime.indexKey,
-                ),
-            )
+            val result = runtime.service.sync(GrowwWatchlistSyncRequest(indexKey = runtime.indexKey))
             val outputDir = writeArtifacts(result)
             log.info(
-                "Groww watchlist sync completed: watchlistId={} fetched={} synced={} output={}",
-                result.watchlistId,
+                "Groww watchlist sync completed: input={} fetched={} synced={} output={}",
+                runtime.watchlistFile,
                 result.fetchedCount,
                 result.syncedCount,
                 outputDir.toAbsolutePath(),
@@ -58,8 +53,8 @@ fun main(args: Array<String>) {
 }
 
 private data class GrowwWatchlistSyncRuntime(
-    val watchlistId: String,
     val indexKey: String,
+    val watchlistFile: Path,
     val service: GrowwWatchlistSyncService,
 ) {
     companion object {
@@ -81,11 +76,11 @@ private data class GrowwWatchlistSyncRuntime(
                 null
             }
 
-            val watchlistId = DEFAULT_WATCHLIST_ID
+            val watchlistFile = Paths.get(DEFAULT_WATCHLIST_FILE)
 
             val service = GrowwWatchlistSyncService(
                 source = FileGrowwWatchlistAdapter(
-                    filePath = Paths.get(DEFAULT_WATCHLIST_FILE),
+                    filePath = watchlistFile,
                     objectMapper = objectMapper,
                 ),
                 stockGateway = JdbiGrowwWatchlistStockGateway(
@@ -95,12 +90,11 @@ private data class GrowwWatchlistSyncRuntime(
             )
 
             return GrowwWatchlistSyncRuntime(
-                watchlistId = watchlistId,
                 indexKey = DEFAULT_INDEX_KEY,
+                watchlistFile = watchlistFile,
                 service = service,
             )
         }
-        private const val DEFAULT_WATCHLIST_ID = "GWL_1729712098800"
         private const val DEFAULT_INDEX_KEY = "curated"
     }
 }
@@ -138,7 +132,6 @@ private fun GrowwWatchlistSyncResult.toMarkdown(): String {
     return buildString {
         appendLine("# Groww Watchlist Sync Report")
         appendLine()
-        appendLine("- Watchlist ID: `${watchlistId}`")
         appendLine("- Fetched stocks: `${fetchedCount}`")
         appendLine("- Synced rows: `${syncedCount}`")
     }

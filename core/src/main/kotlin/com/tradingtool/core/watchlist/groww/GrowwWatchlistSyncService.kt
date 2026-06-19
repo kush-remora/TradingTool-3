@@ -14,7 +14,6 @@ class GrowwWatchlistSyncService(
         }
 
         return GrowwWatchlistSyncResult(
-            watchlistId = request.watchlistId,
             fetchedCount = stocks.size,
             syncedCount = syncedCount,
         )

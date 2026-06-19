@@ -29,7 +29,7 @@ class GrowwWatchlistSyncServiceTest {
         }
 
         val service = GrowwWatchlistSyncService(source, gateway)
-        val result = service.sync(GrowwWatchlistSyncRequest(watchlistId = "GWL_1"))
+        val result = service.sync(GrowwWatchlistSyncRequest())
 
         assertEquals(2, result.fetchedCount)
         assertEquals(2, result.syncedCount)

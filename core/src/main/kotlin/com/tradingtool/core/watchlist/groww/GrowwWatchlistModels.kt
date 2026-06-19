@@ -8,12 +8,10 @@ data class GrowwWatchlistStock(
 )
 
 data class GrowwWatchlistSyncRequest(
-    val watchlistId: String,
     val indexKey: String = "groww",
 )
 
 data class GrowwWatchlistSyncResult(
-    val watchlistId: String,
     val fetchedCount: Int,
     val syncedCount: Int,
 )
