@@ -1,3 +1,104 @@
+# Index Sync Smallcap 500 CSV Fix
+
+## Goal Description
+Fix the `nifty_smallcap_500` constituent sync failure caused by the stale CSV feed path returning HTML instead of a constituent CSV.
+
+## Skill Invocation (Mandatory)
+- [x] `coding-standards` invoked (keep the fix explicit and minimal)
+- [x] `backend-architect` invoked (config remains the source-of-truth integration boundary)
+- [x] `kotlin-patterns` invoked (small Kotlin helper, no new abstraction layers)
+- [x] `frontend-patterns` invoked (no direct UI change in this slice)
+- [x] `kotlin-reviewer` review gate completed
+- [x] `code-reviewer` review completed
+
+## Task List
+- [x] Confirm the live `nifty_smallcap_500` URL behavior
+- [x] Patch the stale config URL
+- [x] Improve parser diagnostics for HTML/non-CSV responses
+- [x] Add focused parser regression tests
+- [x] Run targeted core verification
+- [x] Add Review Section outcomes
+
+## Review Section
+### What was implemented
+1. Corrected the `nifty_smallcap_500` config URL to the live `_list.csv` feed that currently returns the constituent CSV.
+2. Kept the parser strict, but upgraded the failure message to distinguish HTML responses, empty bodies, and header mismatches.
+3. Added focused regression tests for the new parse-failure diagnostics.
+
+### Verification
+1. `mvn -q -pl core -Dtest=IndexConstituentCsvSourceTest test` ✅ passed
+   - report: `core/target/surefire-reports/com.tradingtool.core.indexconstituents.IndexConstituentCsvSourceTest.txt`
+2. `jq . wyckoff-market-cycle/config/index_sync_config.json` ✅ passed
+3. Live URL probe confirmed:
+   - `ind_niftysmallcap500list.csv` returns HTML
+   - `ind_niftysmallcap500_list.csv` returns the expected CSV with `Symbol` header
+
+### Kotlin Reviewer Gate
+- Findings: no blocking coroutine, cancellation, lifecycle, or architecture issues in this Kotlin diff.
+- Verdict: PASS
+
+### Code Reviewer Gate
+- Findings: no critical or high-confidence blocking issues in the config/parser/test changes.
+- Verdict: APPROVE
+
+# Index Sync Microcap 250 CSV Fix
+
+## Goal Description
+Fix the `nifty_microcap_250` constituent sync failure caused by the stale CSV feed path returning HTML instead of a constituent CSV.
+
+## Skill Invocation (Mandatory)
+- [x] `coding-standards` invoked (keep the fix explicit and minimal)
+- [x] `backend-architect` invoked (config remains the source-of-truth integration boundary)
+- [x] `kotlin-patterns` invoked (no new Kotlin abstraction needed in this slice)
+- [x] `frontend-patterns` invoked (no direct UI change in this slice)
+- [x] `kotlin-reviewer` review gate completed
+- [x] `code-reviewer` review completed
+
+## Task List
+- [x] Confirm the live `nifty_microcap_250` URL behavior
+- [x] Patch the stale config URL
+- [x] Run focused config verification
+- [x] Add Review Section outcomes
+
+## Review Section
+### What was implemented
+1. Corrected the `nifty_microcap_250` config URL to the live `_list.csv` feed that currently returns the constituent CSV.
+2. Reused the earlier parser diagnostics without adding more code because the failure was already clearly identified as an HTML response.
+
+### Verification
+1. `jq . wyckoff-market-cycle/config/index_sync_config.json` ✅ passed
+2. Live URL probe confirmed:
+   - `ind_niftymicrocap250list.csv` returns HTML
+   - `ind_niftymicrocap250_list.csv` returns the expected CSV with `Symbol` header
+
+### Kotlin Reviewer Gate
+- Findings: no blocking coroutine, cancellation, lifecycle, or architecture issues in this config-only slice.
+- Verdict: PASS
+
+### Code Reviewer Gate
+- Findings: no critical or high-confidence blocking issues in the config/doc updates.
+- Verdict: APPROVE
+
+# Wyckoff Index Sync Universe Trim
+
+## Goal Description
+Restrict `wyckoff-market-cycle/config/index_sync_config.json` to only three non-overlapping index feeds: Nifty Smallcap 500, NIFTY LargeMidcap 250, and NIFTY MICROCAP 250.
+
+## Skill Invocation (Mandatory)
+- [x] `coding-standards` invoked (keep the config change minimal and readable)
+- [x] `backend-architect` invoked (config remains the simple source-of-truth boundary)
+- [x] `kotlin-patterns` invoked (no direct Kotlin implementation change in this slice)
+- [x] `frontend-patterns` invoked (no direct UI change in this slice)
+- [x] `kotlin-reviewer` acknowledged (no Kotlin/KTS diff in this slice)
+- [x] `code-reviewer` acknowledged (post-change review required)
+
+## Task List
+- [x] Inspect current index sync config and overlap intent
+- [ ] Replace the current index list with the three requested feeds
+- [ ] Add today's feature journey note
+- [ ] Run focused config verification
+- [ ] Add Review Section outcomes
+
 # Delivery Reconciliation Failure Diagnostics
 
 ## Goal Description

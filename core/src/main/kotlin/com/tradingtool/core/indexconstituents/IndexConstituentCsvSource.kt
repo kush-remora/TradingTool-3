@@ -33,7 +33,7 @@ class IndexConstituentCsvSource(
         val body = response.body()
         val rows = parseRows(body)
         if (rows.isEmpty()) {
-            throw IllegalStateException("CSV parse failed for ${index.key}: Symbol column missing or empty")
+            throw IllegalStateException("CSV parse failed for ${index.key}: ${describeParseFailure(body)}")
         }
 
         return rows
@@ -68,6 +68,38 @@ class IndexConstituentCsvSource(
                 .filter { row -> row.symbol.isNotEmpty() }
                 .toList()
         }
+    }
+
+    internal fun describeParseFailure(csvBody: String): String {
+        if (isLikelyHtml(csvBody)) {
+            return "received HTML instead of CSV from source URL"
+        }
+
+        val headerLine = csvBody
+            .lineSequence()
+            .firstOrNull { line -> line.isNotBlank() }
+            ?.trim()
+            .orEmpty()
+
+        return if (headerLine.isBlank()) {
+            "response body was empty"
+        } else {
+            "Symbol column missing or empty. first line=`$headerLine`"
+        }
+    }
+
+    private fun isLikelyHtml(csvBody: String): Boolean {
+        val firstLine = csvBody
+            .lineSequence()
+            .firstOrNull { line -> line.isNotBlank() }
+            ?.trim()
+            ?.lowercase()
+            .orEmpty()
+
+        return firstLine.startsWith("<!doctype html") ||
+            firstLine.startsWith("<html") ||
+            firstLine.startsWith("<head") ||
+            firstLine.startsWith("<body")
     }
 
     private companion object {

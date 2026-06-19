@@ -37,4 +37,32 @@ class IndexConstituentCsvSourceTest {
         val rows = source.parseRows(html)
         assertTrue(rows.isEmpty())
     }
+
+    @Test
+    fun `describeParseFailure explains html response`() {
+        val html = """
+            <!DOCTYPE html>
+            <html>
+            <body>Blocked</body>
+            </html>
+        """.trimIndent()
+
+        assertEquals(
+            "received HTML instead of CSV from source URL",
+            source.describeParseFailure(html),
+        )
+    }
+
+    @Test
+    fun `describeParseFailure includes first line when symbol header is missing`() {
+        val csv = """
+            Company Name,Industry,Ticker,Series,ISIN Code
+            A Ltd,Services,ABC,EQ,INE1
+        """.trimIndent()
+
+        assertEquals(
+            "Symbol column missing or empty. first line=`Company Name,Industry,Ticker,Series,ISIN Code`",
+            source.describeParseFailure(csv),
+        )
+    }
 }
