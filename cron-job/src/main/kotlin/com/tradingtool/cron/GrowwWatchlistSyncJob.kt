@@ -95,7 +95,7 @@ private data class GrowwWatchlistSyncRuntime(
                 service = service,
             )
         }
-        private const val DEFAULT_INDEX_KEY = "curated"
+        private const val DEFAULT_INDEX_KEY = "parag-parikh"
     }
 }
 
