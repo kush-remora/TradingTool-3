@@ -5,7 +5,6 @@ import com.google.inject.Singleton
 import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
-import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
 import com.tradingtool.core.indexconstituents.dao.IndexSummary
 import com.tradingtool.core.kite.KiteConnectClient
@@ -22,7 +21,6 @@ import java.time.LocalDate
 @Singleton
 class WyckoffPhase1ScannerService @Inject constructor(
     private val indexConstituentHandler: IndexConstituentJdbiHandler,
-    private val stockHandler: StockJdbiHandler,
     private val deliveryHandler: StockDeliveryJdbiHandler,
     private val candleCacheService: CandleCacheService,
     private val candleDataService: CandleDataService,
@@ -139,11 +137,7 @@ class WyckoffPhase1ScannerService @Inject constructor(
         val selectedIndexKeys = normalizedUniverseKeys.filterNot { key -> key == WATCHLIST_KEY }
 
         val members = loadIndexMembers(selectedIndexKeys)
-        val watchlistStocks = if (includeWatchlist || runConfig.symbols.isNotEmpty()) {
-            stockHandler.read { dao -> dao.listAll() }
-        } else {
-            emptyList()
-        }
+        val watchlistStocks = emptyList<WyckoffPhase1ResolvedSymbol>() // Replaced with empty logic since Stock table is dead
 
         val manualSymbols = runConfig.symbols
             .map { symbol -> symbol.trim().uppercase() }
@@ -157,9 +151,7 @@ class WyckoffPhase1ScannerService @Inject constructor(
 
         val seedSymbols = linkedSetOf<String>()
         seedSymbols += membershipBySymbol.keys
-        if (includeWatchlist) {
-            seedSymbols += watchlistBySymbol.keys
-        }
+        seedSymbols += manualSymbols
         seedSymbols += manualSymbols
 
         val allMemberships = indexConstituentHandler.read { dao -> dao.listAllActive() }
@@ -179,17 +171,8 @@ class WyckoffPhase1ScannerService @Inject constructor(
                 )
             }
 
-            val watchlist = watchlistBySymbol[symbol] ?: return@mapNotNull null
-            if (watchlist.instrumentToken <= 0L) {
-                return@mapNotNull null
-            }
-            WyckoffPhase1ResolvedSymbol(
-                symbol = symbol,
-                instrumentToken = watchlist.instrumentToken,
-                companyName = watchlist.companyName,
-                indexKey = WATCHLIST_KEY,
-                deliveryThresholdPct = thresholdForIndex(config, WATCHLIST_KEY),
-            )
+            // Since watchlist is empty, just return null if not found in memberships
+            return@mapNotNull null
         }.sortedBy { resolved -> resolved.symbol }
     }
 

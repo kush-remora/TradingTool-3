@@ -140,34 +140,39 @@ Responsibilities:
 ## Communication Style
 
 - Be direct and concise.
-- Default to responses of 100 words or fewer.
-- Exceed 100 words only when a shorter response would omit necessary context, risks, or instructions.
+- Prefer responses of 100 words or fewer when that still preserves necessary context.
+- Go longer when brevity would hide important risks, tradeoffs, or verification details.
 - Surface trade-offs only when they materially affect delivery.
 - Ask clarifying questions only when necessary; otherwise make reasonable assumptions and proceed.
-- Every response must be provided in two sections:
-  - `Standard`: normal detailed response.
-  - `Crisp Summary`: very short, essential-only version (2-5 lines max).
-- Default to the `Crisp Summary` first when the user asks for short output.
+- Use `Standard` and `Crisp Summary` sections for plans, reviews, and longer explanations.
+- Skip forced two-section formatting for tiny updates, simple answers, and quick status messages.
+- Default to `Crisp Summary` first when the user explicitly asks for short output.
+
+## Instruction Precedence
+
+- Follow repo instructions when they fit the active tool and runtime constraints.
+- If a requested workflow is unavailable in the current environment, use the closest practical equivalent and say so briefly.
+- Prefer practical compliance over literal-but-brittle process when the two conflict.
 
 ## Agent Operating Rules
 
 ### 1) Plan Node Default
-- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- If something goes sideways, STOP and re-plan immediately - don't keep pushing
-- Use plan node for verification steps, not just building
-- Write detailed specs upfront to reduce ambiguity
+- For non-trivial tasks (3+ steps, cross-module edits, or architectural decisions), create an explicit plan before implementation.
+- Record the current understanding in a discussion document under `tasks/understanding/`; use a concise in-thread checklist only for tiny tasks.
+- If something goes sideways, stop and re-plan instead of pushing through confusion.
+- Include verification in the plan, not just implementation.
+- Write specs that remove ambiguity, but avoid ceremony that does not help execution.
 
 ### 2) Subagent Strategy
-- Use subagents liberally to keep main context window clean
-- Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
-- One task per subagent for focused execution
+- Use subagents selectively when they reduce context load or enable meaningful parallel work.
+- Offload research, exploration, or isolated analysis when it clearly helps.
+- Avoid subagents for tiny, linear tasks where direct execution is simpler.
+- Give each subagent one clear task.
 
 ### 3) Self-Improvement Loop
-- After ANY correction from the user: update `tasks/lessons.md` with the pattern
-- Write rules for yourself that prevent the same mistake
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start for relevant project
+- After a meaningful correction or repeated miss, update `tasks/lessons.md` with the pattern.
+- Write lessons as concrete prevention rules, not vague reminders.
+- Review relevant lessons before similar tasks when they apply.
 
 ### 4) Verification Before Done
 - Never mark a task complete without proving it works
@@ -189,11 +194,12 @@ Responsibilities:
 
 ## Task Management
 
-- **Plan First**: Write plan to `tasks/todo.md` with checkable items
-- **Verify Plan**: Check in before starting implementation
-- **Track Progress**: Mark items complete as you go
-- **Explain Changes**: High-level summary at each step
-- **Document Results**: Add review section to `tasks/todo.md`
+- **Start With Understanding**: For each new project or discussion, create a discussion-specific understanding document under `tasks/understanding/`.
+- **Keep It Live**: Update that document as the conversation evolves so the current understanding stays explicit.
+- **Keep It Short**: Prefer a compact 2-paragraph understanding note over a large template or checklist.
+- **Keep Context Safe**: Do not overwrite unrelated discussion documents; update only the active one.
+- **Skip Ceremony When Small**: Tiny one-step requests do not need a formal understanding document unless they open a broader discussion.
+- **Document Results**: If work was substantial, end by updating the same understanding document with the final understanding, decisions, and validation outcome.
 - **Capture Lessons**: Update `tasks/lessons.md` after corrections
 - **Feature Journal (Mandatory)**: After each feature implementation, create or update a day-specific doc inside that feature's module docs (for example `wyckoff-market-cycle/docs/journeys/2026-05-16.md`) with:
   - feature name and why it was built
@@ -211,15 +217,13 @@ Responsibilities:
 
 ## Mandatory Skill Invocation
 
-For any implementation task in this repo, explicitly invoke all of these skills before planning or coding:
+For implementation tasks in this repo, invoke `coding-standards` plus the area-relevant skills below before coding:
 
 - `coding-standards`
 - `backend-architect`
 - `kotlin-patterns`
 - `frontend-patterns`
 - `kotlin-reviewer`
-
-This is mandatory repo policy, not guidance.
 
 Implementation task means any task that changes:
 - application code
@@ -232,15 +236,12 @@ Implementation task means any task that changes:
 Documentation-only tasks and planning-only tasks do not require this five-skill workflow.
 
 Required implementation workflow:
-- `coding-standards` is the baseline quality floor for every implementation task.
-- `backend-architect` must be invoked for backend, data-flow, contract, model, and API thinking.
-- `kotlin-patterns` must be invoked for Kotlin implementation structure and architecture decisions.
-- `frontend-patterns` must be invoked for UI, rendering, state, and data-presentation implications.
-- `kotlin-reviewer` must be run as the review gate before finalizing Kotlin-related implementation work.
-
-This rule applies even when the task is mostly backend or mostly frontend.
-
-If one of these skills has no direct code surface in a task, it must still be invoked and acknowledged with a short note that it produced no direct changes for that slice.
+- `coding-standards` is required for every implementation task.
+- `backend-architect` is required for backend, data-flow, contract, model, and API work.
+- `frontend-patterns` is required for UI, rendering, state, and data-presentation work.
+- `kotlin-patterns` is required when Kotlin implementation structure is being changed.
+- `kotlin-reviewer` is required as the review gate for Kotlin-related changes.
+- If a relevant skill is unavailable in the current environment, note that briefly and continue with the closest practical equivalent.
 
 Completion rules:
 - Kotlin changes are not complete until `kotlin-reviewer` has been run as the review pass.

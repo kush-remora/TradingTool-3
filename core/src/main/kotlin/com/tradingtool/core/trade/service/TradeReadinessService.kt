@@ -3,10 +3,10 @@ package com.tradingtool.core.trade.service
 import com.google.inject.Inject
 import com.tradingtool.core.candle.IntradayCandle
 import com.tradingtool.core.database.CandleJdbiHandler
-import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.model.trade.TradeReadinessAlert
 import com.tradingtool.core.model.trade.TradeReadinessResponse
 import com.tradingtool.core.model.trade.TradeReadinessSymbol
+import com.tradingtool.core.kite.InstrumentTokenResolverService
 import com.tradingtool.core.telegram.TelegramApiClient
 import com.tradingtool.core.technical.calculateRsi
 import com.tradingtool.core.technical.getNullableDouble
@@ -22,7 +22,7 @@ import java.time.ZoneId
 import java.util.Locale
 
 class TradeReadinessService @Inject constructor(
-    private val stockHandler: StockJdbiHandler,
+    private val instrumentResolver: InstrumentTokenResolverService,
     private val candleHandler: CandleJdbiHandler,
     private val telegramApiClient: TelegramApiClient,
 ) {
@@ -39,23 +39,19 @@ class TradeReadinessService @Inject constructor(
 
         if (normalizedSymbols.isEmpty()) return@coroutineScope TradeReadinessResponse(symbols = emptyList())
 
-        val stocks = stockHandler.read { dao ->
-            dao.listBySymbols(normalizedSymbols, "NSE")
-        }.associateBy { it.symbol.uppercase(Locale.ROOT) }
-
         val alertsDeferred = async {
             fetchParsedAlerts(normalizedSymbols)
         }
 
         val readinessDeferred = normalizedSymbols.map { symbol ->
             async {
-                val stock = stocks[symbol] ?: return@async null
-                val rsi14 = loadDailyRsi(stock.instrumentToken)
-                val rsi15m = loadIntradayRsi15m(stock.instrumentToken)
+                val instrumentToken = instrumentResolver.resolve("NSE", symbol) ?: return@async null
+                val rsi14 = loadDailyRsi(instrumentToken)
+                val rsi15m = loadIntradayRsi15m(instrumentToken)
 
                 TradeReadinessSymbol(
                     symbol = symbol,
-                    companyName = stock.companyName,
+                    companyName = "",
                     rsi14 = rsi14,
                     rsi15m = rsi15m,
                     alerts = emptyList(),

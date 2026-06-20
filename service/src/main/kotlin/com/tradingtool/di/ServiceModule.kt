@@ -21,6 +21,7 @@ import com.tradingtool.core.http.CoreHttpModule
 import com.tradingtool.core.http.HttpRequestExecutor
 import com.tradingtool.core.http.JdkHttpRequestExecutor
 import com.tradingtool.core.kite.InstrumentCache
+import com.tradingtool.core.kite.InstrumentTokenResolverService
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.kite.KiteTokenReadDao
 import com.tradingtool.core.kite.KiteTokenWriteDao
@@ -420,7 +421,13 @@ class ServiceModule(
         stockHandler: StockJdbiHandler,
         candleHandler: CandleJdbiHandler,
         instrumentCache: InstrumentCache,
-    ): CandleDataService = CandleDataService(stockHandler, candleHandler, instrumentCache)
+        kiteClient: KiteConnectClient,
+    ): CandleDataService = CandleDataService(
+        stockHandler = stockHandler,
+        candleHandler = candleHandler,
+        instrumentCache = instrumentCache,
+        tokenResolver = InstrumentTokenResolverService(kiteClient, instrumentCache),
+    )
 
     @Provides @Singleton
     fun provideHotSmaScannerService(

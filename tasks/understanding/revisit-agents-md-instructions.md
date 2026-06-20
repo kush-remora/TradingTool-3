@@ -1,0 +1,3 @@
+This discussion replaces the old `tasks/todo.md` workflow with a lighter understanding-first workflow. For any new project or meaningful new discussion, we create a discussion-specific document in `tasks/understanding/`, name it after the discussion, and keep it updated as the conversation evolves so the repo always has the latest shared understanding in one place.
+
+The document should stay compact rather than growing into a heavy planning artifact. Default shape: two short paragraphs that capture the current goal, constraints, and decisions so far; update those paragraphs as understanding changes instead of building a long checklist unless the work truly needs one.

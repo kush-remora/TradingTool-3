@@ -6,6 +6,7 @@ import com.tradingtool.core.database.CandleJdbiHandler
 import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConnectClient
+import com.tradingtool.core.kite.InstrumentTokenResolverService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -28,6 +29,7 @@ class CandleDataService(
     private val stockHandler: StockJdbiHandler,
     private val candleHandler: CandleJdbiHandler,
     private val instrumentCache: InstrumentCache,
+    private val tokenResolver: InstrumentTokenResolverService,
 ) {
     private val log = LoggerFactory.getLogger(CandleDataService::class.java)
     private val ist = ZoneId.of("Asia/Kolkata")
@@ -58,9 +60,9 @@ class CandleDataService(
         var synced = 0
         for (symbol in symbols) {
             val stock = stockHandler.read { it.getBySymbol(symbol, "NSE") }
-            val token = stock?.instrumentToken ?: instrumentCache.token("NSE", symbol)
+            val token = resolveInstrumentToken(symbol, stock?.instrumentToken)
             if (token == null || token <= 0) {
-                log.warn("Symbol {} has no instrument token in stocks table or instrument cache — skipping sync", symbol)
+                log.warn("Symbol {} has no instrument token in stocks table or suffix-aware Kite resolver — skipping sync", symbol)
                 continue
             }
 
@@ -130,10 +132,10 @@ class CandleDataService(
 
         for (symbol in uniqueSymbols) {
             val stock = stockHandler.read { dao -> dao.getBySymbol(symbol, "NSE") }
-            val token = stock?.instrumentToken ?: instrumentCache.token("NSE", symbol)
+            val token = resolveInstrumentToken(symbol, stock?.instrumentToken)
             if (token == null || token <= 0) {
                 failedSymbols += symbol
-                log.warn("Skipping daily sync for {} — no instrument token available", symbol)
+                log.warn("Skipping daily sync for {} — no instrument token available from stocks table or suffix-aware Kite resolver", symbol)
                 continue
             }
 
@@ -229,5 +231,14 @@ class CandleDataService(
             kiteClient.client().getInstruments("NSE")
         }
         instrumentCache.refresh(instruments)
+    }
+
+    internal suspend fun resolveInstrumentToken(symbol: String, stockInstrumentToken: Long?): Long? {
+        val normalizedToken = stockInstrumentToken?.takeIf { token -> token > 0 }
+        if (normalizedToken != null) {
+            return normalizedToken
+        }
+
+        return tokenResolver.resolve(exchange = "NSE", symbol = symbol)
     }
 }
