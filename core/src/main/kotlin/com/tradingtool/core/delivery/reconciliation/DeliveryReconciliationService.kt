@@ -4,7 +4,7 @@ import com.google.inject.Inject
 import com.google.inject.Singleton
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
-import com.tradingtool.core.database.StockJdbiHandler
+// Removed StockJdbiHandler import
 import com.tradingtool.core.delivery.config.DeliveryDataSource
 import com.tradingtool.core.delivery.model.DeliveryReconciliationStatus
 import com.tradingtool.core.delivery.model.DeliverySourceRow
@@ -22,7 +22,6 @@ import java.time.ZoneId
 
 @Singleton
 class DeliveryReconciliationService @Inject constructor(
-    private val stockHandler: StockJdbiHandler,
     private val deliveryHandler: StockDeliveryJdbiHandler,
     private val indexConstituentHandler: IndexConstituentJdbiHandler,
     private val instrumentCache: InstrumentCache,
@@ -79,13 +78,6 @@ class DeliveryReconciliationService @Inject constructor(
         }
 
         val sourceSymbols = sourceRowsBySymbol.rowsBySymbol.keys.toList()
-        val trackedStocksBySymbol = if (sourceSymbols.isEmpty()) {
-            emptyMap()
-        } else {
-            stockHandler.read { dao ->
-                dao.listBySymbols(sourceSymbols, NSE_EXCHANGE)
-            }.associateBy { stock -> stock.symbol.uppercase() }
-        }
 
         val unresolvedResolutions = mutableListOf<UnresolvedDeliverySymbol>()
         val resolvedPairs = sourceRowsBySymbol.rowsBySymbol.values.mapNotNull { sourceRow ->
@@ -94,7 +86,7 @@ class DeliveryReconciliationService @Inject constructor(
             if (resolvedToken == null) {
                 unresolvedResolutions += UnresolvedDeliverySymbol(
                     symbol = sourceRow.symbol.uppercase(),
-                    companyName = trackedStocksBySymbol[sourceRow.symbol.uppercase()]?.companyName?.takeIf { it.isNotBlank() },
+                    companyName = null,
                     resolution = resolution,
                 )
                 null
@@ -106,7 +98,7 @@ class DeliveryReconciliationService @Inject constructor(
         val universeByToken = loadUniverseByInstrumentToken(resolvedTokens)
         val upserts = resolvedPairs.map { (sourceRow, token) ->
             DeliveryReconciliationUpsert(
-                stockId = trackedStocksBySymbol[sourceRow.symbol.uppercase()]?.id,
+                stockId = null,
                 instrumentToken = token,
                 symbol = sourceRow.symbol.uppercase(),
                 exchange = NSE_EXCHANGE,

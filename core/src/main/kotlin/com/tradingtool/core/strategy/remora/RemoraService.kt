@@ -1,16 +1,15 @@
 package com.tradingtool.core.strategy.remora
 
-import com.tradingtool.core.config.IndicatorConfig
 import com.tradingtool.core.database.RemoraJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
-import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.delivery.model.DeliveryReconciliationStatus
 import com.tradingtool.core.delivery.reconciliation.DeliveryReconciliationService
 import com.tradingtool.core.kite.KiteConnectClient
+import com.tradingtool.core.kite.InstrumentTokenResolverService
 import com.tradingtool.core.model.remora.RemoraEnvelope
 import com.tradingtool.core.model.remora.RemoraSignal
-import com.tradingtool.core.model.stock.Stock
 import com.tradingtool.core.telegram.TelegramSender
+import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.model.telegram.TelegramSendTextRequest
 import com.tradingtool.core.strategy.SignalScanner
 import kotlinx.coroutines.CancellationException
@@ -40,13 +39,13 @@ import java.util.Date
  * Sends a Telegram message for each new signal (skips if already stored today).
  */
 class RemoraService(
-    private val stockHandler: StockJdbiHandler,
+    private val instrumentResolver: InstrumentTokenResolverService,
+    private val indexConstituentHandler: IndexConstituentJdbiHandler,
     private val remoraHandler: RemoraJdbiHandler,
     private val deliveryHandler: StockDeliveryJdbiHandler,
     private val deliveryReconciliationService: DeliveryReconciliationService,
     private val telegramSender: TelegramSender,
     private val kiteClient: KiteConnectClient,
-    private val config: IndicatorConfig = IndicatorConfig.DEFAULT,
 ) : SignalScanner {
     private val log = LoggerFactory.getLogger(RemoraService::class.java)
     private val ist = ZoneId.of("Asia/Kolkata")
@@ -61,7 +60,8 @@ class RemoraService(
     override suspend fun scan(kiteClient: KiteConnectClient) = computeAll(kiteClient)
 
     suspend fun computeAll(kiteClient: KiteConnectClient) {
-        val stocks = stockHandler.read { it.listByTagName("Remora") }
+        val members = indexConstituentHandler.read { it.listAllActive() }.distinctBy { it.symbol }
+        val stocks = members.map { TargetSymbol(it.symbol, it.instrumentToken, it.companyName, "NSE") }
         log.info("Remora scan starting for ${stocks.size} stocks")
 
         val rows = computeSignalsForStocks(
@@ -89,14 +89,9 @@ class RemoraService(
             .toSet()
         if (symbolsSet.isEmpty()) return emptyList()
 
-        val stocks = stockHandler.read { dao ->
-            dao.listAll()
-                .asSequence()
-                .filter { stock ->
-                    stock.exchange.equals("NSE", ignoreCase = true) &&
-                        symbolsSet.contains(stock.symbol.trim().uppercase())
-                }
-                .toList()
+        val stocks = symbolsSet.mapNotNull { symbol ->
+            val token = instrumentResolver.resolve("NSE", symbol) ?: return@mapNotNull null
+            TargetSymbol(symbol, token, "", "NSE")
         }
         if (stocks.isEmpty()) return emptyList()
 
@@ -110,7 +105,7 @@ class RemoraService(
     }
 
     private suspend fun computeSignalsForStocks(
-        stocks: List<Stock>,
+        stocks: List<TargetSymbol>,
         kiteClient: KiteConnectClient,
         persistSignals: Boolean,
         sendAlerts: Boolean,
@@ -123,7 +118,7 @@ class RemoraService(
         val dateRange = buildDateRange()
 
         for (stock in stocks) {
-            delay(config.kiteRateLimitDelayMs)
+            delay(350L) // hardcoded rate limit delay
             try {
                 val (fromDate, toDate) = dateRange
                 val history = withContext(Dispatchers.IO) {
@@ -161,7 +156,7 @@ class RemoraService(
 
                 val rowsInserted = remoraHandler.write {
                     it.upsert(
-                        stockId = stock.id.toInt(),
+                        stockId = stock.symbol.hashCode(),
                         symbol = stock.symbol,
                         companyName = stock.companyName,
                         exchange = stock.exchange,
@@ -202,6 +197,13 @@ class RemoraService(
         val confirmedSignals: List<RemoraSignalCalculator.ResultWithSymbol>,
         val successfulFetches: Int,
         val signalsFound: Int,
+    )
+
+    private data class TargetSymbol(
+        val symbol: String,
+        val instrumentToken: Long,
+        val companyName: String,
+        val exchange: String
     )
 
     private suspend fun ensureDeliveryFresh() {

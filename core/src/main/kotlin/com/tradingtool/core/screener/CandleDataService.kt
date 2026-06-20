@@ -3,7 +3,7 @@ package com.tradingtool.core.screener
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.candle.IntradayCandle
 import com.tradingtool.core.database.CandleJdbiHandler
-import com.tradingtool.core.database.StockJdbiHandler
+// Removed StockJdbiHandler import
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.kite.InstrumentTokenResolverService
@@ -26,7 +26,6 @@ import java.util.Date
  * Rate-limited to ~2 req/s (350ms delay between Kite calls) to stay under the 3 req/s limit.
  */
 class CandleDataService(
-    private val stockHandler: StockJdbiHandler,
     private val candleHandler: CandleJdbiHandler,
     private val instrumentCache: InstrumentCache,
     private val tokenResolver: InstrumentTokenResolverService,
@@ -59,8 +58,7 @@ class CandleDataService(
 
         var synced = 0
         for (symbol in symbols) {
-            val stock = stockHandler.read { it.getBySymbol(symbol, "NSE") }
-            val token = resolveInstrumentToken(symbol, stock?.instrumentToken)
+            val token = resolveInstrumentToken(symbol, null)
             if (token == null || token <= 0) {
                 log.warn("Symbol {} has no instrument token in stocks table or suffix-aware Kite resolver — skipping sync", symbol)
                 continue
@@ -131,8 +129,7 @@ class CandleDataService(
         val toJavaDate = toDate.toJavaDate()
 
         for (symbol in uniqueSymbols) {
-            val stock = stockHandler.read { dao -> dao.getBySymbol(symbol, "NSE") }
-            val token = resolveInstrumentToken(symbol, stock?.instrumentToken)
+            val token = resolveInstrumentToken(symbol, null)
             if (token == null || token <= 0) {
                 failedSymbols += symbol
                 log.warn("Skipping daily sync for {} — no instrument token available from stocks table or suffix-aware Kite resolver", symbol)

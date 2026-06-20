@@ -5,17 +5,13 @@ import com.google.inject.Provides
 import com.google.inject.Singleton
 import com.google.inject.name.Named
 import com.tradingtool.config.AppConfig
-import com.tradingtool.core.config.IndicatorConfig
 import com.tradingtool.core.database.CandleJdbiHandler
-import com.tradingtool.core.database.EarningsResultJdbiHandler
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.database.KiteTokenJdbiHandler
 import com.tradingtool.core.database.RedisHandler
 import com.tradingtool.core.database.RemoraJdbiHandler
-import com.tradingtool.core.database.RsiMomentumSnapshotJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
-import com.tradingtool.core.database.StockJdbiHandler
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.http.CoreHttpModule
 import com.tradingtool.core.http.HttpRequestExecutor
@@ -29,8 +25,6 @@ import com.tradingtool.core.kite.LiveMarketService
 import com.tradingtool.core.kite.TickStore
 import com.tradingtool.core.kite.TickerSubscriptions
 import com.tradingtool.core.model.DatabaseConfig
-import com.tradingtool.core.stock.dao.StockReadDao
-import com.tradingtool.core.stock.dao.StockWriteDao
 import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.candle.dao.CandleReadDao
 import com.tradingtool.core.candle.dao.CandleWriteDao
@@ -40,28 +34,12 @@ import com.tradingtool.core.delivery.config.DeliveryConfigService
 import com.tradingtool.core.delivery.config.DeliveryUniverseService
 import com.tradingtool.core.delivery.reconciliation.DeliveryReconciliationService
 import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
-import com.tradingtool.core.earnings.dao.EarningsResultReadDao
-import com.tradingtool.core.earnings.dao.EarningsResultWriteDao
 import com.tradingtool.core.screener.CandleDataService
-import com.tradingtool.core.screener.RsiFloorScannerService
-import com.tradingtool.core.screener.WeeklyCycleSuccessService
-import com.tradingtool.core.screener.WeeklyPatternConfigService
-import com.tradingtool.core.screener.WeeklyPatternService
 import com.tradingtool.core.strategy.remora.RemoraService
 import com.tradingtool.core.strategy.remora.RemoraSignalReadDao
 import com.tradingtool.core.strategy.remora.RemoraSignalWriteDao
-import com.tradingtool.core.strategy.s4.S4ConfigService
-import com.tradingtool.core.strategy.s4.S4Service
 import com.tradingtool.core.strategy.profitlookback.ProfitLookbackService
-import com.tradingtool.core.strategy.rsimomentum.RsiMomentumBackfillService
-import com.tradingtool.core.strategy.rsimomentum.RsiMomentumConfigService
-import com.tradingtool.core.strategy.rsimomentum.RsiMomentumHistoryService
-import com.tradingtool.core.strategy.rsimomentum.RsiMomentumService
 import com.tradingtool.core.strategy.hotsma.HotSmaScannerService
-import com.tradingtool.core.strategy.rsimomentum.dao.RsiMomentumSnapshotReadDao
-import com.tradingtool.core.strategy.rsimomentum.dao.RsiMomentumSnapshotWriteDao
-import com.tradingtool.core.stock.service.StockDetailService
-import com.tradingtool.core.stock.service.StockService
 import com.tradingtool.core.telegram.TelegramApiClient
 import com.tradingtool.core.telegram.TelegramNotifier
 import com.tradingtool.core.telegram.TelegramSender
@@ -69,9 +47,6 @@ import com.tradingtool.core.trade.dao.TradeReadDao
 import com.tradingtool.core.trade.dao.TradeWriteDao
 import com.tradingtool.core.trade.service.TradeService
 import com.tradingtool.core.trade.service.TradeReadinessService
-import com.tradingtool.core.watchlist.IndicatorService
-import com.tradingtool.core.watchlist.WatchlistConfigService
-import com.tradingtool.core.watchlist.WatchlistService
 import com.tradingtool.eventservice.KiteTickerService
 import com.tradingtool.resources.ALL_RESOURCE_CLASSES
 
@@ -88,16 +63,11 @@ class ServiceModule(
 
         bind(AppConfig::class.java).toInstance(appConfig)
         bind(ResourceScope::class.java).`in`(Singleton::class.java)
-        bind(WatchlistConfigService::class.java).`in`(Singleton::class.java)
         bind(DeliveryConfigService::class.java).`in`(Singleton::class.java)
         bind(DeliveryUniverseService::class.java).`in`(Singleton::class.java)
         bind(DeliveryReconciliationService::class.java).`in`(Singleton::class.java)
-        bind(StockService::class.java).`in`(Singleton::class.java)
         bind(TradeService::class.java).`in`(Singleton::class.java)
         bind(TradeReadinessService::class.java).`in`(Singleton::class.java)
-        bind(com.tradingtool.core.screener.DrawdownScannerService::class.java).`in`(Singleton::class.java)
-        bind(RsiFloorScannerService::class.java).`in`(Singleton::class.java)
-        bind(ProfitLookbackService::class.java).`in`(Singleton::class.java)
         bind(HttpRequestExecutor::class.java).to(JdkHttpRequestExecutor::class.java).`in`(Singleton::class.java)
 
         ALL_RESOURCE_CLASSES.forEach { bind(it).`in`(Singleton::class.java) }
@@ -132,9 +102,7 @@ class ServiceModule(
     fun provideKiteTokenJdbiHandler(config: DatabaseConfig): KiteTokenJdbiHandler =
         handler<KiteTokenReadDao, KiteTokenWriteDao>(config)
 
-    @Provides @Singleton
-    fun provideStockJdbiHandler(config: DatabaseConfig): StockJdbiHandler =
-        handler<StockReadDao, StockWriteDao>(config)
+
 
     @Provides @Singleton
     fun provideTradeJdbiHandler(config: DatabaseConfig): JdbiHandler<TradeReadDao, TradeWriteDao> =
@@ -144,152 +112,23 @@ class ServiceModule(
     fun provideIndexConstituentJdbiHandler(config: DatabaseConfig): IndexConstituentJdbiHandler =
         handler<com.tradingtool.core.indexconstituents.dao.IndexConstituentReadDao, com.tradingtool.core.indexconstituents.dao.IndexConstituentWriteDao>(config)
 
-    @Provides @Singleton
-    fun provideBaseSwingService(
-        stockHandler: StockJdbiHandler,
-        indexConstituentHandler: IndexConstituentJdbiHandler,
-        candleCache: CandleCacheService,
-    ): com.tradingtool.core.screener.BaseSwingService =
-        com.tradingtool.core.screener.BaseSwingService(stockHandler, indexConstituentHandler, candleCache)
 
-    @Provides @Singleton
-    fun provideBollingerScreenerService(
-        stockHandler: StockJdbiHandler,
-        indexConstituentHandler: IndexConstituentJdbiHandler,
-        candleCache: CandleCacheService,
-        candleDataService: CandleDataService,
-        kiteClient: KiteConnectClient,
-    ): com.tradingtool.core.screener.BollingerScreenerService =
-        com.tradingtool.core.screener.BollingerScreenerService(
-            stockHandler, 
-            indexConstituentHandler, 
-            candleCache,
-            candleDataService,
-            kiteClient
-        )
 
-    @Provides @Singleton
-    fun provideBollingerSqueezeService(
-        stockHandler: StockJdbiHandler,
-        indexConstituentHandler: IndexConstituentJdbiHandler,
-        candleCache: CandleCacheService,
-    ): com.tradingtool.core.screener.BollingerSqueezeService =
-        com.tradingtool.core.screener.BollingerSqueezeService(
-            stockHandler,
-            indexConstituentHandler,
-            candleCache
-        )
 
     @Provides
     @Singleton
     fun provideRedisHandler(config: AppConfig): RedisHandler =
         RedisHandler(config.redis.url) // Replaced the hardcoded .fromEnv() with AppConfig
 
-    @Provides
-    @Singleton
-    fun provideIndicatorService(
-        candleHandler: CandleJdbiHandler,
-        stockHandler: StockJdbiHandler,
-        redis: RedisHandler,
-        kiteClient: KiteConnectClient,
-        instrumentCache: InstrumentCache,
-    ): IndicatorService = IndicatorService(
-        candleHandler = candleHandler,
-        stockHandler = stockHandler,
-        redis = redis,
-        kiteClient = kiteClient,
-        instrumentCache = instrumentCache,
-        config = IndicatorConfig.DEFAULT,
-    )
 
-    @Provides
-    @Singleton
-    fun provideRsiMomentumConfigService(): RsiMomentumConfigService = RsiMomentumConfigService()
 
-    @Provides
-    @Singleton
-    fun provideS4ConfigService(): S4ConfigService = S4ConfigService()
 
-    @Provides
-    @Singleton
-    fun provideRsiMomentumService(
-        configService: RsiMomentumConfigService,
-        candleHandler: CandleJdbiHandler,
-        stockHandler: StockJdbiHandler,
-        redis: RedisHandler,
-        kiteClient: KiteConnectClient,
-        instrumentCache: InstrumentCache,
-        snapshotHandler: RsiMomentumSnapshotJdbiHandler,
-    ): RsiMomentumService = RsiMomentumService(
-        configService = configService,
-        candleHandler = candleHandler,
-        stockHandler = stockHandler,
-        redis = redis,
-        kiteClient = kiteClient,
-        instrumentCache = instrumentCache,
-        snapshotHandler = snapshotHandler,
-        indicatorConfig = IndicatorConfig.DEFAULT,
-    )
 
-    @Provides @Singleton
-    fun provideRsiMomentumSnapshotJdbiHandler(config: DatabaseConfig): RsiMomentumSnapshotJdbiHandler =
-        handler<RsiMomentumSnapshotReadDao, RsiMomentumSnapshotWriteDao>(config)
 
-    @Provides @Singleton
-    fun provideRsiMomentumHistoryService(
-        snapshotHandler: RsiMomentumSnapshotJdbiHandler,
-        candleHandler: CandleJdbiHandler,
-        configService: RsiMomentumConfigService,
-    ): RsiMomentumHistoryService = RsiMomentumHistoryService(snapshotHandler, candleHandler, configService)
 
-    @Provides @Singleton
-    fun provideRsiMomentumBackfillService(
-        configService: RsiMomentumConfigService,
-        candleHandler: CandleJdbiHandler,
-        stockHandler: StockJdbiHandler,
-        snapshotHandler: RsiMomentumSnapshotJdbiHandler,
-        instrumentCache: InstrumentCache,
-    ): RsiMomentumBackfillService = RsiMomentumBackfillService(
-        configService = configService,
-        candleHandler = candleHandler,
-        stockHandler = stockHandler,
-        snapshotHandler = snapshotHandler,
-        instrumentCache = instrumentCache,
-    )
 
-    @Provides @Singleton
-    fun provideRsiMomentumBacktestService(
-        snapshotHandler: RsiMomentumSnapshotJdbiHandler,
-        candleHandler: CandleJdbiHandler,
-        backfillService: RsiMomentumBackfillService,
-    ): com.tradingtool.core.strategy.rsimomentum.RsiMomentumBacktestService =
-        com.tradingtool.core.strategy.rsimomentum.RsiMomentumBacktestService(
-            snapshotHandler = snapshotHandler,
-            candleHandler = candleHandler,
-            backfillService = backfillService,
-        )
 
-    @Provides
-    @Singleton
-    fun provideS4Service(
-        configService: S4ConfigService,
-        candleHandler: CandleJdbiHandler,
-        redis: RedisHandler,
-        kiteClient: KiteConnectClient,
-        instrumentCache: InstrumentCache,
-    ): S4Service = S4Service(
-        configService = configService,
-        candleHandler = candleHandler,
-        redis = redis,
-        kiteClient = kiteClient,
-        instrumentCache = instrumentCache,
-        indicatorConfig = IndicatorConfig.DEFAULT,
-    )
 
-    @Provides
-    @Singleton
-    fun provideStockDetailService(stockHandler: StockJdbiHandler): StockDetailService =
-        StockDetailService(stockHandler)
 
     @Provides
     @Singleton
@@ -314,17 +153,6 @@ class ServiceModule(
     fun provideTickerSubscriptions(kiteTickerService: KiteTickerService): TickerSubscriptions =
         kiteTickerService
 
-    @Provides
-    @Singleton
-    fun provideWatchlistService(
-        stockHandler: StockJdbiHandler,
-        indicatorService: IndicatorService,
-        tickStore: TickStore,
-    ): WatchlistService = WatchlistService(
-        stockHandler = stockHandler,
-        indicatorService = indicatorService,
-        tickStore = tickStore,
-    )
 
     @Provides
     @Singleton
@@ -375,14 +203,16 @@ class ServiceModule(
     @Provides
     @Singleton
     fun provideRemoraService(
-        stockHandler: StockJdbiHandler,
+        instrumentResolver: InstrumentTokenResolverService,
+        indexConstituentHandler: IndexConstituentJdbiHandler,
         remoraHandler: RemoraJdbiHandler,
         deliveryHandler: StockDeliveryJdbiHandler,
         deliveryReconciliationService: DeliveryReconciliationService,
         telegramSender: TelegramSender,
         kiteClient: KiteConnectClient,
     ): RemoraService = RemoraService(
-        stockHandler = stockHandler,
+        instrumentResolver = instrumentResolver,
+        indexConstituentHandler = indexConstituentHandler,
         remoraHandler = remoraHandler,
         deliveryHandler = deliveryHandler,
         deliveryReconciliationService = deliveryReconciliationService,
@@ -394,9 +224,7 @@ class ServiceModule(
     fun provideCandleJdbiHandler(config: DatabaseConfig): CandleJdbiHandler =
         handler<CandleReadDao, CandleWriteDao>(config)
 
-    @Provides @Singleton
-    fun provideEarningsResultJdbiHandler(config: DatabaseConfig): EarningsResultJdbiHandler =
-        handler<EarningsResultReadDao, EarningsResultWriteDao>(config)
+
     
     @Provides
     @Singleton
@@ -418,12 +246,10 @@ class ServiceModule(
 
     @Provides @Singleton
     fun provideCandleDataService(
-        stockHandler: StockJdbiHandler,
         candleHandler: CandleJdbiHandler,
         instrumentCache: InstrumentCache,
         kiteClient: KiteConnectClient,
     ): CandleDataService = CandleDataService(
-        stockHandler = stockHandler,
         candleHandler = candleHandler,
         instrumentCache = instrumentCache,
         tokenResolver = InstrumentTokenResolverService(kiteClient, instrumentCache),
@@ -442,39 +268,7 @@ class ServiceModule(
         kiteClient = kiteClient,
     )
 
-    @Provides @Singleton
-    fun provideWeeklyPatternService(
-        stockHandler: StockJdbiHandler,
-        candleCache: CandleCacheService,
-        patternConfigService: WeeklyPatternConfigService,
-        instrumentCache: InstrumentCache,
-    ): WeeklyPatternService = WeeklyPatternService(stockHandler, candleCache, patternConfigService, instrumentCache)
 
-    @Provides @Singleton
-    fun provideWeeklyCycleSuccessService(
-        stockHandler: StockJdbiHandler,
-        candleCache: CandleCacheService,
-        instrumentCache: InstrumentCache,
-    ): WeeklyCycleSuccessService = WeeklyCycleSuccessService(stockHandler, candleCache, instrumentCache)
-
-    @Provides @Singleton
-    fun provideTechnicalContextService(
-        stockHandler: StockJdbiHandler,
-        candleCache: CandleCacheService,
-        patternConfigService: WeeklyPatternConfigService,
-    ): com.tradingtool.core.technical.TechnicalContextService =
-        com.tradingtool.core.technical.TechnicalContextService(
-            stockHandler,
-            candleCache,
-            patternConfigService,
-        )
-
-    @Provides @Singleton
-    fun provideSwingService(
-        stockHandler: StockJdbiHandler,
-        candleCache: CandleCacheService,
-    ): com.tradingtool.core.analysis.swing.SwingService =
-        com.tradingtool.core.analysis.swing.SwingService(stockHandler, candleCache)
 
     private companion object {
         fun readPositiveIntEnv(envName: String, defaultValue: Int): Int {

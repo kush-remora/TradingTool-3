@@ -11,8 +11,6 @@ import com.tradingtool.di.ServiceModule
 import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.kite.KiteTokenReadDao
 import com.tradingtool.core.kite.KiteTokenWriteDao
-import com.tradingtool.core.stock.dao.StockReadDao
-import com.tradingtool.core.stock.dao.StockWriteDao
 import com.tradingtool.resources.ALL_RESOURCE_CLASSES
 import com.tradingtool.eventservice.KiteTickerService
 import io.dropwizard.core.Application
@@ -152,10 +150,6 @@ class DropwizardApplication : Application<DropwizardConfig>() {
         // Populate instrument cache at startup (now guaranteed to have auth).
         val instrumentCache = injector.getInstance(com.tradingtool.core.kite.InstrumentCache::class.java)
         val kiteTickerService = injector.getInstance(KiteTickerService::class.java)
-        val stockHandler = injector.getInstance(
-            Key.get(object : TypeLiteral<JdbiHandler<StockReadDao, StockWriteDao>>() {})
-        )
-
         // Task 1: when the cron-job refreshes the daily Kite token, restart the ticker.
         kiteClient.setTokenRefreshCallback { newToken ->
             kiteTickerService.restart(newToken)
@@ -172,9 +166,8 @@ class DropwizardApplication : Application<DropwizardConfig>() {
 
             // Task 4: start ticker with market-hours schedule (start 9:14 AM IST, stop 3:31 PM IST).
             try {
-                val tokens = runBlocking {
-                    stockHandler.read { dao -> dao.listAll() }
-                }.map { it.instrumentToken }.filter { it > 0 }
+                // TODO: Load active tokens from elsewhere or pass empty list for now since Stock is removed
+                val tokens = emptyList<Long>()
                 kiteTickerService.startWithMarketSchedule(tokens)
                 log.info("[KiteTicker] Market schedule registered — {} instruments queued", tokens.size)
             } catch (e: Exception) {

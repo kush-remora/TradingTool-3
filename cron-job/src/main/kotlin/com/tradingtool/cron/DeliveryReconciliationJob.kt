@@ -22,8 +22,6 @@ import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.kite.KiteTokenReadDao
 import com.tradingtool.core.kite.KiteTokenWriteDao
 import com.tradingtool.core.model.DatabaseConfig
-import com.tradingtool.core.stock.dao.StockReadDao
-import com.tradingtool.core.stock.dao.StockWriteDao
 import com.tradingtool.core.delivery.dao.StockDeliveryReadDao
 import com.tradingtool.core.delivery.dao.StockDeliveryWriteDao
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentReadDao
@@ -116,14 +114,12 @@ private data class DeliveryReconciliationRuntime(
             httpClient: JdkHttpClientImpl,
             objectMapper: ObjectMapper,
         ): DeliveryReconciliationService {
-            val stockHandler = JdbiHandler(databaseConfig, StockReadDao::class.java, StockWriteDao::class.java)
             val deliveryHandler = JdbiHandler(databaseConfig, StockDeliveryReadDao::class.java, StockDeliveryWriteDao::class.java)
             val indexConstituentHandler =
                 JdbiHandler(databaseConfig, IndexConstituentReadDao::class.java, IndexConstituentWriteDao::class.java)
             val tokenHandler = JdbiHandler(databaseConfig, KiteTokenReadDao::class.java, KiteTokenWriteDao::class.java)
 
             return DeliveryReconciliationService(
-                stockHandler = stockHandler,
                 deliveryHandler = deliveryHandler,
                 indexConstituentHandler = indexConstituentHandler,
                 instrumentCache = InstrumentCache(),

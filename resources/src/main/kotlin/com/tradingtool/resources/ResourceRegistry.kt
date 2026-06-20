@@ -10,15 +10,8 @@ package com.tradingtool.resources
  * Adding a new resource = add it here only.
  */
 val ALL_RESOURCE_CLASSES: List<Class<*>> = listOf(
-    StockResource::class.java,
     TradeResource::class.java,
-    WatchlistResource::class.java,
     StrategyResource::class.java,
     ConsoleV2Resource::class.java,
     IntegrationResource::class.java,
-    ScreenerResource::class.java,
-    TechnicalContextResource::class.java,
-    LiveMarketResource::class.java,
-    AnalysisResource::class.java,
-    CorporateEventResource::class.java,
 )

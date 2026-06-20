@@ -3,25 +3,20 @@ import { ConfigProvider, Layout, Menu } from "antd";
 import type { MenuProps } from "antd";
 import { useState } from "react";
 
-import { ConsoleV2GrowwWatchlistImportPage } from "./pages/ConsoleV2GrowwWatchlistImportPage";
 import { WyckoffPhase1Page } from "./pages/WyckoffPhase1Page";
 import { RemoraPage } from "./pages/RemoraPage";
 import { TradePage } from "./pages/TradePage";
 import { TradeReadyPage } from "./pages/TradeReadyPage";
-import { WatchlistPage } from "./pages/WatchlistPage";
 
 type V1PageKey =
-  | "watchlist"
   | "trade"
   | "trade-ready"
   | "remora"
   | "wyckoff-phase1";
 
-type PageKey = V1PageKey | "watchlist-import";
+type PageKey = V1PageKey;
 
 const menuItems: MenuProps["items"] = [
-  { key: "watchlist-import", label: "Watchlist Import", icon: <FundOutlined /> },
-  { key: "watchlist", label: "Watchlist", icon: <UnorderedListOutlined /> },
   { key: "wyckoff-phase1", label: "Wyckoff Phase-1", icon: <BarChartOutlined /> },
   { key: "trade", label: "Trade Journal", icon: <BookOutlined /> },
   { key: "trade-ready", label: "Trade Ready", icon: <ThunderboltOutlined /> },
@@ -29,8 +24,6 @@ const menuItems: MenuProps["items"] = [
 ];
 
 const validPages: PageKey[] = [
-  "watchlist-import",
-  "watchlist",
   "trade",
   "trade-ready",
   "remora",
@@ -45,7 +38,7 @@ export default function App() {
 
     const cleanPath = internalPath.replace(/^\//, "").replace(/\/+$/, "");
     if (cleanPath === "" || cleanPath === "console-v1" || cleanPath === "console") {
-      return "watchlist";
+      return "wyckoff-phase1";
     }
 
     if (cleanPath.startsWith("console-v1/")) {
@@ -56,7 +49,7 @@ export default function App() {
     }
 
     if (cleanPath === "console-v2") {
-      return "watchlist-import";
+      return "wyckoff-phase1";
     }
 
     if (cleanPath.startsWith("console-v2/")) {
@@ -73,7 +66,7 @@ export default function App() {
       }
     }
 
-    return "watchlist";
+    return "wyckoff-phase1";
   };
 
   const [route, setRoute] = useState<PageKey>(getInitialRoute());
@@ -119,8 +112,7 @@ export default function App() {
             />
           </Layout.Sider>
           <Layout.Content>
-            {route === "watchlist-import" && <ConsoleV2GrowwWatchlistImportPage />}
-            {route === "watchlist" && <WatchlistPage />}
+
             {route === "trade" && <TradePage />}
             {route === "trade-ready" && <TradeReadyPage />}
             {route === "remora" && <RemoraPage />}
