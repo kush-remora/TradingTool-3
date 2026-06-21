@@ -138,11 +138,9 @@ class DropwizardApplication : Application<DropwizardConfig>() {
         val kiteClient = injector.getInstance(com.tradingtool.core.kite.KiteConnectClient::class.java)
         requireLatestKiteTokenFromDb(tokenDb, kiteClient)
 
-        // Fail fast if Kite is not authenticated at startup.
-        // Services should only run when dependencies (like Kite auth) are ready.
         if (!kiteClient.isAuthenticated) {
-            throw IllegalStateException(
-                "Kite authentication required to start. " +
+            log.warn(
+                "Kite authentication required. " +
                     "Open the login URL and exchange the request token first: ${kiteClient.loginUrl()}"
             )
         }
@@ -211,12 +209,10 @@ private fun requireLatestKiteTokenFromDb(
         )
     } catch (error: Exception) {
         if (error is IllegalStateException) {
-            throw error
+            log.warn(error.message)
+            return
         }
-        throw IllegalStateException(
-            "Kite authentication required to start. Failed to load token from kite_tokens table.",
-            error,
-        )
+        log.warn("Kite authentication missing. Failed to load token from kite_tokens table: ${error.message}")
     }
 }
 
@@ -226,9 +222,10 @@ internal fun requireValidKiteStartupToken(
     validateSession: () -> Result<Unit>,
 ) {
     val normalizedToken = latestToken?.trim()?.takeIf { token -> token.isNotEmpty() }
-        ?: throw IllegalStateException(
-            "Kite authentication required to start. No token found in kite_tokens table."
-        )
+    if (normalizedToken == null) {
+        log.warn("Kite authentication missing. No token found in kite_tokens table.")
+        return
+    }
 
     applyAccessToken(normalizedToken)
 
@@ -237,10 +234,10 @@ internal fun requireValidKiteStartupToken(
             log.info("[KiteToken] Applied and validated latest token from kite_tokens table at startup.")
         }
         is Result.Failure -> {
-            throw IllegalStateException(
-                "Kite authentication required to start. " +
+            log.warn(
+                "Kite authentication required. " +
                     "The latest token in kite_tokens is expired or invalid. " +
-                    "Refresh Kite login and restart the backend. ${validationResult.error.describe()}"
+                    "Refresh Kite login from the frontend. ${validationResult.error.describe()}"
             )
         }
     }
