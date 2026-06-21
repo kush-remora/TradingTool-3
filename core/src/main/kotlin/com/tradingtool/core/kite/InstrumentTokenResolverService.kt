@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import com.google.inject.Inject
 import com.zerodhatech.models.Instrument
 
 data class InstrumentTokenResolution(
@@ -15,7 +16,7 @@ data class InstrumentTokenResolution(
     val candidateKeys: List<String>,
 )
 
-class InstrumentTokenResolverService(
+class InstrumentTokenResolverService @Inject constructor(
     private val kiteClient: KiteConnectClient,
     private val instrumentCache: InstrumentCache,
 ) {
