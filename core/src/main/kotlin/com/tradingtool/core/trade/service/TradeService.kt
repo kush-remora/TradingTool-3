@@ -49,10 +49,10 @@ class TradeService @Inject constructor(
     }
 
     /**
-     * Fetch trade by stock ID (at most one — unique constraint on stock_id).
+     * Fetch trade by instrument token (at most one — unique constraint on instrument_token).
      */
-    suspend fun getTradeByStockId(stockId: Long): com.tradingtool.core.model.trade.Trade? {
-        return db.read { dao -> dao.getTradeByStockId(stockId) }
+    suspend fun getTradeByInstrumentToken(instrumentToken: Long): com.tradingtool.core.model.trade.Trade? {
+        return db.read { dao -> dao.getTradeByInstrumentToken(instrumentToken) }
     }
 
     /**
@@ -81,10 +81,6 @@ class TradeService @Inject constructor(
      * All consolidation is handled at the DB level via UPSERT.
      */
     suspend fun createOrConsolidateTrade(input: CreateTradeInput): TradeWithTargets {
-        // Use a deterministic hash of the symbol as the pseudo-stockId 
-        // to maintain the unique constraint without needing the Stock table
-        val stockId = input.nseSymbol.hashCode().toLong()
-
         // Calculate stop loss price from avg price and stop loss %
         val stopLossPrice = calculateStopLossPrice(
             avgBuyPrice = input.avgBuyPrice,
@@ -94,7 +90,7 @@ class TradeService @Inject constructor(
         // Upsert to DB (handles consolidation automatically)
         val trade = db.write { dao ->
             dao.upsertTrade(
-                stockId = stockId,
+                instrumentToken = input.instrumentToken,
                 nseSymbol = input.nseSymbol,
                 quantity = input.quantity,
                 avgBuyPrice = input.avgBuyPrice,

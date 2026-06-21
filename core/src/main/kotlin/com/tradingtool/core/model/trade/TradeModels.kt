@@ -7,8 +7,8 @@ import java.math.BigDecimal
 
 data class Trade(
     val id: Long,
-    @get:JsonProperty("stock_id")
-    val stockId: Long,
+    @get:JsonProperty("instrument_token")
+    val instrumentToken: Long,
     @get:JsonProperty("nse_symbol")
     val nseSymbol: String,
     val quantity: Int,

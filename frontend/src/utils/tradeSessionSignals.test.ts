@@ -27,7 +27,7 @@ describe("tradeSessionSignals", () => {
   it("derives signal config from trade numeric fields", () => {
     const trade: Trade = {
       id: 1,
-      stock_id: 10,
+      instrument_token: 10,
       nse_symbol: "NETWEB",
       quantity: 5,
       avg_buy_price: "3070",

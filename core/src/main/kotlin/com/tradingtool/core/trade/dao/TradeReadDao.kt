@@ -33,11 +33,11 @@ interface TradeReadDao {
         """
         SELECT ${TradeColumns.ALL}
         FROM public.${Tables.TRADES}
-        WHERE ${TradeColumns.STOCK_ID} = :stockId
+        WHERE ${TradeColumns.INSTRUMENT_TOKEN} = :instrumentToken
         LIMIT 1
         """
     )
-    fun getTradeByStockId(@Bind("stockId") stockId: Long): Trade?
+    fun getTradeByInstrumentToken(@Bind("instrumentToken") instrumentToken: Long): Trade?
 
     @SqlQuery(
         """
@@ -55,7 +55,7 @@ class TradeMapper : RowMapper<Trade> {
     override fun map(rs: ResultSet, ctx: StatementContext): Trade {
         return Trade(
             id = rs.getLong(TradeColumns.ID),
-            stockId = rs.getLong(TradeColumns.STOCK_ID),
+            instrumentToken = rs.getLong(TradeColumns.INSTRUMENT_TOKEN),
             nseSymbol = rs.getString(TradeColumns.NSE_SYMBOL),
             quantity = rs.getInt(TradeColumns.QUANTITY),
             avgBuyPrice = rs.getBigDecimal(TradeColumns.AVG_BUY_PRICE).toPlainString(),

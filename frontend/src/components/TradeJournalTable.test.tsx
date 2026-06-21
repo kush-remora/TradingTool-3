@@ -25,7 +25,7 @@ describe("TradeJournalTable", () => {
       {
         trade: {
           id: 101,
-          stock_id: 1,
+          instrument_token: 1,
           nse_symbol: "NETWEB",
           quantity: 10,
           avg_buy_price: "3070",

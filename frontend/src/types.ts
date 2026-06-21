@@ -96,7 +96,7 @@ export interface GttTarget {
 
 export interface Trade {
   id: number;
-  stock_id: number | null;
+  instrument_token: number;
   nse_symbol: string;
   quantity: number;
   avg_buy_price: string;

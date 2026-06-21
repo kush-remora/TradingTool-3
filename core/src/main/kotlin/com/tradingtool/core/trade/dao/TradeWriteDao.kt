@@ -26,7 +26,7 @@ interface TradeWriteDao {
     @SqlQuery(
         """
         INSERT INTO public.${Tables.TRADES} (
-            ${TradeColumns.STOCK_ID},
+            ${TradeColumns.INSTRUMENT_TOKEN},
             ${TradeColumns.NSE_SYMBOL},
             ${TradeColumns.QUANTITY},
             ${TradeColumns.AVG_BUY_PRICE},
@@ -37,7 +37,7 @@ interface TradeWriteDao {
             ${TradeColumns.TRADE_DATE},
             ${TradeColumns.STRATEGY}
         ) VALUES (
-            :stockId,
+            :instrumentToken,
             :nseSymbol,
             :quantity,
             CAST(:avgBuyPrice AS NUMERIC(10,2)),
@@ -48,7 +48,7 @@ interface TradeWriteDao {
             CAST(:tradeDate AS DATE),
             :strategy
         )
-        ON CONFLICT (${TradeColumns.STOCK_ID}) DO UPDATE SET
+        ON CONFLICT (${TradeColumns.INSTRUMENT_TOKEN}) DO UPDATE SET
             ${TradeColumns.QUANTITY} = EXCLUDED.${TradeColumns.QUANTITY} + ${Tables.TRADES}.${TradeColumns.QUANTITY},
             ${TradeColumns.AVG_BUY_PRICE} = (
                 (${Tables.TRADES}.${TradeColumns.QUANTITY} * ${Tables.TRADES}.${TradeColumns.AVG_BUY_PRICE}) +
@@ -67,7 +67,7 @@ interface TradeWriteDao {
         """
     )
     fun upsertTrade(
-        @Bind("stockId") stockId: Long,
+        @Bind("instrumentToken") instrumentToken: Long,
         @Bind("nseSymbol") nseSymbol: String,
         @Bind("quantity") quantity: Int,
         @Bind("avgBuyPrice") avgBuyPrice: String,

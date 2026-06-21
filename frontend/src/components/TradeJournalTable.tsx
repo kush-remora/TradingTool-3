@@ -5,6 +5,7 @@ import dayjs from "dayjs";
 import { useMemo, useState } from "react";
 import { useStockQuotes } from "../hooks/useStockQuotes";
 import type { CloseTradeInput, GttTarget, TradeWithTargets } from "../types";
+import { calculatePnL, type PnLResult } from "../utils/pnlUtils";
 import { deriveSignalConfigFromTrade } from "../utils/tradeSessionSignals";
 import { TradeMarketHistoryPanel } from "./TradeMarketHistoryPanel";
 
@@ -22,6 +23,14 @@ interface CloseModalState {
   tradeId: number;
   symbol: string;
   avgBuyPrice: string;
+}
+
+interface EnrichedTrade extends TradeWithTargets {
+  currentLtp: number | null;
+  dayLow: number | null;
+  dayHigh: number | null;
+  pnlData: PnLResult | null;
+  closedPnlData: PnLResult | null;
 }
 
 function formatPrice(value: number | null | undefined): string {
@@ -56,6 +65,22 @@ export function TradeJournalTable({
     [trades],
   );
   const { quotesBySymbol } = useStockQuotes(openSymbols);
+
+  const enrichedTrades = useMemo<EnrichedTrade[]>(() => {
+    return trades.map((tradeRow) => {
+      const quote = quotesBySymbol[tradeRow.trade.nse_symbol.toUpperCase()];
+      const ltp = quote?.ltp ?? null;
+      const closedPriceNum = parseFloat(tradeRow.trade.close_price ?? "0");
+      return {
+        ...tradeRow,
+        currentLtp: ltp,
+        dayLow: quote?.day_low ?? null,
+        dayHigh: quote?.day_high ?? null,
+        pnlData: calculatePnL(tradeRow.trade.avg_buy_price, ltp, tradeRow.trade.quantity),
+        closedPnlData: calculatePnL(tradeRow.trade.avg_buy_price, closedPriceNum || null, tradeRow.trade.quantity),
+      };
+    });
+  }, [trades, quotesBySymbol]);
 
   const handleDeleteConfirm = (tradeId: number) => {
     Modal.confirm({
@@ -94,7 +119,7 @@ export function TradeJournalTable({
     }
   };
 
-  const openColumns: ColumnType<TradeWithTargets>[] = [
+  const openColumns: ColumnType<EnrichedTrade>[] = [
     {
       title: <Text style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "#8c8c8c" }}>STOCK</Text>,
       key: "stock",
@@ -136,8 +161,37 @@ export function TradeJournalTable({
       key: "ltp",
       width: 120,
       render: (_, record) => {
-        const quote = quotesBySymbol[record.trade.nse_symbol.toUpperCase()];
-        return <Text style={{ fontWeight: 600, color: "#1a1a2e" }}>{formatPrice(quote?.ltp)}</Text>;
+        return <Text style={{ fontWeight: 600, color: "#1a1a2e" }}>{formatPrice(record.currentLtp)}</Text>;
+      },
+    },
+    {
+      title: <Text style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "#8c8c8c" }}>CURRENT P&amp;L</Text>,
+      key: "current_pnl",
+      width: 160,
+      render: (_, record) => {
+        if (!record.pnlData) return <Text type="secondary">-</Text>;
+        
+        const { pnl, pnlPct, isProfit } = record.pnlData;
+        const color = isProfit ? "#00b386" : "#eb3a3a";
+        const bg = isProfit ? "#f0fdf4" : "#fff1f0";
+        const border = isProfit ? "#bbf7d0" : "#ffa39e";
+        
+        return (
+          <Tag
+            style={{
+              background: bg,
+              borderColor: border,
+              color,
+              fontWeight: 700,
+              fontSize: 12,
+              borderRadius: 6,
+              padding: "2px 10px",
+            }}
+          >
+            {isProfit ? "+" : ""}₹{Math.abs(pnl).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+            &nbsp;({isProfit ? "+" : ""}{pnlPct.toFixed(1)}%)
+          </Tag>
+        );
       },
     },
     {
@@ -145,15 +199,14 @@ export function TradeJournalTable({
       key: "day_range",
       width: 155,
       render: (_, record) => {
-        const quote = quotesBySymbol[record.trade.nse_symbol.toUpperCase()];
         return (
           <div>
             <Text style={{ fontWeight: 500, color: "#595959", fontSize: 12 }}>
-              L: {formatPrice(quote?.day_low)}
+              L: {formatPrice(record.dayLow)}
             </Text>
             <div>
               <Text style={{ fontWeight: 500, color: "#595959", fontSize: 12 }}>
-                H: {formatPrice(quote?.day_high)}
+                H: {formatPrice(record.dayHigh)}
               </Text>
             </div>
           </div>
@@ -322,7 +375,7 @@ export function TradeJournalTable({
     },
   ];
 
-  const closedColumns: ColumnType<TradeWithTargets>[] = [
+  const closedColumns: ColumnType<EnrichedTrade>[] = [
     {
       title: <Text style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "#8c8c8c" }}>STOCK</Text>,
       key: "stock",
@@ -374,12 +427,9 @@ export function TradeJournalTable({
       key: "pnl",
       width: 160,
       render: (_, record) => {
-        const closeP = parseFloat(record.trade.close_price ?? "0");
-        const avgP = parseFloat(record.trade.avg_buy_price);
-        const qty = record.trade.quantity;
-        const pnl = (closeP - avgP) * qty;
-        const pnlPct = ((closeP - avgP) / avgP) * 100;
-        const isProfit = pnl >= 0;
+        if (!record.closedPnlData) return <Text type="secondary">-</Text>;
+        
+        const { pnl, pnlPct, isProfit } = record.closedPnlData;
         const color = isProfit ? "#00b386" : "#eb3a3a";
         const bg = isProfit ? "#f0fdf4" : "#fff1f0";
         const border = isProfit ? "#bbf7d0" : "#ffa39e";
@@ -443,9 +493,9 @@ export function TradeJournalTable({
 
   return (
     <>
-      <Table<TradeWithTargets>
+      <Table<EnrichedTrade>
         columns={isClosed ? closedColumns : openColumns}
-        dataSource={trades}
+        dataSource={enrichedTrades}
         rowKey={(r) => r.trade.id}
         size="small"
         scroll={{ x: 1200 }}
