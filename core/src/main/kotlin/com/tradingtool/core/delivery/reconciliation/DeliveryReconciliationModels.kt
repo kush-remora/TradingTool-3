@@ -6,7 +6,6 @@ import com.tradingtool.core.delivery.model.StockDeliveryDaily
 import java.time.LocalDate
 
 data class DeliveryExpectation(
-    val stockId: Long?,
     val instrumentToken: Long,
     val symbol: String,
     val exchange: String,
@@ -14,7 +13,6 @@ data class DeliveryExpectation(
 )
 
 data class DeliveryReconciliationUpsert(
-    val stockId: Long?,
     val instrumentToken: Long,
     val symbol: String,
     val exchange: String,
@@ -50,22 +48,17 @@ data class DeliveryReconciliationRunReport(
     val expectedSymbolCount: Int,
     val presentCount: Int,
     val missingFromSourceCount: Int,
-    val nullableStockIdCount: Int,
-    val watchlistLinkedCount: Int,
-    val nonWatchlistCount: Int,
     val fetchedFromSource: Boolean,
     val alreadyComplete: Boolean,
     val blockingIssues: List<String>,
     val warningIssues: List<String>,
     val presentSamples: List<DeliveryReconciliationSampleRow>,
     val missingFromSourceSamples: List<DeliveryReconciliationSampleRow>,
-    val nullableStockIdSamples: List<DeliveryReconciliationSampleRow>,
 )
 
 data class DeliveryReconciliationSampleRow(
     val instrumentToken: Long,
     val symbol: String,
-    val stockId: Long?,
     val reconciliationStatus: DeliveryReconciliationStatus,
     val delivPer: Double?,
 )
@@ -78,7 +71,6 @@ object DeliveryReconciliationRunReportFactory {
     ): DeliveryReconciliationRunReport {
         val presentRows = rows.filter { row -> row.reconciliationStatus == DeliveryReconciliationStatus.PRESENT }
         val missingRows = rows.filter { row -> row.reconciliationStatus == DeliveryReconciliationStatus.MISSING_FROM_SOURCE }
-        val nullableStockRows = rows.filter { row -> row.stockId == null }
         val toleratedAvailabilityGap = isToleratedAvailabilityGap(
             unresolvedCount = result.unresolvedSymbols.size,
         )
@@ -116,16 +108,12 @@ object DeliveryReconciliationRunReportFactory {
             expectedSymbolCount = result.expectedCount,
             presentCount = presentRows.size,
             missingFromSourceCount = missingRows.size,
-            nullableStockIdCount = nullableStockRows.size,
-            watchlistLinkedCount = rows.size - nullableStockRows.size,
-            nonWatchlistCount = nullableStockRows.size,
             fetchedFromSource = result.fetchedFromSource,
             alreadyComplete = result.alreadyComplete,
             blockingIssues = blockingIssues,
             warningIssues = warningIssues.toList(),
             presentSamples = presentRows.take(5).map(::toSampleRow),
             missingFromSourceSamples = missingRows.take(5).map(::toSampleRow),
-            nullableStockIdSamples = nullableStockRows.take(5).map(::toSampleRow),
         )
     }
 
@@ -142,7 +130,6 @@ object DeliveryReconciliationRunReportFactory {
         return DeliveryReconciliationSampleRow(
             instrumentToken = row.instrumentToken,
             symbol = row.symbol,
-            stockId = row.stockId,
             reconciliationStatus = row.reconciliationStatus,
             delivPer = row.delivPer,
         )

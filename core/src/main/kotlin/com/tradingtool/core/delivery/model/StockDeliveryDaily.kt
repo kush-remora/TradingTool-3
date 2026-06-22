@@ -4,7 +4,6 @@ import java.time.LocalDate
 import java.time.OffsetDateTime
 
 data class StockDeliveryDaily(
-    val stockId: Long?,
     val instrumentToken: Long,
     val symbol: String,
     val exchange: String,

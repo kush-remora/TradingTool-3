@@ -189,7 +189,6 @@ class DeliveryThresholdBacktestEngineTest {
         totalVolume: Long,
     ): StockDeliveryDaily {
         return StockDeliveryDaily(
-            stockId = null,
             instrumentToken = token,
             symbol = "ABC",
             exchange = "NSE",

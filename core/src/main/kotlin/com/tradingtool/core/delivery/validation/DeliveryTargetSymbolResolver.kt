@@ -3,16 +3,21 @@ package com.tradingtool.core.delivery.validation
 import com.google.inject.Inject
 import com.google.inject.Singleton
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
+import com.tradingtool.core.indexconstituents.IndexConstituentKeys
 
 @Singleton
 class DeliveryTargetSymbolResolver @Inject constructor(
     private val indexConstituentHandler: IndexConstituentJdbiHandler,
 ) {
     suspend fun resolveUniverseCounts(): Map<String, Int> {
-        val watchlistCount = 0
-        val indexCounts = indexConstituentHandler.read { dao ->
-            dao.listUniqueIndices().associate { summary -> summary.indexKey to summary.count }
-        }
+        val summaries = indexConstituentHandler.read { dao -> dao.listUniqueIndices() }
+        val watchlistCount = summaries
+            .firstOrNull { summary -> summary.indexKey.equals(IndexConstituentKeys.GROWW_WATCHLIST, ignoreCase = true) }
+            ?.count
+            ?: 0
+        val indexCounts = summaries
+            .filterNot { summary -> summary.indexKey.equals(IndexConstituentKeys.GROWW_WATCHLIST, ignoreCase = true) }
+            .associate { summary -> summary.indexKey to summary.count }
         return linkedMapOf(WATCHLIST_KEY to watchlistCount) + indexCounts
     }
 
@@ -31,7 +36,6 @@ class DeliveryTargetSymbolResolver @Inject constructor(
     }
 
     companion object {
-        private const val NSE_EXCHANGE: String = "NSE"
         private const val WATCHLIST_KEY: String = "WATCHLIST"
     }
 }

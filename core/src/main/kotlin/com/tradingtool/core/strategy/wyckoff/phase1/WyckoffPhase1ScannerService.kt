@@ -5,6 +5,7 @@ import com.google.inject.Singleton
 import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
+import com.tradingtool.core.indexconstituents.IndexConstituentKeys
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
 import com.tradingtool.core.indexconstituents.dao.IndexSummary
 import com.tradingtool.core.kite.KiteConnectClient
@@ -133,11 +134,11 @@ class WyckoffPhase1ScannerService @Inject constructor(
             .map { raw -> normalizeIndexKeyInCore(raw) }
             .distinct()
 
-        val includeWatchlist = normalizedUniverseKeys.contains(WATCHLIST_KEY)
-        val selectedIndexKeys = normalizedUniverseKeys.filterNot { key -> key == WATCHLIST_KEY }
+        val selectedIndexKeys = normalizedUniverseKeys.map { key ->
+            if (key == WATCHLIST_KEY) IndexConstituentKeys.GROWW_WATCHLIST else key
+        }
 
         val members = loadIndexMembers(selectedIndexKeys)
-        val watchlistStocks = emptyList<WyckoffPhase1ResolvedSymbol>() // Replaced with empty logic since Stock table is dead
 
         val manualSymbols = runConfig.symbols
             .map { symbol -> symbol.trim().uppercase() }
@@ -146,12 +147,8 @@ class WyckoffPhase1ScannerService @Inject constructor(
         val membershipBySymbol = members
             .groupBy { member -> member.symbol.trim().uppercase() }
 
-        val watchlistBySymbol = watchlistStocks
-            .associateBy { stock -> stock.symbol.trim().uppercase() }
-
         val seedSymbols = linkedSetOf<String>()
         seedSymbols += membershipBySymbol.keys
-        seedSymbols += manualSymbols
         seedSymbols += manualSymbols
 
         val allMemberships = indexConstituentHandler.read { dao -> dao.listAllActive() }
@@ -171,7 +168,6 @@ class WyckoffPhase1ScannerService @Inject constructor(
                 )
             }
 
-            // Since watchlist is empty, just return null if not found in memberships
             return@mapNotNull null
         }.sortedBy { resolved -> resolved.symbol }
     }

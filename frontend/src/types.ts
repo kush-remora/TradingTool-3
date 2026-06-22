@@ -51,26 +51,6 @@ export interface TradeReadinessResponse {
   symbols: TradeReadinessSymbol[];
 }
 
-// ==================== Stock (Master Record) ====================
-
-export interface StockTag {
-  name: string;
-  color: string;
-}
-
-export interface Stock {
-  id: number;
-  symbol: string;
-  instrument_token: number;
-  company_name: string;
-  exchange: string;
-  notes: string | null;
-  priority: number | null;
-  tags: StockTag[];
-  created_at: string;
-  updated_at: string;
-}
-
 export interface WatchlistSymbolOption {
   symbol: string;
   company_name: string;

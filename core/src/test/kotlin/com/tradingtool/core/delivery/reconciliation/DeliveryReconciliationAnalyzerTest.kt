@@ -55,8 +55,8 @@ class DeliveryReconciliationAnalyzerTest {
     @Test
     fun `buildUpserts creates present and missing rows from source comparison`() {
         val expectations = listOf(
-            DeliveryExpectation(stockId = 1L, instrumentToken = 101L, symbol = "RELIANCE", exchange = "NSE", universe = "LARGEMIDCAP_250"),
-            DeliveryExpectation(stockId = null, instrumentToken = 202L, symbol = "ABFRL", exchange = "NSE", universe = "SMALLCAP_250"),
+            DeliveryExpectation(instrumentToken = 101L, symbol = "RELIANCE", exchange = "NSE", universe = "LARGEMIDCAP_250"),
+            DeliveryExpectation(instrumentToken = 202L, symbol = "ABFRL", exchange = "NSE", universe = "SMALLCAP_250"),
         )
         val sourceRows = DeliverySourceRowsBySymbol(
             tradingDate = tradingDate,
@@ -84,7 +84,6 @@ class DeliveryReconciliationAnalyzerTest {
         status: DeliveryReconciliationStatus,
     ): StockDeliveryDaily {
         return StockDeliveryDaily(
-            stockId = null,
             instrumentToken = instrumentToken,
             symbol = "SYM$instrumentToken",
             exchange = "NSE",

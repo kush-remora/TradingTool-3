@@ -67,7 +67,7 @@ class TradeResource @Inject constructor(
     /**
      * POST /api/trades — create or consolidate trade for a stock.
      *
-     * If stock_id already has a trade, merges via weighted average:
+     * If the instrument token already has a trade, merges via weighted average:
      *   new_avg = (qty1 * price1 + qty2 * price2) / (qty1 + qty2)
      */
     @POST

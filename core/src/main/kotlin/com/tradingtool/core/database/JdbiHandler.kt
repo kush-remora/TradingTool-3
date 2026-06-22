@@ -22,20 +22,8 @@ import java.util.concurrent.ConcurrentHashMap
  * - Write DAO access via `write { }`
  * - Transactional operations via `transaction { read, write -> }`
  *
- * Usage:
- *   val handler = JdbiHandler(config)
- *
- *   // Read operation
- *   val stocks = handler.read { dao -> dao.listStocks(100) }
- *
- *   // Write operation
- *   val newStock = handler.write { dao -> dao.createStock(...) }
- *
- *   // Transaction
- *   handler.transaction { read, write ->
- *       val tag = write.getOrCreateTag("NIFTY")
- *       write.createStockTag(stockId, tag.id)
- *   }
+ * Usage: `handler.read { dao -> dao.loadRows() }` or
+ * `handler.write { dao -> dao.upsertRows(rows) }`.
  */
 class JdbiHandler<R, W>(
     private val config: DatabaseConfig,
@@ -98,13 +86,6 @@ class JdbiHandler<R, W>(
      * Execute operations within a transaction.
      * Both read and write DAOs are available within the transaction.
      * Runs on Dispatchers.IO thread pool.
-     *
-     * Example:
-     *   handler.transaction { read, write ->
-     *       val stock = write.createStock(...)
-     *       val tag = write.getOrCreateTag("NIFTY")
-     *       write.createStockTag(stock.id, tag.id)
-     *   }
      */
     suspend fun <T> transaction(operation: (R, W) -> T): T = withContext(Dispatchers.IO) {
         try {

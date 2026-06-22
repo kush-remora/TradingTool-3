@@ -3,7 +3,6 @@ package com.tradingtool.core.constants
 object DatabaseConstants {
 
     object Tables {
-        const val STOCKS = "stocks"
         const val KITE_TOKENS = "kite_tokens"
         const val TRADES = "trades"
         const val DAILY_CANDLES = "daily_candles"
@@ -17,26 +16,6 @@ object DatabaseConstants {
         const val ACCESS_TOKEN = "access_token"
         const val CREATED_AT = "created_at"
     }
-
-    object StockColumns {
-        const val ID = "id"
-        const val SYMBOL = "symbol"
-        const val INSTRUMENT_TOKEN = "instrument_token"
-        const val COMPANY_NAME = "company_name"
-        const val EXCHANGE = "exchange"
-        const val NOTES = "notes"
-        const val PRIORITY = "priority"
-        const val TAGS = "tags"
-        const val NEEDS_REFRESH = "needs_refresh"
-        const val CREATED_AT = "created_at"
-        const val UPDATED_AT = "updated_at"
-
-        // tags cast to text so the JDBC driver returns a plain String (not PGobject)
-        const val ALL_WITH_TAGS =
-            "$ID, $SYMBOL, $INSTRUMENT_TOKEN, $COMPANY_NAME, $EXCHANGE, $NOTES, $PRIORITY, $TAGS::text AS $TAGS, $CREATED_AT, $UPDATED_AT"
-    }
-
-
 
     object TradeColumns {
         const val ID = "id"
@@ -59,7 +38,6 @@ object DatabaseConstants {
     }
 
     object StockDeliveryColumns {
-        const val STOCK_ID = "stock_id"
         const val INSTRUMENT_TOKEN = "instrument_token"
         const val SYMBOL = "symbol"
         const val EXCHANGE = "exchange"

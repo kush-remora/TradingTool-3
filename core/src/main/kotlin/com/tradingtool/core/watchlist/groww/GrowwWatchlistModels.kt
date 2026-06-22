@@ -1,5 +1,7 @@
 package com.tradingtool.core.watchlist.groww
 
+import com.tradingtool.core.indexconstituents.IndexConstituentKeys
+
 data class GrowwWatchlistStock(
     val symbol: String,
     val instrumentToken: Long,
@@ -8,7 +10,7 @@ data class GrowwWatchlistStock(
 )
 
 data class GrowwWatchlistSyncRequest(
-    val indexKey: String = "groww",
+    val indexKey: String = IndexConstituentKeys.GROWW_WATCHLIST,
 )
 
 data class GrowwWatchlistSyncResult(
@@ -22,6 +24,8 @@ interface GrowwWatchlistSource {
 
 interface GrowwWatchlistStockGateway {
     suspend fun upsertGrowwStock(stock: GrowwWatchlistStock, indexKey: String): Int
+
+    suspend fun deactivateMissingGrowwStocks(indexKey: String, activeSymbols: List<String>): Int
 }
 
 interface GrowwWatchlistInstrumentTokenResolver {

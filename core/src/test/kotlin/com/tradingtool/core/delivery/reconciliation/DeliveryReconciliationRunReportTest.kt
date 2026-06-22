@@ -11,7 +11,7 @@ class DeliveryReconciliationRunReportTest {
     private val tradingDate: LocalDate = LocalDate.of(2026, 4, 10)
 
     @Test
-    fun `factory counts present missing and nullable stock rows`() {
+    fun `factory counts present and missing rows`() {
         val report = DeliveryReconciliationRunReportFactory.create(
             requestedDate = null,
             result = DeliveryDateReconciliationResult(
@@ -23,18 +23,15 @@ class DeliveryReconciliationRunReportTest {
                 missingFromSourceCount = 1,
             ),
             rows = listOf(
-                deliveryRow(symbol = "RELIANCE", instrumentToken = 101L, stockId = 1L, status = DeliveryReconciliationStatus.PRESENT, delivPer = 64.2),
-                deliveryRow(symbol = "ABFRL", instrumentToken = 202L, stockId = null, status = DeliveryReconciliationStatus.PRESENT, delivPer = 51.3),
-                deliveryRow(symbol = "XYZ", instrumentToken = 303L, stockId = null, status = DeliveryReconciliationStatus.MISSING_FROM_SOURCE, delivPer = null),
+                deliveryRow(symbol = "RELIANCE", instrumentToken = 101L, status = DeliveryReconciliationStatus.PRESENT, delivPer = 64.2),
+                deliveryRow(symbol = "ABFRL", instrumentToken = 202L, status = DeliveryReconciliationStatus.PRESENT, delivPer = 51.3),
+                deliveryRow(symbol = "XYZ", instrumentToken = 303L, status = DeliveryReconciliationStatus.MISSING_FROM_SOURCE, delivPer = null),
             ),
         )
 
         assertEquals(3, report.expectedSymbolCount)
         assertEquals(2, report.presentCount)
         assertEquals(1, report.missingFromSourceCount)
-        assertEquals(2, report.nullableStockIdCount)
-        assertEquals(1, report.watchlistLinkedCount)
-        assertEquals(2, report.nonWatchlistCount)
         assertTrue(report.blockingIssues.isEmpty())
         assertTrue(report.warningIssues.isEmpty())
     }
@@ -52,8 +49,8 @@ class DeliveryReconciliationRunReportTest {
                 missingFromSourceCount = 1,
             ),
             rows = listOf(
-                deliveryRow(symbol = "RELIANCE", instrumentToken = 101L, stockId = 1L, status = DeliveryReconciliationStatus.PRESENT, delivPer = 64.2),
-                deliveryRow(symbol = "XYZ", instrumentToken = 303L, stockId = null, status = DeliveryReconciliationStatus.MISSING_FROM_SOURCE, delivPer = null),
+                deliveryRow(symbol = "RELIANCE", instrumentToken = 101L, status = DeliveryReconciliationStatus.PRESENT, delivPer = 64.2),
+                deliveryRow(symbol = "XYZ", instrumentToken = 303L, status = DeliveryReconciliationStatus.MISSING_FROM_SOURCE, delivPer = null),
             ),
         )
 
@@ -81,8 +78,8 @@ class DeliveryReconciliationRunReportTest {
                 unresolvedSymbols = listOf("SCHNEIDER", "ABC", "DEF", "GHI", "JKL"),
             ),
             rows = listOf(
-                deliveryRow(symbol = "RELIANCE", instrumentToken = 101L, stockId = 1L, status = DeliveryReconciliationStatus.PRESENT, delivPer = 64.2),
-                deliveryRow(symbol = "ABFRL", instrumentToken = 202L, stockId = null, status = DeliveryReconciliationStatus.PRESENT, delivPer = 51.3),
+                deliveryRow(symbol = "RELIANCE", instrumentToken = 101L, status = DeliveryReconciliationStatus.PRESENT, delivPer = 64.2),
+                deliveryRow(symbol = "ABFRL", instrumentToken = 202L, status = DeliveryReconciliationStatus.PRESENT, delivPer = 51.3),
             ),
         )
 
@@ -104,8 +101,8 @@ class DeliveryReconciliationRunReportTest {
                 unresolvedSymbols = listOf("A", "B", "C", "D", "E", "F"),
             ),
             rows = listOf(
-                deliveryRow(symbol = "RELIANCE", instrumentToken = 101L, stockId = 1L, status = DeliveryReconciliationStatus.PRESENT, delivPer = 64.2),
-                deliveryRow(symbol = "ABFRL", instrumentToken = 202L, stockId = null, status = DeliveryReconciliationStatus.PRESENT, delivPer = 51.3),
+                deliveryRow(symbol = "RELIANCE", instrumentToken = 101L, status = DeliveryReconciliationStatus.PRESENT, delivPer = 64.2),
+                deliveryRow(symbol = "ABFRL", instrumentToken = 202L, status = DeliveryReconciliationStatus.PRESENT, delivPer = 51.3),
             ),
         )
 
@@ -116,12 +113,10 @@ class DeliveryReconciliationRunReportTest {
     private fun deliveryRow(
         symbol: String,
         instrumentToken: Long,
-        stockId: Long?,
         status: DeliveryReconciliationStatus,
         delivPer: Double?,
     ): StockDeliveryDaily {
         return StockDeliveryDaily(
-            stockId = stockId,
             instrumentToken = instrumentToken,
             symbol = symbol,
             exchange = "NSE",

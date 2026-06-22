@@ -3,7 +3,6 @@ package com.tradingtool.core.screener
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.candle.IntradayCandle
 import com.tradingtool.core.database.CandleJdbiHandler
-// Removed StockJdbiHandler import
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.kite.InstrumentTokenResolverService
@@ -60,7 +59,7 @@ class CandleDataService(
         for (symbol in symbols) {
             val token = resolveInstrumentToken(symbol, null)
             if (token == null || token <= 0) {
-                log.warn("Symbol {} has no instrument token in stocks table or suffix-aware Kite resolver — skipping sync", symbol)
+                log.warn("Symbol {} has no instrument token in the Kite instrument cache — skipping sync", symbol)
                 continue
             }
 
@@ -132,7 +131,7 @@ class CandleDataService(
             val token = resolveInstrumentToken(symbol, null)
             if (token == null || token <= 0) {
                 failedSymbols += symbol
-                log.warn("Skipping daily sync for {} — no instrument token available from stocks table or suffix-aware Kite resolver", symbol)
+                log.warn("Skipping daily sync for {} — no instrument token available from the Kite instrument cache", symbol)
                 continue
             }
 

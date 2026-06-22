@@ -15,42 +15,32 @@ import javax.sql.rowset.RowSetProvider
 class StockDeliveryMapperTest {
 
     @Test
-    fun `map reads instrument token and delivery fields`() {
+    fun `map reads instrument token and delivery fields without a stock id`() {
         val rowSet = RowSetProvider.newFactory().createCachedRowSet()
         val metadata = RowSetMetaDataImpl()
-        metadata.columnCount = 14
-        metadata.setColumnName(1, Cols.STOCK_ID)
-        metadata.setColumnType(1, Types.BIGINT)
-        metadata.setColumnName(2, Cols.INSTRUMENT_TOKEN)
-        metadata.setColumnType(2, Types.BIGINT)
-        metadata.setColumnName(3, Cols.SYMBOL)
-        metadata.setColumnType(3, Types.VARCHAR)
-        metadata.setColumnName(4, Cols.EXCHANGE)
-        metadata.setColumnType(4, Types.VARCHAR)
-        metadata.setColumnName(5, Cols.TRADING_DATE)
-        metadata.setColumnType(5, Types.DATE)
-        metadata.setColumnName(6, Cols.UNIVERSE)
-        metadata.setColumnType(6, Types.VARCHAR)
-        metadata.setColumnName(7, Cols.RECONCILIATION_STATUS)
-        metadata.setColumnType(7, Types.VARCHAR)
-        metadata.setColumnName(8, Cols.SERIES)
-        metadata.setColumnType(8, Types.VARCHAR)
-        metadata.setColumnName(9, Cols.TTL_TRD_QNTY)
-        metadata.setColumnType(9, Types.BIGINT)
-        metadata.setColumnName(10, Cols.DELIV_QTY)
-        metadata.setColumnType(10, Types.BIGINT)
-        metadata.setColumnName(11, Cols.DELIV_PER)
-        metadata.setColumnType(11, Types.DOUBLE)
-        metadata.setColumnName(12, Cols.SOURCE_FILE_NAME)
-        metadata.setColumnType(12, Types.VARCHAR)
-        metadata.setColumnName(13, Cols.SOURCE_URL)
-        metadata.setColumnType(13, Types.VARCHAR)
-        metadata.setColumnName(14, Cols.FETCHED_AT)
-        metadata.setColumnType(14, Types.TIMESTAMP)
+        val columns = listOf(
+            Cols.INSTRUMENT_TOKEN to Types.BIGINT,
+            Cols.SYMBOL to Types.VARCHAR,
+            Cols.EXCHANGE to Types.VARCHAR,
+            Cols.TRADING_DATE to Types.DATE,
+            Cols.UNIVERSE to Types.VARCHAR,
+            Cols.RECONCILIATION_STATUS to Types.VARCHAR,
+            Cols.SERIES to Types.VARCHAR,
+            Cols.TTL_TRD_QNTY to Types.BIGINT,
+            Cols.DELIV_QTY to Types.BIGINT,
+            Cols.DELIV_PER to Types.DOUBLE,
+            Cols.SOURCE_FILE_NAME to Types.VARCHAR,
+            Cols.SOURCE_URL to Types.VARCHAR,
+            Cols.FETCHED_AT to Types.TIMESTAMP,
+        )
+        metadata.columnCount = columns.size
+        columns.forEachIndexed { index, (name, type) ->
+            metadata.setColumnName(index + 1, name)
+            metadata.setColumnType(index + 1, type)
+        }
         rowSet.setMetaData(metadata)
 
         rowSet.moveToInsertRow()
-        rowSet.updateLong(Cols.STOCK_ID, 7L)
         rowSet.updateLong(Cols.INSTRUMENT_TOKEN, 738561L)
         rowSet.updateString(Cols.SYMBOL, "RELIANCE")
         rowSet.updateString(Cols.EXCHANGE, "NSE")
@@ -71,7 +61,6 @@ class StockDeliveryMapperTest {
 
         val mapped = StockDeliveryMapper().map(rowSet, statementContext())
 
-        assertEquals(7L, mapped.stockId)
         assertEquals(738561L, mapped.instrumentToken)
         assertEquals("RELIANCE", mapped.symbol)
         assertEquals("NSE", mapped.exchange)
@@ -80,71 +69,6 @@ class StockDeliveryMapperTest {
         assertEquals(64.0, mapped.delivPer)
         assertEquals("sec_bhavdata_full_10042026.csv", mapped.sourceFileName)
         assertNull(mapped.fetchedAt)
-    }
-
-    @Test
-    fun `map handles null stock id for non watchlist rows`() {
-        val rowSet = RowSetProvider.newFactory().createCachedRowSet()
-        val metadata = RowSetMetaDataImpl()
-        metadata.columnCount = 14
-        metadata.setColumnName(1, Cols.STOCK_ID)
-        metadata.setColumnType(1, Types.BIGINT)
-        metadata.setColumnName(2, Cols.INSTRUMENT_TOKEN)
-        metadata.setColumnType(2, Types.BIGINT)
-        metadata.setColumnName(3, Cols.SYMBOL)
-        metadata.setColumnType(3, Types.VARCHAR)
-        metadata.setColumnName(4, Cols.EXCHANGE)
-        metadata.setColumnType(4, Types.VARCHAR)
-        metadata.setColumnName(5, Cols.TRADING_DATE)
-        metadata.setColumnType(5, Types.DATE)
-        metadata.setColumnName(6, Cols.UNIVERSE)
-        metadata.setColumnType(6, Types.VARCHAR)
-        metadata.setColumnName(7, Cols.RECONCILIATION_STATUS)
-        metadata.setColumnType(7, Types.VARCHAR)
-        metadata.setColumnName(8, Cols.SERIES)
-        metadata.setColumnType(8, Types.VARCHAR)
-        metadata.setColumnName(9, Cols.TTL_TRD_QNTY)
-        metadata.setColumnType(9, Types.BIGINT)
-        metadata.setColumnName(10, Cols.DELIV_QTY)
-        metadata.setColumnType(10, Types.BIGINT)
-        metadata.setColumnName(11, Cols.DELIV_PER)
-        metadata.setColumnType(11, Types.DOUBLE)
-        metadata.setColumnName(12, Cols.SOURCE_FILE_NAME)
-        metadata.setColumnType(12, Types.VARCHAR)
-        metadata.setColumnName(13, Cols.SOURCE_URL)
-        metadata.setColumnType(13, Types.VARCHAR)
-        metadata.setColumnName(14, Cols.FETCHED_AT)
-        metadata.setColumnType(14, Types.TIMESTAMP)
-        rowSet.setMetaData(metadata)
-
-        rowSet.moveToInsertRow()
-        rowSet.updateNull(Cols.STOCK_ID)
-        rowSet.updateLong(Cols.INSTRUMENT_TOKEN, 992244L)
-        rowSet.updateString(Cols.SYMBOL, "ABFRL")
-        rowSet.updateString(Cols.EXCHANGE, "NSE")
-        rowSet.updateString(Cols.UNIVERSE, "SMALLCAP_250")
-        rowSet.updateDate(Cols.TRADING_DATE, Date.valueOf("2026-04-10"))
-        rowSet.updateString(Cols.RECONCILIATION_STATUS, DeliveryReconciliationStatus.MISSING_FROM_SOURCE.name)
-        rowSet.updateNull(Cols.SERIES)
-        rowSet.updateNull(Cols.TTL_TRD_QNTY)
-        rowSet.updateNull(Cols.DELIV_QTY)
-        rowSet.updateNull(Cols.DELIV_PER)
-        rowSet.updateString(Cols.SOURCE_FILE_NAME, "sec_bhavdata_full_10042026.csv")
-        rowSet.updateString(Cols.SOURCE_URL, "https://example.com/sec_bhavdata_full_10042026.csv")
-        rowSet.updateNull(Cols.FETCHED_AT)
-        rowSet.insertRow()
-        rowSet.moveToCurrentRow()
-        rowSet.beforeFirst()
-        rowSet.next()
-
-        val mapped = StockDeliveryMapper().map(rowSet, statementContext())
-
-        assertNull(mapped.stockId)
-        assertEquals(992244L, mapped.instrumentToken)
-        assertEquals("SMALLCAP_250", mapped.universe)
-        assertEquals(DeliveryReconciliationStatus.MISSING_FROM_SOURCE, mapped.reconciliationStatus)
-        assertNull(mapped.delivPer)
-        assertNull(mapped.series)
     }
 
     private fun statementContext(): StatementContext {

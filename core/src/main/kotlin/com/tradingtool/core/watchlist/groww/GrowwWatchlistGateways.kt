@@ -42,6 +42,17 @@ class JdbiGrowwWatchlistStockGateway(
         }
     }
 
+    override suspend fun deactivateMissingGrowwStocks(indexKey: String, activeSymbols: List<String>): Int {
+        val syncedAt = OffsetDateTime.now()
+        return indexHandler.write { dao ->
+            if (activeSymbols.isEmpty()) {
+                dao.deactivateAllByIndex(indexKey, syncedAt)
+            } else {
+                dao.deactivateMissing(indexKey, activeSymbols, syncedAt)
+            }
+        }
+    }
+
     companion object {
         private const val DUMMY_VALUE = ""
         private const val DUMMY_SOURCE_URL = "groww://watchlist"

@@ -7,6 +7,7 @@ import com.tradingtool.core.config.ConfigLoader
 import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentReadDao
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentWriteDao
+import com.tradingtool.core.indexconstituents.IndexConstituentKeys
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConfig
 import com.tradingtool.core.kite.KiteConnectClient
@@ -95,7 +96,7 @@ private data class GrowwWatchlistSyncRuntime(
                 service = service,
             )
         }
-        private const val DEFAULT_INDEX_KEY = "parag-parikh"
+        private const val DEFAULT_INDEX_KEY = IndexConstituentKeys.GROWW_WATCHLIST
     }
 }
 

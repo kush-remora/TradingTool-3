@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.google.inject.Inject
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.di.ResourceScope
+import com.tradingtool.core.indexconstituents.IndexConstituentKeys
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.watchlist.groww.GrowwWatchlistStock
@@ -109,11 +110,14 @@ class ConsoleV2Resource @Inject constructor(
 
         val request = GrowwWatchlistSyncRequest()
         val rows: List<GrowwWatchlistStock> = source.fetchStocks(request)
+        if (rows.isEmpty()) {
+            return@endpoint badRequest("Uploaded Groww watchlist contained no NSE stocks; existing membership was not changed.")
+        }
 
         val skipped = mutableListOf<GrowwWatchlistImportRowSkip>()
         var syncedCount = 0
         for (row in rows) {
-            val result = stockGateway.upsertGrowwStock(row, GROWW_INDEX_KEY)
+            val result = stockGateway.upsertGrowwStock(row, IndexConstituentKeys.GROWW_WATCHLIST)
             if (result <= 0) {
                 skipped += GrowwWatchlistImportRowSkip(
                     symbol = row.symbol,
@@ -123,6 +127,10 @@ class ConsoleV2Resource @Inject constructor(
                 syncedCount += result
             }
         }
+        stockGateway.deactivateMissingGrowwStocks(
+            indexKey = IndexConstituentKeys.GROWW_WATCHLIST,
+            activeSymbols = rows.map { row -> row.symbol },
+        )
 
         val response = GrowwWatchlistImportResponse(
             fetchedCount = rows.size,
@@ -133,5 +141,3 @@ class ConsoleV2Resource @Inject constructor(
         ok(response)
     }
 }
-
-private const val GROWW_INDEX_KEY = "groww"

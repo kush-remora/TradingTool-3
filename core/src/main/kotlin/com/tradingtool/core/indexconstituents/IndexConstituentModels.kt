@@ -4,6 +4,10 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 import java.time.OffsetDateTime
 
+object IndexConstituentKeys {
+    const val GROWW_WATCHLIST: String = "groww"
+}
+
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class IndexSyncConfig(
     @JsonProperty("batchSize")

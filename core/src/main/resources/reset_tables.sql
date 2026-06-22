@@ -11,5 +11,6 @@ DROP TABLE IF EXISTS public.daily_candles CASCADE;
 DROP TABLE IF EXISTS public.trades CASCADE;
 DROP TABLE IF EXISTS public.kite_tokens CASCADE;
 DROP TABLE IF EXISTS public.stocks CASCADE;
+DROP TABLE IF EXISTS public.index_constituents CASCADE;
 
 \i tables.sql

@@ -87,7 +87,6 @@ interface StockDeliveryReadDao {
 class StockDeliveryMapper : RowMapper<StockDeliveryDaily> {
     override fun map(rs: ResultSet, ctx: StatementContext): StockDeliveryDaily {
         return StockDeliveryDaily(
-            stockId = rs.getLong(Cols.STOCK_ID).let { if (rs.wasNull()) null else it },
             instrumentToken = rs.getLong(Cols.INSTRUMENT_TOKEN),
             symbol = rs.getString(Cols.SYMBOL),
             exchange = rs.getString(Cols.EXCHANGE),

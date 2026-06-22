@@ -9,9 +9,6 @@ fun DeliveryReconciliationRunReport.toMarkdown(): String {
         appendLine("- Expected symbols: `${expectedSymbolCount}`")
         appendLine("- Present rows: `${presentCount}`")
         appendLine("- Missing from source: `${missingFromSourceCount}`")
-        appendLine("- Nullable stock_id rows: `${nullableStockIdCount}`")
-        appendLine("- Watchlist-linked rows: `${watchlistLinkedCount}`")
-        appendLine("- Non-watchlist rows: `${nonWatchlistCount}`")
         appendLine("- Fetched from source: `${fetchedFromSource}`")
         appendLine("- Already complete: `${alreadyComplete}`")
         appendLine("- Blocking issues: `${blockingIssues.size}`")
@@ -26,10 +23,6 @@ fun DeliveryReconciliationRunReport.toMarkdown(): String {
         appendLine("### Missing From Source")
         appendLine()
         appendSampleTable(missingFromSourceSamples)
-        appendLine()
-        appendLine("### Nullable stock_id")
-        appendLine()
-        appendSampleTable(nullableStockIdSamples)
         if (warningIssues.isNotEmpty()) {
             appendLine()
             appendLine("## Warnings")
@@ -56,8 +49,6 @@ fun DeliveryReconciliationRunReport.toTelegramSummary(): String {
         appendLine("expected: `${expectedSymbolCount}`")
         appendLine("present: `${presentCount}`")
         appendLine("missing from source: `${missingFromSourceCount}`")
-        appendLine("watchlist-linked rows: `${watchlistLinkedCount}`")
-        appendLine("non-watchlist rows: `${nonWatchlistCount}`")
         append("source fetch: `$fetchStatus`")
         if (warningIssues.isNotEmpty()) {
             appendLine()
@@ -76,11 +67,11 @@ private fun StringBuilder.appendSampleTable(samples: List<DeliveryReconciliation
         return
     }
 
-    appendLine("| Symbol | Token | stock_id | Status | Delivery % |")
-    appendLine("|---|---:|---:|---|---:|")
+    appendLine("| Symbol | Token | Status | Delivery % |")
+    appendLine("|---|---:|---|---:|")
     samples.forEach { row ->
         appendLine(
-            "| `${row.symbol}` | `${row.instrumentToken}` | `${row.stockId ?: "-"}` | `${row.reconciliationStatus}` | `${row.delivPer ?: "-"}` |",
+            "| `${row.symbol}` | `${row.instrumentToken}` | `${row.reconciliationStatus}` | `${row.delivPer ?: "-"}` |",
         )
     }
 }

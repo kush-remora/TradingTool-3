@@ -354,7 +354,6 @@ class WyckoffPhase1ScannerEngineTest {
         totalVolume: Long,
     ): StockDeliveryDaily {
         return StockDeliveryDaily(
-            stockId = null,
             instrumentToken = 1,
             symbol = "ABC",
             exchange = "NSE",

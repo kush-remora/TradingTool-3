@@ -22,7 +22,7 @@ Standalone module for Wyckoff-focused workflows, kept isolated from active paren
 - `docs/`: design and implementation notes, including journey logs.
 
 ## Index Constituents Contract
-The module defines `public.index_constituents` as an index-membership source of truth, separate from watchlist ownership.
+The module defines `public.index_constituents` as the stock-universe source of truth. Index memberships use their configured keys, and the maintained Groww watchlist uses `index_key = 'groww'`.
 
 Key fields include:
 - identity: `index_key`, `symbol`, `instrument_token`

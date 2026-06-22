@@ -4,7 +4,6 @@ import com.google.inject.Inject
 import com.google.inject.Singleton
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
-// Removed StockJdbiHandler import
 import com.tradingtool.core.delivery.config.DeliveryDataSource
 import com.tradingtool.core.delivery.model.DeliveryReconciliationStatus
 import com.tradingtool.core.delivery.model.DeliverySourceRow
@@ -98,7 +97,6 @@ class DeliveryReconciliationService @Inject constructor(
         val universeByToken = loadUniverseByInstrumentToken(resolvedTokens)
         val upserts = resolvedPairs.map { (sourceRow, token) ->
             DeliveryReconciliationUpsert(
-                stockId = null,
                 instrumentToken = token,
                 symbol = sourceRow.symbol.uppercase(),
                 exchange = NSE_EXCHANGE,
@@ -117,7 +115,6 @@ class DeliveryReconciliationService @Inject constructor(
         deliveryHandler.write { dao ->
             upserts.forEach { row ->
                 dao.upsert(
-                    stockId = row.stockId,
                     instrumentToken = row.instrumentToken,
                     symbol = row.symbol,
                     exchange = row.exchange,

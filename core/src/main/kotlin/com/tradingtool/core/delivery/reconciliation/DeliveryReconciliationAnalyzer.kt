@@ -52,7 +52,6 @@ object DeliveryReconciliationAnalyzer {
             val sourceRow = sourceRows.rowsBySymbol[expectation.symbol.uppercase()]
             if (sourceRow == null) {
                 DeliveryReconciliationUpsert(
-                    stockId = expectation.stockId,
                     instrumentToken = expectation.instrumentToken,
                     symbol = expectation.symbol,
                     exchange = expectation.exchange,
@@ -68,7 +67,6 @@ object DeliveryReconciliationAnalyzer {
                 )
             } else {
                 DeliveryReconciliationUpsert(
-                    stockId = expectation.stockId,
                     instrumentToken = expectation.instrumentToken,
                     symbol = expectation.symbol,
                     exchange = expectation.exchange,
