@@ -1,4 +1,4 @@
 # Groww Watchlist Sync Report
 
-- Fetched stocks: `5`
-- Synced rows: `5`
+- Fetched stocks: `25`
+- Synced rows: `25`

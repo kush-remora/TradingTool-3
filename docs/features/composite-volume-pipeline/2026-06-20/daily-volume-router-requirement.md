@@ -1,5 +1,9 @@
 # Requirement: Daily Volume Router
 
+## Current Delivery Decision — 2026-06-22
+
+The first delivery is ingestion-only. A manually copied Groww JSON file containing exactly 100 fully identified volume-shocker rows is stored in full for the supplied trading date. No ranking reduction, routing bucket, enrichment, UI, or trading decision is part of this delivery. The router requirement below remains possible follow-up work after enough daily data has been collected to decide how it should be used.
+
 ## Problem Statement
 
 A raw daily list of top-volume movers is too noisy to use directly. It mixes FOMO blow-offs, genuine institutional breakouts, and steady continuation names in one list. If we keep the list raw, it becomes another attention sink instead of a decision tool.

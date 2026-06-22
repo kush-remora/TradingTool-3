@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import java.time.OffsetDateTime
 
 object IndexConstituentKeys {
-    const val GROWW_WATCHLIST: String = "groww"
+    const val GROWW_WATCHLIST: String = "groww_HIGH_QUALITY"
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)

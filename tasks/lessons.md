@@ -52,7 +52,9 @@
 
 ## 2026-06-19
 
-- For copied external scanner lists like Groww volume shockers, store a dated, ranked shortlist instead of every raw candidate; avoid preserving external identifiers unless they are needed by a downstream workflow.
+- When the downstream use of a copied external scanner feed is still unknown, retain the complete bounded source result with its date and rank. Apply shortlist rules only after evidence establishes a useful cutoff; preserve the vendor identifier when it is the only reliable row identity.
+- Unknown downstream use does not justify mirroring every vendor field. Persist only identity plus the raw inputs needed for likely calculations; omit presentation metadata and derive deterministic metrics rather than storing them.
+- Keep feature-specific domain validation in the service layer when that is the chosen project boundary; SQL should retain only structural concerns such as types, required columns, defaults, and a surrogate primary key—not duplicate business rules with `CHECK` or `UNIQUE` constraints.
 
 ## 2026-06-20
 

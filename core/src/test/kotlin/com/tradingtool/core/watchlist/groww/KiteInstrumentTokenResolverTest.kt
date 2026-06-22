@@ -48,6 +48,26 @@ class KiteInstrumentTokenResolverTest {
     }
 
     @Test
+    fun `resolve maps a numeric BSE scrip code through the exchange token`() = runBlocking {
+        val cache = populatedCache(
+            instrument(
+                exchange = "BSE",
+                symbol = "BLUECLOUDS",
+                token = 138139396L,
+                exchangeToken = 539607L,
+            ),
+        )
+        val resolver = KiteInstrumentTokenResolver(
+            kiteClient = KiteConnectClient(KiteConfig(apiKey = "test", apiSecret = "test")),
+            instrumentCache = cache,
+        )
+
+        val token = resolver.resolve(exchange = "BSE", symbol = "539607")
+
+        assertEquals(138139396L, token)
+    }
+
+    @Test
     fun `resolve returns null when regex fallback has multiple NSE variants`() = runBlocking {
         val cache = populatedCache(
             instrument("NSE", "ABC-BL", 1L),
@@ -66,11 +86,17 @@ class KiteInstrumentTokenResolverTest {
         return cache
     }
 
-    private fun instrument(exchange: String, symbol: String, token: Long): Instrument =
+    private fun instrument(
+        exchange: String,
+        symbol: String,
+        token: Long,
+        exchangeToken: Long = 0L,
+    ): Instrument =
         Instrument().apply {
             this.exchange = exchange
             this.tradingsymbol = symbol
             this.instrument_token = token
+            this.exchange_token = exchangeToken
         }
 
     

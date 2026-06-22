@@ -61,6 +61,23 @@ class InstrumentTokenResolverService @Inject constructor(
             }
         }
 
+        if (normalizedExchange == BSE_EXCHANGE) {
+            val exchangeToken = normalizedSymbol.toLongOrNull()
+            val bseMatch = exchangeToken?.let { token ->
+                instrumentCache.findByExchangeToken(normalizedExchange, token)
+            }
+            if (bseMatch != null) {
+                return InstrumentTokenResolution(
+                    exchange = normalizedExchange,
+                    symbol = normalizedSymbol,
+                    expectedKeys = expectedKeys,
+                    resolvedToken = bseMatch.instrument_token,
+                    matchedKey = "${bseMatch.exchange.uppercase()}:${bseMatch.tradingsymbol.uppercase()}",
+                    candidateKeys = emptyList(),
+                )
+            }
+        }
+
         return InstrumentTokenResolution(
             exchange = normalizedExchange,
             symbol = normalizedSymbol,
@@ -119,6 +136,7 @@ class InstrumentTokenResolverService @Inject constructor(
 
     private companion object {
         const val NSE_EXCHANGE: String = "NSE"
+        const val BSE_EXCHANGE: String = "BSE"
         const val MAX_CANDIDATES: Int = 8
         val NSE_FALLBACK_SUFFIXES: List<String> = listOf("-BE", "-IV")
     }

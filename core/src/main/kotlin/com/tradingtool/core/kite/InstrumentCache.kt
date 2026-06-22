@@ -20,6 +20,9 @@ class InstrumentCache {
     @Volatile
     private var tokenIndex: Map<Long, Instrument> = emptyMap()
 
+    @Volatile
+    private var exchangeTokenIndex: Map<String, Instrument> = emptyMap()
+
     /** True if the cache has been populated at least once. */
     fun isEmpty(): Boolean = symbolIndex.isEmpty()
 
@@ -30,6 +33,7 @@ class InstrumentCache {
     fun refresh(instruments: List<Instrument>) {
         symbolIndex = instruments.associateBy { inst -> "${inst.exchange}:${inst.tradingsymbol}" }
         tokenIndex = instruments.associateBy { it.instrument_token }
+        exchangeTokenIndex = instruments.associateBy { inst -> "${inst.exchange}:${inst.exchange_token}" }
     }
 
     /**
@@ -46,6 +50,10 @@ class InstrumentCache {
     /** Full instrument record lookup by numeric token. */
     fun find(token: Long): Instrument? =
         tokenIndex[token]
+
+    /** Look up an instrument by exchange and the exchange-assigned numeric token. */
+    fun findByExchangeToken(exchange: String, exchangeToken: Long): Instrument? =
+        exchangeTokenIndex["$exchange:$exchangeToken"]
 
     /** All instruments currently in the cache. */
     fun all(): Collection<Instrument> = symbolIndex.values

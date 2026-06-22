@@ -9,6 +9,7 @@ object DatabaseConstants {
         const val INTRADAY_CANDLES = "intraday_candles"
         const val STOCK_DELIVERY_DAILY = "stock_delivery_daily"
         const val INDEX_CONSTITUENTS = "index_constituents"
+        const val GROWW_VOLUME_SHOCKER_DAILY = "groww_volume_shocker_daily"
     }
 
     object KiteTokenColumns {
@@ -68,5 +69,22 @@ object DatabaseConstants {
         const val LAST_SYNCED_AT = "last_synced_at"
         const val CREATED_AT = "created_at"
         const val UPDATED_AT = "updated_at"
+    }
+
+    object GrowwVolumeShockerColumns {
+        const val TRADE_DATE = "trade_date"
+        const val SOURCE_RANK = "source_rank"
+        const val EXCHANGE = "exchange"
+        const val SYMBOL = "symbol"
+        const val INSTRUMENT_TOKEN = "instrument_token"
+        const val COMPANY_NAME = "company_name"
+        const val LTP = "ltp"
+        const val CLOSE = "close"
+        const val MARKET_CAP_CRORE = "market_cap_crore"
+        const val MARKET_CAP_CATEGORY = "market_cap_category"
+        const val YEAR_LOW = "year_low"
+        const val YEAR_HIGH = "year_high"
+        const val VOLUME = "volume"
+        const val WEEKLY_AVERAGE_VOLUME = "weekly_average_volume"
     }
 }
