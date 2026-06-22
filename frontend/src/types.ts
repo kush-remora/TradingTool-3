@@ -274,30 +274,7 @@ export interface EarningsDashboardExportDocument {
   raw_daily_candles_20d: EarningsDashboardRawCandleBlock[];
 }
 
-// ==================== Remora Strategy ====================
 
-export interface RemoraSignal {
-  id: number;
-  stock_id: number;
-  symbol: string;
-  company_name: string;
-  exchange: string;
-  signal_type: "ACCUMULATION" | "DISTRIBUTION";
-  volume_ratio: number;
-  price_change_pct: number;
-  consecutive_days: number;
-  signal_date: string;
-  computed_at: string;
-  delivery_pct: number;
-  delivery_ratio: number;
-}
-
-export interface RemoraEnvelope {
-  signals: RemoraSignal[];
-  as_of_date: string | null;
-  is_stale: boolean;
-  stale_reason: string | null;
-}
 
 // ==================== Watchlist Dashboard ====================
 

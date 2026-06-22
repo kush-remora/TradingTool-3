@@ -66,27 +66,7 @@ CREATE INDEX IF NOT EXISTS idx_trades_created_at ON public.trades(created_at DES
 
 
 
--- Remora Strategy: stores one row per stock per day a signal fires.
--- Only inserted when consecutiveDays >= 2, so this is a sparse audit log.
-CREATE TABLE IF NOT EXISTS public.remora_signals (
-    id               SERIAL PRIMARY KEY,
-    stock_id         INTEGER      NOT NULL,
-    symbol           TEXT         NOT NULL,
-    company_name     TEXT         NOT NULL,
-    exchange         TEXT         NOT NULL,
-    signal_type      TEXT         NOT NULL CHECK (signal_type IN ('ACCUMULATION', 'DISTRIBUTION')),
-    volume_ratio     NUMERIC(6,3) NOT NULL,
-    price_change_pct NUMERIC(8,4) NOT NULL,
-    consecutive_days INTEGER      NOT NULL,
-    signal_date      DATE         NOT NULL,
-    delivery_pct     DECIMAL(10, 2),
-    delivery_ratio   DECIMAL(10, 2),
-    computed_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-);
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_remora_signals_stock_date ON public.remora_signals (stock_id, signal_date);
-CREATE INDEX IF NOT EXISTS idx_remora_signals_signal_date ON public.remora_signals (signal_date DESC);
-CREATE INDEX IF NOT EXISTS idx_remora_signals_signal_type ON public.remora_signals (signal_type);
 
 -- Daily candles: one row per (instrument, date) for long-term metrics
 CREATE TABLE IF NOT EXISTS public.daily_candles (

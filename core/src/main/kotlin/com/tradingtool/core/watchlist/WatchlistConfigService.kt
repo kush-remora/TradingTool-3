@@ -24,7 +24,6 @@ class WatchlistConfigService @Inject constructor() {
             val defaultConfig = WatchlistConfig(
                 tagDefinitions = listOf(
                     WatchlistTagDefinition("weekly", "#4287f5"),
-                    WatchlistTagDefinition("Remora", "#f54242"),
                     WatchlistTagDefinition("Momentum", "#ff3d5a")
                 )
             )

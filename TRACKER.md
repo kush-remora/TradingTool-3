@@ -14,13 +14,7 @@ This file tracks active, pending, and completed features.
     - `docs/features/watchlist/api.md`
     - `docs/features/watchlist/dashboard-plan.md`
 
-### 2. Remora Strategy
-- **Status:** In Progress
-- **Description:** A specific trading strategy focusing on high-momentum stocks.
-- **Related Docs:**
-    - `docs/strategies/remora-backend.md`
 
----
 
 ## ✅ Completed Features
 * **Base-Swing Profiler** (2026-05-16): New simplified screen to find "Boring but Breathing" stocks.

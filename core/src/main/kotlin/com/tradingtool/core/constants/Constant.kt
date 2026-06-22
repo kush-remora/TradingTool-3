@@ -6,7 +6,6 @@ object DatabaseConstants {
         const val STOCKS = "stocks"
         const val KITE_TOKENS = "kite_tokens"
         const val TRADES = "trades"
-        const val REMORA_SIGNALS = "remora_signals"
         const val DAILY_CANDLES = "daily_candles"
         const val INTRADAY_CANDLES = "intraday_candles"
         const val STOCK_DELIVERY_DAILY = "stock_delivery_daily"

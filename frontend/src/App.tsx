@@ -4,12 +4,10 @@ import type { MenuProps } from "antd";
 import { useState } from "react";
 
 import { WyckoffPhase1Page } from "./pages/WyckoffPhase1Page";
-import { RemoraPage } from "./pages/RemoraPage";
 import { TradePage } from "./pages/TradePage";
 
 type V1PageKey =
   | "trade"
-  | "remora"
   | "wyckoff-phase1";
 
 type PageKey = V1PageKey;
@@ -17,12 +15,10 @@ type PageKey = V1PageKey;
 const menuItems: MenuProps["items"] = [
   { key: "wyckoff-phase1", label: "Wyckoff Phase-1", icon: <BarChartOutlined /> },
   { key: "trade", label: "Trade Journal", icon: <BookOutlined /> },
-  { key: "remora", label: "Remora", icon: <FundOutlined /> },
 ];
 
 const validPages: PageKey[] = [
   "trade",
-  "remora",
   "wyckoff-phase1",
 ];
 
@@ -110,7 +106,6 @@ export default function App() {
           <Layout.Content>
 
             {route === "trade" && <TradePage />}
-            {route === "remora" && <RemoraPage />}
             {route === "wyckoff-phase1" && <WyckoffPhase1Page />}
           </Layout.Content>
         </Layout>

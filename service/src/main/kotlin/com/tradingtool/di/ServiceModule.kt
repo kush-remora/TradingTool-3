@@ -10,7 +10,6 @@ import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.database.KiteTokenJdbiHandler
 import com.tradingtool.core.database.RedisHandler
-import com.tradingtool.core.database.RemoraJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.http.CoreHttpModule
@@ -35,9 +34,6 @@ import com.tradingtool.core.delivery.config.DeliveryUniverseService
 import com.tradingtool.core.delivery.reconciliation.DeliveryReconciliationService
 import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
 import com.tradingtool.core.screener.CandleDataService
-import com.tradingtool.core.strategy.remora.RemoraService
-import com.tradingtool.core.strategy.remora.RemoraSignalReadDao
-import com.tradingtool.core.strategy.remora.RemoraSignalWriteDao
 import com.tradingtool.core.strategy.profitlookback.ProfitLookbackService
 import com.tradingtool.core.strategy.hotsma.HotSmaScannerService
 import com.tradingtool.core.telegram.TelegramApiClient
@@ -189,36 +185,12 @@ class ServiceModule(
     fun provideChatId(config: AppConfig): String = config.telegram.chatId
 
     @Provides @Singleton
-    fun provideRemoraJdbiHandler(config: DatabaseConfig): RemoraJdbiHandler =
-        handler<RemoraSignalReadDao, RemoraSignalWriteDao>(config)
-
-    @Provides @Singleton
     fun provideStockDeliveryJdbiHandler(config: DatabaseConfig): StockDeliveryJdbiHandler =
         handler<StockDeliveryReadDao, StockDeliveryWriteDao>(config)
 
     @Provides @Singleton
     fun provideNseDeliverySourceAdapter(jsonHttpClient: com.tradingtool.core.http.JsonHttpClient): NseDeliverySourceAdapter =
         NseDeliverySourceAdapter(jsonHttpClient)
-
-    @Provides
-    @Singleton
-    fun provideRemoraService(
-        instrumentResolver: InstrumentTokenResolverService,
-        indexConstituentHandler: IndexConstituentJdbiHandler,
-        remoraHandler: RemoraJdbiHandler,
-        deliveryHandler: StockDeliveryJdbiHandler,
-        deliveryReconciliationService: DeliveryReconciliationService,
-        telegramSender: TelegramSender,
-        kiteClient: KiteConnectClient,
-    ): RemoraService = RemoraService(
-        instrumentResolver = instrumentResolver,
-        indexConstituentHandler = indexConstituentHandler,
-        remoraHandler = remoraHandler,
-        deliveryHandler = deliveryHandler,
-        deliveryReconciliationService = deliveryReconciliationService,
-        telegramSender = telegramSender,
-        kiteClient = kiteClient,
-    )
 
     @Provides @Singleton
     fun provideCandleJdbiHandler(config: DatabaseConfig): CandleJdbiHandler =
