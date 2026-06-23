@@ -125,7 +125,7 @@ export function VolumeShockerDashboardPage() {
     if (!selectedDate || symbols.length === 0) {
       return;
     }
-    window.location.assign(buildPhase1Url(symbols, selectedDate));
+    window.open(buildPhase1Url(symbols, selectedDate), "_blank", "noopener,noreferrer");
   };
 
   const handleDateChange = async (tradeDate: string): Promise<void> => {

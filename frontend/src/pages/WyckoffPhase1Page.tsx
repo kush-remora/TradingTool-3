@@ -144,7 +144,7 @@ export function WyckoffPhase1Page() {
   useEffect(() => {
     let mounted = true;
     setUniverseLoading(true);
-    void getJson<UniverseOptionsResponse>("/api/screener/universes")
+    void getJson<UniverseOptionsResponse>("/api/strategy/wyckoff/phase1/universes")
       .then((response) => {
         if (!mounted) return;
         const options = response.options.map((option) => ({
@@ -335,11 +335,21 @@ export function WyckoffPhase1Page() {
                   mode="multiple"
                   style={{ width: "100%" }}
                   value={selectedUniverseKeys}
+                  disabled={prefilledRequest.symbols.length > 0}
                   loading={universeLoading}
                   options={indexOptions}
                   onChange={(value) => setSelectedUniverseKeys(value)}
-                  placeholder="Select one or more index keys or WATCHLIST"
+                  placeholder={
+                    prefilledRequest.symbols.length > 0
+                      ? "Using prefilled symbols from Volume Shocker"
+                      : "Select one or more index keys or WATCHLIST"
+                  }
                 />
+                {prefilledRequest.symbols.length > 0 && (
+                  <Typography.Text type="secondary">
+                    Universe keys are disabled because this run is using prefilled symbols from the Volume Shocker dashboard.
+                  </Typography.Text>
+                )}
               </Col>
             </Row>
 

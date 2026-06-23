@@ -1,21 +1,27 @@
-import { BarChartOutlined, BookOutlined, FundOutlined } from "@ant-design/icons";
+import { BarChartOutlined, BookOutlined, FundOutlined, HeatMapOutlined } from "@ant-design/icons";
 import { ConfigProvider, Layout, Menu } from "antd";
 import type { MenuProps } from "antd";
 import { useState } from "react";
 
 import { VolumeShockerDashboardPage } from "./pages/VolumeShockerDashboardPage";
+import { DeliveryBreakoutScannerPage } from "./pages/DeliveryBreakoutScannerPage";
+import { HotSmaPage } from "./pages/HotSmaPage";
 import { WyckoffPhase1Page } from "./pages/WyckoffPhase1Page";
 import { TradePage } from "./pages/TradePage";
 
 type V1PageKey =
   | "trade"
   | "wyckoff-phase1"
-  | "volume-shocker";
+  | "volume-shocker"
+  | "delivery-breakout"
+  | "hot-sma";
 
 type PageKey = V1PageKey;
 
 const menuItems: MenuProps["items"] = [
   { key: "volume-shocker", label: "Volume Shocker", icon: <FundOutlined /> },
+  { key: "delivery-breakout", label: "Delivery Breakout", icon: <FundOutlined /> },
+  { key: "hot-sma", label: "SMA Buy Zone", icon: <HeatMapOutlined /> },
   { key: "wyckoff-phase1", label: "Wyckoff Phase-1", icon: <BarChartOutlined /> },
   { key: "trade", label: "Trade Journal", icon: <BookOutlined /> },
 ];
@@ -24,6 +30,8 @@ const validPages: PageKey[] = [
   "trade",
   "wyckoff-phase1",
   "volume-shocker",
+  "delivery-breakout",
+  "hot-sma",
 ];
 
 export default function App() {
@@ -112,6 +120,8 @@ export default function App() {
             {route === "trade" && <TradePage />}
             {route === "wyckoff-phase1" && <WyckoffPhase1Page />}
             {route === "volume-shocker" && <VolumeShockerDashboardPage />}
+            {route === "delivery-breakout" && <DeliveryBreakoutScannerPage />}
+            {route === "hot-sma" && <HotSmaPage />}
           </Layout.Content>
         </Layout>
       </Layout>

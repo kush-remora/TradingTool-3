@@ -57,6 +57,9 @@ class GrowwVolumeShockerDashboardService @Inject constructor(
             val preEventMetrics = GrowwVolumeShockerDashboardAnalyzer.calculatePreEventMetrics(candles, deliveries, tradeDate)
             val maxBeforeEventDelivery = preEventMetrics.maxDeliveryVolume
             val todayDeliveryVolume = eventDelivery?.delivQty
+            val eventSma200Price = GrowwVolumeShockerDashboardAnalyzer.calculateSma200Price(candles, tradeDate)
+            val eventClosePrice = candles.firstOrNull { candle -> candle.candleDate == tradeDate }?.close
+                ?: row.close.toDouble()
 
             GrowwVolumeShockerDashboardRow(
                 source_rank = row.sourceRank,
@@ -76,10 +79,10 @@ class GrowwVolumeShockerDashboardService @Inject constructor(
                     lookbackDatesDescending = lookbackDatesDescending,
                     appearedDates = appearancesBySymbol[row.symbol].orEmpty(),
                 ),
-                sma200_price = GrowwVolumeShockerDashboardAnalyzer.calculateSma200Price(candles, tradeDate),
+                sma200_price = eventSma200Price,
                 distance_from_sma200_pct = GrowwVolumeShockerDashboardAnalyzer.calculateDistancePct(
-                    price = row.ltp.toDouble(),
-                    referencePrice = GrowwVolumeShockerDashboardAnalyzer.calculateSma200Price(candles, tradeDate),
+                    price = eventClosePrice,
+                    referencePrice = eventSma200Price,
                 ),
                 pre_event_accumulation_hint = preEventMetrics.hasAccumulationHint,
                 tag = if (phase1TaggedSymbols.contains(row.symbol)) WYCKOFF_PHASE_D_TAG else NO_TAG,

@@ -115,3 +115,13 @@ One of the most important early-buy observations is not a jump in delivery perce
 - Frontend build: passed.
 - Focused new Kotlin analyzer tests: passed.
 - Frontend Vitest suite: passed after adding coverage for the Phase 1 prefill contract.
+
+## Follow-up Clarifications After First Use
+
+Two important behavior clarifications came from live usage after the first build. First, `% away from 200 SMA` in the volume-shocker dashboard should use the same event-date close-price basis as the Phase 1 scanner, not the stored LTP field. This keeps the SMA-distance comparison consistent when the user cross-checks a stock like `SUBROS` between the two screens.
+
+Second, when the dashboard opens the Phase 1 page with prefilled symbols, the `Universe Keys` dropdown may correctly be empty because that run mode is symbol-prefill mode, not universe-filter mode. The Phase 1 page should make that state explicit by disabling the universe selector and showing that the scan is using symbols handed off from the Volume Shocker dashboard.
+
+Third, the refreshed Phase 1 page still needs a working universe-options source even outside the dashboard handoff flow. The page was still requesting `GET /api/screener/universes`, which the backend no longer exposed, so the stable fix is:
+- add a Phase 1-owned universe-options endpoint under `/api/strategy/wyckoff/phase1/universes`
+- keep a compatibility alias at `/api/screener/universes` so existing browser bundles or older links do not fail with `404 Not Found`

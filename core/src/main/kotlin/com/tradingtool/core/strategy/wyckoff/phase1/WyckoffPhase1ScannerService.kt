@@ -9,6 +9,8 @@ import com.tradingtool.core.indexconstituents.IndexConstituentKeys
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
 import com.tradingtool.core.indexconstituents.dao.IndexSummary
 import com.tradingtool.core.kite.KiteConnectClient
+import com.tradingtool.core.model.screener.UniverseOption
+import com.tradingtool.core.model.screener.UniverseOptionsResponse
 import com.tradingtool.core.screener.CandleDataService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -124,6 +126,22 @@ class WyckoffPhase1ScannerService @Inject constructor(
             runConfig = runConfig,
             contexts = contexts,
         )
+    }
+
+    suspend fun listUniverseOptions(): UniverseOptionsResponse {
+        val summaries = indexConstituentHandler.read { dao -> dao.listUniqueIndices() }
+        val options = summaries
+            .groupBy { summary -> normalizeIndexKeyInCore(summary.indexKey) }
+            .mapNotNull { (normalizedKey, rows) ->
+                val count = rows.maxOfOrNull { summary -> summary.count } ?: return@mapNotNull null
+                UniverseOption(
+                    label = normalizedKey,
+                    value = normalizedKey,
+                    count = count,
+                )
+            }
+            .sortedBy { option -> option.value }
+        return UniverseOptionsResponse(options = options)
     }
 
     private suspend fun resolveUniverse(

@@ -2,6 +2,11 @@ package com.tradingtool.resources
 
 import com.google.inject.Inject
 import com.tradingtool.core.di.ResourceScope
+import com.tradingtool.core.strategy.hotsma.HotSmaRunConfig
+import com.tradingtool.core.strategy.hotsma.HotSmaRunRequest
+import com.tradingtool.core.strategy.hotsma.HotSmaScannerService
+import com.tradingtool.core.strategy.hotsma.HotSmaTelegramRequest
+import com.tradingtool.core.strategy.deliverybreakout.DeliveryBreakoutScannerService
 import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1ConfigService
 import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1RunConfig
 import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1RunRequest
@@ -24,11 +29,52 @@ import java.util.concurrent.CompletableFuture
 @Produces(MediaType.APPLICATION_JSON)
 class StrategyResource @Inject constructor(
     resourceScope: ResourceScope,
+    private val hotSmaScannerService: HotSmaScannerService,
+    private val deliveryBreakoutScannerService: DeliveryBreakoutScannerService,
     private val wyckoffPhase1ScannerService: WyckoffPhase1ScannerService,
     private val wyckoffPhase1ConfigService: WyckoffPhase1ConfigService,
     private val growwVolumeShockerDashboardService: GrowwVolumeShockerDashboardService,
 ) {
     private val ioScope = resourceScope.ioScope
+
+    @GET
+    @Path("/hot-sma/universes")
+    fun getHotSmaUniverseOptions(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(hotSmaScannerService.listUniverseOptions())
+    }
+
+    @GET
+    @Path("/delivery-breakout/dashboard")
+    fun getDeliveryBreakoutDashboard(
+        @jakarta.ws.rs.QueryParam("tradeDate") tradeDate: String?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val parsedTradeDate = try {
+            tradeDate?.takeIf { value -> value.isNotBlank() }?.let(LocalDate::parse)
+        } catch (_: Exception) {
+            return@endpoint badRequest("tradeDate must be a valid ISO date in YYYY-MM-DD format.")
+        }
+        ok(deliveryBreakoutScannerService.getDashboard(parsedTradeDate))
+    }
+
+    @POST
+    @Path("/hot-sma/run")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runHotSma(request: HotSmaRunRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        val normalizedRequest = try {
+            validateHotSmaRunRequest(body)
+        } catch (error: IllegalArgumentException) {
+            return@endpoint badRequest(error.message ?: "Invalid request.")
+        }
+
+        ok(hotSmaScannerService.run(HotSmaRunConfig(indexKey = normalizedRequest.indexKey)))
+    }
+
+    @GET
+    @Path("/wyckoff/phase1/universes")
+    fun getWyckoffPhase1UniverseOptions(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(wyckoffPhase1ScannerService.listUniverseOptions())
+    }
 
     @GET
     @Path("/wyckoff/phase1/config")
@@ -86,4 +132,31 @@ class StrategyResource @Inject constructor(
             ?: return@endpoint badRequest("symbol query parameter is required.")
         ok(growwVolumeShockerDashboardService.getDetail(parsedTradeDate, requestedSymbol))
     }
+}
+
+internal fun validateHotSmaRunRequest(request: HotSmaRunRequest): HotSmaRunRequest {
+    val normalizedIndexKey = normalizeIndexKeyForResource(request.indexKey)
+    require(normalizedIndexKey.isNotBlank()) { "indexKey is required." }
+    return request.copy(indexKey = normalizedIndexKey)
+}
+
+internal fun validateHotSmaTelegramRequest(request: HotSmaTelegramRequest): HotSmaTelegramRequest {
+    val normalizedIndexKey = normalizeIndexKeyForResource(request.indexKey)
+    require(normalizedIndexKey.isNotBlank()) { "indexKey is required." }
+
+    val normalizedSymbol = request.symbol.trim().uppercase()
+    require(normalizedSymbol.isNotBlank()) { "symbol is required." }
+    require(request.currentPrice > 0.0) { "currentPrice must be a positive number." }
+
+    return request.copy(
+        indexKey = normalizedIndexKey,
+        symbol = normalizedSymbol,
+    )
+}
+
+private fun normalizeIndexKeyForResource(raw: String): String {
+    return raw.trim()
+        .replace(Regex("[^A-Za-z0-9]+"), "_")
+        .trim('_')
+        .uppercase()
 }

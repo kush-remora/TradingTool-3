@@ -1,9 +1,8 @@
 import { useCallback, useState } from "react";
 import { postJson } from "../utils/api";
-import type { HotSmaRow, HotSmaRunRequest, HotSmaRunResponse, HotSmaTelegramRequest } from "../types";
+import type { HotSmaRunRequest, HotSmaRunResponse } from "../types";
 
 const RUN_PATH = "/api/strategy/hot-sma/run";
-const TELEGRAM_PATH = "/api/strategy/hot-sma/telegram";
 
 export function useHotSmaScanner() {
   const [data, setData] = useState<HotSmaRunResponse | null>(null);
@@ -23,22 +22,5 @@ export function useHotSmaScanner() {
     }
   }, []);
 
-  const sendTelegramForRow = useCallback(async (indexKey: string, row: HotSmaRow): Promise<void> => {
-    const payload: HotSmaTelegramRequest = {
-      indexKey,
-      symbol: row.symbol,
-      signalTag: row.signalTag,
-      currentPrice: row.currentPrice,
-      sma50: row.sma50,
-      sma100: row.sma100,
-      sma200: row.sma200,
-      pctToSma50: row.pctToSma50,
-      pctToSma100: row.pctToSma100,
-      pctToSma200: row.pctToSma200,
-      rsi14: row.rsi14,
-    };
-    await postJson(TELEGRAM_PATH, payload);
-  }, []);
-
-  return { data, loading, error, run, sendTelegramForRow };
+  return { data, loading, error, run };
 }

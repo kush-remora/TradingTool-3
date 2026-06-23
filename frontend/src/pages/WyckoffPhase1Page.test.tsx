@@ -13,6 +13,14 @@ vi.mock("../utils/api", async (importOriginal) => {
   return {
     ...actual,
     getJson: vi.fn().mockImplementation((path: string) => {
+      if (path === "/api/strategy/wyckoff/phase1/universes") {
+        return Promise.resolve({
+          options: [
+            { label: "Watchlist", value: "WATCHLIST", count: 20 },
+            { label: "NIFTY_50", value: "NIFTY_50", count: 50 },
+          ],
+        });
+      }
       if (path === "/api/strategy/wyckoff/phase1/config") {
         return Promise.resolve({
           enabled: true,
@@ -45,12 +53,7 @@ vi.mock("../utils/api", async (importOriginal) => {
       if (path === "/api/watchlist/symbols") {
         return Promise.resolve([]);
       }
-      return Promise.resolve({
-        options: [
-          { label: "Watchlist", value: "WATCHLIST", count: 20 },
-          { label: "NIFTY_50", value: "NIFTY_50", count: 50 },
-        ],
-      });
+      throw new Error(`Unexpected path: ${path}`);
     }),
   };
 });
@@ -156,6 +159,7 @@ describe("WyckoffPhase1Page", () => {
     expect(payload.universeKeys).toEqual([]);
     expect(payload.symbols).toEqual(["INFY", "TCS"]);
     expect(payload.asOfDate).toEqual("2026-06-20");
+    expect(screen.getByText("Universe keys are disabled because this run is using prefilled symbols from the Volume Shocker dashboard.")).toBeInTheDocument();
   });
 
   it("applies enabled columns from config", async () => {

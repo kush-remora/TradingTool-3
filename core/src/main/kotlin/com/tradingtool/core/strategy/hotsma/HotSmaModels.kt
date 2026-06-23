@@ -36,6 +36,12 @@ enum class HotSmaSignalTag {
     WATCH_ZONE,
 }
 
+enum class HotSmaZoneStatus {
+    BUY_ZONE,
+    ABOVE_BUY_ZONE,
+    NO_SMA200,
+}
+
 data class HotSmaRow(
     val symbol: String,
     val companyName: String,
@@ -49,28 +55,35 @@ data class HotSmaRow(
     val pctToSma50: Double?,
     val pctToSma100: Double?,
     val pctToSma200: Double?,
+    val distanceToSma200AbsPct: Double?,
     val rsi14: Double?,
+    val drawdownFromHigh20Pct: Double?,
+    val drawdownFromHigh60Pct: Double?,
+    val consecutiveRedDays: Int,
+    val move3dPct: Double?,
     val sma100TouchedInLast5d: Boolean,
     val sma100TouchDate: LocalDate?,
     val sma200TouchedInLast5d: Boolean,
     val sma200TouchDate: LocalDate?,
-    val signalTag: HotSmaSignalTag,
+    val signalTag: HotSmaSignalTag?,
+    val zoneStatus: HotSmaZoneStatus,
 )
 
 data class HotSmaSummary(
-    val totalSignals: Int,
-    val aggressiveCount: Int,
-    val standardCount: Int,
-    val watchCount: Int,
+    val totalStocks: Int,
+    val buyZoneCount: Int,
+    val aboveBuyZoneCount: Int,
+    val noSma200Count: Int,
 )
 
 data class HotSmaConfigSnapshot(
-    val touchLookbackDays: Int,
-    val watchZoneUpperPct: Double,
     val rsiPeriod: Int,
     val sma50Window: Int,
     val sma100Window: Int,
     val sma200Window: Int,
+    val buyZoneUpperPct: Double,
+    val drawdownWindow20: Int,
+    val drawdownWindow60: Int,
     val useAvailableHistoryForSma200: Boolean,
 )
 

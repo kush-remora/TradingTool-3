@@ -1600,6 +1600,43 @@ export interface VolumeShockerDetailResponse {
   days: VolumeShockerDetailDay[];
 }
 
+// ==================== Delivery Breakout Dashboard ====================
+
+export interface DeliveryBreakoutDashboardMeta {
+  trade_date: string;
+  scanned_count: number;
+  liquidity_eligible_count: number;
+  shortlisted_count: number;
+  confirmed_breakout_count: number;
+  quiet_clue_count: number;
+}
+
+export interface DeliveryBreakoutDashboardRow {
+  symbol: string;
+  trade_date: string;
+  close: number | null;
+  close_pct_change: number | null;
+  volume: number;
+  delivery_quantity: number;
+  delivery_percentage: number | null;
+  prior_10d_max_volume: number;
+  prior_10d_max_delivery_quantity: number;
+  volume_ratio_vs_10d_max: number;
+  delivery_ratio_vs_10d_max: number;
+  has_quiet_clue: boolean;
+  quiet_clue_day: string | null;
+  is_confirmed_breakout_today: boolean;
+  sma200: number | null;
+  distance_from_sma200_pct: number | null;
+  is_near_200_sma: boolean | null;
+  label: string;
+}
+
+export interface DeliveryBreakoutDashboardResponse {
+  meta: DeliveryBreakoutDashboardMeta;
+  rows: DeliveryBreakoutDashboardRow[];
+}
+
 // ==================== Bollinger Squeeze ====================
 
 export interface BollingerSqueezeScanResult {
@@ -1784,6 +1821,7 @@ export interface FiftyTwoWeekHighLiveResponse {
 }
 
 export type HotSmaSignalTag = "AGGRESSIVE_BUY" | "STANDARD_BUY" | "WATCH_ZONE";
+export type HotSmaZoneStatus = "BUY_ZONE" | "ABOVE_BUY_ZONE" | "NO_SMA200";
 
 export interface HotSmaRunRequest {
   indexKey: string;
@@ -1803,6 +1841,11 @@ export interface HotSmaTelegramRequest {
   rsi14: number | null;
 }
 
+export interface HotSmaUniverseOption {
+  value: string;
+  count: number;
+}
+
 export interface HotSmaRow {
   symbol: string;
   companyName: string;
@@ -1816,28 +1859,35 @@ export interface HotSmaRow {
   pctToSma50: number | null;
   pctToSma100: number | null;
   pctToSma200: number | null;
+  distanceToSma200AbsPct: number | null;
   rsi14: number | null;
+  drawdownFromHigh20Pct: number | null;
+  drawdownFromHigh60Pct: number | null;
+  consecutiveRedDays: number;
+  move3dPct: number | null;
   sma100TouchedInLast5d: boolean;
   sma100TouchDate: string | null;
   sma200TouchedInLast5d: boolean;
   sma200TouchDate: string | null;
-  signalTag: HotSmaSignalTag;
+  signalTag: HotSmaSignalTag | null;
+  zoneStatus: HotSmaZoneStatus;
 }
 
 export interface HotSmaSummary {
-  totalSignals: number;
-  aggressiveCount: number;
-  standardCount: number;
-  watchCount: number;
+  totalStocks: number;
+  buyZoneCount: number;
+  aboveBuyZoneCount: number;
+  noSma200Count: number;
 }
 
 export interface HotSmaConfigSnapshot {
-  touchLookbackDays: number;
-  watchZoneUpperPct: number;
   rsiPeriod: number;
   sma50Window: number;
   sma100Window: number;
   sma200Window: number;
+  buyZoneUpperPct: number;
+  drawdownWindow20: number;
+  drawdownWindow60: number;
   useAvailableHistoryForSma200: boolean;
 }
 

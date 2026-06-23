@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
+import kotlin.math.abs
 import java.time.LocalDate
 
 class HotSmaScannerServiceTest {
@@ -102,6 +103,56 @@ class HotSmaScannerServiceTest {
         assertNull(resolveHotSmaSignalTag(sma100TouchDate = null, sma200TouchDate = null, pctToSma200 = null))
     }
 
+    @Test
+    fun `zone status marks anything within five percent of sma200 as buy zone`() {
+        assertEquals(HotSmaZoneStatus.BUY_ZONE, resolveHotSmaZoneStatus(-2.5))
+        assertEquals(HotSmaZoneStatus.BUY_ZONE, resolveHotSmaZoneStatus(0.0))
+        assertEquals(HotSmaZoneStatus.BUY_ZONE, resolveHotSmaZoneStatus(5.0))
+        assertEquals(HotSmaZoneStatus.ABOVE_BUY_ZONE, resolveHotSmaZoneStatus(5.01))
+        assertEquals(HotSmaZoneStatus.NO_SMA200, resolveHotSmaZoneStatus(null))
+    }
+
+    @Test
+    fun `consecutive red days counts close below previous close from latest backward`() {
+        val candles = listOf(
+            candle(close = 100.0, high = 101.0),
+            candle(dateOffset = 1, close = 99.0, high = 100.0),
+            candle(dateOffset = 2, close = 98.0, high = 99.0),
+            candle(dateOffset = 3, close = 97.0, high = 98.0),
+            candle(dateOffset = 4, close = 98.0, high = 99.0),
+        )
+
+        assertEquals(0, countConsecutiveRedDays(candles))
+        assertEquals(3, countConsecutiveRedDays(candles.dropLast(1)))
+    }
+
+    @Test
+    fun `move3d percent compares latest close with close three sessions ago`() {
+        val candles = listOf(
+            candle(close = 100.0, high = 101.0),
+            candle(dateOffset = 1, close = 102.0, high = 103.0),
+            candle(dateOffset = 2, close = 104.0, high = 105.0),
+            candle(dateOffset = 3, close = 106.0, high = 107.0),
+        )
+
+        val move3dPct = requireNotNull(computeMove3dPct(candles))
+        assertEquals(6.0, move3dPct, 1e-9)
+        assertNull(computeMove3dPct(candles.take(3)))
+    }
+
+    @Test
+    fun `drawdown from recent high uses highest high in requested window`() {
+        val candles = listOf(
+            candle(close = 100.0, high = 105.0),
+            candle(dateOffset = 1, close = 104.0, high = 110.0),
+            candle(dateOffset = 2, close = 102.0, high = 107.0),
+        )
+
+        val drawdown = computeDrawdownFromRecentHighPct(candles, lookbackDays = 3)
+        val resolvedDrawdown = requireNotNull(drawdown)
+        assertEquals(abs((102.0 / 110.0 - 1.0) * 100.0), abs(resolvedDrawdown), 1e-9)
+    }
+
     private fun buildRisingCandles(size: Int): List<DailyCandle> {
         return (0 until size).map { offset ->
             val close = 100.0 + offset
@@ -116,5 +167,22 @@ class HotSmaScannerServiceTest {
                 volume = 1_000L,
             )
         }
+    }
+
+    private fun candle(
+        close: Double,
+        high: Double,
+        dateOffset: Int = 0,
+    ): DailyCandle {
+        return DailyCandle(
+            instrumentToken = 101L,
+            symbol = "TEST",
+            candleDate = LocalDate.of(2025, 1, 1).plusDays(dateOffset.toLong()),
+            open = close,
+            high = high,
+            low = close - 1.0,
+            close = close,
+            volume = 1_000L,
+        )
     }
 }
