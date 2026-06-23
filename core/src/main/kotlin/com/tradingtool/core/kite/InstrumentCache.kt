@@ -15,7 +15,7 @@ import com.zerodhatech.models.Instrument
 class InstrumentCache {
 
     @Volatile
-    private var symbolIndex: Map<String, Instrument> = emptyMap()
+     var symbolIndex: Map<String, Instrument> = emptyMap()
 
     @Volatile
     private var tokenIndex: Map<Long, Instrument> = emptyMap()

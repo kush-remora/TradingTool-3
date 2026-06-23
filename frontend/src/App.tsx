@@ -1,18 +1,21 @@
-import { BarChartOutlined, BookOutlined, FundOutlined, ThunderboltOutlined, UnorderedListOutlined } from "@ant-design/icons";
+import { BarChartOutlined, BookOutlined, FundOutlined } from "@ant-design/icons";
 import { ConfigProvider, Layout, Menu } from "antd";
 import type { MenuProps } from "antd";
 import { useState } from "react";
 
+import { VolumeShockerDashboardPage } from "./pages/VolumeShockerDashboardPage";
 import { WyckoffPhase1Page } from "./pages/WyckoffPhase1Page";
 import { TradePage } from "./pages/TradePage";
 
 type V1PageKey =
   | "trade"
-  | "wyckoff-phase1";
+  | "wyckoff-phase1"
+  | "volume-shocker";
 
 type PageKey = V1PageKey;
 
 const menuItems: MenuProps["items"] = [
+  { key: "volume-shocker", label: "Volume Shocker", icon: <FundOutlined /> },
   { key: "wyckoff-phase1", label: "Wyckoff Phase-1", icon: <BarChartOutlined /> },
   { key: "trade", label: "Trade Journal", icon: <BookOutlined /> },
 ];
@@ -20,6 +23,7 @@ const menuItems: MenuProps["items"] = [
 const validPages: PageKey[] = [
   "trade",
   "wyckoff-phase1",
+  "volume-shocker",
 ];
 
 export default function App() {
@@ -107,6 +111,7 @@ export default function App() {
 
             {route === "trade" && <TradePage />}
             {route === "wyckoff-phase1" && <WyckoffPhase1Page />}
+            {route === "volume-shocker" && <VolumeShockerDashboardPage />}
           </Layout.Content>
         </Layout>
       </Layout>

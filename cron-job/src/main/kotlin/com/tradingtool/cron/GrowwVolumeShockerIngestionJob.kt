@@ -25,14 +25,14 @@ import org.slf4j.LoggerFactory
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.time.LocalDate
-import java.time.format.DateTimeParseException
+import java.time.ZoneId
 import kotlin.system.exitProcess
 
 private val log = LoggerFactory.getLogger("GrowwVolumeShockerIngestionJob")
 
-fun main(args: Array<String>) {
+fun main() {
     val exitCode = runCatching {
-        val tradeDate = parseGrowwVolumeShockerTradeDate(args)
+        val tradeDate = LocalDate.now(INDIA_TIME_ZONE)
         val runtime = GrowwVolumeShockerRuntime.fromEnvironment()
 
         runBlocking {
@@ -54,21 +54,6 @@ fun main(args: Array<String>) {
     }
 
     exitProcess(exitCode)
-}
-
-internal fun parseGrowwVolumeShockerTradeDate(args: Array<String>): LocalDate {
-    require(args.size == 1) {
-        "Expected one trade-date argument in YYYY-MM-DD format."
-    }
-
-    return try {
-        LocalDate.parse(args.single())
-    } catch (error: DateTimeParseException) {
-        throw IllegalArgumentException(
-            "Invalid trade date '${args.single()}'; expected YYYY-MM-DD.",
-            error,
-        )
-    }
 }
 
 private data class GrowwVolumeShockerRuntime(
@@ -142,3 +127,4 @@ private fun buildGrowwVolumeShockerObjectMapper(): ObjectMapper {
 }
 
 private const val DEFAULT_INPUT_FILE = "manual-input/groww_volume_shocker"
+private val INDIA_TIME_ZONE: ZoneId = ZoneId.of("Asia/Kolkata")

@@ -20,6 +20,11 @@ type StoredFilters = {
   strictBaseFilter: boolean;
 };
 
+type PrefilledPhase1Request = {
+  asOfDate: string | null;
+  symbols: string[];
+};
+
 function loadStoredFilters(): StoredFilters | null {
   const raw = window.localStorage.getItem(FILTERS_STORAGE_KEY);
   if (!raw) {
@@ -34,6 +39,19 @@ function loadStoredFilters(): StoredFilters | null {
   } catch {
     return null;
   }
+}
+
+function loadPrefilledPhase1Request(): PrefilledPhase1Request {
+  const params = new URLSearchParams(window.location.search);
+  const rawSymbols = params.get("symbols")?.trim() ?? "";
+  const symbols = (rawSymbols ? rawSymbols.split(",") : [])
+    .map((symbol) => symbol.trim().toUpperCase())
+    .filter((symbol, index, items) => symbol.length > 0 && items.indexOf(symbol) === index);
+
+  return {
+    asOfDate: params.get("asOfDate"),
+    symbols,
+  };
 }
 
 const COLUMN_LABELS: Record<string, string> = {
@@ -110,6 +128,7 @@ function matchesColumnFilter(row: WyckoffPhase1Row, key: string, filterValue: st
 export function WyckoffPhase1Page() {
   const [messageApi, contextHolder] = message.useMessage();
   const { data, loading, error, run } = useWyckoffPhase1Scanner();
+  const [prefilledRequest] = useState<PrefilledPhase1Request>(() => loadPrefilledPhase1Request());
 
   const [universeLoading, setUniverseLoading] = useState(false);
   const [indexOptions, setIndexOptions] = useState<Array<{ label: string; value: string }>>([]);
@@ -274,13 +293,15 @@ export function WyckoffPhase1Page() {
   };
 
   const runScanner = async (): Promise<void> => {
-    if (selectedUniverseKeys.length === 0) {
-      messageApi.warning("Select at least one universe key.");
+    if (selectedUniverseKeys.length === 0 && prefilledRequest.symbols.length === 0) {
+      messageApi.warning("Select at least one universe key or use prefilled symbols.");
       return;
     }
 
     const request: WyckoffPhase1RunRequest = {
-      universeKeys: selectedUniverseKeys,
+      universeKeys: prefilledRequest.symbols.length > 0 ? [] : selectedUniverseKeys,
+      symbols: prefilledRequest.symbols.length > 0 ? prefilledRequest.symbols : undefined,
+      asOfDate: prefilledRequest.asOfDate ?? undefined,
       applyStrictBaseFilter: strictBaseFilter,
     };
 
@@ -300,6 +321,13 @@ export function WyckoffPhase1Page() {
 
         <Card size="small" title="Controls">
           <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+            {prefilledRequest.symbols.length > 0 && (
+              <Alert
+                type="info"
+                showIcon
+                title={`Prefilled from Volume Shocker: ${prefilledRequest.symbols.length} symbol(s) as of ${prefilledRequest.asOfDate ?? "latest available date"}.`}
+              />
+            )}
             <Row gutter={12}>
               <Col xs={24} md={24}>
                 <Typography.Text strong>Universe Keys</Typography.Text>
@@ -319,7 +347,7 @@ export function WyckoffPhase1Page() {
               <Button
                 type="primary"
                 loading={loading}
-                disabled={selectedUniverseKeys.length === 0}
+                disabled={selectedUniverseKeys.length === 0 && prefilledRequest.symbols.length === 0}
                 onClick={() => void runScanner()}
               >
                 Run Scan

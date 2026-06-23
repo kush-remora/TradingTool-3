@@ -1545,6 +1545,61 @@ export interface WyckoffPhase1RunResponse {
   };
 }
 
+// ==================== Volume Shocker Dashboard ====================
+
+export interface VolumeShockerDatesResponse {
+  available_dates: string[];
+  default_date: string | null;
+}
+
+export interface VolumeShockerDashboardRow {
+  source_rank: number;
+  symbol: string;
+  company_name: string;
+  ltp: number;
+  volume: number;
+  delivery_volume: number | null;
+  delivery_pct: number | null;
+  max_delivery_volume_10d_before_event: number | null;
+  delivery_volume_vs_max_10d_before_event_ratio: number | null;
+  appearance_count_10d: number;
+  streak_length_10d: number;
+  sma200_price: number | null;
+  distance_from_sma200_pct: number | null;
+  pre_event_accumulation_hint: boolean;
+  tag: string;
+}
+
+export interface VolumeShockerDashboardResponse {
+  trade_date: string;
+  rows: VolumeShockerDashboardRow[];
+}
+
+export interface VolumeShockerDetailSummary {
+  appearance_count_10d: number;
+  streak_length_10d: number;
+  max_delivery_volume_10d_before_event: number | null;
+  delivery_volume_vs_max_10d_before_event_ratio: number | null;
+}
+
+export interface VolumeShockerDetailDay {
+  date: string;
+  open: number;
+  close: number;
+  volume: number;
+  delivery_volume: number | null;
+  delivery_pct: number | null;
+  daily_change_pct: number | null;
+  is_event_day: boolean;
+}
+
+export interface VolumeShockerDetailResponse {
+  symbol: string;
+  trade_date: string;
+  summary: VolumeShockerDetailSummary;
+  days: VolumeShockerDetailDay[];
+}
+
 // ==================== Bollinger Squeeze ====================
 
 export interface BollingerSqueezeScanResult {

@@ -32,7 +32,6 @@ class InstrumentTokenResolverService @Inject constructor(
         val normalizedExchange = exchange.trim().uppercase()
         val normalizedSymbol = symbol.trim().uppercase()
         val expectedKeys = buildExpectedKeys(normalizedExchange, normalizedSymbol)
-
         val exactMatch = instrumentCache.find(normalizedExchange, normalizedSymbol)
         if (exactMatch != null) {
             return InstrumentTokenResolution(
@@ -138,6 +137,6 @@ class InstrumentTokenResolverService @Inject constructor(
         const val NSE_EXCHANGE: String = "NSE"
         const val BSE_EXCHANGE: String = "BSE"
         const val MAX_CANDIDATES: Int = 8
-        val NSE_FALLBACK_SUFFIXES: List<String> = listOf("-BE", "-IV")
+        val NSE_FALLBACK_SUFFIXES: List<String> = listOf("-BE", "-IV", "-SM")
     }
 }

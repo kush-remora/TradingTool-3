@@ -6,6 +6,7 @@ import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1ConfigService
 import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1RunConfig
 import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1RunRequest
 import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1ScannerService
+import com.tradingtool.core.volumeshocker.groww.GrowwVolumeShockerDashboardService
 import com.tradingtool.resources.common.badRequest
 import com.tradingtool.resources.common.endpoint
 import com.tradingtool.resources.common.ok
@@ -25,6 +26,7 @@ class StrategyResource @Inject constructor(
     resourceScope: ResourceScope,
     private val wyckoffPhase1ScannerService: WyckoffPhase1ScannerService,
     private val wyckoffPhase1ConfigService: WyckoffPhase1ConfigService,
+    private val growwVolumeShockerDashboardService: GrowwVolumeShockerDashboardService,
 ) {
     private val ioScope = resourceScope.ioScope
 
@@ -54,5 +56,34 @@ class StrategyResource @Inject constructor(
             applyStrictBaseFilter = body.applyStrictBaseFilter
         )
         ok(wyckoffPhase1ScannerService.run(runConfig, config))
+    }
+
+    @GET
+    @Path("/volume-shocker/dates")
+    fun getVolumeShockerDates(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(growwVolumeShockerDashboardService.listAvailableDates())
+    }
+
+    @GET
+    @Path("/volume-shocker/dashboard")
+    fun getVolumeShockerDashboard(
+        @jakarta.ws.rs.QueryParam("tradeDate") tradeDate: String?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val parsedTradeDate = tradeDate?.takeIf { value -> value.isNotBlank() }?.let(LocalDate::parse)
+            ?: return@endpoint badRequest("tradeDate query parameter is required.")
+        ok(growwVolumeShockerDashboardService.getDashboard(parsedTradeDate))
+    }
+
+    @GET
+    @Path("/volume-shocker/detail")
+    fun getVolumeShockerDetail(
+        @jakarta.ws.rs.QueryParam("tradeDate") tradeDate: String?,
+        @jakarta.ws.rs.QueryParam("symbol") symbol: String?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val parsedTradeDate = tradeDate?.takeIf { value -> value.isNotBlank() }?.let(LocalDate::parse)
+            ?: return@endpoint badRequest("tradeDate query parameter is required.")
+        val requestedSymbol = symbol?.trim()?.uppercase()?.takeIf { value -> value.isNotBlank() }
+            ?: return@endpoint badRequest("symbol query parameter is required.")
+        ok(growwVolumeShockerDashboardService.getDetail(parsedTradeDate, requestedSymbol))
     }
 }

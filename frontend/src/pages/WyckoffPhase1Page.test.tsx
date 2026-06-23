@@ -59,6 +59,7 @@ describe("WyckoffPhase1Page", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    window.history.replaceState({}, "", "/console/wyckoff-phase1");
   });
 
   it("runs with selected universe keys only", async () => {
@@ -125,6 +126,36 @@ describe("WyckoffPhase1Page", () => {
     const payload = run.mock.calls[0][0];
     expect(payload.universeKeys).toEqual(["WATCHLIST"]);
     expect(payload.symbols).toBeUndefined();
+  });
+
+  it("prefers prefilled symbols over persisted universe filters", async () => {
+    localStorage.setItem(
+      "wyckoff-phase1-filters-v1",
+      JSON.stringify({
+        universeKeys: ["WATCHLIST"],
+      }),
+    );
+    window.history.replaceState({}, "", "/console/wyckoff-phase1?symbols=INFY,TCS&asOfDate=2026-06-20");
+
+    const run = vi.fn().mockResolvedValue(undefined);
+    useWyckoffPhase1ScannerMock.mockReturnValue({ data: null, loading: false, error: null, run });
+
+    render(<WyckoffPhase1Page />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Run Scan")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Run Scan/i }));
+
+    await waitFor(() => {
+      expect(run).toHaveBeenCalledTimes(1);
+    });
+
+    const payload = run.mock.calls[0][0];
+    expect(payload.universeKeys).toEqual([]);
+    expect(payload.symbols).toEqual(["INFY", "TCS"]);
+    expect(payload.asOfDate).toEqual("2026-06-20");
   });
 
   it("applies enabled columns from config", async () => {

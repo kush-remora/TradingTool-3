@@ -6,6 +6,7 @@ import com.google.inject.Singleton
 import com.google.inject.name.Named
 import com.tradingtool.config.AppConfig
 import com.tradingtool.core.database.CandleJdbiHandler
+import com.tradingtool.core.database.GrowwVolumeShockerJdbiHandler
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.database.KiteTokenJdbiHandler
@@ -36,6 +37,8 @@ import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
 import com.tradingtool.core.screener.CandleDataService
 import com.tradingtool.core.strategy.profitlookback.ProfitLookbackService
 import com.tradingtool.core.strategy.hotsma.HotSmaScannerService
+import com.tradingtool.core.volumeshocker.groww.dao.GrowwVolumeShockerReadDao
+import com.tradingtool.core.volumeshocker.groww.dao.GrowwVolumeShockerWriteDao
 import com.tradingtool.core.telegram.TelegramApiClient
 import com.tradingtool.core.telegram.TelegramNotifier
 import com.tradingtool.core.telegram.TelegramSender
@@ -187,6 +190,10 @@ class ServiceModule(
     @Provides @Singleton
     fun provideStockDeliveryJdbiHandler(config: DatabaseConfig): StockDeliveryJdbiHandler =
         handler<StockDeliveryReadDao, StockDeliveryWriteDao>(config)
+
+    @Provides @Singleton
+    fun provideGrowwVolumeShockerJdbiHandler(config: DatabaseConfig): GrowwVolumeShockerJdbiHandler =
+        handler<GrowwVolumeShockerReadDao, GrowwVolumeShockerWriteDao>(config)
 
     @Provides @Singleton
     fun provideNseDeliverySourceAdapter(jsonHttpClient: com.tradingtool.core.http.JsonHttpClient): NseDeliverySourceAdapter =

@@ -48,6 +48,21 @@ class KiteInstrumentTokenResolverTest {
     }
 
     @Test
+    fun `resolve falls back to SM symbol on NSE`() = runBlocking {
+        val cache = populatedCache(
+            instrument("NSE", "KODYTECH-SM", 11717892L),
+        )
+        val resolver = KiteInstrumentTokenResolver(
+            kiteClient = KiteConnectClient(KiteConfig(apiKey = "test", apiSecret = "test")),
+            instrumentCache = cache,
+        )
+
+        val token = resolver.resolve(exchange = "NSE", symbol = "KODYTECH")
+
+        assertEquals(11717892L, token)
+    }
+
+    @Test
     fun `resolve maps a numeric BSE scrip code through the exchange token`() = runBlocking {
         val cache = populatedCache(
             instrument(
