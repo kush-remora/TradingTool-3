@@ -34,6 +34,7 @@ class StrategyResource @Inject constructor(
     private val wyckoffPhase1ScannerService: WyckoffPhase1ScannerService,
     private val wyckoffPhase1ConfigService: WyckoffPhase1ConfigService,
     private val growwVolumeShockerDashboardService: GrowwVolumeShockerDashboardService,
+    private val phaseCWatchlistService: com.tradingtool.core.strategy.phasedbreakout.PhaseCWatchlistService,
 ) {
     private val ioScope = resourceScope.ioScope
 
@@ -131,6 +132,22 @@ class StrategyResource @Inject constructor(
         val requestedSymbol = symbol?.trim()?.uppercase()?.takeIf { value -> value.isNotBlank() }
             ?: return@endpoint badRequest("symbol query parameter is required.")
         ok(growwVolumeShockerDashboardService.getDetail(parsedTradeDate, requestedSymbol))
+    }
+
+    @POST
+    @Path("/phase-c/upload")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun uploadPhaseCWatchlist(
+        request: com.tradingtool.core.strategy.phasedbreakout.PhaseCWatchlistUploadRequest?
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        ok(phaseCWatchlistService.uploadChartinkCsv(body))
+    }
+
+    @GET
+    @Path("/phase-c/dashboard")
+    fun getPhaseCWatchlist(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(phaseCWatchlistService.getAllWatchlist())
     }
 }
 

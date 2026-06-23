@@ -1,0 +1,99 @@
+# Product & Engineering Specification: Phase 3 "Dead Silent" Execution Filter
+
+## 1. Product Overview & Objective
+**Objective:** To systematically identify stocks entering Wyckoff "Phase C" (The Spring / Dead Silence). This is the exact moment an institution (The Composite Man) has fully absorbed the floating supply of an asset, resulting in an extreme, multi-day contraction in both trading volume and price volatility.
+
+**The Problem with Legacy Logic:** Previous iterations looked for a single-day absolute minimum volume (e.g., "lowest volume in 90 days"). This failed because:
+1. It anchored to 1-day anomalies (e.g., truncated holiday sessions).
+2. It failed to identify *sustained* multi-day exhaustion regimes.
+3. High-volume block deals skewed the baseline.
+
+**The Solution:** We are implementing a **Percentile-Density Engine** paired with a **Volatility Squeeze Guardrail**. Instead of absolute minimums, the system calculates a statistical rolling floor (filtering out anomalies) and counts how many days the stock rests in that "Quiet Ceiling" zone, confirming institutional float lock-up.
+
+---
+
+## 2. Pipeline Execution Context
+* **Data Ingestion:** End-of-Day (EOD) daily candle data (Open, High, Low, Close, Total Volume).
+* **Execution Scope:** This pipeline stage does **NOT** run on the entire market. It is executed manually by the user, strictly on a pre-filtered **"Watchlist"** of stocks that have already passed Phase 1 (Delivery Shocks) and Phase 2 (Accumulation Basing).
+* **Output:** A flat, tabular dashboard displaying only the validated metrics.
+
+---
+
+## 3. Configurable Parameters (Dynamic by Market Cap)
+The system must not hardcode lookback windows. Product/Admin must be able to configure the following parameters per market cap tier (LARGE, MID, SMALL).
+
+**Configuration Schema Definition:**
+* `lookback_period_days` (Integer): The rolling window used to establish the volume baseline.
+* `percentile_floor` (Float): The statistical quantile used to drop high-volume outliers and find the true operational floor (e.g., 0.10 for 10th percentile).
+* `density_rolling_window_days` (Integer): The lookback window to evaluate the current flatline pattern (The 'Y' in X of Y days).
+* `density_qualification_days` (Integer): The minimum number of days required to be "quiet" to trigger a valid setup (The 'X' in X of Y days).
+
+**Example Default Configuration for SMALL CAPS:**
+* `lookback_period_days` = 45
+* `percentile_floor` = 0.10
+* `density_rolling_window_days` = 5
+* `density_qualification_days` = 4
+
+---
+
+## 4. Engineering Math & Logic Pipeline
+
+For each stock in the Watchlist, execute the following steps in order using vectorized operations (e.g., Pandas).
+
+### Step 1: Establish the Baseline Floor
+Sort the historical volume array and pick the threshold to bypass block-deal distortion.
+$$Basement\_Floor_t = Quantile(Total\_Volume_{t-N \to t}, \text{percentile\_floor})$$
+*(Where $N$ is `lookback_period_days`)*
+
+### Step 2: Establish the Quiet Ceiling Buffer
+Add a static 15% variance buffer to the floor to create the "Quiet Zone".
+$$Quiet\_Ceiling_t = Basement\_Floor_t \times 1.15$$
+
+### Step 3: Evaluate Volume Density (The Pattern Check)
+Determine if today is a quiet day, then check the recent cluster.
+$$Is\_Quiet\_Day = (Total\_Volume_t \le Quiet\_Ceiling_t)$$
+$$VDU\_Density = \text{Count of } (Is\_Quiet\_Day == True) \text{ over } density\_rolling\_window\_days$$
+
+### Step 4: The Volatility Squeeze Guardrail (Effort vs Result)
+Volume dry-up without price contraction is an abandoned asset (zombie stock). We must mathematically prove the daily price bar is compressing heavily.
+$$Daily\_Spread_t = \frac{High_t - Low_t}{Close_t}$$
+$$Avg\_Spread\_20d_t = Mean(Daily\_Spread_{t-20 \to t})$$
+$$Spread\_Squeeze\_Pct = \left( \frac{Daily\_Spread_t}{Avg\_Spread\_20d_t} \right) \times 100$$
+
+### Step 5: The Context Guardrail (Trend Gravity)
+The stock must not be in a Stage 4 markdown (falling knife). It must be resting near its long-term institutional average.
+$$Distance\_to\_200SMA\_Pct = \left( \frac{Close_t - 200SMA}{200SMA} \right) \times 100$$
+**Rule:** $Distance\_to\_200SMA\_Pct$ must be between $-10\%$ and $+10\%$.
+
+---
+
+## 5. Final Trigger Logic
+The boolean flag `Phase_C_Trigger` evaluates to **TRUE** if and only if:
+1. $VDU\_Density \ge density\_qualification\_days$
+2. $Spread\_Squeeze\_Pct \le 50.0$ (Price is tightly coiled)
+3. $Close_t$ is within $\pm 10\%$ of 200-Day SMA.
+
+---
+
+## 6. Dashboard UI Schema (Frontend Rendering)
+The frontend table should strip away complex math and only show the operational truth to the user. Render the following columns for the Phase 3 Execution View:
+
+| Column Header | Data Type | Formula / Origin Map | Format Example |
+| :--- | :--- | :--- | :--- |
+| **Symbol** | String | Ticker ID | `CLSEL` |
+| **Market Cap** | Enum | Sourced from static DB | `SMALL` |
+| **Today Vol** | Integer | $Total\_Volume_t$ | `25,302` |
+| **Basement Floor** | Integer | $Basement\_Floor_t$ | `31,000` |
+| **VDU Density** | String | `$VDU_Density` / `$density_rolling_window_days` | `4 / 5 Days` |
+| **Spread Squeeze** | Float (%) | $Spread\_Squeeze\_Pct$ | `40.3%` |
+| **200 SMA Guard** | Boolean | Is price within $\pm 10\%$ of 200 SMA? | `PASS` / `FAIL` |
+| **Phase C Trigger** | Boolean | Final Trigger Logic Evaluation | 🔴 **READY** |
+
+**Developer Note:** If the trigger is `TRUE`, highlight the row. The objective of this view is rapid visual confirmation of absolute seller exhaustion and extreme price compression.
+```eof
+
+This document serves as your single source of truth. It bridges your visual chart analysis directly into clean data engineering architecture. 
+
+Your engineers now have the formulas formatted properly, the configuration rules they need to build in the backend so you can tune your dials without rewriting code, and the exact columns the frontend developers need to render for your dashboard. 
+
+Is there anything else you'd like to add to this spec before you hand it off to the team?

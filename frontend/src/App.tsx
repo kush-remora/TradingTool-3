@@ -8,13 +8,15 @@ import { DeliveryBreakoutScannerPage } from "./pages/DeliveryBreakoutScannerPage
 import { HotSmaPage } from "./pages/HotSmaPage";
 import { WyckoffPhase1Page } from "./pages/WyckoffPhase1Page";
 import { TradePage } from "./pages/TradePage";
+import { PhaseDScannerPage } from "./pages/PhaseDScannerPage";
 
 type V1PageKey =
   | "trade"
   | "wyckoff-phase1"
   | "volume-shocker"
   | "delivery-breakout"
-  | "hot-sma";
+  | "hot-sma"
+  | "phase-d";
 
 type PageKey = V1PageKey;
 
@@ -23,6 +25,7 @@ const menuItems: MenuProps["items"] = [
   { key: "delivery-breakout", label: "Delivery Breakout", icon: <FundOutlined /> },
   { key: "hot-sma", label: "SMA Buy Zone", icon: <HeatMapOutlined /> },
   { key: "wyckoff-phase1", label: "Wyckoff Phase-1", icon: <BarChartOutlined /> },
+  { key: "phase-d", label: "Phase D Scanner", icon: <FundOutlined /> },
   { key: "trade", label: "Trade Journal", icon: <BookOutlined /> },
 ];
 
@@ -32,6 +35,7 @@ const validPages: PageKey[] = [
   "volume-shocker",
   "delivery-breakout",
   "hot-sma",
+  "phase-d",
 ];
 
 export default function App() {
@@ -122,6 +126,7 @@ export default function App() {
             {route === "volume-shocker" && <VolumeShockerDashboardPage />}
             {route === "delivery-breakout" && <DeliveryBreakoutScannerPage />}
             {route === "hot-sma" && <HotSmaPage />}
+            { route === "phase-d" && <PhaseDScannerPage /> }
           </Layout.Content>
         </Layout>
       </Layout>

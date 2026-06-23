@@ -10,6 +10,7 @@ object DatabaseConstants {
         const val STOCK_DELIVERY_DAILY = "stock_delivery_daily"
         const val INDEX_CONSTITUENTS = "index_constituents"
         const val GROWW_VOLUME_SHOCKER_DAILY = "groww_volume_shocker_daily"
+        const val PHASE_C_WATCHLIST = "phase_c_watchlist"
     }
 
     object KiteTokenColumns {
@@ -86,5 +87,28 @@ object DatabaseConstants {
         const val YEAR_HIGH = "year_high"
         const val VOLUME = "volume"
         const val WEEKLY_AVERAGE_VOLUME = "weekly_average_volume"
+    }
+
+    object PhaseCWatchlistColumns {
+        const val SYMBOL = "symbol"
+        const val INSTRUMENT_TOKEN = "instrument_token"
+        const val ADDED_ON = "added_on"
+        const val LAST_SEEN_ON = "last_seen_on"
+        const val STATUS = "status"
+        const val MARKETCAPNAME = "marketcapname"
+        const val CLOSE_PRICE = "close_price"
+        const val PCT_CHANGE = "pct_change"
+        const val VOLUME = "volume"
+        const val SECTOR = "sector"
+        const val INDUSTRY = "industry"
+        const val ROCE = "roce"
+        const val RONW = "ronw"
+        const val NET_PROFIT_3Q_AGO = "net_profit_3q_ago"
+        const val DEBT_EQUITY = "debt_equity"
+        const val VOL_DRY_200_MIN = "vol_dry_200_min"
+        const val VOL_DRY_60_MIN = "vol_dry_60_min"
+        const val VOL_DRY_200_MIN_1_05 = "vol_dry_200_min_1_05"
+        const val VOL_DRY_60_MIN_1_05 = "vol_dry_60_min_1_05"
+        const val ATR_COUNT = "atr_count"
     }
 }

@@ -196,6 +196,10 @@ class ServiceModule(
         handler<GrowwVolumeShockerReadDao, GrowwVolumeShockerWriteDao>(config)
 
     @Provides @Singleton
+    fun providePhaseCWatchlistJdbiHandler(config: DatabaseConfig): com.tradingtool.core.strategy.phasedbreakout.PhaseCWatchlistJdbiHandler =
+        handler<com.tradingtool.core.strategy.phasedbreakout.dao.PhaseCWatchlistReadDao, com.tradingtool.core.strategy.phasedbreakout.dao.PhaseCWatchlistWriteDao>(config)
+
+    @Provides @Singleton
     fun provideNseDeliverySourceAdapter(jsonHttpClient: com.tradingtool.core.http.JsonHttpClient): NseDeliverySourceAdapter =
         NseDeliverySourceAdapter(jsonHttpClient)
 
@@ -246,6 +250,17 @@ class ServiceModule(
         candleDataService = candleDataService,
         kiteClient = kiteClient,
     )
+
+    @Provides @Singleton
+    fun providePhaseCWatchlistService(
+        jdbiHandler: com.tradingtool.core.strategy.phasedbreakout.PhaseCWatchlistJdbiHandler,
+        instrumentTokenResolver: InstrumentTokenResolverService
+    ): com.tradingtool.core.strategy.phasedbreakout.PhaseCWatchlistService =
+        com.tradingtool.core.strategy.phasedbreakout.PhaseCWatchlistService(
+            jdbiHandler = jdbiHandler,
+            instrumentTokenResolver = instrumentTokenResolver
+        )
+
 
 
 

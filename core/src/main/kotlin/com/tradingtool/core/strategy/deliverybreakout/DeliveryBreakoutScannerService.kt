@@ -92,6 +92,7 @@ class DeliveryBreakoutScannerService @Inject constructor(
                 deliveries = deliveries,
                 candles = candles,
                 tradeDate = tradeDate,
+                config = config,
             )
             val hasQuietClue = quietClueDay != null
             val isConfirmedBreakoutToday = DeliveryBreakoutAnalyzer.isConfirmedBreakoutToday(closePctChange)
@@ -118,7 +119,7 @@ class DeliveryBreakoutScannerService @Inject constructor(
                 distance_from_sma200_pct = distanceFromSma200Pct,
                 is_near_200_sma = isNearSma200,
                 label = DeliveryBreakoutAnalyzer.resolveLabel(
-                    isConfirmedBreakoutToday = isConfirmedBreakoutToday,
+                    closePctChange = closePctChange,
                     hasQuietClue = hasQuietClue,
                 ),
             )

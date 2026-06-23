@@ -7,7 +7,8 @@ import java.time.LocalDate
 
 internal object DeliveryBreakoutAnalyzer {
     private const val SHORTLIST_LOOKBACK_DAYS = 10
-    private const val BREAKOUT_PCT_THRESHOLD = 2.0
+    private const val URGENT_ACCUMULATION_THRESHOLD = 2.0
+    private const val BREAKOUT_PCT_THRESHOLD = 6.0
     private const val BUY_ZONE_UPPER_PCT = 2.0
 
     fun buildStage1Candidate(
@@ -93,14 +94,19 @@ internal object DeliveryBreakoutAnalyzer {
         return closePctChange?.let { change -> change > BREAKOUT_PCT_THRESHOLD } ?: false
     }
 
+    fun isUrgentAccumulationToday(closePctChange: Double?): Boolean {
+        return closePctChange?.let { change -> change <= URGENT_ACCUMULATION_THRESHOLD } ?: false
+    }
+
     fun resolveQuietClueDay(
         deliveries: List<StockDeliveryDaily>,
         candles: List<DailyCandle>,
         tradeDate: LocalDate,
+        config: DeliveryBreakoutConfig,
     ): LocalDate? {
         val clueDates = deliveries
             .filter { delivery -> delivery.tradingDate.isBefore(tradeDate) }
-            .takeLast(2)
+            .takeLast(3)
             .map { delivery -> delivery.tradingDate }
             .sortedDescending()
 
@@ -109,30 +115,32 @@ internal object DeliveryBreakoutAnalyzer {
                 deliveries = deliveries,
                 candles = candles,
                 candidateDate = candidateDate,
+                config = config,
             )
         }
     }
 
     fun resolveLabel(
-        isConfirmedBreakoutToday: Boolean,
+        closePctChange: Double?,
         hasQuietClue: Boolean,
     ): String {
-        if (isConfirmedBreakoutToday && hasQuietClue) {
-            return "CONFIRMED_BREAKOUT_WITH_CLUE"
+        val isBreakout = isConfirmedBreakoutToday(closePctChange)
+        val isUrgent = isUrgentAccumulationToday(closePctChange)
+
+        if (isBreakout) {
+            return if (hasQuietClue) "BREAKOUT_WITH_CLUE" else "BREAKOUT"
         }
-        if (isConfirmedBreakoutToday) {
-            return "CONFIRMED_BREAKOUT_NO_CLUE"
+        if (isUrgent) {
+            return "URGENT_ACCUMULATION"
         }
-        if (hasQuietClue) {
-            return "QUIET_SETUP_WITH_CLUE"
-        }
-        return "DELIVERY_SHOCK_NO_CLUE"
+        return "DEVELOPING_BREAKOUT"
     }
 
     private fun isQuietClueDate(
         deliveries: List<StockDeliveryDaily>,
         candles: List<DailyCandle>,
         candidateDate: LocalDate,
+        config: DeliveryBreakoutConfig,
     ): Boolean {
         val deliveryIndex = deliveries.indexOfFirst { delivery -> delivery.tradingDate == candidateDate }
         if (deliveryIndex < SHORTLIST_LOOKBACK_DAYS) {
@@ -147,8 +155,11 @@ internal object DeliveryBreakoutAnalyzer {
         val priorMaxDelivery = priorRows.mapNotNull { row -> row.delivQty }.maxOrNull() ?: return false
         val pctChange = calculatePctChange(candles, candidateDate) ?: return false
 
-        return volume > priorMaxVolume &&
-            deliveryQuantity > priorMaxDelivery &&
-            pctChange <= BREAKOUT_PCT_THRESHOLD
+        val requiredVolume = (priorMaxVolume * config.volumeMultiplier).toLong()
+        val requiredDelivery = (priorMaxDelivery * config.deliveryMultiplier).toLong()
+
+        return volume > requiredVolume &&
+            deliveryQuantity > requiredDelivery &&
+            pctChange <= URGENT_ACCUMULATION_THRESHOLD
     }
 }

@@ -140,3 +140,29 @@ CREATE INDEX IF NOT EXISTS idx_daily_candles_symbol      ON public.daily_candles
 CREATE INDEX IF NOT EXISTS idx_intraday_candles_symbol   ON public.intraday_candles (symbol, interval, candle_timestamp);
 CREATE INDEX IF NOT EXISTS idx_stock_delivery_daily_trading_date ON public.stock_delivery_daily (trading_date DESC);
 CREATE INDEX IF NOT EXISTS idx_stock_delivery_daily_symbol_date ON public.stock_delivery_daily (symbol, trading_date DESC);
+
+-- Watchlist for Wyckoff Phase C "Dry Up" candidates from Chartink
+CREATE TABLE IF NOT EXISTS public.phase_c_watchlist (
+    symbol TEXT PRIMARY KEY,
+    instrument_token BIGINT,
+    added_on DATE NOT NULL,
+    last_seen_on DATE NOT NULL,
+    status TEXT NOT NULL DEFAULT 'chartinkFilter',
+    marketcapname TEXT,
+    close_price NUMERIC(18, 4),
+    pct_change TEXT,
+    volume BIGINT,
+    sector TEXT,
+    industry TEXT,
+    roce NUMERIC(10, 2),
+    ronw NUMERIC(10, 2),
+    net_profit_3q_ago NUMERIC(18, 2),
+    debt_equity NUMERIC(10, 2),
+    vol_dry_200_min INTEGER,
+    vol_dry_60_min INTEGER,
+    vol_dry_200_min_1_05 INTEGER,
+    vol_dry_60_min_1_05 INTEGER,
+    atr_count INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_phase_c_watchlist_status ON public.phase_c_watchlist(status);
