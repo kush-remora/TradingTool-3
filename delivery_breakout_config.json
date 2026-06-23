@@ -1,0 +1,5 @@
+{
+  "volumeMultiplier" : 5.0,
+  "deliveryMultiplier" : 5.0,
+  "minCurrentVolume" : 10000
+}
