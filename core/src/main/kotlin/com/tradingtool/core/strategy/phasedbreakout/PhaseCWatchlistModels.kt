@@ -7,7 +7,8 @@ data class PhaseCWatchlistRow(
     val instrumentToken: Long?,
     val addedOn: LocalDate,
     val lastSeenOn: LocalDate,
-    val status: String,
+    val status: String, // 'chartinkFilter', 'BREAKOUT_TRIGGERED', 'EXPIRED'
+    val stockName: String?,
     val marketcapname: String?,
     val closePrice: Double?,
     val pctChange: String?,

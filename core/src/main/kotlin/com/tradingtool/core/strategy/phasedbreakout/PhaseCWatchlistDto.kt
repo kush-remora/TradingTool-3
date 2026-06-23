@@ -2,6 +2,7 @@ package com.tradingtool.core.strategy.phasedbreakout
 
 data class PhaseCWatchlistDto(
     val symbol: String,
+    val stockName: String?,
     val marketcapname: String?,
     val closePrice: Double?,
     val pctChange: String?,

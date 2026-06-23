@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS phase_c_watchlist (
     added_on DATE NOT NULL,
     last_seen_on DATE NOT NULL,
     status TEXT NOT NULL DEFAULT 'chartinkFilter', -- 'chartinkFilter', 'BREAKOUT_TRIGGERED', 'EXPIRED'
+    stock_name TEXT,
     marketcapname TEXT,
     close_price REAL,
     pct_change TEXT,

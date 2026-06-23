@@ -16,6 +16,7 @@ interface PhaseCWatchlistWriteDao {
             ${Cols.ADDED_ON},
             ${Cols.LAST_SEEN_ON},
             ${Cols.STATUS},
+            ${Cols.STOCK_NAME},
             ${Cols.MARKETCAPNAME},
             ${Cols.CLOSE_PRICE},
             ${Cols.PCT_CHANGE},
@@ -37,6 +38,7 @@ interface PhaseCWatchlistWriteDao {
             :addedOn,
             :lastSeenOn,
             :status,
+            :stockName,
             :marketcapname,
             :closePrice,
             :pctChange,
@@ -54,8 +56,10 @@ interface PhaseCWatchlistWriteDao {
             :atrCount
         )
         ON CONFLICT(${Cols.SYMBOL}) DO UPDATE SET
+            ${Cols.INSTRUMENT_TOKEN} = EXCLUDED.${Cols.INSTRUMENT_TOKEN},
             ${Cols.LAST_SEEN_ON} = EXCLUDED.${Cols.LAST_SEEN_ON},
             ${Cols.STATUS} = 'chartinkFilter',
+            ${Cols.STOCK_NAME} = EXCLUDED.${Cols.STOCK_NAME},
             ${Cols.MARKETCAPNAME} = EXCLUDED.${Cols.MARKETCAPNAME},
             ${Cols.CLOSE_PRICE} = EXCLUDED.${Cols.CLOSE_PRICE},
             ${Cols.PCT_CHANGE} = EXCLUDED.${Cols.PCT_CHANGE},

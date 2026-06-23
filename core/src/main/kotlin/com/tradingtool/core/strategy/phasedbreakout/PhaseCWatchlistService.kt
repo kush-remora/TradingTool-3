@@ -21,6 +21,7 @@ class PhaseCWatchlistService(
                 addedOn = today,
                 lastSeenOn = today,
                 status = "chartinkFilter",
+                stockName = dto.stockName,
                 marketcapname = dto.marketcapname,
                 closePrice = dto.closePrice,
                 pctChange = dto.pctChange,

@@ -3,6 +3,7 @@ import { Upload, FileText, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface PhaseCWatchlistDto {
   symbol: string;
+  stockName: string | null;
   marketcapname: string | null;
   closePrice: number | null;
   pctChange: string | null;
@@ -138,6 +139,7 @@ export function PhaseDScannerPage() {
 
         rows.push({
             symbol: symbol,
+            stockName: getCol(['stock name'])?.trim() || null,
             marketcapname: getCol(['marketcap', 'market cap'])?.trim() || null,
             closePrice: parseNumber(getCol(['close'])),
             pctChange: getCol(['change', '% change'])?.trim() || null,
@@ -220,6 +222,7 @@ export function PhaseDScannerPage() {
                 <thead className="bg-[var(--color-surface-hover)] text-[var(--color-text-tertiary)] text-xs uppercase font-medium">
                     <tr>
                         <th className="px-4 py-3">Symbol</th>
+                        <th className="px-4 py-3">Stock Name</th>
                         <th className="px-4 py-3">Status</th>
                         <th className="px-4 py-3">Added On</th>
                         <th className="px-4 py-3">Last Seen</th>
@@ -236,14 +239,14 @@ export function PhaseDScannerPage() {
                 <tbody className="divide-y divide-[var(--color-border-subtle)]">
                     {loading ? (
                         <tr>
-                            <td colSpan={12} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
+                            <td colSpan={13} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
                                 <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
                                 Loading Watchlist...
                             </td>
                         </tr>
                     ) : watchlist.length === 0 ? (
                         <tr>
-                            <td colSpan={12} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
+                            <td colSpan={13} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
                                 No candidates in Phase C Watchlist. Upload a CSV to begin.
                             </td>
                         </tr>
@@ -251,6 +254,7 @@ export function PhaseDScannerPage() {
                         watchlist.map(row => (
                             <tr key={row.symbol} className="hover:bg-[var(--color-surface-hover)] transition-colors">
                                 <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">{row.symbol}</td>
+                                <td className="px-4 py-3 text-[var(--color-text-secondary)] truncate max-w-[200px]" title={row.stockName || ''}>{row.stockName || '-'}</td>
                                 <td className="px-4 py-3">
                                     <span className="px-2 py-1 bg-blue-500/10 text-blue-500 text-[10px] uppercase font-bold rounded">
                                         {row.status}

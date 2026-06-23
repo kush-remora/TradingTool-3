@@ -148,6 +148,7 @@ CREATE TABLE IF NOT EXISTS public.phase_c_watchlist (
     added_on DATE NOT NULL,
     last_seen_on DATE NOT NULL,
     status TEXT NOT NULL DEFAULT 'chartinkFilter',
+    stock_name TEXT,
     marketcapname TEXT,
     close_price NUMERIC(18, 4),
     pct_change TEXT,

@@ -95,6 +95,7 @@ object DatabaseConstants {
         const val ADDED_ON = "added_on"
         const val LAST_SEEN_ON = "last_seen_on"
         const val STATUS = "status"
+        const val STOCK_NAME = "stock_name"
         const val MARKETCAPNAME = "marketcapname"
         const val CLOSE_PRICE = "close_price"
         const val PCT_CHANGE = "pct_change"

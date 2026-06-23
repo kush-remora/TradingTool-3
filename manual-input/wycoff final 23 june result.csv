@@ -1,0 +1,10 @@
+﻿Sr.,Stock Name,Symbol,marketcapname,close,%_change,volume,sector,industry,volume dry on 200 days min,volume dry on 60 days min,volume dry on 200 days min * 1.05,volume dry on 60days min * 1.05,Yearly Return on capital employed percentage,Yearly Return on net worth percentage,3 quarter ago Net profit/reported profit after tax,Yearly Debt equity ratio,count daily atr < 2 %,Add Column
+"1","V-guard Industries Limited","VGUARD","midcap","311.55","0.31%","1,12,191","industrials","electric equipment","0","2","0","2","19.56","16.04","112.14","0.14","8",""
+"2","Sanofi Consumer Healthcare India Ltd","SANOFICONR","midcap","4,726.5","0.14%","4,690","healthcare","pharmaceuticals - multinational","0","2","0","2","88.22","73.09","67.8","0.07","8",""
+"3","Castrol India Limited","CASTROLIND","midcap","185.83","-0.25%","11,80,512","chemicals","chemicals","0","2","0","2","58.8","45.47","242.18","0.03","19",""
+"4","Itc Limited","ITC","largecap","290","-0.43%","94,11,849","fmcg","cigarettes","0","3","0","2","36.6","48.34","5469.74","0","13",""
+"5","Alldigi Tech Ltd","ALLDIGI","smallcap","804.05","-0.44%","6,240","i.t","computers - software - medium / small","0","2","0","2","30.5","27.34","28.88","0.21","9",""
+"6","Indian Energy Exchange Ltd","IEX","midcap","124.8","-0.7%","52,70,803","financials","miscellaneous","0","1","0","0","52.63","40.71","129.77","0.01","8",""
+"7","Waaree Energies Ltd","WAAREEENER","largecap","3,033.8","-0.9%","7,46,458","industrials","electric equipment","0","3","0","3","30.54","28.42","1126.26","0.13","7",""
+"8","Bharat Electronics Limited","BEL","largecap","420","-2.67%","1,55,66,093","aerospace & defence","electronics - components","0","2","0","2","36.91","29.13","2214.19","0","14",""
+"9","Tata Consultancy Services Limited","TCS","largecap","2,059.6","-3.21%","63,92,736","i.t","computers - software - large","0","1","0","0","58.92","49.11","13784","0.1","10",""
