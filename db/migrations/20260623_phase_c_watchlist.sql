@@ -19,5 +19,12 @@ CREATE TABLE IF NOT EXISTS phase_c_watchlist (
     vol_dry_60_min INTEGER,
     vol_dry_200_min_1_05 INTEGER,
     vol_dry_60_min_1_05 INTEGER,
+    promoter_holding REAL,
+    foreign_promoter_holding REAL,
+    gross_sales REAL,
+    high_252d REAL,
+    min_20d_high REAL,
+    dist_200d_high REAL,
+    brackets2 REAL,
     atr_count INTEGER
 );

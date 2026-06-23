@@ -17,6 +17,13 @@ data class PhaseCWatchlistDto(
     val volDry60Min: Int?,
     val volDry200Min105: Int?,
     val volDry60Min105: Int?,
+    val promoterHolding: Double?,
+    val foreignPromoterHolding: Double?,
+    val grossSales: Double?,
+    val high252d: Double?,
+    val min20dHigh: Double?,
+    val dist200dHigh: Double?,
+    val brackets2: Double?,
     val atrCount: Int?
 )
 

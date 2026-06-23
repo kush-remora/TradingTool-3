@@ -163,6 +163,13 @@ CREATE TABLE IF NOT EXISTS public.phase_c_watchlist (
     vol_dry_60_min INTEGER,
     vol_dry_200_min_1_05 INTEGER,
     vol_dry_60_min_1_05 INTEGER,
+    promoter_holding NUMERIC(10, 2),
+    foreign_promoter_holding NUMERIC(10, 2),
+    gross_sales NUMERIC(18, 2),
+    high_252d NUMERIC(18, 2),
+    min_20d_high NUMERIC(18, 2),
+    dist_200d_high NUMERIC(10, 2),
+    brackets2 NUMERIC(10, 2),
     atr_count INTEGER
 );
 

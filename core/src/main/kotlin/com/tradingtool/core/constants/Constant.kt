@@ -110,6 +110,13 @@ object DatabaseConstants {
         const val VOL_DRY_60_MIN = "vol_dry_60_min"
         const val VOL_DRY_200_MIN_1_05 = "vol_dry_200_min_1_05"
         const val VOL_DRY_60_MIN_1_05 = "vol_dry_60_min_1_05"
+        const val PROMOTER_HOLDING = "promoter_holding"
+        const val FOREIGN_PROMOTER_HOLDING = "foreign_promoter_holding"
+        const val GROSS_SALES = "gross_sales"
+        const val HIGH_252D = "high_252d"
+        const val MIN_20D_HIGH = "min_20d_high"
+        const val DIST_200D_HIGH = "dist_200d_high"
+        const val BRACKETS2 = "brackets2"
         const val ATR_COUNT = "atr_count"
     }
 }

@@ -18,6 +18,13 @@ interface PhaseCWatchlistDto {
   volDry60Min: number | null;
   volDry200Min105: number | null;
   volDry60Min105: number | null;
+  promoterHolding: number | null;
+  foreignPromoterHolding: number | null;
+  grossSales: number | null;
+  high252d: number | null;
+  min20dHigh: number | null;
+  dist200dHigh: number | null;
+  brackets2: number | null;
   atrCount: number | null;
 }
 
@@ -154,6 +161,13 @@ export function PhaseDScannerPage() {
             volDry60Min: parseNumber(getCol(['volume dry on 60 days min'])),
             volDry200Min105: parseNumber(getCol(['volume dry on 200 days min * 1.05'])),
             volDry60Min105: parseNumber(getCol(['volume dry on 60days min * 1.05'])),
+            promoterHolding: parseNumber(getCol(['indian promoter'])),
+            foreignPromoterHolding: parseNumber(getCol(['foreign promoter'])),
+            grossSales: parseNumber(getCol(['gross sales'])),
+            high252d: parseNumber(getCol(['max( 252'])),
+            min20dHigh: parseNumber(getCol(['min( 20'])),
+            dist200dHigh: parseNumber(getCol(['daily close -', 'max( 200'])),
+            brackets2: parseNumber(getCol(['brackets2'])),
             atrCount: parseNumber(getCol(['atr'])),
         });
     }
@@ -233,20 +247,23 @@ export function PhaseDScannerPage() {
                         <th className="px-4 py-3 text-right">Vol Dry (60d)</th>
                         <th className="px-4 py-3 text-right">Vol Dry (200d * 1.05)</th>
                         <th className="px-4 py-3 text-right">Vol Dry (60d * 1.05)</th>
+                        <th className="px-4 py-3 text-right">Promoter%</th>
+                        <th className="px-4 py-3 text-right">FII%</th>
+                        <th className="px-4 py-3 text-right">Dist 52wH%</th>
                         <th className="px-4 py-3 text-right">ATR&lt;2%</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border-subtle)]">
                     {loading ? (
                         <tr>
-                            <td colSpan={13} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
+                            <td colSpan={17} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
                                 <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
                                 Loading Watchlist...
                             </td>
                         </tr>
                     ) : watchlist.length === 0 ? (
                         <tr>
-                            <td colSpan={13} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
+                            <td colSpan={17} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
                                 No candidates in Phase C Watchlist. Upload a CSV to begin.
                             </td>
                         </tr>
@@ -269,6 +286,9 @@ export function PhaseDScannerPage() {
                                 <td className="px-4 py-3 text-right text-[var(--color-text-secondary)] font-mono">{row.volDry60Min !== null ? row.volDry60Min : '-'}</td>
                                 <td className="px-4 py-3 text-right text-[var(--color-text-secondary)] font-mono">{row.volDry200Min105 !== null ? row.volDry200Min105 : '-'}</td>
                                 <td className="px-4 py-3 text-right text-[var(--color-text-secondary)] font-mono">{row.volDry60Min105 !== null ? row.volDry60Min105 : '-'}</td>
+                                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)] font-mono">{row.promoterHolding !== null ? row.promoterHolding : '-'}</td>
+                                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)] font-mono">{row.foreignPromoterHolding !== null ? row.foreignPromoterHolding : '-'}</td>
+                                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)] font-mono">{row.dist200dHigh !== null ? row.dist200dHigh : '-'}</td>
                                 <td className="px-4 py-3 text-right text-[var(--color-text-secondary)] font-mono">{row.atrCount !== null ? row.atrCount : '-'}</td>
                             </tr>
                         ))

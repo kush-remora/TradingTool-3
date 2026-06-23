@@ -36,6 +36,13 @@ class PhaseCWatchlistService(
                 volDry60Min = dto.volDry60Min,
                 volDry200Min105 = dto.volDry200Min105,
                 volDry60Min105 = dto.volDry60Min105,
+                promoterHolding = dto.promoterHolding,
+                foreignPromoterHolding = dto.foreignPromoterHolding,
+                grossSales = dto.grossSales,
+                high252d = dto.high252d,
+                min20dHigh = dto.min20dHigh,
+                dist200dHigh = dto.dist200dHigh,
+                brackets2 = dto.brackets2,
                 atrCount = dto.atrCount
             )
         }

@@ -31,6 +31,13 @@ interface PhaseCWatchlistWriteDao {
             ${Cols.VOL_DRY_60_MIN},
             ${Cols.VOL_DRY_200_MIN_1_05},
             ${Cols.VOL_DRY_60_MIN_1_05},
+            ${Cols.PROMOTER_HOLDING},
+            ${Cols.FOREIGN_PROMOTER_HOLDING},
+            ${Cols.GROSS_SALES},
+            ${Cols.HIGH_252D},
+            ${Cols.MIN_20D_HIGH},
+            ${Cols.DIST_200D_HIGH},
+            ${Cols.BRACKETS2},
             ${Cols.ATR_COUNT}
         ) VALUES (
             :symbol,
@@ -53,6 +60,13 @@ interface PhaseCWatchlistWriteDao {
             :volDry60Min,
             :volDry200Min105,
             :volDry60Min105,
+            :promoterHolding,
+            :foreignPromoterHolding,
+            :grossSales,
+            :high252d,
+            :min20dHigh,
+            :dist200dHigh,
+            :brackets2,
             :atrCount
         )
         ON CONFLICT(${Cols.SYMBOL}) DO UPDATE SET
@@ -74,6 +88,13 @@ interface PhaseCWatchlistWriteDao {
             ${Cols.VOL_DRY_60_MIN} = EXCLUDED.${Cols.VOL_DRY_60_MIN},
             ${Cols.VOL_DRY_200_MIN_1_05} = EXCLUDED.${Cols.VOL_DRY_200_MIN_1_05},
             ${Cols.VOL_DRY_60_MIN_1_05} = EXCLUDED.${Cols.VOL_DRY_60_MIN_1_05},
+            ${Cols.PROMOTER_HOLDING} = EXCLUDED.${Cols.PROMOTER_HOLDING},
+            ${Cols.FOREIGN_PROMOTER_HOLDING} = EXCLUDED.${Cols.FOREIGN_PROMOTER_HOLDING},
+            ${Cols.GROSS_SALES} = EXCLUDED.${Cols.GROSS_SALES},
+            ${Cols.HIGH_252D} = EXCLUDED.${Cols.HIGH_252D},
+            ${Cols.MIN_20D_HIGH} = EXCLUDED.${Cols.MIN_20D_HIGH},
+            ${Cols.DIST_200D_HIGH} = EXCLUDED.${Cols.DIST_200D_HIGH},
+            ${Cols.BRACKETS2} = EXCLUDED.${Cols.BRACKETS2},
             ${Cols.ATR_COUNT} = EXCLUDED.${Cols.ATR_COUNT}
         """
     )
