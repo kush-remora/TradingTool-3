@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS phase_c_watchlist (
     industry TEXT,
     roce_pct REAL,
     ronw_pct REAL,
-    net_profit_3q_ago REAL,
+    net_profit_after_tax REAL,
     debt_equity_ratio REAL,
     vol_dry_200d_min_count INTEGER,
     vol_dry_60d_min_count INTEGER,

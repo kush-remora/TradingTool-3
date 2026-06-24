@@ -21,7 +21,7 @@ interface PhaseCWatchlistDto {
   industry: string | null;
   rocePct: number | null;
   ronwPct: number | null;
-  netProfit3qAgo: number | null;
+  netProfitAfterTax: number | null;
   debtEquityRatio: number | null;
   volDry200dMinCount: number | null;
   volDry60dMinCount: number | null;
@@ -69,7 +69,7 @@ const HEADER_ALIASES: Record<keyof PhaseCWatchlistDto, string[]> = {
   industry: ["industry"],
   rocePct: ["roce", "return on capital employed", "roce_pct"],
   ronwPct: ["ronw", "return on net worth", "ronw_pct"],
-  netProfit3qAgo: ["3 quarter ago", "net profit", "net_profit_3q_ago"],
+  netProfitAfterTax: ["3 quarter ago", "net profit", "net_profit_3q_ago", "net_profit_after_tax"],
   debtEquityRatio: ["yearly debt equity ratio", "debt", "debt_equity_ratio"],
   volDry200dMinCount: ["volume dry on 200 days min", "vol_dry_200d_min_count"],
   volDry60dMinCount: ["volume dry on 60 days min", "vol_dry_60d_min_count"],
@@ -213,7 +213,7 @@ export function parseCsvOrTsv(text: string): PhaseCWatchlistDto[] {
       industry: getColumnValue(columns, "industry")?.trim() || null,
       rocePct: parseNumber(getColumnValue(columns, "rocePct")),
       ronwPct: parseNumber(getColumnValue(columns, "ronwPct")),
-      netProfit3qAgo: parseNumber(getColumnValue(columns, "netProfit3qAgo")),
+      netProfitAfterTax: parseNumber(getColumnValue(columns, "netProfitAfterTax")),
       debtEquityRatio: parseNumber(getColumnValue(columns, "debtEquityRatio")),
       volDry200dMinCount: parseNumber(getColumnValue(columns, "volDry200dMinCount")),
       volDry60dMinCount: parseNumber(getColumnValue(columns, "volDry60dMinCount")),

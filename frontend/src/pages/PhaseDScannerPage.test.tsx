@@ -25,7 +25,7 @@ describe("PhaseDScannerPage", () => {
           industry: "Software",
           rocePct: 31.2,
           ronwPct: 28.1,
-          netProfit3qAgo: 1000,
+          netProfitAfterTax: 1000,
           debtEquityRatio: 0,
           volDry200dMinCount: 2,
           volDry60dMinCount: 3,
@@ -74,7 +74,7 @@ describe("PhaseDScannerPage", () => {
           industry: "Software",
           rocePct: 31.2,
           ronwPct: 28.1,
-          netProfit3qAgo: 1000,
+          netProfitAfterTax: 1000,
           debtEquityRatio: 0,
           volDry200dMinCount: 2,
           volDry60dMinCount: 3,
@@ -104,7 +104,7 @@ describe("PhaseDScannerPage", () => {
           industry: "Wireless",
           rocePct: null,
           ronwPct: null,
-          netProfit3qAgo: null,
+          netProfitAfterTax: null,
           debtEquityRatio: null,
           volDry200dMinCount: 1,
           volDry60dMinCount: 2,
@@ -141,7 +141,7 @@ describe("PhaseDScannerPage", () => {
 
   it("parses the cleaned CSV headers without losing columns", () => {
     const csv = [
-      "Sr.,Stock Name,Symbol,market_cap_bucket,close_price,pct_change,volume,sector,industry,vol_dry_200d_min_count,vol_dry_60d_min_count,vol_dry_200d_min_105_count,vol_dry_60d_min_105_count,roce_pct,ronw_pct,net_profit_3q_ago,debt_equity_ratio,atr_lt_2pct_count,indian_promoter_pct,foreign_promoter_pct,quarterly_gross_sales,high_52w,low_52w,dist_200d_high_pct,dist_200d_low_pct,Add Column",
+      "Sr.,Stock Name,Symbol,market_cap_bucket,close_price,pct_change,volume,sector,industry,vol_dry_200d_min_count,vol_dry_60d_min_count,vol_dry_200d_min_105_count,vol_dry_60d_min_105_count,roce_pct,ronw_pct,net_profit_after_tax,debt_equity_ratio,atr_lt_2pct_count,indian_promoter_pct,foreign_promoter_pct,quarterly_gross_sales,high_52w,low_52w,dist_200d_high_pct,dist_200d_low_pct,Add Column",
       '"1","Sanofi India Limited","SANOFI","midcap","3,410.2","2%","34,239","healthcare","pharmaceuticals - multinational","0","2","0","2","54.17","40.59","102.6","0.02","9","0","60.4","472.3","6410","3174.6","-34.11","11.66",""',
     ].join("\n");
 
@@ -163,7 +163,7 @@ describe("PhaseDScannerPage", () => {
       volDry60dMin105Count: 2,
       rocePct: 54.17,
       ronwPct: 40.59,
-      netProfit3qAgo: 102.6,
+      netProfitAfterTax: 102.6,
       debtEquityRatio: 0.02,
       atrLt2pctCount: 9,
       indianPromoterPct: 0,

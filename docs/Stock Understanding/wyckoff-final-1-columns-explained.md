@@ -23,7 +23,7 @@ A few original headers in the CSV are messy because the export contains formula-
 | `volume dry on 60days min * 1.05` | `vol_dry_60d_min_105_count` |
 | `Yearly Return on capital employed percentage` | `roce_pct` |
 | `Yearly Return on net worth percentage` | `ronw_pct` |
-| `3 quarter ago Net profit/reported profit after tax` | `net_profit_3q_ago` |
+| `3 quarter ago Net profit/reported profit after tax` | `net_profit_after_tax` |
 | `Yearly Debt equity ratio` | `debt_equity_ratio` |
 | `count daily atr < 2 %` | `atr_lt_2pct_count` |
 | `Quarterly Indian promoter and group percentage` | `indian_promoter_pct` |
@@ -202,14 +202,14 @@ Another business quality check, especially useful when comparing management effi
 
 ---
 
-### 16) `net_profit_3q_ago`
+### 16) `net_profit_after_tax`
 Original: `3 quarter ago Net profit/reported profit after tax`
 
 **What does it mean?**  
-Net profit or PAT from three quarters ago.
+Quarterly net profit, also described as reported profit after tax.
 
 **Why is it useful?**  
-Provides a rough historical profitability anchor.
+Adds current profitability context when reviewing candidate quality.
 
 ---
 

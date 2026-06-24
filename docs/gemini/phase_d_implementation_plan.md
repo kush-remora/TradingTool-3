@@ -21,17 +21,17 @@ CREATE TABLE IF NOT EXISTS phase_c_watchlist (
     status TEXT NOT NULL DEFAULT 'chartinkFilter', -- 'chartinkFilter', 'BREAKOUT_TRIGGERED', 'EXPIRED'
     
     -- Chartink Export Columns
-    marketcapname TEXT,
+    market_cap_bucket TEXT,
     close_price REAL,
     pct_change TEXT,
     volume INTEGER,
     sector TEXT,
     industry TEXT,
-    roce REAL,                         -- Yearly Return on capital employed %
-    ronw REAL,                         -- Yearly Return on net worth %
-    net_profit_3q_ago REAL,            -- 3 quarter ago Net profit
-    debt_equity REAL,                  -- Yearly Debt equity ratio
-    atr_count INTEGER                  -- count daily atr < 2 %
+    roce_pct REAL,                     -- Yearly Return on capital employed %
+    ronw_pct REAL,                     -- Yearly Return on net worth %
+    net_profit_after_tax REAL,         -- Quarterly reported profit after tax
+    debt_equity_ratio REAL,            -- Yearly Debt equity ratio
+    atr_lt_2pct_count INTEGER          -- count daily atr < 2 %
 );
 ```
 

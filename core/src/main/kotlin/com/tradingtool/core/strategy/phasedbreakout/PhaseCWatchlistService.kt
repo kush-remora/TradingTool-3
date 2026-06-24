@@ -30,7 +30,7 @@ class PhaseCWatchlistService(
                 industry = dto.industry,
                 rocePct = dto.rocePct,
                 ronwPct = dto.ronwPct,
-                netProfit3qAgo = dto.netProfit3qAgo,
+                netProfitAfterTax = dto.netProfitAfterTax,
                 debtEquityRatio = dto.debtEquityRatio,
                 volDry200dMinCount = dto.volDry200dMinCount,
                 volDry60dMinCount = dto.volDry60dMinCount,

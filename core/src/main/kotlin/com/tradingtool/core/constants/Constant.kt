@@ -104,7 +104,7 @@ object DatabaseConstants {
         const val INDUSTRY = "industry"
         const val ROCE_PCT = "roce_pct"
         const val RONW_PCT = "ronw_pct"
-        const val NET_PROFIT_3Q_AGO = "net_profit_3q_ago"
+        const val NET_PROFIT_AFTER_TAX = "net_profit_after_tax"
         const val DEBT_EQUITY_RATIO = "debt_equity_ratio"
         const val VOL_DRY_200D_MIN_COUNT = "vol_dry_200d_min_count"
         const val VOL_DRY_60D_MIN_COUNT = "vol_dry_60d_min_count"

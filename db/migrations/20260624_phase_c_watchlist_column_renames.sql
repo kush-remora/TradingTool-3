@@ -35,6 +35,16 @@ BEGIN
         FROM information_schema.columns
         WHERE table_schema = 'public'
           AND table_name = 'phase_c_watchlist'
+          AND column_name = 'net_profit_3q_ago'
+    ) THEN
+        ALTER TABLE public.phase_c_watchlist RENAME COLUMN net_profit_3q_ago TO net_profit_after_tax;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'phase_c_watchlist'
           AND column_name = 'debt_equity'
     ) THEN
         ALTER TABLE public.phase_c_watchlist RENAME COLUMN debt_equity TO debt_equity_ratio;

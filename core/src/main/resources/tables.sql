@@ -157,7 +157,7 @@ CREATE TABLE IF NOT EXISTS public.phase_c_watchlist (
     industry TEXT,
     roce_pct NUMERIC(10, 2),
     ronw_pct NUMERIC(10, 2),
-    net_profit_3q_ago NUMERIC(18, 2),
+    net_profit_after_tax NUMERIC(18, 2),
     debt_equity_ratio NUMERIC(10, 2),
     vol_dry_200d_min_count INTEGER,
     vol_dry_60d_min_count INTEGER,

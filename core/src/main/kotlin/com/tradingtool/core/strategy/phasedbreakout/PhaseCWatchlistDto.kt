@@ -11,7 +11,7 @@ data class PhaseCWatchlistDto(
     val industry: String?,
     val rocePct: Double?,
     val ronwPct: Double?,
-    val netProfit3qAgo: Double?,
+    val netProfitAfterTax: Double?,
     val debtEquityRatio: Double?,
     val volDry200dMinCount: Int?,
     val volDry60dMinCount: Int?,
