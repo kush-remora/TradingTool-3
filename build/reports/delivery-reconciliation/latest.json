@@ -1,38 +1,38 @@
 {
   "requestedDate" : null,
-  "resolvedDate" : "2026-06-23",
-  "expectedSymbolCount" : 2731,
-  "presentCount" : 2731,
+  "resolvedDate" : "2026-06-24",
+  "expectedSymbolCount" : 2871,
+  "presentCount" : 2871,
   "missingFromSourceCount" : 0,
   "fetchedFromSource" : false,
   "alreadyComplete" : true,
   "blockingIssues" : [ ],
   "warningIssues" : [ ],
   "presentSamples" : [ {
+    "instrumentToken" : 257,
+    "symbol" : "GOLDSTAR",
+    "reconciliationStatus" : "PRESENT",
+    "delivPer" : 100.0
+  }, {
     "instrumentToken" : 1025,
     "symbol" : "21STCENMGM",
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 64.23
+    "delivPer" : 91.3
   }, {
     "instrumentToken" : 1793,
     "symbol" : "AARTIIND",
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 45.36
+    "delivPer" : 50.35
   }, {
     "instrumentToken" : 3329,
     "symbol" : "ABB",
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 42.39
+    "delivPer" : 39.42
   }, {
     "instrumentToken" : 4353,
     "symbol" : "GATECHDVR",
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 83.85
-  }, {
-    "instrumentToken" : 4865,
-    "symbol" : "STYRENIX",
-    "reconciliationStatus" : "PRESENT",
-    "delivPer" : 53.2
+    "delivPer" : 22.81
   } ],
   "missingFromSourceSamples" : [ ]
 }

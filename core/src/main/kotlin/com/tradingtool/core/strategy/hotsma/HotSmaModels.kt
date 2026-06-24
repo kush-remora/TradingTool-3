@@ -4,11 +4,11 @@ import java.time.Instant
 import java.time.LocalDate
 
 data class HotSmaRunRequest(
-    val indexKey: String,
+    val indexKeys: List<String>,
 )
 
 data class HotSmaRunConfig(
-    val indexKey: String,
+    val indexKeys: List<String>,
 )
 
 data class HotSmaTelegramRequest(
@@ -89,7 +89,7 @@ data class HotSmaConfigSnapshot(
 
 data class HotSmaRunResponse(
     val runAt: String = Instant.now().toString(),
-    val selectedIndexKey: String,
+    val selectedIndexKeys: List<String>,
     val config: HotSmaConfigSnapshot,
     val summary: HotSmaSummary,
     val rows: List<HotSmaRow>,

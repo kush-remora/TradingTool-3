@@ -13,6 +13,7 @@ const STORAGE_KEY = "hot-sma-filters-v1";
 const DEFAULT_PAGE_SIZE = 110;
 
 type PersistedFilters = {
+  indexKeys?: string[];
   indexKey?: string;
 };
 
@@ -96,7 +97,15 @@ function loadPersistedFilters(): PersistedFilters {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
-    return JSON.parse(raw) as PersistedFilters;
+    const parsed = JSON.parse(raw) as PersistedFilters;
+    const storedIndexKeys = Array.isArray(parsed.indexKeys)
+      ? parsed.indexKeys
+      : (typeof parsed.indexKey === "string" && parsed.indexKey.trim().length > 0 ? [parsed.indexKey] : []);
+    return {
+      indexKeys: storedIndexKeys.filter(
+        (value): value is string => typeof value === "string" && value.trim().length > 0,
+      ),
+    };
   } catch {
     return {};
   }
@@ -111,7 +120,7 @@ export function HotSmaPage() {
   const [universeOptions, setUniverseOptions] = useState<HotSmaUniverseOption[]>([]);
   const [loadingUniverses, setLoadingUniverses] = useState<boolean>(true);
   const [universeError, setUniverseError] = useState<string | null>(null);
-  const [selectedUniverse, setSelectedUniverse] = useState<string>("");
+  const [selectedUniverseKeys, setSelectedUniverseKeys] = useState<string[]>([]);
   const [filteredInfo, setFilteredInfo] = useState<Record<string, FilterValue | null>>({});
   const [filteredRows, setFilteredRows] = useState<HotSmaRow[]>([]);
 
@@ -126,11 +135,12 @@ export function HotSmaPage() {
         if (!mounted) return;
 
         setUniverseOptions(result);
-        const persisted = loadPersistedFilters().indexKey;
-        const fallbackUniverse = persisted && result.some((option) => option.value === persisted)
-          ? persisted
-          : result[0]?.value ?? "";
-        setSelectedUniverse(fallbackUniverse);
+        const validUniverseKeys = new Set(result.map((option) => option.value));
+        const persistedKeys = loadPersistedFilters().indexKeys?.filter((value) => validUniverseKeys.has(value)) ?? [];
+        const fallbackUniverseKeys = persistedKeys.length > 0
+          ? persistedKeys
+          : (result[0]?.value ? [result[0].value] : []);
+        setSelectedUniverseKeys(fallbackUniverseKeys);
       } catch (err) {
         if (!mounted) return;
         setUniverseError(err instanceof Error ? err.message : "Failed to load universes");
@@ -154,16 +164,14 @@ export function HotSmaPage() {
   }, [data?.rows]);
 
   useEffect(() => {
-    if (selectedUniverse) {
-      persistFilters({ indexKey: selectedUniverse });
-    }
-  }, [selectedUniverse]);
+    persistFilters({ indexKeys: selectedUniverseKeys });
+  }, [selectedUniverseKeys]);
 
   const handleRun = async (): Promise<void> => {
-    if (!selectedUniverse) {
+    if (selectedUniverseKeys.length === 0) {
       return;
     }
-    await run({ indexKey: selectedUniverse });
+    await run({ indexKeys: selectedUniverseKeys });
   };
 
   const handleTableChange: TableProps<HotSmaRow>["onChange"] = (
@@ -228,24 +236,25 @@ export function HotSmaPage() {
           <Space orientation="vertical" size={12} style={{ width: "100%" }}>
             <Typography.Title level={3} style={{ margin: 0 }}>SMA Buy Zone Screener</Typography.Title>
             <Typography.Text type="secondary">
-              Run one universe and sort the full table by proximity to SMA200.
+              Run one or more universes and sort the full table by proximity to SMA200.
             </Typography.Text>
             {universeError ? <Alert type="error" message={universeError} /> : null}
             {error ? <Alert type="error" message={error} /> : null}
             <Space wrap>
               <Select
+                mode="multiple"
                 showSearch
-                placeholder="Select universe"
-                style={{ minWidth: 280 }}
+                placeholder="Select one or more universes"
+                style={{ minWidth: 360 }}
                 loading={loadingUniverses}
-                value={selectedUniverse || undefined}
-                onChange={setSelectedUniverse}
+                value={selectedUniverseKeys}
+                onChange={setSelectedUniverseKeys}
                 options={universeOptions.map((option) => ({
                   label: `${option.value} (${option.count})`,
                   value: option.value,
                 }))}
               />
-              <Button type="primary" onClick={() => void handleRun()} loading={loading} disabled={!selectedUniverse}>
+              <Button type="primary" onClick={() => void handleRun()} loading={loading} disabled={selectedUniverseKeys.length === 0}>
                 Run Scanner
               </Button>
             </Space>
@@ -270,7 +279,7 @@ export function HotSmaPage() {
               scroll={{ x: 1800 }}
             />
           ) : (
-            <Empty description="Run the scanner to load stocks for a universe." />
+            <Empty description="Run the scanner to load stocks for one or more universes." />
           )}
         </Card>
       </Space>

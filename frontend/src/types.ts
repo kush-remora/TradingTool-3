@@ -1825,7 +1825,7 @@ export type HotSmaSignalTag = "AGGRESSIVE_BUY" | "STANDARD_BUY" | "WATCH_ZONE";
 export type HotSmaZoneStatus = "BUY_ZONE" | "ABOVE_BUY_ZONE" | "NO_SMA200";
 
 export interface HotSmaRunRequest {
-  indexKey: string;
+  indexKeys: string[];
 }
 
 export interface HotSmaTelegramRequest {
@@ -1894,7 +1894,7 @@ export interface HotSmaConfigSnapshot {
 
 export interface HotSmaRunResponse {
   runAt: string;
-  selectedIndexKey: string;
+  selectedIndexKeys: string[];
   config: HotSmaConfigSnapshot;
   summary: HotSmaSummary;
   rows: HotSmaRow[];

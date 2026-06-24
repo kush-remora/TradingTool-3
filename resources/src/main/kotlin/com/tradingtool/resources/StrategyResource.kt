@@ -68,7 +68,7 @@ class StrategyResource @Inject constructor(
             return@endpoint badRequest(error.message ?: "Invalid request.")
         }
 
-        ok(hotSmaScannerService.run(HotSmaRunConfig(indexKey = normalizedRequest.indexKey)))
+        ok(hotSmaScannerService.run(HotSmaRunConfig(indexKeys = normalizedRequest.indexKeys)))
     }
 
     @GET
@@ -170,9 +170,12 @@ class StrategyResource @Inject constructor(
 }
 
 internal fun validateHotSmaRunRequest(request: HotSmaRunRequest): HotSmaRunRequest {
-    val normalizedIndexKey = normalizeIndexKeyForResource(request.indexKey)
-    require(normalizedIndexKey.isNotBlank()) { "indexKey is required." }
-    return request.copy(indexKey = normalizedIndexKey)
+    val normalizedIndexKeys = request.indexKeys
+        .map(::normalizeIndexKeyForResource)
+        .filter(String::isNotBlank)
+        .distinct()
+    require(normalizedIndexKeys.isNotEmpty()) { "At least one indexKey is required." }
+    return request.copy(indexKeys = normalizedIndexKeys)
 }
 
 internal fun validateHotSmaTelegramRequest(request: HotSmaTelegramRequest): HotSmaTelegramRequest {

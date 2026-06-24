@@ -12,17 +12,21 @@ class HotSmaRequestValidationTest {
     @Test
     fun `validate hot sma run rejects blank index key`() {
         val error = assertThrows(IllegalArgumentException::class.java) {
-            validateHotSmaRunRequest(HotSmaRunRequest(indexKey = "  "))
+            validateHotSmaRunRequest(HotSmaRunRequest(indexKeys = listOf("  ")))
         }
 
-        assertEquals("indexKey is required.", error.message)
+        assertEquals("At least one indexKey is required.", error.message)
     }
 
     @Test
-    fun `validate hot sma run normalizes mixed key format`() {
-        val result = validateHotSmaRunRequest(HotSmaRunRequest(indexKey = " nifty midcap 150 "))
+    fun `validate hot sma run normalizes and deduplicates mixed key formats`() {
+        val result = validateHotSmaRunRequest(
+            HotSmaRunRequest(
+                indexKeys = listOf(" nifty midcap 150 ", "NIFTY_MIDCAP_150", "watchlist"),
+            ),
+        )
 
-        assertEquals("NIFTY_MIDCAP_150", result.indexKey)
+        assertEquals(listOf("NIFTY_MIDCAP_150", "WATCHLIST"), result.indexKeys)
     }
 
     @Test

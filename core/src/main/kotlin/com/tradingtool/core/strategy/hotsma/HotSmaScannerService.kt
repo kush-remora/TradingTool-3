@@ -28,10 +28,10 @@ class HotSmaScannerService @Inject constructor(
     }
 
     suspend fun run(config: HotSmaRunConfig): HotSmaRunResponse {
-        val indexMembers = resolveIndexMembers(config.indexKey)
+        val indexMembers = resolveIndexMembers(config.indexKeys)
         if (indexMembers.members.isEmpty()) {
             return HotSmaRunResponse(
-                selectedIndexKey = indexMembers.selectedIndexKey,
+                selectedIndexKeys = indexMembers.selectedIndexKeys,
                 config = configSnapshot(),
                 summary = HotSmaSummary(totalStocks = 0, buyZoneCount = 0, aboveBuyZoneCount = 0, noSma200Count = 0),
                 rows = emptyList(),
@@ -50,7 +50,7 @@ class HotSmaScannerService @Inject constructor(
                 fromDate = LocalDate.now().minusDays(HISTORY_DAYS),
                 toDate = LocalDate.now(),
             )
-            val row = evaluateSymbol(member = member, selectedIndexKey = indexMembers.selectedIndexKey, candles = candles)
+            val row = evaluateSymbol(member = member, candles = candles)
             if (row != null) {
                 rows += row
             }
@@ -61,7 +61,7 @@ class HotSmaScannerService @Inject constructor(
         val noSma200Count = rows.count { row -> row.zoneStatus == HotSmaZoneStatus.NO_SMA200 }
 
         return HotSmaRunResponse(
-            selectedIndexKey = indexMembers.selectedIndexKey,
+            selectedIndexKeys = indexMembers.selectedIndexKeys,
             config = configSnapshot(),
             summary = HotSmaSummary(
                 totalStocks = rows.size,
@@ -73,23 +73,28 @@ class HotSmaScannerService @Inject constructor(
         )
     }
 
-    private suspend fun resolveIndexMembers(indexKey: String): ResolvedIndexMembers {
-        val requested = indexKey.trim()
-        if (requested.isEmpty()) {
-            return ResolvedIndexMembers(selectedIndexKey = indexKey, members = emptyList())
+    private suspend fun resolveIndexMembers(indexKeys: List<String>): ResolvedIndexMembers {
+        val requestedKeys = indexKeys
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .distinct()
+        if (requestedKeys.isEmpty()) {
+            return ResolvedIndexMembers(selectedIndexKeys = emptyList(), members = emptyList())
         }
 
         val allIndices = indexConstituentHandler.read { dao -> dao.listUniqueIndices() }
-        val normalizedRequested = normalizeIndexKeyInCore(requested)
-        val matchingKeys = allIndices
-            .map { summary -> summary.indexKey }
-            .filter { existing -> normalizeIndexKeyInCore(existing) == normalizedRequested }
-
-        val selectedKey = matchingKeys.firstOrNull() ?: requested
-        val members = if (matchingKeys.isEmpty()) {
-            indexConstituentHandler.read { dao -> dao.listActiveByIndex(selectedKey) }
-        } else {
-            matchingKeys.flatMap { key -> indexConstituentHandler.read { dao -> dao.listActiveByIndex(key) } }
+        val availableIndexKeys = allIndices.map { summary -> summary.indexKey }
+        val matchingKeysByNormalized = availableIndexKeys.groupBy(::normalizeIndexKeyInCore)
+        val selectedIndexKeys = requestedKeys.map { requestedKey ->
+            matchingKeysByNormalized[normalizeIndexKeyInCore(requestedKey)]?.firstOrNull() ?: requestedKey
+        }
+        val members = selectedIndexKeys.flatMap { key ->
+            val matchingKeys = matchingKeysByNormalized[normalizeIndexKeyInCore(key)].orEmpty()
+            if (matchingKeys.isEmpty()) {
+                indexConstituentHandler.read { dao -> dao.listActiveByIndex(key) }
+            } else {
+                matchingKeys.flatMap { matchingKey -> indexConstituentHandler.read { dao -> dao.listActiveByIndex(matchingKey) } }
+            }
         }
 
         val dedupedMembers = members
@@ -97,7 +102,7 @@ class HotSmaScannerService @Inject constructor(
             .mapNotNull { entry -> entry.value.firstOrNull() }
 
         return ResolvedIndexMembers(
-            selectedIndexKey = selectedKey,
+            selectedIndexKeys = selectedIndexKeys,
             members = dedupedMembers,
         )
     }
@@ -141,7 +146,6 @@ class HotSmaScannerService @Inject constructor(
 
     private fun evaluateSymbol(
         member: IndexConstituentUpsertRow,
-        selectedIndexKey: String,
         candles: List<DailyCandle>,
     ): HotSmaRow? {
         if (candles.isEmpty()) return null
@@ -189,7 +193,7 @@ class HotSmaScannerService @Inject constructor(
         return HotSmaRow(
             symbol = member.symbol.trim().uppercase(),
             companyName = member.companyName,
-            indexKey = selectedIndexKey,
+            indexKey = member.indexKey,
             instrumentToken = member.instrumentToken,
             latestDate = latest.candleDate.toString(),
             currentPrice = latest.close.roundTo2(),
@@ -233,7 +237,7 @@ class HotSmaScannerService @Inject constructor(
     }
 
     private data class ResolvedIndexMembers(
-        val selectedIndexKey: String,
+        val selectedIndexKeys: List<String>,
         val members: List<IndexConstituentUpsertRow>,
     )
 

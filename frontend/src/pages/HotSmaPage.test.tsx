@@ -30,7 +30,7 @@ describe("HotSmaPage", () => {
     vi.clearAllMocks();
   });
 
-  it("runs with the selected universe", async () => {
+  it("runs with the selected universes", async () => {
     const run = vi.fn().mockResolvedValue(undefined);
     useHotSmaScannerMock.mockReturnValue({ data: null, loading: false, error: null, run });
 
@@ -45,7 +45,7 @@ describe("HotSmaPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /Run Scanner/i }));
 
     await waitFor(() => {
-      expect(run).toHaveBeenCalledWith({ indexKey: "NIFTY_50" });
+      expect(run).toHaveBeenCalledWith({ indexKeys: ["WATCHLIST", "NIFTY_50"] });
     });
   });
 
@@ -56,7 +56,7 @@ describe("HotSmaPage", () => {
       run: vi.fn(),
       data: {
         runAt: "2026-06-23T00:00:00Z",
-        selectedIndexKey: "WATCHLIST",
+        selectedIndexKeys: ["WATCHLIST"],
         config: {
           rsiPeriod: 14,
           sma50Window: 50,
