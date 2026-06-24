@@ -1,31 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import { Upload, FileText, AlertCircle, RefreshCw } from 'lucide-react';
+import {
+  ExclamationCircleOutlined,
+  FileTextOutlined,
+  SearchOutlined,
+  SyncOutlined,
+  UploadOutlined,
+} from "@ant-design/icons";
+import { useEffect, useMemo, useState } from "react";
+import { Alert, Button, Card, Col, Empty, Input, Row, Space, Spin, Statistic, Table, Tag, Typography, Upload } from "antd";
+import type { ColumnsType } from "antd/es/table";
+import type { UploadProps } from "antd";
 
 interface PhaseCWatchlistDto {
   symbol: string;
   stockName: string | null;
-  marketcapname: string | null;
+  marketCapBucket: string | null;
   closePrice: number | null;
   pctChange: string | null;
   volume: number | null;
   sector: string | null;
   industry: string | null;
-  roce: number | null;
-  ronw: number | null;
+  rocePct: number | null;
+  ronwPct: number | null;
   netProfit3qAgo: number | null;
-  debtEquity: number | null;
-  volDry200Min: number | null;
-  volDry60Min: number | null;
-  volDry200Min105: number | null;
-  volDry60Min105: number | null;
-  promoterHolding: number | null;
-  foreignPromoterHolding: number | null;
-  grossSales: number | null;
-  high252d: number | null;
-  min20dHigh: number | null;
-  dist200dHigh: number | null;
-  brackets2: number | null;
-  atrCount: number | null;
+  debtEquityRatio: number | null;
+  volDry200dMinCount: number | null;
+  volDry60dMinCount: number | null;
+  volDry200dMin105Count: number | null;
+  volDry60dMin105Count: number | null;
+  indianPromoterPct: number | null;
+  foreignPromoterPct: number | null;
+  quarterlyGrossSales: number | null;
+  high52w: number | null;
+  low52w: number | null;
+  dist200dHighPct: number | null;
+  dist200dLowPct: number | null;
+  atrLt2pctCount: number | null;
 }
 
 interface PhaseCWatchlistRow extends PhaseCWatchlistDto {
@@ -35,268 +44,623 @@ interface PhaseCWatchlistRow extends PhaseCWatchlistDto {
   instrumentToken: number | null;
 }
 
+type UploadResult = {
+  inserted: number;
+  updated: number;
+};
+
+type QuickFilter = "all" | "resolved" | "unresolved";
+
+type SummaryStats = {
+  totalCandidates: number;
+  resolvedTokens: number;
+  unresolvedTokens: number;
+  seenToday: number;
+};
+
+const HEADER_ALIASES: Record<keyof PhaseCWatchlistDto, string[]> = {
+  symbol: ["symbol"],
+  stockName: ["stock name", "stock_name"],
+  marketCapBucket: ["marketcapname", "market cap", "marketcap", "market_cap_bucket"],
+  closePrice: ["close", "close_price"],
+  pctChange: ["%_change", "% change", "change", "pct_change"],
+  volume: ["volume"],
+  sector: ["sector"],
+  industry: ["industry"],
+  rocePct: ["roce", "return on capital employed", "roce_pct"],
+  ronwPct: ["ronw", "return on net worth", "ronw_pct"],
+  netProfit3qAgo: ["3 quarter ago", "net profit", "net_profit_3q_ago"],
+  debtEquityRatio: ["yearly debt equity ratio", "debt", "debt_equity_ratio"],
+  volDry200dMinCount: ["volume dry on 200 days min", "vol_dry_200d_min_count"],
+  volDry60dMinCount: ["volume dry on 60 days min", "vol_dry_60d_min_count"],
+  volDry200dMin105Count: ["volume dry on 200 days min * 1.05", "vol_dry_200d_min_105_count"],
+  volDry60dMin105Count: ["volume dry on 60days min * 1.05", "volume dry on 60 days min * 1.05", "vol_dry_60d_min_105_count"],
+  indianPromoterPct: ["indian promoter", "quarterly indian promoter and group percentage", "indian_promoter_pct"],
+  foreignPromoterPct: ["foreign promoter", "quarterly total foreign promoter and group percentage", "foreign_promoter_pct"],
+  quarterlyGrossSales: ["gross sales", "quarterly gross sales", "quarterly_gross_sales"],
+  high52w: ["max( 252", "high_52w"],
+  low52w: ["min( 20", "low_52w"],
+  dist200dHighPct: ["daily close -", "max( 200", "dist_200d_high_pct"],
+  dist200dLowPct: ["brackets2", "dist_20d_low_pct", "dist_200d_low_pct"],
+  atrLt2pctCount: ["count daily atr < 2 %", "atr", "atr_lt_2pct_count"],
+};
+
+function formatNumber(value: number | null | undefined, fractionDigits: number = 0): string {
+  if (value == null) {
+    return "-";
+  }
+
+  return value.toLocaleString("en-IN", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
+}
+
+function formatPercent(value: number | null | undefined): string {
+  if (value == null) {
+    return "-";
+  }
+
+  return `${value.toFixed(1)}%`;
+}
+
+function buildStatusTag(status: string) {
+  switch (status.toUpperCase()) {
+    case "BREAKOUT_TRIGGERED":
+      return <Tag color="green">{status}</Tag>;
+    case "EXPIRED":
+      return <Tag>{status}</Tag>;
+    default:
+      return <Tag color="blue">{status}</Tag>;
+  }
+}
+
+function buildTokenTag(instrumentToken: number | null) {
+  if (instrumentToken != null) {
+    return <Tag color="green">Resolved</Tag>;
+  }
+  return <Tag color="gold">Missing</Tag>;
+}
+
+function parseDelimitedLine(line: string, separator: string): string[] {
+  const values: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const nextChar = line[index + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        current += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === separator && !inQuotes) {
+      values.push(current);
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  values.push(current);
+  return values.map((value) => value.trim());
+}
+
+function findColumnIndex(headers: string[], aliases: string[]): number {
+  return headers.findIndex((header) => aliases.some((alias) => header.includes(alias)));
+}
+
+export function parseCsvOrTsv(text: string): PhaseCWatchlistDto[] {
+  const lines = text
+    .split("\n")
+    .map((line) => line.replace(/\r/g, "").trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length < 2) {
+    return [];
+  }
+
+  const isTsv = lines[0].includes("\t");
+  const separator = isTsv ? "\t" : ",";
+  const headers = parseDelimitedLine(lines[0], separator).map((header) => header.trim().toLowerCase());
+  const columnIndexByField = Object.fromEntries(
+    (Object.entries(HEADER_ALIASES) as Array<[keyof PhaseCWatchlistDto, string[]]>).map(([field, aliases]) => [
+      field,
+      findColumnIndex(headers, aliases.map((alias) => alias.toLowerCase())),
+    ]),
+  ) as Record<keyof PhaseCWatchlistDto, number>;
+
+  const parseNumber = (value: string | undefined): number | null => {
+    if (!value) {
+      return null;
+    }
+    const cleaned = value.replace(/,/g, "").trim();
+    const parsed = Number.parseFloat(cleaned);
+    return Number.isNaN(parsed) ? null : parsed;
+  };
+
+  const getColumnValue = (columns: string[], field: keyof PhaseCWatchlistDto): string | undefined => {
+    const index = columnIndexByField[field];
+    return index >= 0 ? columns[index] : undefined;
+  };
+
+  const rows: PhaseCWatchlistDto[] = [];
+
+  for (let index = 1; index < lines.length; index += 1) {
+    const columns = parseDelimitedLine(lines[index], separator);
+    const symbol = getColumnValue(columns, "symbol")?.trim();
+
+    if (!symbol) {
+      continue;
+    }
+
+    rows.push({
+      symbol,
+      stockName: getColumnValue(columns, "stockName")?.trim() || null,
+      marketCapBucket: getColumnValue(columns, "marketCapBucket")?.trim() || null,
+      closePrice: parseNumber(getColumnValue(columns, "closePrice")),
+      pctChange: getColumnValue(columns, "pctChange")?.trim() || null,
+      volume: parseNumber(getColumnValue(columns, "volume")),
+      sector: getColumnValue(columns, "sector")?.trim() || null,
+      industry: getColumnValue(columns, "industry")?.trim() || null,
+      rocePct: parseNumber(getColumnValue(columns, "rocePct")),
+      ronwPct: parseNumber(getColumnValue(columns, "ronwPct")),
+      netProfit3qAgo: parseNumber(getColumnValue(columns, "netProfit3qAgo")),
+      debtEquityRatio: parseNumber(getColumnValue(columns, "debtEquityRatio")),
+      volDry200dMinCount: parseNumber(getColumnValue(columns, "volDry200dMinCount")),
+      volDry60dMinCount: parseNumber(getColumnValue(columns, "volDry60dMinCount")),
+      volDry200dMin105Count: parseNumber(getColumnValue(columns, "volDry200dMin105Count")),
+      volDry60dMin105Count: parseNumber(getColumnValue(columns, "volDry60dMin105Count")),
+      indianPromoterPct: parseNumber(getColumnValue(columns, "indianPromoterPct")),
+      foreignPromoterPct: parseNumber(getColumnValue(columns, "foreignPromoterPct")),
+      quarterlyGrossSales: parseNumber(getColumnValue(columns, "quarterlyGrossSales")),
+      high52w: parseNumber(getColumnValue(columns, "high52w")),
+      low52w: parseNumber(getColumnValue(columns, "low52w")),
+      dist200dHighPct: parseNumber(getColumnValue(columns, "dist200dHighPct")),
+      dist200dLowPct: parseNumber(getColumnValue(columns, "dist200dLowPct")),
+      atrLt2pctCount: parseNumber(getColumnValue(columns, "atrLt2pctCount")),
+    });
+  }
+
+  return rows;
+}
+
 export function PhaseDScannerPage() {
   const [watchlist, setWatchlist] = useState<PhaseCWatchlistRow[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [uploading, setUploading] = useState<boolean>(false);
-  const [uploadResult, setUploadResult] = useState<{inserted: number, updated: number} | null>(null);
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
 
-  const fetchWatchlist = async () => {
+  const fetchWatchlist = async (): Promise<void> => {
     try {
       setLoading(true);
-      const res = await fetch('/api/strategy/phase-c/dashboard');
-      if (!res.ok) throw new Error('Failed to fetch watchlist');
-      const data = await res.json();
+      const response = await fetch("/api/strategy/phase-c/dashboard");
+      if (!response.ok) {
+        throw new Error("Failed to fetch watchlist");
+      }
+      const data = (await response.json()) as PhaseCWatchlistRow[];
       setWatchlist(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (fetchError) {
+      const message = fetchError instanceof Error ? fetchError.message : "Failed to fetch watchlist";
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchWatchlist();
+    void fetchWatchlist();
   }, []);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const handleFileUpload = async (file: File): Promise<boolean> => {
     setUploading(true);
     setError(null);
     setUploadResult(null);
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const text = event.target?.result as string;
-        const parsedRows = parseCsvOrTsv(text);
-        
-        if (parsedRows.length === 0) {
-            throw new Error("No valid rows found in the file.");
-        }
+    try {
+      const text = await file.text();
+      const parsedRows = parseCsvOrTsv(text);
 
-        const res = await fetch('/api/strategy/phase-c/upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rows: parsedRows }),
-        });
-
-        if (!res.ok) {
-            const errRes = await res.json();
-            throw new Error(errRes.error || 'Failed to upload rows');
-        }
-
-        const data = await res.json();
-        setUploadResult({ inserted: data.insertedCount, updated: data.updatedCount });
-        fetchWatchlist(); // refresh table
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setUploading(false);
+      if (parsedRows.length === 0) {
+        throw new Error("No valid rows found in the file.");
       }
-    };
-    reader.onerror = () => {
-      setError('Error reading file');
+
+      const response = await fetch("/api/strategy/phase-c/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows: parsedRows }),
+      });
+
+      if (!response.ok) {
+        const errorResponse = (await response.json()) as { error?: string };
+        throw new Error(errorResponse.error || "Failed to upload rows");
+      }
+
+      const data = (await response.json()) as {
+        insertedCount: number;
+        updatedCount: number;
+      };
+
+      setUploadResult({
+        inserted: data.insertedCount,
+        updated: data.updatedCount,
+      });
+
+      await fetchWatchlist();
+    } catch (uploadError) {
+      const message = uploadError instanceof Error ? uploadError.message : "Failed to upload rows";
+      setError(message);
+    } finally {
       setUploading(false);
-    };
-    reader.readAsText(file);
-    // clear input
-    e.target.value = '';
-  };
-
-  const parseCsvOrTsv = (text: string): PhaseCWatchlistDto[] => {
-    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-    if (lines.length < 2) return [];
-
-    // Detect separator (tab vs comma)
-    const isTsv = lines[0].includes('\t');
-    const sep = isTsv ? '\t' : ',';
-    
-    // Extract headers and lowercase them for flexible matching
-    const headers = lines[0].split(sep).map(h => h.trim().toLowerCase());
-    
-    const parseNumber = (val: string | undefined) => {
-        if (!val) return null;
-        const cleaned = val.replace(/,/g, '').trim();
-        const num = parseFloat(cleaned);
-        return isNaN(num) ? null : num;
-    };
-
-    const parseSymbol = (val: string | undefined) => {
-      if (!val) return null;
-      // Chartink symbols might have HTML if we pasted rich text, but usually plain string
-      return val.trim();
-    };
-
-    const rows: PhaseCWatchlistDto[] = [];
-
-    for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(sep);
-        
-        const getCol = (nameKeys: string[]) => {
-            const idx = headers.findIndex(h => nameKeys.some(k => h.includes(k)));
-            return idx !== -1 ? cols[idx] : undefined;
-        };
-
-        const symbol = parseSymbol(getCol(['symbol']));
-        if (!symbol) continue;
-
-        rows.push({
-            symbol: symbol,
-            stockName: getCol(['stock name'])?.trim() || null,
-            marketcapname: getCol(['marketcap', 'market cap'])?.trim() || null,
-            closePrice: parseNumber(getCol(['close'])),
-            pctChange: getCol(['change', '% change'])?.trim() || null,
-            volume: parseNumber(getCol(['volume'])),
-            sector: getCol(['sector'])?.trim() || null,
-            industry: getCol(['industry'])?.trim() || null,
-            roce: parseNumber(getCol(['roce', 'return on capital employed'])),
-            ronw: parseNumber(getCol(['ronw', 'return on net worth'])),
-            netProfit3qAgo: parseNumber(getCol(['net profit', '3 quarter ago'])),
-            debtEquity: parseNumber(getCol(['debt'])),
-            volDry200Min: parseNumber(getCol(['volume dry on 200 days min'])),
-            volDry60Min: parseNumber(getCol(['volume dry on 60 days min'])),
-            volDry200Min105: parseNumber(getCol(['volume dry on 200 days min * 1.05'])),
-            volDry60Min105: parseNumber(getCol(['volume dry on 60days min * 1.05'])),
-            promoterHolding: parseNumber(getCol(['indian promoter'])),
-            foreignPromoterHolding: parseNumber(getCol(['foreign promoter'])),
-            grossSales: parseNumber(getCol(['gross sales'])),
-            high252d: parseNumber(getCol(['max( 252'])),
-            min20dHigh: parseNumber(getCol(['min( 20'])),
-            dist200dHigh: parseNumber(getCol(['daily close -', 'max( 200'])),
-            brackets2: parseNumber(getCol(['brackets2'])),
-            atrCount: parseNumber(getCol(['atr'])),
-        });
     }
 
-    return rows;
+    return false;
   };
 
+  const summary = useMemo<SummaryStats>(() => {
+    const totalCandidates = watchlist.length;
+    const resolvedTokens = watchlist.filter((row) => row.instrumentToken != null).length;
+    const unresolvedTokens = totalCandidates - resolvedTokens;
+    const seenToday = watchlist.filter((row) => row.lastSeenOn === row.addedOn).length;
+
+    return {
+      totalCandidates,
+      resolvedTokens,
+      unresolvedTokens,
+      seenToday,
+    };
+  }, [watchlist]);
+
+  const filteredRows = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    return watchlist.filter((row) => {
+      if (quickFilter === "resolved" && row.instrumentToken == null) {
+        return false;
+      }
+
+      if (quickFilter === "unresolved" && row.instrumentToken != null) {
+        return false;
+      }
+
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      const haystack = [
+        row.symbol,
+        row.stockName,
+        row.sector,
+        row.industry,
+        row.marketCapBucket,
+      ]
+        .filter((value): value is string => Boolean(value))
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(normalizedQuery);
+    });
+  }, [quickFilter, searchQuery, watchlist]);
+
+  const uploadProps: UploadProps = {
+    accept: ".csv,.tsv,text/plain",
+    showUploadList: false,
+    beforeUpload: (file) => handleFileUpload(file as File),
+    disabled: uploading,
+  };
+
+  const columns = useMemo<ColumnsType<PhaseCWatchlistRow>>(
+    () => [
+      {
+        title: "Candidate",
+        key: "candidate",
+        width: 220,
+        fixed: "left",
+        render: (_value, row) => (
+          <Space orientation="vertical" size={0}>
+            <Typography.Text strong>{row.symbol}</Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {row.stockName || "-"}
+            </Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+              {[row.marketCapBucket || "Cap unknown", row.sector || "Sector unknown"].join(" / ")}
+            </Typography.Text>
+          </Space>
+        ),
+      },
+      {
+        title: "Status",
+        dataIndex: "status",
+        key: "status",
+        width: 140,
+        render: (value: string) => buildStatusTag(value),
+      },
+      {
+        title: "Token",
+        key: "token",
+        width: 130,
+        render: (_value, row) => (
+          <Space orientation="vertical" size={2}>
+            {buildTokenTag(row.instrumentToken)}
+            <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+              {row.instrumentToken != null ? formatNumber(row.instrumentToken) : "Needs resolver match"}
+            </Typography.Text>
+          </Space>
+        ),
+      },
+      {
+        title: "Close",
+        key: "close",
+        width: 110,
+        align: "right",
+        render: (_value, row) => (
+          <Space orientation="vertical" size={0} style={{ width: "100%" }}>
+            <Typography.Text>{formatNumber(row.closePrice, 2)}</Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+              {row.pctChange || "-"}
+            </Typography.Text>
+          </Space>
+        ),
+      },
+      {
+        title: "Volume",
+        dataIndex: "volume",
+        key: "volume",
+        width: 120,
+        align: "right",
+        render: (value: number | null) => formatNumber(value),
+      },
+      {
+        title: "Dry-Up Profile",
+        key: "dryup",
+        width: 190,
+        render: (_value, row) => (
+          <Space orientation="vertical" size={0}>
+            <Typography.Text style={{ fontSize: 12 }}>200D Min: {formatNumber(row.volDry200dMinCount)}</Typography.Text>
+            <Typography.Text style={{ fontSize: 12 }}>60D Min: {formatNumber(row.volDry60dMinCount)}</Typography.Text>
+            <Typography.Text style={{ fontSize: 12 }}>200D x1.05: {formatNumber(row.volDry200dMin105Count)}</Typography.Text>
+            <Typography.Text style={{ fontSize: 12 }}>60D x1.05: {formatNumber(row.volDry60dMin105Count)}</Typography.Text>
+          </Space>
+        ),
+      },
+      {
+        title: "Structure",
+        key: "structure",
+        width: 190,
+        render: (_value, row) => (
+          <Space orientation="vertical" size={0}>
+            <Typography.Text style={{ fontSize: 12 }}>Dist 200D High: {formatPercent(row.dist200dHighPct)}</Typography.Text>
+            <Typography.Text style={{ fontSize: 12 }}>ATR Count: {formatNumber(row.atrLt2pctCount)}</Typography.Text>
+            <Typography.Text style={{ fontSize: 12 }}>52W Low: {formatNumber(row.low52w, 2)}</Typography.Text>
+            <Typography.Text style={{ fontSize: 12 }}>52W High: {formatNumber(row.high52w, 2)}</Typography.Text>
+          </Space>
+        ),
+      },
+      {
+        title: "Ownership / Quality",
+        key: "quality",
+        width: 190,
+        render: (_value, row) => (
+          <Space orientation="vertical" size={0}>
+            <Typography.Text style={{ fontSize: 12 }}>Promoter: {formatPercent(row.indianPromoterPct)}</Typography.Text>
+            <Typography.Text style={{ fontSize: 12 }}>FII: {formatPercent(row.foreignPromoterPct)}</Typography.Text>
+            <Typography.Text style={{ fontSize: 12 }}>ROCE: {formatPercent(row.rocePct)}</Typography.Text>
+            <Typography.Text style={{ fontSize: 12 }}>Debt / Eq: {formatNumber(row.debtEquityRatio, 2)}</Typography.Text>
+          </Space>
+        ),
+      },
+      {
+        title: "Dates",
+        key: "dates",
+        width: 150,
+        render: (_value, row) => (
+          <Space orientation="vertical" size={0}>
+            <Typography.Text style={{ fontSize: 12 }}>Added {row.addedOn}</Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              Last seen {row.lastSeenOn}
+            </Typography.Text>
+          </Space>
+        ),
+      },
+    ],
+    [],
+  );
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-[var(--color-text-primary)]">Phase D Ignition Scanner</h2>
-          <p className="text-sm text-[var(--color-text-tertiary)] mt-1">Upload Chartink Phase C (Dry-Up) Watchlist to trigger delivery ignition scans.</p>
-        </div>
-      </div>
+    <div style={{ padding: 24 }}>
+      <Space orientation="vertical" size={16} style={{ width: "100%" }}>
+        <Card>
+          <Space orientation="vertical" size={8} style={{ width: "100%" }}>
+            <Space wrap size={8}>
+              <Tag color="blue">Phase D Scanner</Tag>
+              <Tag color="gold">Phase C Intake Live</Tag>
+            </Space>
+            <Typography.Title level={2} style={{ margin: 0 }}>
+              Build the ignition watchlist before the trigger engine exists.
+            </Typography.Title>
+            <Typography.Text type="secondary">
+              This screen currently stages Phase C dry-up candidates, resolves Kite tokens, and keeps the watchlist
+              clean for the next Phase D monitoring layer.
+            </Typography.Text>
 
-      <div className="bg-[var(--color-surface-elevated)] border border-[var(--color-border-subtle)] rounded-lg p-6">
-        <h3 className="text-sm font-medium text-[var(--color-text-secondary)] mb-4">Upload Chartink CSV/TSV</h3>
-        
-        <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-[var(--color-border-subtle)] rounded-lg hover:bg-[var(--color-surface-hover)] transition-colors relative">
-            <input 
-                type="file" 
-                accept=".csv, .tsv, text/plain" 
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                onChange={handleFileUpload}
-                disabled={uploading}
-            />
-            <div className="flex flex-col items-center pointer-events-none">
-                {uploading ? (
-                    <RefreshCw className="w-8 h-8 text-[var(--color-text-tertiary)] animate-spin mb-3" />
-                ) : (
-                    <Upload className="w-8 h-8 text-[var(--color-text-tertiary)] mb-3" />
-                )}
-                <span className="text-sm font-medium text-[var(--color-text-secondary)]">
-                    {uploading ? 'Processing File...' : 'Click or drag file to upload'}
-                </span>
-                <span className="text-xs text-[var(--color-text-tertiary)] mt-1">Supports CSV or TSV exports from Chartink</span>
-            </div>
-        </div>
+            <Row gutter={[12, 12]} style={{ marginTop: 4 }}>
+              <Col xs={12} md={6}>
+                <Card size="small">
+                  <Statistic title="Candidates" value={summary.totalCandidates} />
+                </Card>
+              </Col>
+              <Col xs={12} md={6}>
+                <Card size="small">
+                  <Statistic title="Tokens Resolved" value={summary.resolvedTokens} />
+                </Card>
+              </Col>
+              <Col xs={12} md={6}>
+                <Card size="small">
+                  <Statistic
+                    title="Unresolved"
+                    value={summary.unresolvedTokens}
+                    styles={{ content: { color: "#d48806" } }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={12} md={6}>
+                <Card size="small">
+                  <Statistic
+                    title="Freshly Seen"
+                    value={summary.seenToday}
+                    styles={{ content: { color: "#389e0d" } }}
+                  />
+                </Card>
+              </Col>
+            </Row>
+          </Space>
+        </Card>
 
-        {error && (
-            <div className="mt-4 flex items-center gap-2 p-3 bg-red-500/10 text-red-500 rounded-md text-sm border border-red-500/20">
-                <AlertCircle className="w-4 h-4" />
-                {error}
-            </div>
-        )}
+        <Row gutter={[16, 16]}>
+          <Col xs={24} xl={16}>
+            <Card
+              title="Import latest Chartink watchlist"
+              extra={
+                <Button icon={<SyncOutlined />} onClick={() => void fetchWatchlist()} loading={loading}>
+                  Refresh
+                </Button>
+              }
+            >
+              <Space orientation="vertical" size={16} style={{ width: "100%" }}>
+                <Typography.Text type="secondary">
+                  Upload the dry-up export, parse it in browser, then upsert it into the Phase C watchlist.
+                </Typography.Text>
 
-        {uploadResult && (
-            <div className="mt-4 flex items-center gap-2 p-3 bg-green-500/10 text-green-500 rounded-md text-sm border border-green-500/20">
-                <FileText className="w-4 h-4" />
-                Successfully imported/updated {uploadResult.inserted} stocks.
-            </div>
-        )}
-      </div>
+                <Upload.Dragger {...uploadProps}>
+                  <p className="ant-upload-drag-icon">
+                    {uploading ? <SyncOutlined spin /> : <UploadOutlined />}
+                  </p>
+                  <p className="ant-upload-text">
+                    {uploading ? "Importing and resolving tokens..." : "Drop CSV/TSV or click to upload"}
+                  </p>
+                  <p className="ant-upload-hint">
+                    Best for the raw Chartink export used to seed Phase C candidates.
+                  </p>
+                </Upload.Dragger>
 
-      <div className="bg-[var(--color-surface-elevated)] border border-[var(--color-border-subtle)] rounded-lg overflow-hidden flex flex-col">
-          <div className="p-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between">
-            <h3 className="text-sm font-medium text-[var(--color-text-secondary)]">Phase C Watchlist</h3>
-            <div className="text-xs text-[var(--color-text-tertiary)] bg-[var(--color-surface-hover)] px-2 py-1 rounded">
-                {watchlist.length} Total Candidates
-            </div>
-          </div>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap">
-                <thead className="bg-[var(--color-surface-hover)] text-[var(--color-text-tertiary)] text-xs uppercase font-medium">
-                    <tr>
-                        <th className="px-4 py-3">Symbol</th>
-                        <th className="px-4 py-3">Stock Name</th>
-                        <th className="px-4 py-3">Status</th>
-                        <th className="px-4 py-3">Added On</th>
-                        <th className="px-4 py-3">Last Seen</th>
-                        <th className="px-4 py-3 text-right">Close</th>
-                        <th className="px-4 py-3 text-right">Vol</th>
-                        <th className="px-4 py-3">Sector</th>
-                        <th className="px-4 py-3 text-right">Vol Dry (200d)</th>
-                        <th className="px-4 py-3 text-right">Vol Dry (60d)</th>
-                        <th className="px-4 py-3 text-right">Vol Dry (200d * 1.05)</th>
-                        <th className="px-4 py-3 text-right">Vol Dry (60d * 1.05)</th>
-                        <th className="px-4 py-3 text-right">Promoter%</th>
-                        <th className="px-4 py-3 text-right">FII%</th>
-                        <th className="px-4 py-3 text-right">Dist 52wH%</th>
-                        <th className="px-4 py-3 text-right">ATR&lt;2%</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--color-border-subtle)]">
-                    {loading ? (
-                        <tr>
-                            <td colSpan={17} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
-                                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
-                                Loading Watchlist...
-                            </td>
-                        </tr>
-                    ) : watchlist.length === 0 ? (
-                        <tr>
-                            <td colSpan={17} className="px-4 py-8 text-center text-[var(--color-text-tertiary)]">
-                                No candidates in Phase C Watchlist. Upload a CSV to begin.
-                            </td>
-                        </tr>
-                    ) : (
-                        watchlist.map(row => (
-                            <tr key={row.symbol} className="hover:bg-[var(--color-surface-hover)] transition-colors">
-                                <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">{row.symbol}</td>
-                                <td className="px-4 py-3 text-[var(--color-text-secondary)] truncate max-w-[200px]" title={row.stockName || ''}>{row.stockName || '-'}</td>
-                                <td className="px-4 py-3">
-                                    <span className="px-2 py-1 bg-blue-500/10 text-blue-500 text-[10px] uppercase font-bold rounded">
-                                        {row.status}
-                                    </span>
-                                </td>
-                                <td className="px-4 py-3 text-[var(--color-text-tertiary)]">{row.addedOn}</td>
-                                <td className="px-4 py-3 text-[var(--color-text-tertiary)]">{row.lastSeenOn}</td>
-                                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)]">{row.closePrice?.toFixed(2) || '-'}</td>
-                                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)]">{row.volume?.toLocaleString() || '-'}</td>
-                                <td className="px-4 py-3 text-[var(--color-text-secondary)] truncate max-w-[150px]">{row.sector || '-'}</td>
-                                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)] font-mono">{row.volDry200Min !== null ? row.volDry200Min : '-'}</td>
-                                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)] font-mono">{row.volDry60Min !== null ? row.volDry60Min : '-'}</td>
-                                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)] font-mono">{row.volDry200Min105 !== null ? row.volDry200Min105 : '-'}</td>
-                                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)] font-mono">{row.volDry60Min105 !== null ? row.volDry60Min105 : '-'}</td>
-                                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)] font-mono">{row.promoterHolding !== null ? row.promoterHolding : '-'}</td>
-                                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)] font-mono">{row.foreignPromoterHolding !== null ? row.foreignPromoterHolding : '-'}</td>
-                                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)] font-mono">{row.dist200dHigh !== null ? row.dist200dHigh : '-'}</td>
-                                <td className="px-4 py-3 text-right text-[var(--color-text-secondary)] font-mono">{row.atrCount !== null ? row.atrCount : '-'}</td>
-                            </tr>
-                        ))
-                    )}
-                </tbody>
-            </table>
-          </div>
-      </div>
+                {error ? <Alert type="error" showIcon icon={<ExclamationCircleOutlined />} message={error} /> : null}
+
+                {uploadResult ? (
+                  <Alert
+                    type="success"
+                    showIcon
+                    icon={<FileTextOutlined />}
+                    message={`Imported ${uploadResult.inserted} rows. Updates reported: ${uploadResult.updated}.`}
+                  />
+                ) : null}
+              </Space>
+            </Card>
+          </Col>
+
+          <Col xs={24} xl={8}>
+            <Card title="Current screen purpose">
+              <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+                <Card size="small">
+                  <Typography.Text strong>Step 1</Typography.Text>
+                  <br />
+                  <Typography.Text type="secondary">Collect Phase C dry-up candidates from Chartink.</Typography.Text>
+                </Card>
+                <Card size="small">
+                  <Typography.Text strong>Step 2</Typography.Text>
+                  <br />
+                  <Typography.Text type="secondary">
+                    Resolve each symbol into a tradable Kite instrument token.
+                  </Typography.Text>
+                </Card>
+                <Card size="small">
+                  <Typography.Text strong>Step 3</Typography.Text>
+                  <br />
+                  <Typography.Text type="secondary">
+                    Prepare a stable watchlist for the future ignition engine and alerts.
+                  </Typography.Text>
+                </Card>
+              </Space>
+            </Card>
+          </Col>
+        </Row>
+
+        <Card title="Phase C watchlist">
+          <Space orientation="vertical" size={16} style={{ width: "100%" }}>
+            <Typography.Text type="secondary">
+              Compact review layer for candidate quality, token resolution, and structural context.
+            </Typography.Text>
+
+            <Space wrap size={12} style={{ width: "100%", justifyContent: "space-between" }}>
+              <Input
+                allowClear
+                prefix={<SearchOutlined />}
+                placeholder="Search symbol, sector, industry"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                style={{ width: 280 }}
+              />
+
+              <Space size={8}>
+                <Button type={quickFilter === "all" ? "primary" : "default"} size="small" onClick={() => setQuickFilter("all")}>
+                  All
+                </Button>
+                <Button
+                  type={quickFilter === "resolved" ? "primary" : "default"}
+                  size="small"
+                  onClick={() => setQuickFilter("resolved")}
+                >
+                  Resolved
+                </Button>
+                <Button
+                  type={quickFilter === "unresolved" ? "primary" : "default"}
+                  size="small"
+                  onClick={() => setQuickFilter("unresolved")}
+                >
+                  Unresolved
+                </Button>
+              </Space>
+            </Space>
+
+            {loading && watchlist.length === 0 ? (
+              <div style={{ display: "flex", justifyContent: "center", padding: "48px 0" }}>
+                <Spin size="large" />
+              </div>
+            ) : null}
+
+            {!loading && filteredRows.length === 0 ? (
+              <Empty
+                description={
+                  watchlist.length === 0
+                    ? "No candidates stored yet. Upload a Chartink file to begin."
+                    : "No rows match the current search or filter."
+                }
+              />
+            ) : null}
+
+            {filteredRows.length > 0 ? (
+              <Table<PhaseCWatchlistRow>
+                rowKey={(row) => row.symbol}
+                columns={columns}
+                dataSource={filteredRows}
+                size="small"
+                pagination={{ pageSize: 25, showSizeChanger: true }}
+                scroll={{ x: 1440 }}
+              />
+            ) : null}
+          </Space>
+        </Card>
+      </Space>
     </div>
   );
 }
