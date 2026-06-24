@@ -117,6 +117,9 @@ type WakeUpSignal = {
   volumeRatio: number | null;
 };
 
+const WAKE_UP_PRICE_MOVE_THRESHOLD_PCT = 4;
+const WAKE_UP_VOLUME_RATIO_THRESHOLD = 2;
+
 const HEADER_ALIASES: Record<keyof PhaseCWatchlistDto, string[]> = {
   symbol: ["symbol"],
   stockName: ["stock name", "stock_name"],
@@ -185,15 +188,18 @@ export function buildWakeUpSignal(
   liveVolume: number | null | undefined,
   baseVolume: number | null | undefined,
 ): WakeUpSignal {
-  const hasPriceAnomaly = priceChangePct != null && Math.abs(priceChangePct) >= 4;
+  const hasPriceAnomaly =
+    priceChangePct != null && Math.abs(priceChangePct) >= WAKE_UP_PRICE_MOVE_THRESHOLD_PCT;
   const volumeRatio =
     liveVolume != null && baseVolume != null && baseVolume > 0 ? liveVolume / baseVolume : null;
-  const hasVolumeAnomaly = volumeRatio != null && volumeRatio >= 5;
+  const hasVolumeAnomaly =
+    volumeRatio != null && volumeRatio >= WAKE_UP_VOLUME_RATIO_THRESHOLD;
+  const volumeRatioLabel = volumeRatio != null ? `${volumeRatio.toFixed(1)}x` : null;
 
   if (hasPriceAnomaly && hasVolumeAnomaly) {
     return {
       score: 3,
-      label: "PRICE + VOL",
+      label: `MOVE + ${volumeRatioLabel}`,
       color: "red",
       priceChangePct,
       volumeRatio,
@@ -203,7 +209,7 @@ export function buildWakeUpSignal(
   if (hasVolumeAnomaly) {
     return {
       score: 2,
-      label: "VOL 5x",
+      label: `VOL ${volumeRatioLabel}`,
       color: "orange",
       priceChangePct,
       volumeRatio,
@@ -213,7 +219,7 @@ export function buildWakeUpSignal(
   if (hasPriceAnomaly) {
     return {
       score: 1,
-      label: "MOVE 4%",
+      label: `MOVE ${WAKE_UP_PRICE_MOVE_THRESHOLD_PCT}%`,
       color: "gold",
       priceChangePct,
       volumeRatio,
@@ -257,6 +263,9 @@ function WakeUpFlagCell({
       <Tooltip title={tooltipText}>
         <Tag color={signal.color}>{signal.label}</Tag>
       </Tooltip>
+      <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+        Now: {formatNumber(data?.volume)}
+      </Typography.Text>
       <Typography.Text type="secondary" style={{ fontSize: 11 }}>
         T-1: {formatNumber(baseVolume)}
       </Typography.Text>

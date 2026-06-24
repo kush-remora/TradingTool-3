@@ -349,22 +349,22 @@ describe("PhaseDScannerPage", () => {
   });
 
   it("builds wake-up signals from price move and t-1 volume ratio", () => {
-    expect(buildWakeUpSignal(4.2, 600000, 100000)).toMatchObject({
+    expect(buildWakeUpSignal(4.2, 250000, 100000)).toMatchObject({
       score: 3,
-      label: "PRICE + VOL",
+      label: "MOVE + 2.5x",
     });
 
-    expect(buildWakeUpSignal(1.2, 550000, 100000)).toMatchObject({
+    expect(buildWakeUpSignal(1.2, 200000, 100000)).toMatchObject({
       score: 2,
-      label: "VOL 5x",
+      label: "VOL 2.0x",
     });
 
-    expect(buildWakeUpSignal(-4.5, 200000, 100000)).toMatchObject({
+    expect(buildWakeUpSignal(-4.5, 150000, 100000)).toMatchObject({
       score: 1,
       label: "MOVE 4%",
     });
 
-    expect(buildWakeUpSignal(1.5, 200000, 100000)).toMatchObject({
+    expect(buildWakeUpSignal(1.5, 150000, 100000)).toMatchObject({
       score: 0,
       label: "Quiet",
     });

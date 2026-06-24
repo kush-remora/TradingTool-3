@@ -43,8 +43,8 @@ class LiveMarketManager {
   }
 
   private debounceUpdate() {
-    if (this.updateTimer !== null) window.clearTimeout(this.updateTimer);
-    this.updateTimer = setTimeout(() => this.updateConnection(), 100);
+    if (this.updateTimer !== null) globalThis.clearTimeout(this.updateTimer);
+    this.updateTimer = globalThis.setTimeout(() => this.updateConnection(), 100);
   }
 
   private updateConnection() {
@@ -71,7 +71,8 @@ class LiveMarketManager {
     // If already connected to the same set of symbols, do nothing
     if (this.eventSource) {
       // EventSource.url is absolute
-      const absoluteUrl = new URL(url, window.location.origin).toString();
+      const baseOrigin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+      const absoluteUrl = new URL(url, baseOrigin).toString();
       if (this.eventSource.url === absoluteUrl) return;
 
       this.eventSource.close();
@@ -110,7 +111,7 @@ class LiveMarketManager {
       return;
     }
 
-    this.marketHoursTimer = window.setInterval(() => {
+    this.marketHoursTimer = globalThis.setInterval(() => {
       this.updateConnection();
     }, MARKET_HOURS_CHECK_MS);
   }
@@ -120,7 +121,7 @@ class LiveMarketManager {
       return;
     }
 
-    window.clearInterval(this.marketHoursTimer);
+    globalThis.clearInterval(this.marketHoursTimer);
     this.marketHoursTimer = null;
   }
 
@@ -129,8 +130,10 @@ class LiveMarketManager {
       return;
     }
 
-    window.addEventListener("beforeunload", this.handleBeforeUnload);
-    this.unloadHandlerRegistered = true;
+    if (typeof window !== "undefined") {
+      window.addEventListener("beforeunload", this.handleBeforeUnload);
+      this.unloadHandlerRegistered = true;
+    }
   }
 
   private readonly handleBeforeUnload = () => {
