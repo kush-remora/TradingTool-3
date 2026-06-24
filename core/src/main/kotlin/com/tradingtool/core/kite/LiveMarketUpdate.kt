@@ -11,6 +11,7 @@ data class LiveMarketUpdate(
     val instrumentToken: Long,
     val ltp: Double,
     val changePercent: Double,
+    val open: Double,
     val high: Double,
     val low: Double,
     val volume: Long,

@@ -4,6 +4,7 @@ import { Alert, Button, Card, Empty, Select, Space, Spin, Switch, Table, Tag, Ty
 import type { ColumnsType } from "antd/es/table";
 import type { FilterValue, TableCurrentDataSource, TablePaginationConfig, TableProps } from "antd/es/table/interface";
 import { useVolumeShockerDashboard } from "../hooks/useVolumeShockerDashboard";
+import { LiveMarketWidget } from "../components/LiveMarketWidget";
 import type {
   VolumeShockerDashboardRow,
   VolumeShockerDetailResponse,
@@ -223,6 +224,15 @@ export function VolumeShockerDashboardPage() {
         },
         defaultSortOrder: key === "source_rank" ? ("ascend" as const) : undefined,
         render: (value: unknown, row: VolumeShockerDashboardRow) => {
+          if (key === "ltp") {
+            return (
+              <LiveMarketWidget
+                symbol={`NSE:${row.symbol}`}
+                fallbackLtp={row.ltp}
+                showDetails={true}
+              />
+            );
+          }
           if (key === "pre_event_accumulation_hint") {
             return row.pre_event_accumulation_hint ? <Tag color="green">YES</Tag> : <Tag>NO</Tag>;
           }

@@ -6,6 +6,7 @@ import type { FilterValue, TableCurrentDataSource, TablePaginationConfig, TableP
 import { useHotSmaScanner } from "../hooks/useHotSmaScanner";
 import type { HotSmaRow, HotSmaUniverseOption, HotSmaZoneStatus } from "../types";
 import { getJson } from "../utils/api";
+import { LiveMarketWidget } from "../components/LiveMarketWidget";
 
 const UNIVERSES_PATH = "/api/strategy/hot-sma/universes";
 const STORAGE_KEY = "hot-sma-filters-v1";
@@ -185,9 +186,9 @@ export function HotSmaPage() {
       }));
 
       return {
-        title: COLUMN_TITLES[key],
+        title: key === "currentPrice" ? "Live Market" : COLUMN_TITLES[key],
         dataIndex: key,
-        key,
+        key: String(key),
         filteredValue: filteredInfo[String(key)] ?? null,
         filters: uniqueValues,
         filterSearch: true,
@@ -204,6 +205,15 @@ export function HotSmaPage() {
         render: (_value: unknown, row: HotSmaRow) => {
           if (key === "zoneStatus") {
             return <Tag color={ZONE_STATUS_COLORS[row.zoneStatus]}>{row.zoneStatus}</Tag>;
+          }
+          if (key === "currentPrice") {
+            return (
+              <LiveMarketWidget
+                symbol={`NSE:${row.symbol}`}
+                fallbackLtp={row.currentPrice}
+                showDetails={true}
+              />
+            );
           }
           return formatCellValue(row, key);
         },

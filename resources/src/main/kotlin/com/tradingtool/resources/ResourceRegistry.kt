@@ -15,4 +15,5 @@ val ALL_RESOURCE_CLASSES: List<Class<*>> = listOf(
     ConsoleV2Resource::class.java,
     IntegrationResource::class.java,
     StockResource::class.java,
+    LiveMarketResource::class.java,
 )

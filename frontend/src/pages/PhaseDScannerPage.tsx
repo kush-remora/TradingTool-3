@@ -25,6 +25,7 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { TabsProps, UploadProps } from "antd";
+import { LiveMarketWidget } from "../components/LiveMarketWidget";
 
 interface PhaseCWatchlistDto {
   symbol: string;
@@ -543,7 +544,15 @@ export function PhaseDScannerPage() {
         fixed: "left",
         render: (_value, row) => (
           <Space orientation="vertical" size={0}>
-            <Typography.Text strong>{row.symbol}</Typography.Text>
+            <Typography.Text strong>
+              {row.instrumentToken ? (
+                <a href={`https://kite.zerodha.com/chart/web/tvc/NSE/${row.symbol}/${row.instrumentToken}`} target="_blank" rel="noopener noreferrer">
+                  {row.symbol}
+                </a>
+              ) : (
+                row.symbol
+              )}
+            </Typography.Text>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               {row.stockName || "-"}
             </Typography.Text>
@@ -607,9 +616,9 @@ export function PhaseDScannerPage() {
         ),
       },
       {
-        title: "Close",
+        title: "Prev Close / Vol",
         key: "close",
-        width: 110,
+        width: 120,
         align: "right",
         render: (_value, row) => (
           <Space orientation="vertical" size={0} style={{ width: "100%" }}>
@@ -617,16 +626,24 @@ export function PhaseDScannerPage() {
             <Typography.Text type="secondary" style={{ fontSize: 11 }}>
               {row.pctChange || "-"}
             </Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+              Vol: {formatNumber(row.volume)}
+            </Typography.Text>
           </Space>
         ),
       },
       {
-        title: "Volume",
-        dataIndex: "volume",
-        key: "volume",
-        width: 120,
-        align: "right",
-        render: (value: number | null) => formatNumber(value),
+        title: "Live Market",
+        key: "liveMarket",
+        width: 140,
+        render: (_value, row) => (
+          <LiveMarketWidget
+            symbol={`NSE:${row.symbol}`}
+            fallbackLtp={row.closePrice}
+            fallbackChangePercent={row.pctChange ? parseFloat(row.pctChange) : null}
+            showDetails={true}
+          />
+        ),
       },
       {
         title: "Dry-Up Profile",

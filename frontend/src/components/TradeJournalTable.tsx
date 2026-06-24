@@ -8,6 +8,7 @@ import type { CloseTradeInput, GttTarget, TradeWithTargets } from "../types";
 import { calculatePnL, type PnLResult } from "../utils/pnlUtils";
 import { deriveSignalConfigFromTrade } from "../utils/tradeSessionSignals";
 import { TradeMarketHistoryPanel } from "./TradeMarketHistoryPanel";
+import { LiveMarketWidget } from "./LiveMarketWidget";
 
 const { Text } = Typography;
 
@@ -157,12 +158,16 @@ export function TradeJournalTable({
       },
     },
     {
-      title: <Text style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "#8c8c8c" }}>LTP</Text>,
-      key: "ltp",
-      width: 120,
-      render: (_, record) => {
-        return <Text style={{ fontWeight: 600, color: "#1a1a2e" }}>{formatPrice(record.currentLtp)}</Text>;
-      },
+      title: <Text style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "#8c8c8c" }}>LIVE MARKET</Text>,
+      key: "liveMarket",
+      width: 140,
+      render: (_, record) => (
+        <LiveMarketWidget
+          symbol={`NSE:${record.trade.nse_symbol}`}
+          fallbackLtp={record.currentLtp ?? undefined}
+          showDetails={true}
+        />
+      ),
     },
     {
       title: <Text style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "#8c8c8c" }}>CURRENT P&amp;L</Text>,
@@ -191,25 +196,6 @@ export function TradeJournalTable({
             {isProfit ? "+" : ""}₹{Math.abs(pnl).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
             &nbsp;({isProfit ? "+" : ""}{pnlPct.toFixed(1)}%)
           </Tag>
-        );
-      },
-    },
-    {
-      title: <Text style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "#8c8c8c" }}>DAY RANGE</Text>,
-      key: "day_range",
-      width: 155,
-      render: (_, record) => {
-        return (
-          <div>
-            <Text style={{ fontWeight: 500, color: "#595959", fontSize: 12 }}>
-              L: {formatPrice(record.dayLow)}
-            </Text>
-            <div>
-              <Text style={{ fontWeight: 500, color: "#595959", fontSize: 12 }}>
-                H: {formatPrice(record.dayHigh)}
-              </Text>
-            </div>
-          </div>
         );
       },
     },

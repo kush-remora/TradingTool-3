@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { Alert, Button, Card, Empty, Space, Spin, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useDeliveryBreakoutScanner } from "../hooks/useDeliveryBreakoutScanner";
+import { LiveMarketWidget } from "../components/LiveMarketWidget";
 import type { DeliveryBreakoutDashboardRow } from "../types";
 
 function formatNumber(value: number | null | undefined, fractionDigits: number = 2): string {
@@ -70,22 +71,20 @@ export function DeliveryBreakoutScannerPage() {
           onFilter: (value, record) => String(record.symbol) === value,
         },
         {
-          title: "Close",
+          title: "Live Market",
           dataIndex: "close",
-          key: "close",
-          render: (value: number | null) => formatNumber(value),
+          key: "liveMarket",
+          render: (_value: unknown, record: DeliveryBreakoutDashboardRow) => (
+            <LiveMarketWidget
+              symbol={`NSE:${record.symbol}`}
+              fallbackLtp={record.close}
+              fallbackChangePercent={record.close_pct_change}
+              showDetails={true}
+            />
+          ),
           sorter: (left, right) => (left.close ?? Number.NEGATIVE_INFINITY) - (right.close ?? Number.NEGATIVE_INFINITY),
           filters: getFilters("close", formatNumber),
           onFilter: (value, record) => String(record.close) === value,
-        },
-        {
-          title: "Close %",
-          dataIndex: "close_pct_change",
-          key: "close_pct_change",
-          render: (value: number | null) => formatPercent(value),
-          sorter: (left, right) => (left.close_pct_change ?? Number.NEGATIVE_INFINITY) - (right.close_pct_change ?? Number.NEGATIVE_INFINITY),
-          filters: getFilters("close_pct_change", formatPercent),
-          onFilter: (value, record) => String(record.close_pct_change) === value,
         },
         {
           title: "Volume",

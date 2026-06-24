@@ -4,6 +4,13 @@ import { PhaseDScannerPage, parseCsvOrTsv } from "./PhaseDScannerPage";
 
 const fetchMock = vi.fn();
 
+class MockEventSource {
+  constructor(public url: string) {}
+  onmessage: ((event: any) => void) | null = null;
+  onerror: ((event: any) => void) | null = null;
+  close() {}
+}
+
 function buildRow(overrides: Record<string, unknown> = {}) {
   return {
     symbol: "INFY",
@@ -52,6 +59,7 @@ describe("PhaseDScannerPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("EventSource", MockEventSource);
   });
 
   it("renders the phase 1 and phase 2 summary", async () => {

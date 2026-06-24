@@ -12,6 +12,7 @@ import type {
   WyckoffPhase1RunRequest,
   WyckoffPhase1TableColumnsConfig,
 } from "../types";
+import { LiveMarketWidget } from "../components/LiveMarketWidget";
 
 const FILTERS_STORAGE_KEY = "wyckoff-phase1-filters-v1";
 
@@ -221,12 +222,19 @@ export function WyckoffPhase1Page() {
       .filter((column) => column.enabled)
       .map((column) => column.key);
 
-    const keys = enabledKeys.length > 0 ? enabledKeys : ["symbol", "index_key", "signal_date", "delivery_pct", "delivery_pass", "passed_count"];
+    let keys = enabledKeys.length > 0 ? enabledKeys : ["symbol", "index_key", "signal_date", "delivery_pct", "delivery_pass", "passed_count"];
+
+    const symbolIndex = keys.indexOf("symbol");
+    if (symbolIndex !== -1 && !keys.includes("liveMarket")) {
+      const newKeys = [...keys];
+      newKeys.splice(symbolIndex + 1, 0, "liveMarket");
+      keys = newKeys;
+    }
 
     const defaultSort = columnsConfig?.defaultSort?.[0];
 
     return keys.map((key) => {
-      const uniqueValues = Array.from(
+      const uniqueValues = key === "liveMarket" ? [] : Array.from(
         new Set((data?.rows ?? []).map((row) => row[key as keyof WyckoffPhase1Row]).filter((value) => value != null)),
       )
         .sort((left, right) => {
@@ -243,23 +251,28 @@ export function WyckoffPhase1Page() {
         }));
 
       const column = {
-        title: COLUMN_LABELS[key] ?? key,
+        title: key === "liveMarket" ? "Live Market" : (COLUMN_LABELS[key] ?? key),
         dataIndex: key,
         key,
         filteredValue: filteredInfo[key] ?? null,
         filters: uniqueValues,
-        filterSearch: true,
-        onFilter: (filterValue: boolean | Key, row: WyckoffPhase1Row) =>
-          matchesColumnFilter(row, key, String(filterValue)),
-        sorter: (a: WyckoffPhase1Row, b: WyckoffPhase1Row) => {
+        filterSearch: key !== "liveMarket",
+        onFilter: key === "liveMarket" ? undefined : ((filterValue: boolean | Key, row: WyckoffPhase1Row) =>
+          matchesColumnFilter(row, key, String(filterValue))),
+        sorter: key === "liveMarket" ? undefined : ((a: WyckoffPhase1Row, b: WyckoffPhase1Row) => {
           const left = valueForSort(a[key as keyof WyckoffPhase1Row]);
           const right = valueForSort(b[key as keyof WyckoffPhase1Row]);
           if (typeof left === "number" && typeof right === "number") {
             return left - right;
           }
           return String(left).localeCompare(String(right));
+        }),
+        render: (value: unknown, row: WyckoffPhase1Row) => {
+          if (key === "liveMarket") {
+            return <LiveMarketWidget symbol={`NSE:${row.symbol}`} showDetails={true} />;
+          }
+          return formatValue(key, value);
         },
-        render: (value: unknown) => formatValue(key, value),
       };
 
       if (defaultSort?.key === key && defaultSort.direction === "desc") {

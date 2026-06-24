@@ -17,6 +17,7 @@ export interface LiveMarketUpdate {
   instrumentToken: number;
   ltp: number;
   changePercent: number;
+  open: number;
   high: number;
   low: number;
   volume: number;

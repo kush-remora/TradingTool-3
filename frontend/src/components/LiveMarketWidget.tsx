@@ -51,30 +51,26 @@ export function LiveMarketWidget({
       </Space>
 
       {showDetails && data && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              L: <Text style={{ fontSize: 11 }}>{data.low.toFixed(1)}</Text>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 8px', marginTop: 4, width: '100%' }}>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            O: <Text style={{ fontSize: 11 }}>{data.open != null ? data.open.toLocaleString("en-IN") : '-'}</Text>
+          </Text>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            H: <Text style={{ fontSize: 11 }}>{data.high != null ? data.high.toLocaleString("en-IN") : '-'}</Text>
+          </Text>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            L: <Text style={{ fontSize: 11 }}>{data.low != null ? data.low.toLocaleString("en-IN") : '-'}</Text>
+          </Text>
+          <Tooltip title={`Current: ${data.volume?.toLocaleString("en-IN") || '-'} | Avg: ${data.avgVol20d?.toLocaleString("en-IN") || '-'}`}>
+            <Text type="secondary" style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
+              V: <Text style={{ fontSize: 11 }}>{data.volume != null ? formatVolume(data.volume) : '-'}</Text>
+              {data.volumeHeat !== null && data.volumeHeat > 1.5 && (
+                <span style={{ color: '#d46b08', fontSize: 10, fontWeight: 500 }}>
+                  ({data.volumeHeat.toFixed(1)}x)
+                </span>
+              )}
             </Text>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              H: <Text style={{ fontSize: 11 }}>{data.high.toFixed(1)}</Text>
-            </Text>
-          </div>
-          
-          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-            <Tooltip title={`Current: ${data.volume.toLocaleString()} | Avg: ${data.avgVol20d?.toLocaleString() || '-'}`}>
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                V: <Text style={{ fontSize: 11 }}>{formatVolume(data.volume)}</Text>
-              </Text>
-            </Tooltip>
-            {data.volumeHeat !== null && (
-              <Tooltip title="Volume relative to 20-day average">
-                <Tag color={data.volumeHeat > 1.5 ? "orange" : "default"} style={{ margin: 0, padding: '0 4px', fontSize: 10, borderRadius: 4, lineHeight: '16px' }}>
-                  {data.volumeHeat.toFixed(1)}x
-                </Tag>
-              </Tooltip>
-            )}
-          </div>
+          </Tooltip>
         </div>
       )}
     </div>
