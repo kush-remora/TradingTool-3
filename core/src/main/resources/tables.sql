@@ -170,7 +170,17 @@ CREATE TABLE IF NOT EXISTS public.phase_c_watchlist (
     low_52w NUMERIC(18, 2),
     dist_200d_high_pct NUMERIC(10, 2),
     dist_200d_low_pct NUMERIC(10, 2),
-    atr_lt_2pct_count INTEGER
+    atr_lt_2pct_count INTEGER,
+    market_fields_updated_on DATE,
+    phase_2_delivery_status TEXT NOT NULL DEFAULT 'NOT_RUN',
+    phase_2_reason TEXT,
+    phase_2_evaluated_on DATE,
+    delivery_quantity_today BIGINT,
+    delivery_pct_today REAL,
+    wholesale_base_dq BIGINT,
+    delivery_spike_ratio REAL,
+    conviction_days_10d INTEGER,
+    conviction_days_20d INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_phase_c_watchlist_status ON public.phase_c_watchlist(status);

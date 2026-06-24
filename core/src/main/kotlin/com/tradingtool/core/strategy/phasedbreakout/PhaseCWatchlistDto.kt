@@ -35,3 +35,20 @@ data class PhaseCWatchlistUploadResponse(
     val insertedCount: Int,
     val updatedCount: Int
 )
+
+data class PhaseCFreshFieldRefreshResponse(
+    val refreshedCount: Int,
+    val refreshedOn: java.time.LocalDate?,
+)
+
+data class PhaseCFreshFieldUpdate(
+    val symbol: String,
+    val closePrice: Double,
+    val pctChange: String,
+    val volume: Long,
+    val high52w: Double,
+    val low52w: Double,
+    val dist200dHighPct: Double,
+    val dist200dLowPct: Double,
+    val marketFieldsUpdatedOn: java.time.LocalDate,
+)

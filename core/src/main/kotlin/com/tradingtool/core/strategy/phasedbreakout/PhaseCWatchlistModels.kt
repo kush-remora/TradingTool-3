@@ -31,5 +31,15 @@ data class PhaseCWatchlistRow(
     @ColumnName("low_52w") val low52w: Double?,
     @ColumnName("dist_200d_high_pct") val dist200dHighPct: Double?,
     @ColumnName("dist_200d_low_pct") val dist200dLowPct: Double?,
-    @ColumnName("atr_lt_2pct_count") val atrLt2pctCount: Int?
+    @ColumnName("atr_lt_2pct_count") val atrLt2pctCount: Int?,
+    @ColumnName("market_fields_updated_on") val marketFieldsUpdatedOn: LocalDate?,
+    @ColumnName("phase_2_delivery_status") val phase2DeliveryStatus: String?,
+    @ColumnName("phase_2_reason") val phase2Reason: String?,
+    @ColumnName("phase_2_evaluated_on") val phase2EvaluatedOn: LocalDate?,
+    @ColumnName("delivery_quantity_today") val deliveryQuantityToday: Long?,
+    @ColumnName("delivery_pct_today") val deliveryPctToday: Double?,
+    @ColumnName("wholesale_base_dq") val wholesaleBaseDq: Long?,
+    @ColumnName("delivery_spike_ratio") val deliverySpikeRatio: Double?,
+    @ColumnName("conviction_days_10d") val convictionDays10d: Int?,
+    @ColumnName("conviction_days_20d") val convictionDays20d: Int?,
 )

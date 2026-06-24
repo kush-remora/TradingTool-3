@@ -254,10 +254,18 @@ class ServiceModule(
     @Provides @Singleton
     fun providePhaseCWatchlistService(
         jdbiHandler: com.tradingtool.core.strategy.phasedbreakout.PhaseCWatchlistJdbiHandler,
+        stockDeliveryHandler: StockDeliveryJdbiHandler,
+        candleHandler: CandleJdbiHandler,
+        candleDataService: CandleDataService,
+        kiteClient: KiteConnectClient,
         instrumentTokenResolver: InstrumentTokenResolverService
     ): com.tradingtool.core.strategy.phasedbreakout.PhaseCWatchlistService =
         com.tradingtool.core.strategy.phasedbreakout.PhaseCWatchlistService(
-            jdbiHandler = jdbiHandler,
+            watchlistHandler = jdbiHandler,
+            stockDeliveryHandler = stockDeliveryHandler,
+            candleHandler = candleHandler,
+            candleDataService = candleDataService,
+            kiteClient = kiteClient,
             instrumentTokenResolver = instrumentTokenResolver
         )
 

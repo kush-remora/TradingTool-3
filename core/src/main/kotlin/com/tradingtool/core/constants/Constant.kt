@@ -118,5 +118,15 @@ object DatabaseConstants {
         const val DIST_200D_HIGH_PCT = "dist_200d_high_pct"
         const val DIST_200D_LOW_PCT = "dist_200d_low_pct"
         const val ATR_LT_2PCT_COUNT = "atr_lt_2pct_count"
+        const val MARKET_FIELDS_UPDATED_ON = "market_fields_updated_on"
+        const val PHASE_2_DELIVERY_STATUS = "phase_2_delivery_status"
+        const val PHASE_2_REASON = "phase_2_reason"
+        const val PHASE_2_EVALUATED_ON = "phase_2_evaluated_on"
+        const val DELIVERY_QUANTITY_TODAY = "delivery_quantity_today"
+        const val DELIVERY_PCT_TODAY = "delivery_pct_today"
+        const val WHOLESALE_BASE_DQ = "wholesale_base_dq"
+        const val DELIVERY_SPIKE_RATIO = "delivery_spike_ratio"
+        const val CONVICTION_DAYS_10D = "conviction_days_10d"
+        const val CONVICTION_DAYS_20D = "conviction_days_20d"
     }
 }

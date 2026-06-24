@@ -12,6 +12,8 @@ import java.time.LocalDate
 import java.time.OffsetDateTime
 
 class DeliveryBreakoutAnalyzerTest {
+    private val config = DeliveryBreakoutConfig()
+
     @Test
     fun `stage1 candidate requires both volume and delivery to beat prior 10 day maxima`() {
         val tradeDate = LocalDate.of(2026, 6, 23)
@@ -32,6 +34,7 @@ class DeliveryBreakoutAnalyzerTest {
             DeliveryBreakoutAnalyzer.buildStage1Candidate(
                 row = current,
                 history = history,
+                config = config,
             ),
         )
 
@@ -56,6 +59,7 @@ class DeliveryBreakoutAnalyzerTest {
         val candidate = DeliveryBreakoutAnalyzer.buildStage1Candidate(
             row = deliveryRow(tradingDate = tradeDate, volume = 20_000L, deliveryQuantity = 9_000L),
             history = history,
+            config = config,
         )
 
         assertNull(candidate)
@@ -84,6 +88,7 @@ class DeliveryBreakoutAnalyzerTest {
             deliveries = deliveries,
             candles = candles,
             tradeDate = tradeDate,
+            config = config,
         )
 
         assertEquals(tradeDate.minusDays(1), quietClueDay)
@@ -123,6 +128,7 @@ class DeliveryBreakoutAnalyzerTest {
             deliveries = deliveries,
             candles = candles,
             tradeDate = tradeDate,
+            config = config,
         )
 
         assertEquals(LocalDate.of(2026, 6, 19), quietClueDay)

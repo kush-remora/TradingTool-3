@@ -6,9 +6,25 @@ import {
   UploadOutlined,
 } from "@ant-design/icons";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Card, Col, Empty, Input, Row, Space, Spin, Statistic, Table, Tag, Typography, Upload } from "antd";
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  Empty,
+  Input,
+  Row,
+  Space,
+  Spin,
+  Statistic,
+  Table,
+  Tabs,
+  Tag,
+  Typography,
+  Upload,
+} from "antd";
 import type { ColumnsType } from "antd/es/table";
-import type { UploadProps } from "antd";
+import type { TabsProps, UploadProps } from "antd";
 
 interface PhaseCWatchlistDto {
   symbol: string;
@@ -42,6 +58,16 @@ interface PhaseCWatchlistRow extends PhaseCWatchlistDto {
   lastSeenOn: string;
   status: string;
   instrumentToken: number | null;
+  marketFieldsUpdatedOn: string | null;
+  phase2DeliveryStatus: string | null;
+  phase2Reason: string | null;
+  phase2EvaluatedOn: string | null;
+  deliveryQuantityToday: number | null;
+  deliveryPctToday: number | null;
+  wholesaleBaseDq: number | null;
+  deliverySpikeRatio: number | null;
+  convictionDays10d: number | null;
+  convictionDays20d: number | null;
 }
 
 type UploadResult = {
@@ -49,13 +75,32 @@ type UploadResult = {
   updated: number;
 };
 
+type DeliveryValidationResult = {
+  evaluatedOn: string | null;
+  totalStocks: number;
+  passed: number;
+  watch: number;
+  notPassed: number;
+  notRun: number;
+  dataMissing: number;
+};
+
+type FreshFieldRefreshResult = {
+  refreshedCount: number;
+  refreshedOn: string | null;
+};
+
 type QuickFilter = "all" | "resolved" | "unresolved";
+type WatchlistTab = "all-phase-1" | "delivery-conviction";
 
 type SummaryStats = {
   totalCandidates: number;
   resolvedTokens: number;
   unresolvedTokens: number;
-  seenToday: number;
+  phase2Passed: number;
+  phase2Watch: number;
+  phase2NotPassed: number;
+  phase2DataMissing: number;
 };
 
 const HEADER_ALIASES: Record<keyof PhaseCWatchlistDto, string[]> = {
@@ -104,6 +149,14 @@ function formatPercent(value: number | null | undefined): string {
   return `${value.toFixed(1)}%`;
 }
 
+function formatRatio(value: number | null | undefined): string {
+  if (value == null) {
+    return "-";
+  }
+
+  return `${value.toFixed(2)}x`;
+}
+
 function buildStatusTag(status: string) {
   switch (status.toUpperCase()) {
     case "BREAKOUT_TRIGGERED":
@@ -120,6 +173,30 @@ function buildTokenTag(instrumentToken: number | null) {
     return <Tag color="green">Resolved</Tag>;
   }
   return <Tag color="gold">Missing</Tag>;
+}
+
+function buildPhase2Tag(status: string | null) {
+  switch (status) {
+    case "PASSED":
+      return <Tag color="green">Passed</Tag>;
+    case "WATCH":
+      return <Tag color="blue">Watch</Tag>;
+    case "NOT_PASSED":
+      return <Tag color="default">Not passed</Tag>;
+    case "DATA_MISSING":
+      return <Tag color="gold">Data missing</Tag>;
+    default:
+      return <Tag color="default">Not run</Tag>;
+  }
+}
+
+async function readErrorMessage(response: Response, fallbackMessage: string): Promise<string> {
+  try {
+    const body = (await response.json()) as { detail?: string; error?: string; message?: string };
+    return body.detail || body.error || body.message || fallbackMessage;
+  } catch {
+    return fallbackMessage;
+  }
 }
 
 function parseDelimitedLine(line: string, separator: string): string[] {
@@ -237,20 +314,25 @@ export function PhaseDScannerPage() {
   const [watchlist, setWatchlist] = useState<PhaseCWatchlistRow[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [uploading, setUploading] = useState<boolean>(false);
+  const [runningValidation, setRunningValidation] = useState<boolean>(false);
+  const [refreshingFreshFields, setRefreshingFreshFields] = useState<boolean>(false);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+  const [validationResult, setValidationResult] = useState<DeliveryValidationResult | null>(null);
+  const [freshFieldResult, setFreshFieldResult] = useState<FreshFieldRefreshResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
+  const [activeTab, setActiveTab] = useState<WatchlistTab>("all-phase-1");
 
   const fetchWatchlist = async (): Promise<void> => {
     try {
       setLoading(true);
       const response = await fetch("/api/strategy/phase-c/dashboard");
       if (!response.ok) {
-        throw new Error("Failed to fetch watchlist");
+        throw new Error(await readErrorMessage(response, "Failed to fetch watchlist"));
       }
-      const data = (await response.json()) as PhaseCWatchlistRow[];
-      setWatchlist(data);
+      const data = (await response.json()) as PhaseCWatchlistRow[] | unknown;
+      setWatchlist(Array.isArray(data) ? (data as PhaseCWatchlistRow[]) : []);
     } catch (fetchError) {
       const message = fetchError instanceof Error ? fetchError.message : "Failed to fetch watchlist";
       setError(message);
@@ -267,6 +349,8 @@ export function PhaseDScannerPage() {
     setUploading(true);
     setError(null);
     setUploadResult(null);
+    setValidationResult(null);
+    setFreshFieldResult(null);
 
     try {
       const text = await file.text();
@@ -283,8 +367,7 @@ export function PhaseDScannerPage() {
       });
 
       if (!response.ok) {
-        const errorResponse = (await response.json()) as { error?: string };
-        throw new Error(errorResponse.error || "Failed to upload rows");
+        throw new Error(await readErrorMessage(response, "Failed to upload rows"));
       }
 
       const data = (await response.json()) as {
@@ -308,17 +391,71 @@ export function PhaseDScannerPage() {
     return false;
   };
 
+  const handleRunDeliveryValidation = async (): Promise<void> => {
+    setRunningValidation(true);
+    setError(null);
+    setValidationResult(null);
+
+    try {
+      const response = await fetch("/api/strategy/phase-c/delivery-validation/run", {
+        method: "POST",
+      });
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, "Failed to run delivery validation"));
+      }
+
+      const data = (await response.json()) as DeliveryValidationResult;
+      setValidationResult(data);
+      await fetchWatchlist();
+    } catch (runError) {
+      const message = runError instanceof Error ? runError.message : "Failed to run delivery validation";
+      setError(message);
+    } finally {
+      setRunningValidation(false);
+    }
+  };
+
+  const handleRefreshFreshFields = async (): Promise<void> => {
+    setRefreshingFreshFields(true);
+    setError(null);
+    setFreshFieldResult(null);
+
+    try {
+      const response = await fetch("/api/strategy/phase-c/fresh-fields/update", {
+        method: "POST",
+      });
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, "Failed to update fresh fields"));
+      }
+
+      const data = (await response.json()) as FreshFieldRefreshResult;
+      setFreshFieldResult(data);
+      await fetchWatchlist();
+    } catch (refreshError) {
+      const message = refreshError instanceof Error ? refreshError.message : "Failed to update fresh fields";
+      setError(message);
+    } finally {
+      setRefreshingFreshFields(false);
+    }
+  };
+
   const summary = useMemo<SummaryStats>(() => {
     const totalCandidates = watchlist.length;
     const resolvedTokens = watchlist.filter((row) => row.instrumentToken != null).length;
     const unresolvedTokens = totalCandidates - resolvedTokens;
-    const seenToday = watchlist.filter((row) => row.lastSeenOn === row.addedOn).length;
+    const phase2Passed = watchlist.filter((row) => row.phase2DeliveryStatus === "PASSED").length;
+    const phase2Watch = watchlist.filter((row) => row.phase2DeliveryStatus === "WATCH").length;
+    const phase2NotPassed = watchlist.filter((row) => row.phase2DeliveryStatus === "NOT_PASSED").length;
+    const phase2DataMissing = watchlist.filter((row) => row.phase2DeliveryStatus === "DATA_MISSING").length;
 
     return {
       totalCandidates,
       resolvedTokens,
       unresolvedTokens,
-      seenToday,
+      phase2Passed,
+      phase2Watch,
+      phase2NotPassed,
+      phase2DataMissing,
     };
   }, [watchlist]);
 
@@ -326,6 +463,10 @@ export function PhaseDScannerPage() {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
     return watchlist.filter((row) => {
+      if (activeTab === "delivery-conviction" && row.phase2DeliveryStatus !== "PASSED") {
+        return false;
+      }
+
       if (quickFilter === "resolved" && row.instrumentToken == null) {
         return false;
       }
@@ -344,6 +485,7 @@ export function PhaseDScannerPage() {
         row.sector,
         row.industry,
         row.marketCapBucket,
+        row.phase2Reason,
       ]
         .filter((value): value is string => Boolean(value))
         .join(" ")
@@ -351,7 +493,39 @@ export function PhaseDScannerPage() {
 
       return haystack.includes(normalizedQuery);
     });
-  }, [quickFilter, searchQuery, watchlist]);
+  }, [activeTab, quickFilter, searchQuery, watchlist]);
+
+  const freshnessSummary = useMemo(() => {
+    if (watchlist.length === 0) {
+      return null;
+    }
+
+    const staleRows = watchlist.filter((row) => row.marketFieldsUpdatedOn == null);
+    if (staleRows.length > 0) {
+      return {
+        type: "warning" as const,
+        message: "Fresh market fields are not updated yet.",
+        description: `${staleRows.length} of ${watchlist.length} rows are still showing uploaded CSV values. Run Update Fresh Fields to pull daily candle data from Kite.`,
+      };
+    }
+
+    const refreshedDates = Array.from(
+      new Set(
+        watchlist
+          .map((row) => row.marketFieldsUpdatedOn)
+          .filter((value): value is string => Boolean(value)),
+      ),
+    ).sort();
+    const latestRefreshDate = refreshedDates[refreshedDates.length - 1] ?? null;
+
+    return {
+      type: "info" as const,
+      message: "Fresh market fields are up to date.",
+      description: latestRefreshDate
+        ? `All ${watchlist.length} rows are using market data from ${latestRefreshDate}.`
+        : "All rows have a refresh date recorded.",
+    };
+  }, [watchlist]);
 
   const uploadProps: UploadProps = {
     accept: ".csv,.tsv,text/plain",
@@ -380,11 +554,20 @@ export function PhaseDScannerPage() {
         ),
       },
       {
-        title: "Status",
-        dataIndex: "status",
-        key: "status",
-        width: 140,
-        render: (value: string) => buildStatusTag(value),
+        title: "Phase 2",
+        key: "phase2",
+        width: 190,
+        render: (_value, row) => (
+          <Space orientation="vertical" size={2}>
+            {buildPhase2Tag(row.phase2DeliveryStatus)}
+            <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+              {row.phase2Reason || "awaiting_delivery_validation"}
+            </Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+              {row.phase2EvaluatedOn ? `Evaluated ${row.phase2EvaluatedOn}` : "Not evaluated yet"}
+            </Typography.Text>
+          </Space>
+        ),
       },
       {
         title: "Token",
@@ -396,6 +579,30 @@ export function PhaseDScannerPage() {
             <Typography.Text type="secondary" style={{ fontSize: 11 }}>
               {row.instrumentToken != null ? formatNumber(row.instrumentToken) : "Needs resolver match"}
             </Typography.Text>
+          </Space>
+        ),
+      },
+      {
+        title: "Delivery Validation",
+        key: "deliveryValidation",
+        width: 210,
+        render: (_value, row) => (
+          <Space orientation="vertical" size={0}>
+            <Typography.Text style={{ fontSize: 12 }}>Today DQ: {formatNumber(row.deliveryQuantityToday)}</Typography.Text>
+            <Typography.Text style={{ fontSize: 12 }}>Today Del %: {formatPercent(row.deliveryPctToday)}</Typography.Text>
+            <Typography.Text style={{ fontSize: 12 }}>Base DQ: {formatNumber(row.wholesaleBaseDq)}</Typography.Text>
+            <Typography.Text style={{ fontSize: 12 }}>Spike: {formatRatio(row.deliverySpikeRatio)}</Typography.Text>
+          </Space>
+        ),
+      },
+      {
+        title: "Rolling Counts",
+        key: "rollingCounts",
+        width: 170,
+        render: (_value, row) => (
+          <Space orientation="vertical" size={0}>
+            <Typography.Text style={{ fontSize: 12 }}>10D Conviction: {formatNumber(row.convictionDays10d)}</Typography.Text>
+            <Typography.Text style={{ fontSize: 12 }}>20D Conviction: {formatNumber(row.convictionDays20d)}</Typography.Text>
           </Space>
         ),
       },
@@ -463,12 +670,15 @@ export function PhaseDScannerPage() {
       {
         title: "Dates",
         key: "dates",
-        width: 150,
+        width: 180,
         render: (_value, row) => (
           <Space orientation="vertical" size={0}>
             <Typography.Text style={{ fontSize: 12 }}>Added {row.addedOn}</Typography.Text>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               Last seen {row.lastSeenOn}
+            </Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {row.marketFieldsUpdatedOn ? `Fresh fields ${row.marketFieldsUpdatedOn}` : "Fresh fields pending"}
             </Typography.Text>
           </Space>
         ),
@@ -477,27 +687,38 @@ export function PhaseDScannerPage() {
     [],
   );
 
+  const tabItems: TabsProps["items"] = [
+    {
+      key: "all-phase-1",
+      label: `All Phase 1 Stocks (${summary.totalCandidates})`,
+    },
+    {
+      key: "delivery-conviction",
+      label: `Delivery Conviction (${summary.phase2Passed})`,
+    },
+  ];
+
   return (
     <div style={{ padding: 24 }}>
       <Space orientation="vertical" size={16} style={{ width: "100%" }}>
         <Card>
           <Space orientation="vertical" size={8} style={{ width: "100%" }}>
             <Space wrap size={8}>
-              <Tag color="blue">Phase D Scanner</Tag>
-              <Tag color="gold">Phase C Intake Live</Tag>
+              <Tag color="blue">Phase 1 Intake</Tag>
+              <Tag color="green">Phase 2 Delivery Validation</Tag>
             </Space>
             <Typography.Title level={2} style={{ margin: 0 }}>
-              Build the ignition watchlist before the trigger engine exists.
+              Review quiet Phase 1 candidates, then validate delivery conviction on demand.
             </Typography.Title>
             <Typography.Text type="secondary">
-              This screen currently stages Phase C dry-up candidates, resolves Kite tokens, and keeps the watchlist
-              clean for the next Phase D monitoring layer.
+              This screen keeps the current Phase 1 watchlist fresh, resolves Kite tokens, and runs the Phase 2
+              delivery pass on the same stocks whenever you want to re-check conviction.
             </Typography.Text>
 
             <Row gutter={[12, 12]} style={{ marginTop: 4 }}>
               <Col xs={12} md={6}>
                 <Card size="small">
-                  <Statistic title="Candidates" value={summary.totalCandidates} />
+                  <Statistic title="Phase 1 Stocks" value={summary.totalCandidates} />
                 </Card>
               </Col>
               <Col xs={12} md={6}>
@@ -507,20 +728,27 @@ export function PhaseDScannerPage() {
               </Col>
               <Col xs={12} md={6}>
                 <Card size="small">
-                  <Statistic
-                    title="Unresolved"
-                    value={summary.unresolvedTokens}
-                    styles={{ content: { color: "#d48806" } }}
-                  />
+                  <Statistic title="Phase 2 Passed" value={summary.phase2Passed} styles={{ content: { color: "#389e0d" } }} />
                 </Card>
               </Col>
               <Col xs={12} md={6}>
                 <Card size="small">
-                  <Statistic
-                    title="Freshly Seen"
-                    value={summary.seenToday}
-                    styles={{ content: { color: "#389e0d" } }}
-                  />
+                  <Statistic title="Phase 2 Watch" value={summary.phase2Watch} styles={{ content: { color: "#1677ff" } }} />
+                </Card>
+              </Col>
+              <Col xs={12} md={6}>
+                <Card size="small">
+                  <Statistic title="Phase 2 Not Passed" value={summary.phase2NotPassed} />
+                </Card>
+              </Col>
+              <Col xs={12} md={6}>
+                <Card size="small">
+                  <Statistic title="Data Missing" value={summary.phase2DataMissing} styles={{ content: { color: "#d48806" } }} />
+                </Card>
+              </Col>
+              <Col xs={12} md={6}>
+                <Card size="small">
+                  <Statistic title="Unresolved Tokens" value={summary.unresolvedTokens} styles={{ content: { color: "#d48806" } }} />
                 </Card>
               </Col>
             </Row>
@@ -530,16 +758,36 @@ export function PhaseDScannerPage() {
         <Row gutter={[16, 16]}>
           <Col xs={24} xl={16}>
             <Card
-              title="Import latest Chartink watchlist"
+              title="Import or re-run the current watchlist"
               extra={
-                <Button icon={<SyncOutlined />} onClick={() => void fetchWatchlist()} loading={loading}>
-                  Refresh
-                </Button>
+                <Space>
+                  <Button icon={<SyncOutlined />} onClick={() => void fetchWatchlist()} loading={loading}>
+                    Refresh
+                  </Button>
+                  <Button
+                    icon={<SyncOutlined />}
+                    onClick={() => void handleRefreshFreshFields()}
+                    loading={refreshingFreshFields}
+                    disabled={watchlist.length === 0}
+                  >
+                    Update Fresh Fields
+                  </Button>
+                  <Button
+                    type="primary"
+                    icon={<SyncOutlined />}
+                    onClick={() => void handleRunDeliveryValidation()}
+                    loading={runningValidation}
+                    disabled={watchlist.length === 0}
+                  >
+                    Run Delivery Validation
+                  </Button>
+                </Space>
               }
             >
               <Space orientation="vertical" size={16} style={{ width: "100%" }}>
                 <Typography.Text type="secondary">
-                  Upload the dry-up export, parse it in browser, then upsert it into the Phase C watchlist.
+                  Upload the Chartink shortlist to refresh Phase 1 rows, then run Phase 2 to see which names show real
+                  delivery-based conviction.
                 </Typography.Text>
 
                 <Upload.Dragger {...uploadProps}>
@@ -550,18 +798,44 @@ export function PhaseDScannerPage() {
                     {uploading ? "Importing and resolving tokens..." : "Drop CSV/TSV or click to upload"}
                   </p>
                   <p className="ant-upload-hint">
-                    Best for the raw Chartink export used to seed Phase C candidates.
+                    Best for the raw Chartink export used to seed the Phase 1 watchlist.
                   </p>
                 </Upload.Dragger>
 
-                {error ? <Alert type="error" showIcon icon={<ExclamationCircleOutlined />} message={error} /> : null}
+                {error ? <Alert type="error" showIcon icon={<ExclamationCircleOutlined />} title={error} /> : null}
 
                 {uploadResult ? (
                   <Alert
                     type="success"
                     showIcon
                     icon={<FileTextOutlined />}
-                    message={`Imported ${uploadResult.inserted} rows. Updates reported: ${uploadResult.updated}.`}
+                    title={`Imported ${uploadResult.inserted} rows. Updates reported: ${uploadResult.updated}.`}
+                  />
+                ) : null}
+
+                {validationResult ? (
+                  <Alert
+                    type="info"
+                    showIcon
+                    title={`Validated ${validationResult.totalStocks} stocks: ${validationResult.passed} passed, ${validationResult.watch} watch, ${validationResult.notPassed} not passed, ${validationResult.dataMissing} data missing.`}
+                    description={
+                      validationResult.evaluatedOn
+                        ? `Latest delivery evaluation date: ${validationResult.evaluatedOn}`
+                        : undefined
+                    }
+                  />
+                ) : null}
+
+                {freshFieldResult ? (
+                  <Alert
+                    type="success"
+                    showIcon
+                    title={`Updated fresh market fields for ${freshFieldResult.refreshedCount} rows.`}
+                    description={
+                      freshFieldResult.refreshedOn
+                        ? `Latest market-data date applied: ${freshFieldResult.refreshedOn}`
+                        : undefined
+                    }
                   />
                 ) : null}
               </Space>
@@ -574,20 +848,20 @@ export function PhaseDScannerPage() {
                 <Card size="small">
                   <Typography.Text strong>Step 1</Typography.Text>
                   <br />
-                  <Typography.Text type="secondary">Collect Phase C dry-up candidates from Chartink.</Typography.Text>
+                  <Typography.Text type="secondary">Collect Phase 1 quiet-setup candidates from Chartink.</Typography.Text>
                 </Card>
                 <Card size="small">
                   <Typography.Text strong>Step 2</Typography.Text>
                   <br />
                   <Typography.Text type="secondary">
-                    Resolve each symbol into a tradable Kite instrument token.
+                    Resolve each symbol into a tradable Kite instrument token and keep one latest row per symbol.
                   </Typography.Text>
                 </Card>
                 <Card size="small">
                   <Typography.Text strong>Step 3</Typography.Text>
                   <br />
                   <Typography.Text type="secondary">
-                    Prepare a stable watchlist for the future ignition engine and alerts.
+                    Re-run delivery validation on the same watchlist and compare the full list against conviction names.
                   </Typography.Text>
                 </Card>
               </Space>
@@ -595,20 +869,30 @@ export function PhaseDScannerPage() {
           </Col>
         </Row>
 
-        <Card title="Phase C watchlist">
+        <Card title="Phase 1 watchlist with Phase 2 delivery validation">
           <Space orientation="vertical" size={16} style={{ width: "100%" }}>
             <Typography.Text type="secondary">
-              Compact review layer for candidate quality, token resolution, and structural context.
+              Tab 1 keeps every Phase 1 stock visible. Tab 2 narrows the same columns down to names with confirmed
+              delivery conviction.
             </Typography.Text>
+
+            {freshnessSummary ? (
+              <Alert
+                type={freshnessSummary.type}
+                showIcon
+                title={freshnessSummary.message}
+                description={freshnessSummary.description}
+              />
+            ) : null}
 
             <Space wrap size={12} style={{ width: "100%", justifyContent: "space-between" }}>
               <Input
                 allowClear
                 prefix={<SearchOutlined />}
-                placeholder="Search symbol, sector, industry"
+                placeholder="Search symbol, sector, delivery reason"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                style={{ width: 280 }}
+                style={{ width: 320 }}
               />
 
               <Space size={8}>
@@ -632,6 +916,12 @@ export function PhaseDScannerPage() {
               </Space>
             </Space>
 
+            <Tabs
+              activeKey={activeTab}
+              items={tabItems}
+              onChange={(key) => setActiveTab(key as WatchlistTab)}
+            />
+
             {loading && watchlist.length === 0 ? (
               <div style={{ display: "flex", justifyContent: "center", padding: "48px 0" }}>
                 <Spin size="large" />
@@ -643,7 +933,7 @@ export function PhaseDScannerPage() {
                 description={
                   watchlist.length === 0
                     ? "No candidates stored yet. Upload a Chartink file to begin."
-                    : "No rows match the current search or filter."
+                    : "No rows match the current tab or filter."
                 }
               />
             ) : null}
@@ -655,7 +945,7 @@ export function PhaseDScannerPage() {
                 dataSource={filteredRows}
                 size="small"
                 pagination={{ pageSize: 25, showSizeChanger: true }}
-                scroll={{ x: 1440 }}
+                scroll={{ x: 1860 }}
               />
             ) : null}
           </Space>

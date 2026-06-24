@@ -149,6 +149,18 @@ class StrategyResource @Inject constructor(
     fun getPhaseCWatchlist(): CompletableFuture<Response> = ioScope.endpoint {
         ok(phaseCWatchlistService.getAllWatchlist())
     }
+
+    @POST
+    @Path("/phase-c/fresh-fields/update")
+    fun refreshPhaseCFreshFields(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(phaseCWatchlistService.refreshFreshFields())
+    }
+
+    @POST
+    @Path("/phase-c/delivery-validation/run")
+    fun runPhase2DeliveryValidation(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(phaseCWatchlistService.runDeliveryValidation())
+    }
 }
 
 internal fun validateHotSmaRunRequest(request: HotSmaRunRequest): HotSmaRunRequest {
