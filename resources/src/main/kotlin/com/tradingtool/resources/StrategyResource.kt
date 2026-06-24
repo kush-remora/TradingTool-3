@@ -161,6 +161,12 @@ class StrategyResource @Inject constructor(
     fun runPhase2DeliveryValidation(): CompletableFuture<Response> = ioScope.endpoint {
         ok(phaseCWatchlistService.runDeliveryValidation())
     }
+
+    @GET
+    @Path("/phase-c/export")
+    fun exportPhaseCData(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(phaseCWatchlistService.getExportData())
+    }
 }
 
 internal fun validateHotSmaRunRequest(request: HotSmaRunRequest): HotSmaRunRequest {

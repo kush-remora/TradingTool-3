@@ -126,7 +126,9 @@ object DatabaseConstants {
         const val DELIVERY_PCT_TODAY = "delivery_pct_today"
         const val WHOLESALE_BASE_DQ = "wholesale_base_dq"
         const val DELIVERY_SPIKE_RATIO = "delivery_spike_ratio"
-        const val CONVICTION_DAYS_10D = "conviction_days_10d"
-        const val CONVICTION_DAYS_20D = "conviction_days_20d"
+        const val DELIVERY_SPIKE_DAYS_10D = "delivery_spike_days_10d"
+        const val DELIVERY_SPIKE_DAYS_20D = "delivery_spike_days_20d"
+        const val DELIVERY_SUPPORT_DAYS_10D = "delivery_support_days_10d"
+        const val DELIVERY_SUPPORT_DAYS_20D = "delivery_support_days_20d"
     }
 }

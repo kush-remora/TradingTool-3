@@ -40,6 +40,8 @@ data class PhaseCWatchlistRow(
     @ColumnName("delivery_pct_today") val deliveryPctToday: Double?,
     @ColumnName("wholesale_base_dq") val wholesaleBaseDq: Long?,
     @ColumnName("delivery_spike_ratio") val deliverySpikeRatio: Double?,
-    @ColumnName("conviction_days_10d") val convictionDays10d: Int?,
-    @ColumnName("conviction_days_20d") val convictionDays20d: Int?,
+    @ColumnName("delivery_spike_days_10d") val deliverySpikeDays10d: Int?,
+    @ColumnName("delivery_spike_days_20d") val deliverySpikeDays20d: Int?,
+    @ColumnName("delivery_support_days_10d") val deliverySupportDays10d: Int?,
+    @ColumnName("delivery_support_days_20d") val deliverySupportDays20d: Int?,
 )

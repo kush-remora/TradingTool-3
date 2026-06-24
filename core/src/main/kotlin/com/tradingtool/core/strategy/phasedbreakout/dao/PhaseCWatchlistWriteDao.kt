@@ -49,8 +49,10 @@ interface PhaseCWatchlistWriteDao {
             ${Cols.DELIVERY_PCT_TODAY},
             ${Cols.WHOLESALE_BASE_DQ},
             ${Cols.DELIVERY_SPIKE_RATIO},
-            ${Cols.CONVICTION_DAYS_10D},
-            ${Cols.CONVICTION_DAYS_20D}
+            ${Cols.DELIVERY_SPIKE_DAYS_10D},
+            ${Cols.DELIVERY_SPIKE_DAYS_20D},
+            ${Cols.DELIVERY_SUPPORT_DAYS_10D},
+            ${Cols.DELIVERY_SUPPORT_DAYS_20D}
         ) VALUES (
             :symbol,
             :instrumentToken,
@@ -88,8 +90,10 @@ interface PhaseCWatchlistWriteDao {
             :deliveryPctToday,
             :wholesaleBaseDq,
             :deliverySpikeRatio,
-            :convictionDays10d,
-            :convictionDays20d
+            :deliverySpikeDays10d,
+            :deliverySpikeDays20d,
+            :deliverySupportDays10d,
+            :deliverySupportDays20d
         )
         ON CONFLICT(${Cols.SYMBOL}) DO UPDATE SET
             ${Cols.INSTRUMENT_TOKEN} = EXCLUDED.${Cols.INSTRUMENT_TOKEN},
@@ -126,8 +130,10 @@ interface PhaseCWatchlistWriteDao {
             ${Cols.DELIVERY_PCT_TODAY} = NULL,
             ${Cols.WHOLESALE_BASE_DQ} = NULL,
             ${Cols.DELIVERY_SPIKE_RATIO} = NULL,
-            ${Cols.CONVICTION_DAYS_10D} = NULL,
-            ${Cols.CONVICTION_DAYS_20D} = NULL
+            ${Cols.DELIVERY_SPIKE_DAYS_10D} = NULL,
+            ${Cols.DELIVERY_SPIKE_DAYS_20D} = NULL,
+            ${Cols.DELIVERY_SUPPORT_DAYS_10D} = NULL,
+            ${Cols.DELIVERY_SUPPORT_DAYS_20D} = NULL
         """
     )
     fun upsertBatch(@BindBean rows: List<PhaseCWatchlistRow>): IntArray
@@ -158,8 +164,10 @@ interface PhaseCWatchlistWriteDao {
             ${Cols.DELIVERY_PCT_TODAY} = :deliveryPctToday,
             ${Cols.WHOLESALE_BASE_DQ} = :wholesaleBaseDq,
             ${Cols.DELIVERY_SPIKE_RATIO} = :deliverySpikeRatio,
-            ${Cols.CONVICTION_DAYS_10D} = :convictionDays10d,
-            ${Cols.CONVICTION_DAYS_20D} = :convictionDays20d
+            ${Cols.DELIVERY_SPIKE_DAYS_10D} = :deliverySpikeDays10d,
+            ${Cols.DELIVERY_SPIKE_DAYS_20D} = :deliverySpikeDays20d,
+            ${Cols.DELIVERY_SUPPORT_DAYS_10D} = :deliverySupportDays10d,
+            ${Cols.DELIVERY_SUPPORT_DAYS_20D} = :deliverySupportDays20d
         WHERE ${Cols.SYMBOL} = :symbol
         """
     )

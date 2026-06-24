@@ -21,8 +21,10 @@ data class Phase2DeliveryMetrics(
     val deliveryPctToday: Double?,
     val wholesaleBaseDq: Long?,
     val deliverySpikeRatio: Double?,
-    val convictionDays10d: Int?,
-    val convictionDays20d: Int?,
+    val deliverySpikeDays10d: Int?,
+    val deliverySpikeDays20d: Int?,
+    val deliverySupportDays10d: Int?,
+    val deliverySupportDays20d: Int?,
 )
 
 data class Phase2DeliveryUpdate(
@@ -34,8 +36,10 @@ data class Phase2DeliveryUpdate(
     val deliveryPctToday: Double?,
     val wholesaleBaseDq: Long?,
     val deliverySpikeRatio: Double?,
-    val convictionDays10d: Int?,
-    val convictionDays20d: Int?,
+    val deliverySpikeDays10d: Int?,
+    val deliverySpikeDays20d: Int?,
+    val deliverySupportDays10d: Int?,
+    val deliverySupportDays20d: Int?,
 )
 
 data class Phase2DeliveryValidationRunResponse(

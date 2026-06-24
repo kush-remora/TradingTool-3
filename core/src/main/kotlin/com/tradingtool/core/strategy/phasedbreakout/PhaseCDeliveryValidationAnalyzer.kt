@@ -52,16 +52,24 @@ object PhaseCDeliveryValidationAnalyzer {
         }
 
         val latestRow = recentDeliveries.last()
-        val convictionDays10d = recentDeliveries
-            .takeLast(10)
-            .count { row -> isConvictionDay(row, wholesaleBaseDq, config) }
-        val convictionDays20d = recentDeliveries
-            .takeLast(20)
-            .count { row -> isConvictionDay(row, wholesaleBaseDq, config) }
+        val recentDeliveries10d = recentDeliveries.takeLast(10)
+        val recentDeliveries20d = recentDeliveries.takeLast(20)
+
+        val deliverySpikeDays10d = recentDeliveries10d.count { row -> isSpikeDay(row, wholesaleBaseDq, config) }
+        val deliverySpikeDays20d = recentDeliveries20d.count { row -> isSpikeDay(row, wholesaleBaseDq, config) }
+        val deliverySupportDays10d = recentDeliveries10d.count { row -> isSupportDay(row, config) }
+        val deliverySupportDays20d = recentDeliveries20d.count { row -> isSupportDay(row, config) }
+
         val todaySpikeRatio = latestRow.delivQty?.let { quantity -> quantity / wholesaleBaseDq }
+        
+        val passCondition10d = deliverySpikeDays10d >= config.passCount10d && deliverySupportDays10d >= config.passCount10d
+        val passCondition20d = deliverySpikeDays20d >= config.passCount20d && deliverySupportDays20d >= config.passCount20d
+        val watchCondition10d = deliverySpikeDays10d >= config.watchCount10d && deliverySupportDays10d >= config.watchCount10d
+        val watchCondition20d = deliverySpikeDays20d >= config.watchCount20d && deliverySupportDays20d >= config.watchCount20d
+
         val status = when {
-            convictionDays10d >= config.passCount10d || convictionDays20d >= config.passCount20d -> PASSED
-            convictionDays10d >= config.watchCount10d || convictionDays20d >= config.watchCount20d -> WATCH
+            passCondition10d || passCondition20d -> PASSED
+            watchCondition10d || watchCondition20d -> WATCH
             else -> NOT_PASSED
         }
         val reason = when (status) {
@@ -78,8 +86,10 @@ object PhaseCDeliveryValidationAnalyzer {
             deliveryPctToday = latestRow.delivPer,
             wholesaleBaseDq = wholesaleBaseDq.toLong(),
             deliverySpikeRatio = todaySpikeRatio?.roundTo2(),
-            convictionDays10d = convictionDays10d,
-            convictionDays20d = convictionDays20d,
+            deliverySpikeDays10d = deliverySpikeDays10d,
+            deliverySpikeDays20d = deliverySpikeDays20d,
+            deliverySupportDays10d = deliverySupportDays10d,
+            deliverySupportDays20d = deliverySupportDays20d,
         )
     }
 
@@ -94,15 +104,21 @@ object PhaseCDeliveryValidationAnalyzer {
         return sortedCloses[percentileSize - 1]
     }
 
-    private fun isConvictionDay(
+    private fun isSpikeDay(
         row: StockDeliveryDaily,
         wholesaleBaseDq: Double,
         config: Phase2DeliveryConfig,
     ): Boolean {
         val deliveryQuantity = row.delivQty ?: return false
+        return deliveryQuantity / wholesaleBaseDq >= config.deliverySpikeThreshold
+    }
+
+    private fun isSupportDay(
+        row: StockDeliveryDaily,
+        config: Phase2DeliveryConfig,
+    ): Boolean {
         val deliveryPct = row.delivPer ?: return false
-        return deliveryQuantity / wholesaleBaseDq >= config.deliverySpikeThreshold &&
-            deliveryPct >= config.deliveryPctSupportThreshold
+        return deliveryPct >= config.deliveryPctSupportThreshold
     }
 
     private fun missingMetrics(
@@ -117,8 +133,10 @@ object PhaseCDeliveryValidationAnalyzer {
             deliveryPctToday = null,
             wholesaleBaseDq = null,
             deliverySpikeRatio = null,
-            convictionDays10d = null,
-            convictionDays20d = null,
+            deliverySpikeDays10d = null,
+            deliverySpikeDays20d = null,
+            deliverySupportDays10d = null,
+            deliverySupportDays20d = null,
         )
     }
 

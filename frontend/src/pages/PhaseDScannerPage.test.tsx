@@ -49,8 +49,10 @@ function buildRow(overrides: Record<string, unknown> = {}) {
     deliveryPctToday: null,
     wholesaleBaseDq: null,
     deliverySpikeRatio: null,
-    convictionDays10d: null,
-    convictionDays20d: null,
+    deliverySpikeDays10d: null,
+    deliverySpikeDays20d: null,
+    deliverySupportDays10d: null,
+    deliverySupportDays20d: null,
     ...overrides,
   };
 }
@@ -128,8 +130,10 @@ describe("PhaseDScannerPage", () => {
             deliveryPctToday: 58.4,
             wholesaleBaseDq: 82000,
             deliverySpikeRatio: 1.52,
-            convictionDays10d: 2,
-            convictionDays20d: 4,
+            deliverySpikeDays10d: 2,
+            deliverySpikeDays20d: 4,
+            deliverySupportDays10d: 2,
+            deliverySupportDays20d: 4,
           }),
         ],
       });

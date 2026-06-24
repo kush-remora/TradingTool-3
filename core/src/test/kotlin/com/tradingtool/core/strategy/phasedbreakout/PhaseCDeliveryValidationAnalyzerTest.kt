@@ -35,8 +35,10 @@ class PhaseCDeliveryValidationAnalyzerTest {
 
         assertEquals("PASSED", result.status)
         assertEquals("strong_delivery_support", result.reason)
-        assertEquals(4, result.convictionDays10d)
-        assertEquals(4, result.convictionDays20d)
+        assertEquals(4, result.deliverySpikeDays10d)
+        assertEquals(4, result.deliverySpikeDays20d)
+        assertEquals(4, result.deliverySupportDays10d)
+        assertEquals(4, result.deliverySupportDays20d)
         assertEquals(100L, result.wholesaleBaseDq)
         assertEquals(1.8, result.deliverySpikeRatio)
     }
@@ -93,8 +95,10 @@ class PhaseCDeliveryValidationAnalyzerTest {
 
         assertEquals("NOT_PASSED", result.status)
         assertEquals("no_delivery_confirmation", result.reason)
-        assertEquals(0, result.convictionDays10d)
-        assertEquals(0, result.convictionDays20d)
+        assertEquals(0, result.deliverySpikeDays10d)
+        assertEquals(0, result.deliverySpikeDays20d)
+        assertEquals(0, result.deliverySupportDays10d)
+        assertEquals(0, result.deliverySupportDays20d)
         assertEquals(110L, result.wholesaleBaseDq)
         assertEquals(1.0, result.deliverySpikeRatio)
     }
@@ -123,8 +127,10 @@ class PhaseCDeliveryValidationAnalyzerTest {
         )
 
         assertEquals("NOT_PASSED", result.status)
-        assertEquals(0, result.convictionDays10d)
-        assertEquals(0, result.convictionDays20d)
+        assertEquals(4, result.deliverySpikeDays10d)
+        assertEquals(4, result.deliverySpikeDays20d)
+        assertEquals(0, result.deliverySupportDays10d)
+        assertEquals(0, result.deliverySupportDays20d)
     }
 
     private fun deliveryRow(

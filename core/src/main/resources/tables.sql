@@ -179,8 +179,10 @@ CREATE TABLE IF NOT EXISTS public.phase_c_watchlist (
     delivery_pct_today REAL,
     wholesale_base_dq BIGINT,
     delivery_spike_ratio REAL,
-    conviction_days_10d INTEGER,
-    conviction_days_20d INTEGER
+    delivery_spike_days_10d INTEGER,
+    delivery_spike_days_20d INTEGER,
+    delivery_support_days_10d INTEGER,
+    delivery_support_days_20d INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_phase_c_watchlist_status ON public.phase_c_watchlist(status);

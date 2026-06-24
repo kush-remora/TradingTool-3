@@ -4,6 +4,7 @@ import {
   SearchOutlined,
   SyncOutlined,
   UploadOutlined,
+  DownloadOutlined,
 } from "@ant-design/icons";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -67,8 +68,10 @@ interface PhaseCWatchlistRow extends PhaseCWatchlistDto {
   deliveryPctToday: number | null;
   wholesaleBaseDq: number | null;
   deliverySpikeRatio: number | null;
-  convictionDays10d: number | null;
-  convictionDays20d: number | null;
+  deliverySpikeDays10d: number | null;
+  deliverySpikeDays20d: number | null;
+  deliverySupportDays10d: number | null;
+  deliverySupportDays20d: number | null;
 }
 
 type UploadResult = {
@@ -317,6 +320,7 @@ export function PhaseDScannerPage() {
   const [uploading, setUploading] = useState<boolean>(false);
   const [runningValidation, setRunningValidation] = useState<boolean>(false);
   const [refreshingFreshFields, setRefreshingFreshFields] = useState<boolean>(false);
+  const [exporting, setExporting] = useState<boolean>(false);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [validationResult, setValidationResult] = useState<DeliveryValidationResult | null>(null);
   const [freshFieldResult, setFreshFieldResult] = useState<FreshFieldRefreshResult | null>(null);
@@ -437,6 +441,33 @@ export function PhaseDScannerPage() {
       setError(message);
     } finally {
       setRefreshingFreshFields(false);
+    }
+  };
+
+  const handleExportAiJson = async (): Promise<void> => {
+    setExporting(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/strategy/phase-c/export");
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, "Failed to fetch export data"));
+      }
+      
+      const json = await response.json();
+      const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `phase_c_ai_export_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (exportError) {
+      const message = exportError instanceof Error ? exportError.message : "Failed to export data";
+      setError(message);
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -610,8 +641,8 @@ export function PhaseDScannerPage() {
         width: 170,
         render: (_value, row) => (
           <Space orientation="vertical" size={0}>
-            <Typography.Text style={{ fontSize: 12 }}>10D Conviction: {formatNumber(row.convictionDays10d)}</Typography.Text>
-            <Typography.Text style={{ fontSize: 12 }}>20D Conviction: {formatNumber(row.convictionDays20d)}</Typography.Text>
+            <Typography.Text style={{ fontSize: 12 }}>Spike 10D / 20D: {formatNumber(row.deliverySpikeDays10d)} / {formatNumber(row.deliverySpikeDays20d)}</Typography.Text>
+            <Typography.Text style={{ fontSize: 12 }}>Support 10D / 20D: {formatNumber(row.deliverySupportDays10d)} / {formatNumber(row.deliverySupportDays20d)}</Typography.Text>
           </Space>
         ),
       },
@@ -797,6 +828,14 @@ export function PhaseDScannerPage() {
                     disabled={watchlist.length === 0}
                   >
                     Run Delivery Validation
+                  </Button>
+                  <Button
+                    icon={<DownloadOutlined />}
+                    onClick={() => void handleExportAiJson()}
+                    loading={exporting}
+                    disabled={watchlist.length === 0}
+                  >
+                    Export AI JSON
                   </Button>
                 </Space>
               }

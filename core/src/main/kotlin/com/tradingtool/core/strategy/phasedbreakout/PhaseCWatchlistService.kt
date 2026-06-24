@@ -59,8 +59,10 @@ class PhaseCWatchlistService(
                 deliveryPctToday = null,
                 wholesaleBaseDq = null,
                 deliverySpikeRatio = null,
-                convictionDays10d = null,
-                convictionDays20d = null,
+                deliverySpikeDays10d = null,
+                deliverySpikeDays20d = null,
+                deliverySupportDays10d = null,
+                deliverySupportDays20d = null,
             )
         }
 
@@ -212,8 +214,10 @@ class PhaseCWatchlistService(
                 deliveryPctToday = null,
                 wholesaleBaseDq = null,
                 deliverySpikeRatio = null,
-                convictionDays10d = null,
-                convictionDays20d = null,
+                deliverySpikeDays10d = null,
+                deliverySpikeDays20d = null,
+                deliverySupportDays10d = null,
+                deliverySupportDays20d = null,
             )
         }
 
@@ -248,8 +252,94 @@ class PhaseCWatchlistService(
             deliveryPctToday = metrics.deliveryPctToday,
             wholesaleBaseDq = metrics.wholesaleBaseDq,
             deliverySpikeRatio = metrics.deliverySpikeRatio,
-            convictionDays10d = metrics.convictionDays10d,
-            convictionDays20d = metrics.convictionDays20d,
+            deliverySpikeDays10d = metrics.deliverySpikeDays10d,
+            deliverySpikeDays20d = metrics.deliverySpikeDays20d,
+            deliverySupportDays10d = metrics.deliverySupportDays10d,
+            deliverySupportDays20d = metrics.deliverySupportDays20d,
+        )
+    }
+
+    suspend fun getExportData(): PhaseCExportResponse {
+        val watchlist = getAllWatchlist()
+        val latestTradingDate = stockDeliveryHandler.read { dao -> dao.getLatestTradingDate() } ?: LocalDate.now()
+        val fromDate = latestTradingDate.minusDays(30) // Buffer to ensure we get 10 trading days
+
+        val stocks = watchlist.map { row ->
+            val token = row.instrumentToken
+            val history = if (token != null) {
+                val deliveries = stockDeliveryHandler.read { it.findByInstrumentTokenBetweenDates(token, fromDate, latestTradingDate) }
+                val candles = candleHandler.read { it.getDailyCandles(token, fromDate, latestTradingDate) }
+
+                val deliveriesByDate = deliveries.associateBy { it.tradingDate }
+                candles.map { candle ->
+                    val delivery = deliveriesByDate[candle.candleDate]
+                    PhaseCHistoryRow(
+                        date = candle.candleDate,
+                        open = candle.open,
+                        high = candle.high,
+                        low = candle.low,
+                        close = candle.close,
+                        volume = candle.volume,
+                        deliveryQuantity = delivery?.delivQty,
+                        deliveryPct = delivery?.delivPer
+                    )
+                }.sortedByDescending { it.date }.take(10)
+            } else {
+                emptyList()
+            }
+
+            PhaseCExportStockData(
+                profile = row,
+                history10d = history
+            )
+        }
+
+        val schema = mapOf(
+            "symbol" to "The NSE stock ticker symbol.",
+            "instrumentToken" to "The unique Kite instrument token for the stock.",
+            "addedOn" to "The date the stock was added to the watchlist.",
+            "lastSeenOn" to "The date the stock was last seen on the Chartink screener.",
+            "status" to "The current status of the stock in the Phase C workflow.",
+            "stockName" to "The full company name.",
+            "marketCapBucket" to "The market capitalization category (e.g., Large Cap, Mid Cap).",
+            "closePrice" to "The latest daily closing price.",
+            "pctChange" to "The recent percentage change in price.",
+            "volume" to "The latest daily trading volume.",
+            "sector" to "The sector the company belongs to.",
+            "industry" to "The industry the company operates in.",
+            "rocePct" to "Return on Capital Employed percentage.",
+            "ronwPct" to "Return on Net Worth percentage.",
+            "netProfitAfterTax" to "Net Profit After Tax (in Crores).",
+            "debtEquityRatio" to "The Debt to Equity ratio.",
+            "volDry200dMinCount" to "Number of times volume hit a 200-day minimum.",
+            "volDry60dMinCount" to "Number of times volume hit a 60-day minimum.",
+            "volDry200dMin105Count" to "Number of times volume was within 105% of the 200-day minimum.",
+            "volDry60dMin105Count" to "Number of times volume was within 105% of the 60-day minimum.",
+            "indianPromoterPct" to "Percentage of shares held by Indian promoters.",
+            "foreignPromoterPct" to "Percentage of shares held by Foreign promoters.",
+            "quarterlyGrossSales" to "Quarterly gross sales (in Crores).",
+            "high52w" to "52-week high price.",
+            "low52w" to "52-week low price.",
+            "dist200dHighPct" to "Percentage distance from the 200-day high.",
+            "dist200dLowPct" to "Percentage distance from the 200-day low.",
+            "atrLt2pctCount" to "Number of times the Average True Range was less than 2% of price.",
+            "marketFieldsUpdatedOn" to "The date the market fields were last updated.",
+            "phase2DeliveryStatus" to "The validation status for Phase 2 Delivery constraints (PASSED, WATCH, NOT_PASSED, DATA_MISSING).",
+            "phase2Reason" to "The specific reason for the current Phase 2 Delivery status.",
+            "phase2EvaluatedOn" to "The date when Phase 2 Delivery was last evaluated.",
+            "deliveryQuantityToday" to "The delivery quantity on the evaluated date.",
+            "deliveryPctToday" to "The delivery percentage on the evaluated date.",
+            "wholesaleBaseDq" to "The wholesale base delivery quantity calculated for the stock.",
+            "deliverySpikeRatio" to "The ratio of today's delivery quantity vs the wholesale base delivery quantity.",
+            "deliverySpikeDays10d" to "Number of days in the last 10 trading days where delivery quantity spiked >= 1.5x of base.",
+            "deliverySpikeDays20d" to "Number of days in the last 20 trading days where delivery quantity spiked >= 1.5x of base.",
+            "deliverySupportDays10d" to "Number of days in the last 10 trading days where delivery percentage was >= 55%.",
+            "deliverySupportDays20d" to "Number of days in the last 20 trading days where delivery percentage was >= 55%."
+        )
+
+        return PhaseCExportResponse(
+            metadataSchema = schema,
+            stocks = stocks
         )
     }
 }

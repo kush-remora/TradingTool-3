@@ -135,9 +135,9 @@ class DeliveryBreakoutAnalyzerTest {
     }
 
     @Test
-    fun `confirmed breakout requires greater than two percent move`() {
-        assertFalse(DeliveryBreakoutAnalyzer.isConfirmedBreakoutToday(2.0))
-        assertTrue(DeliveryBreakoutAnalyzer.isConfirmedBreakoutToday(2.01))
+    fun `confirmed breakout requires greater than six percent move`() {
+        assertFalse(DeliveryBreakoutAnalyzer.isConfirmedBreakoutToday(6.0))
+        assertTrue(DeliveryBreakoutAnalyzer.isConfirmedBreakoutToday(6.01))
         assertFalse(DeliveryBreakoutAnalyzer.isConfirmedBreakoutToday(null))
     }
 
