@@ -140,10 +140,12 @@ export interface StockDetailResponse {
 export interface StockQuoteSnapshot {
   symbol: string;
   ltp: number | null;
+  change_percent?: number | null;
   day_open: number | null;
   day_high: number | null;
   day_low: number | null;
   volume: number | null;
+  previous_day_volume?: number | null;
   updated_at: string;
 }
 
@@ -1854,6 +1856,7 @@ export interface HotSmaRow {
   instrumentToken: number;
   latestDate: string;
   currentPrice: number;
+  previousCloseChangePct: number | null;
   sma50: number | null;
   sma100: number | null;
   sma200: number | null;

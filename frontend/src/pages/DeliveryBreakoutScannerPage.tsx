@@ -2,7 +2,8 @@ import { useEffect, useMemo } from "react";
 import { Alert, Button, Card, Empty, Space, Spin, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useDeliveryBreakoutScanner } from "../hooks/useDeliveryBreakoutScanner";
-import { LiveMarketWidget } from "../components/LiveMarketWidget";
+import { useStockQuotes } from "../hooks/useStockQuotes";
+import { renderLiveMarketCell, resolveMarketChangePercent } from "../components/liveMarketCell";
 import type { DeliveryBreakoutDashboardRow } from "../types";
 
 function formatNumber(value: number | null | undefined, fractionDigits: number = 2): string {
@@ -38,6 +39,8 @@ function formatRatio(value: number | null | undefined): string {
 
 export function DeliveryBreakoutScannerPage() {
   const { data, loading, error, loadDashboard } = useDeliveryBreakoutScanner();
+  const quoteSymbols = useMemo(() => (data?.rows ?? []).map((row) => row.symbol), [data?.rows]);
+  const { quotesBySymbol } = useStockQuotes(quoteSymbols);
 
   useEffect(() => {
     void loadDashboard().catch(() => undefined);
@@ -74,15 +77,15 @@ export function DeliveryBreakoutScannerPage() {
           title: "Live Market",
           dataIndex: "close",
           key: "liveMarket",
-          render: (_value: unknown, record: DeliveryBreakoutDashboardRow) => (
-            <LiveMarketWidget
-              symbol={`NSE:${record.symbol}`}
-              fallbackLtp={record.close}
-              fallbackChangePercent={record.close_pct_change}
-              showDetails={true}
-            />
-          ),
-          sorter: (left, right) => (left.close ?? Number.NEGATIVE_INFINITY) - (right.close ?? Number.NEGATIVE_INFINITY),
+          render: (_value: unknown, record: DeliveryBreakoutDashboardRow) => renderLiveMarketCell({
+            symbol: record.symbol,
+            snapshot: quotesBySymbol[record.symbol.toUpperCase()],
+            fallbackLtp: record.close,
+            fallbackChangePercent: record.close_pct_change,
+          }),
+          sorter: (left, right) =>
+            (resolveMarketChangePercent(quotesBySymbol[left.symbol.toUpperCase()], left.close_pct_change) ?? Number.NEGATIVE_INFINITY) -
+            (resolveMarketChangePercent(quotesBySymbol[right.symbol.toUpperCase()], right.close_pct_change) ?? Number.NEGATIVE_INFINITY),
           filters: getFilters("close", formatNumber),
           onFilter: (value, record) => String(record.close) === value,
         },
@@ -152,7 +155,7 @@ export function DeliveryBreakoutScannerPage() {
 
       ];
     },
-    [data],
+    [data, quotesBySymbol],
   );
 
   return (

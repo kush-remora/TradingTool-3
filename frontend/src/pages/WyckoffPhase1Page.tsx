@@ -5,6 +5,7 @@ import type { ColumnsType } from "antd/es/table";
 import type { FilterValue, TableCurrentDataSource, TablePaginationConfig, TableProps } from "antd/es/table/interface";
 import { getJson } from "../utils/api";
 import { useWyckoffPhase1Scanner } from "../hooks/useWyckoffPhase1Scanner";
+import { useStockQuotes } from "../hooks/useStockQuotes";
 import type {
   UniverseOptionsResponse,
   WyckoffPhase1Config,
@@ -12,7 +13,7 @@ import type {
   WyckoffPhase1RunRequest,
   WyckoffPhase1TableColumnsConfig,
 } from "../types";
-import { LiveMarketWidget } from "../components/LiveMarketWidget";
+import { renderLiveMarketCell, resolveMarketChangePercent } from "../components/liveMarketCell";
 
 const FILTERS_STORAGE_KEY = "wyckoff-phase1-filters-v1";
 
@@ -141,6 +142,8 @@ export function WyckoffPhase1Page() {
 
   const [scannerConfig, setScannerConfig] = useState<WyckoffPhase1Config | null>(null);
   const [columnsConfig, setColumnsConfig] = useState<WyckoffPhase1TableColumnsConfig | null>(null);
+  const quoteSymbols = useMemo(() => (data?.rows ?? []).map((row) => row.symbol), [data?.rows]);
+  const { quotesBySymbol } = useStockQuotes(quoteSymbols);
 
   useEffect(() => {
     let mounted = true;
@@ -259,7 +262,13 @@ export function WyckoffPhase1Page() {
         filterSearch: key !== "liveMarket",
         onFilter: key === "liveMarket" ? undefined : ((filterValue: boolean | Key, row: WyckoffPhase1Row) =>
           matchesColumnFilter(row, key, String(filterValue))),
-        sorter: key === "liveMarket" ? undefined : ((a: WyckoffPhase1Row, b: WyckoffPhase1Row) => {
+        sorter: key === "liveMarket" ? ((a: WyckoffPhase1Row, b: WyckoffPhase1Row) => {
+          return (
+            resolveMarketChangePercent(quotesBySymbol[a.symbol.toUpperCase()]) ?? Number.NEGATIVE_INFINITY
+          ) - (
+            resolveMarketChangePercent(quotesBySymbol[b.symbol.toUpperCase()]) ?? Number.NEGATIVE_INFINITY
+          );
+        }) : ((a: WyckoffPhase1Row, b: WyckoffPhase1Row) => {
           const left = valueForSort(a[key as keyof WyckoffPhase1Row]);
           const right = valueForSort(b[key as keyof WyckoffPhase1Row]);
           if (typeof left === "number" && typeof right === "number") {
@@ -269,7 +278,10 @@ export function WyckoffPhase1Page() {
         }),
         render: (value: unknown, row: WyckoffPhase1Row) => {
           if (key === "liveMarket") {
-            return <LiveMarketWidget symbol={`NSE:${row.symbol}`} showDetails={true} />;
+            return renderLiveMarketCell({
+              symbol: row.symbol,
+              snapshot: quotesBySymbol[row.symbol.toUpperCase()],
+            });
           }
           return formatValue(key, value);
         },
@@ -283,7 +295,7 @@ export function WyckoffPhase1Page() {
       }
       return column;
     });
-  }, [columnsConfig, data?.rows, filteredInfo]);
+  }, [columnsConfig, data?.rows, filteredInfo, quotesBySymbol]);
 
   useEffect(() => {
     setFilteredRows(data?.rows ?? []);

@@ -3,9 +3,26 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HotSmaPage } from "./HotSmaPage";
 
 const useHotSmaScannerMock = vi.fn();
+const useStockQuotesMock = vi.fn();
+const renderLiveMarketCellMock = vi.fn(() => <div data-testid="live-market-cell" />);
+const wakeUpVolumeCellMock = vi.fn(() => <div data-testid="wake-up-volume-cell" />);
 
 vi.mock("../hooks/useHotSmaScanner", () => ({
   useHotSmaScanner: () => useHotSmaScannerMock(),
+}));
+
+vi.mock("../hooks/useStockQuotes", () => ({
+  useStockQuotes: (...args: unknown[]) => useStockQuotesMock(...args),
+}));
+
+vi.mock("../components/liveMarketCell", () => ({
+  renderLiveMarketCell: (options: unknown) => renderLiveMarketCellMock(options),
+  resolveMarketChangePercent: vi.fn().mockReturnValue(0),
+}));
+
+vi.mock("../components/WakeUpVolumeCell", () => ({
+  WakeUpVolumeCell: (props: unknown) => wakeUpVolumeCellMock(props),
+  resolveWakeUpSortRatio: vi.fn().mockReturnValue(0),
 }));
 
 vi.mock("../utils/api", async (importOriginal) => {
@@ -28,6 +45,7 @@ describe("HotSmaPage", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    useStockQuotesMock.mockReturnValue({ quotesBySymbol: {}, loading: false, error: null });
   });
 
   it("runs with the selected universes", async () => {
@@ -81,6 +99,7 @@ describe("HotSmaPage", () => {
             instrumentToken: 101,
             latestDate: "2026-06-23",
             currentPrice: 100,
+            previousCloseChangePct: -0.75,
             sma50: 99,
             sma100: 98,
             sma200: 97,
@@ -107,6 +126,7 @@ describe("HotSmaPage", () => {
             instrumentToken: 102,
             latestDate: "2026-06-23",
             currentPrice: 110,
+            previousCloseChangePct: 1.2,
             sma50: 100,
             sma100: 99,
             sma200: 98,
@@ -137,5 +157,18 @@ describe("HotSmaPage", () => {
       expect(screen.getByText("BUY_ZONE")).toBeInTheDocument();
       expect(screen.getByText("ABOVE_BUY_ZONE")).toBeInTheDocument();
     });
+
+    expect(renderLiveMarketCellMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        symbol: "INFY",
+        fallbackLtp: 100,
+        fallbackChangePercent: -0.75,
+      }),
+    );
+    expect(wakeUpVolumeCellMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        symbol: "INFY",
+      }),
+    );
   });
 });

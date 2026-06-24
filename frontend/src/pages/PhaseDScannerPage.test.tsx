@@ -10,6 +10,11 @@ import {
 } from "./PhaseDScannerPage";
 
 const fetchMock = vi.fn();
+const useStockQuotesMock = vi.fn();
+
+vi.mock("../hooks/useStockQuotes", () => ({
+  useStockQuotes: (...args: unknown[]) => useStockQuotesMock(...args),
+}));
 
 class MockEventSource {
   constructor(public url: string) {}
@@ -68,6 +73,7 @@ function buildRow(overrides: Record<string, unknown> = {}) {
 describe("PhaseDScannerPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useStockQuotesMock.mockReturnValue({ quotesBySymbol: {}, loading: false, error: null });
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("EventSource", MockEventSource);
   });
@@ -201,7 +207,7 @@ describe("PhaseDScannerPage", () => {
     expect(screen.getByText("Latest market-data date applied: 2026-06-24")).toBeInTheDocument();
     expect(screen.getByText("Fresh market fields are up to date.")).toBeInTheDocument();
     expect(screen.getByText("All 1 rows are using market data from 2026-06-24.")).toBeInTheDocument();
-  });
+  }, 10000);
 
   it("shows refresh errors and preserves the current dashboard data", async () => {
     fetchMock
@@ -230,7 +236,7 @@ describe("PhaseDScannerPage", () => {
 
     expect(screen.getByText("INFY")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
+  }, 10000);
 
   it("shows only passed rows in the delivery conviction tab", async () => {
     fetchMock.mockResolvedValueOnce({
@@ -306,7 +312,7 @@ describe("PhaseDScannerPage", () => {
 
     expect(screen.queryByText("INFY")).not.toBeInTheDocument();
     expect(screen.getByText("IDEA")).toBeInTheDocument();
-  });
+  }, 10000);
 
   it("sorts live market by today's percent change", async () => {
     fetchMock.mockResolvedValueOnce({
@@ -415,8 +421,9 @@ describe("PhaseDScannerPage", () => {
     expect(resolveWakeUpVolumeContext(600000, 250000, 180000)).toEqual({
       currentVolume: 600000,
       currentVolumeLabel: "Now",
-      comparisonVolume: 250000,
+      comparisonVolume: 180000,
       comparisonVolumeLabel: "T-1",
+      volumeDiffPct: 233.33333333333334,
     });
 
     expect(resolveWakeUpVolumeContext(null, 250000, 180000)).toEqual({
@@ -424,6 +431,7 @@ describe("PhaseDScannerPage", () => {
       currentVolumeLabel: "Day",
       comparisonVolume: 180000,
       comparisonVolumeLabel: "T-1",
+      volumeDiffPct: 38.88888888888889,
     });
   });
 

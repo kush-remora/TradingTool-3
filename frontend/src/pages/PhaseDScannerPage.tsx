@@ -27,8 +27,14 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { TabsProps, UploadProps } from "antd";
-import { LiveMarketWidget } from "../components/LiveMarketWidget";
-import { useLiveMarketData } from "../hooks/useLiveMarketData";
+import { renderLiveMarketCell, resolveMarketChangePercent } from "../components/liveMarketCell";
+import {
+  WakeUpVolumeCell,
+  resolveWakeUpSortRatio,
+} from "../components/WakeUpVolumeCell";
+import { useStockQuotes } from "../hooks/useStockQuotes";
+
+export { buildWakeUpSignal, resolveWakeUpSortRatio, resolveWakeUpVolumeContext } from "../components/WakeUpVolumeCell";
 
 interface PhaseCWatchlistDto {
   symbol: string;
@@ -110,24 +116,6 @@ type SummaryStats = {
   phase2DataMissing: number;
 };
 
-type WakeUpSignal = {
-  score: number;
-  label: string;
-  color: string;
-  priceChangePct: number | null;
-  volumeRatio: number | null;
-};
-
-type WakeUpVolumeContext = {
-  currentVolume: number | null;
-  currentVolumeLabel: string;
-  comparisonVolume: number | null;
-  comparisonVolumeLabel: string;
-};
-
-const WAKE_UP_PRICE_MOVE_THRESHOLD_PCT = 4;
-const WAKE_UP_VOLUME_RATIO_THRESHOLD = 2;
-
 const HEADER_ALIASES: Record<keyof PhaseCWatchlistDto, string[]> = {
   symbol: ["symbol"],
   stockName: ["stock name", "stock_name"],
@@ -189,136 +177,6 @@ function parsePctChange(value: string | null | undefined): number | null {
 
   const parsed = Number.parseFloat(value.replace("%", "").trim());
   return Number.isNaN(parsed) ? null : parsed;
-}
-
-export function buildWakeUpSignal(
-  priceChangePct: number | null,
-  liveVolume: number | null | undefined,
-  baseVolume: number | null | undefined,
-): WakeUpSignal {
-  const hasPriceAnomaly =
-    priceChangePct != null && Math.abs(priceChangePct) >= WAKE_UP_PRICE_MOVE_THRESHOLD_PCT;
-  const volumeRatio =
-    liveVolume != null && baseVolume != null && baseVolume > 0 ? liveVolume / baseVolume : null;
-  const hasVolumeAnomaly =
-    volumeRatio != null && volumeRatio >= WAKE_UP_VOLUME_RATIO_THRESHOLD;
-  const volumeRatioLabel = volumeRatio != null ? `${volumeRatio.toFixed(1)}x` : null;
-
-  if (hasPriceAnomaly && hasVolumeAnomaly) {
-    return {
-      score: 3,
-      label: `MOVE + ${volumeRatioLabel}`,
-      color: "red",
-      priceChangePct,
-      volumeRatio,
-    };
-  }
-
-  if (hasVolumeAnomaly) {
-    return {
-      score: 2,
-      label: `VOL ${volumeRatioLabel}`,
-      color: "orange",
-      priceChangePct,
-      volumeRatio,
-    };
-  }
-
-  if (hasPriceAnomaly) {
-    return {
-      score: 1,
-      label: `MOVE ${WAKE_UP_PRICE_MOVE_THRESHOLD_PCT}%`,
-      color: "gold",
-      priceChangePct,
-      volumeRatio,
-    };
-  }
-
-  return {
-    score: 0,
-    label: "Quiet",
-    color: "default",
-    priceChangePct,
-    volumeRatio,
-  };
-}
-
-export function resolveWakeUpVolumeContext(
-  liveVolume: number | null | undefined,
-  latestDayVolume: number | null | undefined,
-  previousDayVolume: number | null | undefined,
-): WakeUpVolumeContext {
-  if (liveVolume != null) {
-    return {
-      currentVolume: liveVolume,
-      currentVolumeLabel: "Now",
-      comparisonVolume: latestDayVolume ?? null,
-      comparisonVolumeLabel: "T-1",
-    };
-  }
-
-  return {
-    currentVolume: latestDayVolume ?? null,
-    currentVolumeLabel: "Day",
-    comparisonVolume: previousDayVolume ?? null,
-    comparisonVolumeLabel: "T-1",
-  };
-}
-
-export function resolveWakeUpSortRatio(
-  latestDayVolume: number | null | undefined,
-  previousDayVolume: number | null | undefined,
-): number | null {
-  if (latestDayVolume == null || previousDayVolume == null || previousDayVolume <= 0) {
-    return null;
-  }
-
-  return latestDayVolume / previousDayVolume;
-}
-
-function WakeUpFlagCell({
-  symbol,
-  fallbackChangePercent,
-  latestDayVolume,
-  previousDayVolume,
-}: {
-  symbol: string;
-  fallbackChangePercent: number | null;
-  latestDayVolume: number | null;
-  previousDayVolume: number | null;
-}) {
-  const data = useLiveMarketData(`NSE:${symbol}`);
-  const volumeContext = resolveWakeUpVolumeContext(
-    data?.volume,
-    latestDayVolume,
-    previousDayVolume,
-  );
-  const signal = buildWakeUpSignal(
-    data?.changePercent ?? fallbackChangePercent,
-    volumeContext.currentVolume,
-    volumeContext.comparisonVolume,
-  );
-
-  const tooltipText = [
-    `Price Move: ${signal.priceChangePct != null ? `${signal.priceChangePct.toFixed(2)}%` : "-"}`,
-    `${volumeContext.currentVolumeLabel} Vol: ${formatNumber(volumeContext.currentVolume)}`,
-    `${volumeContext.comparisonVolumeLabel} Vol: ${formatNumber(volumeContext.comparisonVolume)}`,
-    `Vol Ratio: ${signal.volumeRatio != null ? formatRatio(signal.volumeRatio) : "-"}`,
-  ].join(" | ");
-
-  return (
-    <Space orientation="vertical" size={2}>
-      <Tooltip title={tooltipText}>
-        <Tag color={signal.color}>{signal.label}</Tag>
-      </Tooltip>
-      <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-        {volumeContext.currentVolumeLabel}: {formatNumber(volumeContext.currentVolume)}
-      </Typography.Text>
-      <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-        {volumeContext.comparisonVolumeLabel}: {formatNumber(volumeContext.comparisonVolume)}
-      </Typography.Text>
-    </Space>
-  );
 }
 
 function buildStatusTag(status: string) {
@@ -488,6 +346,8 @@ export function parseCsvOrTsv(text: string): PhaseCWatchlistDto[] {
 
 export function PhaseDScannerPage() {
   const [watchlist, setWatchlist] = useState<PhaseCWatchlistRow[]>([]);
+  const quoteSymbols = useMemo(() => watchlist.map((row) => row.symbol), [watchlist]);
+  const { quotesBySymbol } = useStockQuotes(quoteSymbols);
   const [loading, setLoading] = useState<boolean>(true);
   const [uploading, setUploading] = useState<boolean>(false);
   const [runningValidation, setRunningValidation] = useState<boolean>(false);
@@ -859,31 +719,42 @@ export function PhaseDScannerPage() {
         title: "Live Market",
         key: "liveMarket",
         width: 140,
-        sorter: (left, right) => (parsePctChange(left.pctChange) ?? Number.NEGATIVE_INFINITY) - (parsePctChange(right.pctChange) ?? Number.NEGATIVE_INFINITY),
+        sorter: (left, right) =>
+          (resolveMarketChangePercent(quotesBySymbol[left.symbol.toUpperCase()], parsePctChange(left.pctChange)) ?? Number.NEGATIVE_INFINITY) -
+          (resolveMarketChangePercent(quotesBySymbol[right.symbol.toUpperCase()], parsePctChange(right.pctChange)) ?? Number.NEGATIVE_INFINITY),
         sortDirections: ["descend", "ascend"],
-        render: (_value, row) => (
-          <LiveMarketWidget
-            symbol={`NSE:${row.symbol}`}
-            fallbackLtp={row.closePrice}
-            fallbackChangePercent={parsePctChange(row.pctChange)}
-            showDetails={true}
-          />
-        ),
+        render: (_value, row) => renderLiveMarketCell({
+          symbol: row.symbol,
+          snapshot: quotesBySymbol[row.symbol.toUpperCase()],
+          fallbackLtp: row.closePrice,
+          fallbackChangePercent: parsePctChange(row.pctChange),
+        }),
       },
       {
         title: "Wake-Up",
         key: "wakeUp",
         width: 130,
         sorter: (left, right) =>
-          (resolveWakeUpSortRatio(left.volume, left.previousDayVolume) ?? Number.NEGATIVE_INFINITY) -
-          (resolveWakeUpSortRatio(right.volume, right.previousDayVolume) ?? Number.NEGATIVE_INFINITY),
+          (
+            resolveWakeUpSortRatio(
+              quotesBySymbol[left.symbol.toUpperCase()]?.volume ?? left.volume,
+              quotesBySymbol[left.symbol.toUpperCase()]?.previous_day_volume ?? left.previousDayVolume,
+            ) ?? Number.NEGATIVE_INFINITY
+          ) -
+          (
+            resolveWakeUpSortRatio(
+              quotesBySymbol[right.symbol.toUpperCase()]?.volume ?? right.volume,
+              quotesBySymbol[right.symbol.toUpperCase()]?.previous_day_volume ?? right.previousDayVolume,
+            ) ?? Number.NEGATIVE_INFINITY
+          ),
         sortDirections: ["descend", "ascend"],
         render: (_value, row) => (
-          <WakeUpFlagCell
+          <WakeUpVolumeCell
             symbol={row.symbol}
+            snapshot={quotesBySymbol[row.symbol.toUpperCase()]}
             fallbackChangePercent={parsePctChange(row.pctChange)}
-            latestDayVolume={row.volume}
-            previousDayVolume={row.previousDayVolume}
+            fallbackCurrentVolume={row.volume}
+            fallbackPreviousVolume={row.previousDayVolume}
           />
         ),
       },

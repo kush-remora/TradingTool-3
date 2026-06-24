@@ -4,7 +4,8 @@ import { Alert, Button, Card, Empty, Select, Space, Spin, Switch, Table, Tag, Ty
 import type { ColumnsType } from "antd/es/table";
 import type { FilterValue, TableCurrentDataSource, TablePaginationConfig, TableProps } from "antd/es/table/interface";
 import { useVolumeShockerDashboard } from "../hooks/useVolumeShockerDashboard";
-import { LiveMarketWidget } from "../components/LiveMarketWidget";
+import { useStockQuotes } from "../hooks/useStockQuotes";
+import { renderLiveMarketCell, resolveMarketChangePercent } from "../components/liveMarketCell";
 import type {
   VolumeShockerDashboardRow,
   VolumeShockerDetailResponse,
@@ -85,6 +86,8 @@ export function VolumeShockerDashboardPage() {
   const [filteredRows, setFilteredRows] = useState<VolumeShockerDashboardRow[]>([]);
   const [expandedRowKeys, setExpandedRowKeys] = useState<Key[]>([]);
   const [detailBySymbol, setDetailBySymbol] = useState<Record<string, DetailState>>({});
+  const quoteSymbols = useMemo(() => (data?.rows ?? []).map((row) => row.symbol), [data?.rows]);
+  const { quotesBySymbol } = useStockQuotes(quoteSymbols);
 
   useEffect(() => {
     let mounted = true;
@@ -215,6 +218,13 @@ export function VolumeShockerDashboardPage() {
         filterSearch: true,
         onFilter: (filterValue: boolean | Key, row: VolumeShockerDashboardRow) => String(row[key]) === String(filterValue),
         sorter: (left: VolumeShockerDashboardRow, right: VolumeShockerDashboardRow) => {
+          if (key === "ltp") {
+            return (
+              resolveMarketChangePercent(quotesBySymbol[left.symbol.toUpperCase()]) ?? Number.NEGATIVE_INFINITY
+            ) - (
+              resolveMarketChangePercent(quotesBySymbol[right.symbol.toUpperCase()]) ?? Number.NEGATIVE_INFINITY
+            );
+          }
           const leftValue = left[key];
           const rightValue = right[key];
           if (typeof leftValue === "number" && typeof rightValue === "number") {
@@ -225,13 +235,11 @@ export function VolumeShockerDashboardPage() {
         defaultSortOrder: key === "source_rank" ? ("ascend" as const) : undefined,
         render: (value: unknown, row: VolumeShockerDashboardRow) => {
           if (key === "ltp") {
-            return (
-              <LiveMarketWidget
-                symbol={`NSE:${row.symbol}`}
-                fallbackLtp={row.ltp}
-                showDetails={true}
-              />
-            );
+            return renderLiveMarketCell({
+              symbol: row.symbol,
+              snapshot: quotesBySymbol[row.symbol.toUpperCase()],
+              fallbackLtp: row.ltp,
+            });
           }
           if (key === "pre_event_accumulation_hint") {
             return row.pre_event_accumulation_hint ? <Tag color="green">YES</Tag> : <Tag>NO</Tag>;
@@ -258,7 +266,7 @@ export function VolumeShockerDashboardPage() {
     });
 
     return tableColumns;
-  }, [filteredInfo, quickFilteredRows]);
+  }, [filteredInfo, quickFilteredRows, quotesBySymbol]);
 
   const detailColumns: ColumnsType<VolumeShockerDetailDay> = [
     {

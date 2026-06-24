@@ -49,6 +49,7 @@ data class HotSmaRow(
     val instrumentToken: Long,
     val latestDate: String,
     val currentPrice: Double,
+    val previousCloseChangePct: Double?,
     val sma50: Double?,
     val sma100: Double?,
     val sma200: Double?,

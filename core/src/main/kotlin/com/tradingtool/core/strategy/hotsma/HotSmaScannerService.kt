@@ -181,6 +181,7 @@ class HotSmaScannerService @Inject constructor(
         val drawdownFromHigh20Pct = computeDrawdownFromRecentHighPct(candles = candles, lookbackDays = DRAWDOWN_WINDOW_20)
         val drawdownFromHigh60Pct = computeDrawdownFromRecentHighPct(candles = candles, lookbackDays = DRAWDOWN_WINDOW_60)
         val consecutiveRedDays = countConsecutiveRedDays(candles)
+        val previousCloseChangePct = computePreviousCloseChangePct(candles)
         val move3dPct = computeMove3dPct(candles)
 
         val signalTag = resolveHotSmaSignalTag(
@@ -197,6 +198,7 @@ class HotSmaScannerService @Inject constructor(
             instrumentToken = member.instrumentToken,
             latestDate = latest.candleDate.toString(),
             currentPrice = latest.close.roundTo2(),
+            previousCloseChangePct = previousCloseChangePct?.roundTo2(),
             sma50 = sma50?.roundTo2(),
             sma100 = sma100?.roundTo2(),
             sma200 = sma200?.roundTo2(),
@@ -295,6 +297,14 @@ internal fun computeMove3dPct(candles: List<DailyCandle>): Double? {
     val baseClose = candles[candles.lastIndex - 3].close
     if (baseClose <= 0.0) return null
     return ((latestClose / baseClose) - 1.0) * 100.0
+}
+
+internal fun computePreviousCloseChangePct(candles: List<DailyCandle>): Double? {
+    if (candles.size < 2) return null
+    val latestClose = candles.last().close
+    val previousClose = candles[candles.lastIndex - 1].close
+    if (previousClose <= 0.0) return null
+    return ((latestClose / previousClose) - 1.0) * 100.0
 }
 
 internal fun compareByClosestToSma200(): Comparator<HotSmaRow> {

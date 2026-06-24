@@ -4,9 +4,11 @@ import { Alert, Button, Card, Empty, Select, Space, Spin, Table, Tag, Typography
 import type { ColumnsType } from "antd/es/table";
 import type { FilterValue, TableCurrentDataSource, TablePaginationConfig, TableProps } from "antd/es/table/interface";
 import { useHotSmaScanner } from "../hooks/useHotSmaScanner";
+import { useStockQuotes } from "../hooks/useStockQuotes";
 import type { HotSmaRow, HotSmaUniverseOption, HotSmaZoneStatus } from "../types";
 import { getJson } from "../utils/api";
-import { LiveMarketWidget } from "../components/LiveMarketWidget";
+import { renderLiveMarketCell, resolveMarketChangePercent } from "../components/liveMarketCell";
+import { WakeUpVolumeCell, resolveWakeUpSortRatio } from "../components/WakeUpVolumeCell";
 
 const UNIVERSES_PATH = "/api/strategy/hot-sma/universes";
 const STORAGE_KEY = "hot-sma-filters-v1";
@@ -123,6 +125,8 @@ export function HotSmaPage() {
   const [selectedUniverseKeys, setSelectedUniverseKeys] = useState<string[]>([]);
   const [filteredInfo, setFilteredInfo] = useState<Record<string, FilterValue | null>>({});
   const [filteredRows, setFilteredRows] = useState<HotSmaRow[]>([]);
+  const quoteSymbols = useMemo(() => (data?.rows ?? []).map((row) => row.symbol), [data?.rows]);
+  const { quotesBySymbol } = useStockQuotes(quoteSymbols);
 
   useEffect(() => {
     let mounted = true;
@@ -185,7 +189,7 @@ export function HotSmaPage() {
   };
 
   const columns = useMemo<ColumnsType<HotSmaRow>>(() => {
-    return DISPLAY_COLUMNS.map((key) => {
+    const baseColumns = DISPLAY_COLUMNS.map((key) => {
       const uniqueValues = Array.from(
         new Set((data?.rows ?? []).map((row) => formatCellValue(row, key)).filter((value) => value !== "-")),
       ).map((value) => ({
@@ -202,6 +206,15 @@ export function HotSmaPage() {
         filterSearch: true,
         onFilter: (filterValue: boolean | Key, row: HotSmaRow) => formatCellValue(row, key) === String(filterValue),
         sorter: (left: HotSmaRow, right: HotSmaRow) => {
+          if (key === "currentPrice") {
+            return (
+              resolveMarketChangePercent(quotesBySymbol[left.symbol.toUpperCase()], left.previousCloseChangePct) ??
+              Number.NEGATIVE_INFINITY
+            ) - (
+              resolveMarketChangePercent(quotesBySymbol[right.symbol.toUpperCase()], right.previousCloseChangePct) ??
+              Number.NEGATIVE_INFINITY
+            );
+          }
           const leftValue = left[key];
           const rightValue = right[key];
           if (typeof leftValue === "number" && typeof rightValue === "number") {
@@ -215,19 +228,44 @@ export function HotSmaPage() {
             return <Tag color={ZONE_STATUS_COLORS[row.zoneStatus]}>{row.zoneStatus}</Tag>;
           }
           if (key === "currentPrice") {
-            return (
-              <LiveMarketWidget
-                symbol={`NSE:${row.symbol}`}
-                fallbackLtp={row.currentPrice}
-                showDetails={true}
-              />
-            );
+            return renderLiveMarketCell({
+              symbol: row.symbol,
+              snapshot: quotesBySymbol[row.symbol.toUpperCase()],
+              fallbackLtp: row.currentPrice,
+              fallbackChangePercent: row.previousCloseChangePct,
+            });
           }
           return formatCellValue(row, key);
         },
       };
     });
-  }, [data?.rows, filteredInfo]);
+
+    baseColumns.splice(3, 0, {
+      title: "Wake-Up",
+      key: "wakeUp",
+      sorter: (left: HotSmaRow, right: HotSmaRow) =>
+        (
+          resolveWakeUpSortRatio(
+            quotesBySymbol[left.symbol.toUpperCase()]?.volume,
+            quotesBySymbol[left.symbol.toUpperCase()]?.previous_day_volume,
+          ) ?? Number.NEGATIVE_INFINITY
+        ) - (
+          resolveWakeUpSortRatio(
+            quotesBySymbol[right.symbol.toUpperCase()]?.volume,
+            quotesBySymbol[right.symbol.toUpperCase()]?.previous_day_volume,
+          ) ?? Number.NEGATIVE_INFINITY
+        ),
+      render: (_value: unknown, row: HotSmaRow) => (
+        <WakeUpVolumeCell
+          symbol={row.symbol}
+          snapshot={quotesBySymbol[row.symbol.toUpperCase()]}
+          fallbackChangePercent={row.previousCloseChangePct}
+        />
+      ),
+    });
+
+    return baseColumns;
+  }, [data?.rows, filteredInfo, quotesBySymbol]);
 
   return (
     <div style={{ padding: 24 }}>

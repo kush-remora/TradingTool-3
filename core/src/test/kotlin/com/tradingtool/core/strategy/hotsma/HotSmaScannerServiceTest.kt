@@ -141,6 +141,18 @@ class HotSmaScannerServiceTest {
     }
 
     @Test
+    fun `previous close change percent compares latest close with previous close`() {
+        val candles = listOf(
+            candle(close = 100.0, high = 101.0),
+            candle(dateOffset = 1, close = 105.0, high = 106.0),
+        )
+
+        val previousCloseChangePct = requireNotNull(computePreviousCloseChangePct(candles))
+        assertEquals(5.0, previousCloseChangePct, 1e-9)
+        assertNull(computePreviousCloseChangePct(candles.take(1)))
+    }
+
+    @Test
     fun `drawdown from recent high uses highest high in requested window`() {
         val candles = listOf(
             candle(close = 100.0, high = 105.0),

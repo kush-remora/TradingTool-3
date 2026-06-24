@@ -17,6 +17,8 @@ data class InstrumentSearchResult(
 data class StockQuoteSnapshot(
     val symbol: String,
     val ltp: Double? = null,
+    @get:JsonProperty("change_percent")
+    val changePercent: Double? = null,
     @get:JsonProperty("day_open")
     val dayOpen: Double? = null,
     @get:JsonProperty("day_high")
@@ -24,6 +26,8 @@ data class StockQuoteSnapshot(
     @get:JsonProperty("day_low")
     val dayLow: Double? = null,
     val volume: Long? = null,
+    @get:JsonProperty("previous_day_volume")
+    val previousDayVolume: Long? = null,
     @get:JsonProperty("updated_at")
     val updatedAt: String,
 )

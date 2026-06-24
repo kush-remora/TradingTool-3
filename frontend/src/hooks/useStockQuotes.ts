@@ -38,22 +38,7 @@ export function useStockQuotes(symbols: string[]): UseStockQuotesResult {
       };
     }
 
-    if (!isIndianEquityMarketOpen()) {
-      setLoading(false);
-      setError(null);
-      return () => {
-        active = false;
-      };
-    }
-
     const fetchQuotes = async (showLoading: boolean) => {
-      if (!isIndianEquityMarketOpen()) {
-        if (active && showLoading) {
-          setLoading(false);
-        }
-        return;
-      }
-
       if (showLoading) setLoading(true);
       try {
         const query = encodeURIComponent(normalizedSymbols.join(","));
@@ -76,13 +61,17 @@ export function useStockQuotes(symbols: string[]): UseStockQuotesResult {
     };
 
     void fetchQuotes(true);
-    const pollId = window.setInterval(() => {
-      void fetchQuotes(false);
-    }, 10_000);
+    const pollId = isIndianEquityMarketOpen()
+      ? window.setInterval(() => {
+        void fetchQuotes(false);
+      }, 10_000)
+      : null;
 
     return () => {
       active = false;
-      window.clearInterval(pollId);
+      if (pollId != null) {
+        window.clearInterval(pollId);
+      }
     };
   }, [normalizedSymbols]);
 

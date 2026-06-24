@@ -8,7 +8,7 @@ import type { CloseTradeInput, GttTarget, TradeWithTargets } from "../types";
 import { calculatePnL, type PnLResult } from "../utils/pnlUtils";
 import { deriveSignalConfigFromTrade } from "../utils/tradeSessionSignals";
 import { TradeMarketHistoryPanel } from "./TradeMarketHistoryPanel";
-import { LiveMarketWidget } from "./LiveMarketWidget";
+import { renderLiveMarketCell } from "./liveMarketCell";
 
 const { Text } = Typography;
 
@@ -161,13 +161,11 @@ export function TradeJournalTable({
       title: <Text style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "#8c8c8c" }}>LIVE MARKET</Text>,
       key: "liveMarket",
       width: 140,
-      render: (_, record) => (
-        <LiveMarketWidget
-          symbol={`NSE:${record.trade.nse_symbol}`}
-          fallbackLtp={record.currentLtp ?? undefined}
-          showDetails={true}
-        />
-      ),
+      render: (_, record) => renderLiveMarketCell({
+        symbol: record.trade.nse_symbol,
+        snapshot: quotesBySymbol[record.trade.nse_symbol.toUpperCase()],
+        fallbackLtp: record.currentLtp,
+      }),
     },
     {
       title: <Text style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "#8c8c8c" }}>CURRENT P&amp;L</Text>,

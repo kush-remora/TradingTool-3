@@ -65,6 +65,7 @@ class StockResource @Inject constructor(
                 log.warn("Unknown symbol requested: $symbol")
                 return@forEach
             }
+            val previousDayVolume = loadPreviousDayVolume(token)
 
             val tick = tickStore.get(token)
             if (tick != null) {
@@ -72,10 +73,12 @@ class StockResource @Inject constructor(
                     StockQuoteSnapshot(
                         symbol = symbol,
                         ltp = tick.ltp,
+                        changePercent = if (tick.close > 0) ((tick.ltp - tick.close) / tick.close) * 100 else null,
                         dayOpen = tick.open,
                         dayHigh = tick.high,
                         dayLow = tick.low,
                         volume = tick.volume,
+                        previousDayVolume = previousDayVolume,
                         updatedAt = Instant.ofEpochMilli(tick.updatedAt).toString()
                     )
                 )
@@ -92,14 +95,19 @@ class StockResource @Inject constructor(
                 val quotes = kiteClient.client().getQuote(kiteSymbols)
                 kiteSymbolsToFetch.forEach { symbol ->
                     val quote = quotes["NSE:$symbol"] ?: return@forEach
+                    val token = instrumentCache.token("NSE", symbol) ?: return@forEach
                     snapshots.add(
                         StockQuoteSnapshot(
                             symbol = symbol,
                             ltp = quote.lastPrice,
+                            changePercent = quote.ohlc?.close?.takeIf { close -> close > 0.0 }?.let { close ->
+                                ((quote.lastPrice - close) / close) * 100
+                            },
                             dayOpen = quote.ohlc?.open,
                             dayHigh = quote.ohlc?.high,
                             dayLow = quote.ohlc?.low,
                             volume = quote.volumeTradedToday?.toLong(),
+                            previousDayVolume = loadPreviousDayVolume(token),
                             updatedAt = quote.timestamp?.toString() ?: Instant.now().toString(),
                         )
                     )
@@ -131,18 +139,29 @@ class StockResource @Inject constructor(
     private suspend fun fetchFallbackQuotes(symbols: List<String>): List<StockQuoteSnapshot> {
         return symbols.mapNotNull { symbol ->
             val token = instrumentCache.token("NSE", symbol) ?: return@mapNotNull null
-            val recentCandles = candleDb.read { it.getRecentDailyCandles(token, 1) }
+            val recentCandles = candleDb.read { it.getRecentDailyCandles(token, 2) }
             val lastCandle = recentCandles.firstOrNull() ?: return@mapNotNull null
+            val previousCandle = recentCandles.getOrNull(1)
+            val changePercent = previousCandle
+                ?.takeIf { candle -> candle.close > 0.0 }
+                ?.let { candle -> ((lastCandle.close - candle.close) / candle.close) * 100 }
 
             StockQuoteSnapshot(
                 symbol = symbol,
                 ltp = lastCandle.close,
+                changePercent = changePercent,
                 dayOpen = lastCandle.open,
                 dayHigh = lastCandle.high,
                 dayLow = lastCandle.low,
                 volume = lastCandle.volume,
+                previousDayVolume = previousCandle?.volume,
                 updatedAt = lastCandle.candleDate.toString()
             )
         }
+    }
+
+    private suspend fun loadPreviousDayVolume(token: Long): Long? {
+        val recentCandles = candleDb.read { it.getRecentDailyCandles(token, 2) }
+        return recentCandles.getOrNull(1)?.volume
     }
 }
