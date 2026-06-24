@@ -14,6 +14,7 @@ data class PhaseCWatchlistRow(
     @ColumnName("close_price") val closePrice: Double?,
     @ColumnName("pct_change") val pctChange: String?,
     @ColumnName("volume") val volume: Long?,
+    @ColumnName("previous_day_volume") val previousDayVolume: Long?,
     @ColumnName("sector") val sector: String?,
     @ColumnName("industry") val industry: String?,
     @ColumnName("roce_pct") val rocePct: Double?,

@@ -29,6 +29,7 @@ class PhaseCFreshFieldCalculatorTest {
         assertEquals(351.0, result.closePrice)
         assertEquals("0.29%", result.pctChange)
         assertEquals(1_251L, result.volume)
+        assertEquals(1_250L, result.previousDayVolume)
         assertEquals(356.0, result.high52w)
         assertEquals(97.0, result.low52w)
         assertEquals(-1.404494382022472, result.dist200dHighPct, 0.0000001)

@@ -7,6 +7,8 @@ import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.kite.InstrumentTokenResolverService
 import java.time.LocalDate
 
+private const val WAKE_UP_VOLUME_RATIO_THRESHOLD = 2.0
+
 class PhaseCWatchlistService(
     private val watchlistHandler: PhaseCWatchlistJdbiHandler,
     private val stockDeliveryHandler: StockDeliveryJdbiHandler,
@@ -33,6 +35,7 @@ class PhaseCWatchlistService(
                 closePrice = dto.closePrice,
                 pctChange = dto.pctChange,
                 volume = dto.volume,
+                previousDayVolume = null,
                 sector = dto.sector,
                 industry = dto.industry,
                 rocePct = dto.rocePct,
@@ -140,6 +143,7 @@ class PhaseCWatchlistService(
                 closePrice = snapshot.closePrice,
                 pctChange = snapshot.pctChange,
                 volume = snapshot.volume,
+                previousDayVolume = snapshot.previousDayVolume,
                 high52w = snapshot.high52w,
                 low52w = snapshot.low52w,
                 dist200dHighPct = snapshot.dist200dHighPct,
@@ -290,7 +294,8 @@ class PhaseCWatchlistService(
 
             PhaseCExportStockData(
                 profile = row,
-                history10d = history
+                history10d = history,
+                wakeUpVolume = buildWakeUpVolumeExport(row),
             )
         }
 
@@ -305,6 +310,7 @@ class PhaseCWatchlistService(
             "closePrice" to "The latest daily closing price.",
             "pctChange" to "The recent percentage change in price.",
             "volume" to "The latest daily trading volume.",
+            "previousDayVolume" to "The previous trading day's volume used as the T-1 comparison for Wake-Up checks.",
             "sector" to "The sector the company belongs to.",
             "industry" to "The industry the company operates in.",
             "rocePct" to "Return on Capital Employed percentage.",
@@ -334,7 +340,11 @@ class PhaseCWatchlistService(
             "deliverySpikeDays10d" to "Number of days in the last 10 trading days where delivery quantity met or exceeded the active base delivery quantity.",
             "deliverySpikeDays20d" to "Number of days in the last 20 trading days where delivery quantity met or exceeded the active base delivery quantity.",
             "deliverySupportDays10d" to "Number of days in the last 10 trading days where delivery percentage was >= 55%.",
-            "deliverySupportDays20d" to "Number of days in the last 20 trading days where delivery percentage was >= 55%."
+            "deliverySupportDays20d" to "Number of days in the last 20 trading days where delivery percentage was >= 55%.",
+            "wakeUpVolume.latestDayVolume" to "The latest completed trading day's volume used as the current-day value in AI export.",
+            "wakeUpVolume.previousDayVolume" to "The prior trading day's volume used as the T-1 comparison in AI export.",
+            "wakeUpVolume.volumeRatioVsPreviousDay" to "The ratio of latest completed day volume divided by the previous trading day's volume.",
+            "wakeUpVolume.volumeIs2xOrMore" to "True when the latest completed day volume is at least 2x the previous trading day's volume."
         )
 
         return PhaseCExportResponse(
@@ -342,4 +352,20 @@ class PhaseCWatchlistService(
             stocks = stocks
         )
     }
+}
+
+internal fun buildWakeUpVolumeExport(row: PhaseCWatchlistRow): PhaseCWakeUpVolumeExport? {
+    val latestDayVolume = row.volume ?: return null
+    val previousDayVolume = row.previousDayVolume ?: return null
+    if (previousDayVolume <= 0L) {
+        return null
+    }
+
+    val volumeRatio = latestDayVolume.toDouble() / previousDayVolume.toDouble()
+    return PhaseCWakeUpVolumeExport(
+        latestDayVolume = latestDayVolume,
+        previousDayVolume = previousDayVolume,
+        volumeRatioVsPreviousDay = volumeRatio,
+        volumeIs2xOrMore = volumeRatio >= WAKE_UP_VOLUME_RATIO_THRESHOLD,
+    )
 }

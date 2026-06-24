@@ -7,7 +7,8 @@ data class PhaseCExportResponse(
 
 data class PhaseCExportStockData(
     val profile: PhaseCWatchlistRow,
-    val history10d: List<PhaseCHistoryRow>
+    val history10d: List<PhaseCHistoryRow>,
+    val wakeUpVolume: PhaseCWakeUpVolumeExport?
 )
 
 data class PhaseCHistoryRow(
@@ -19,4 +20,11 @@ data class PhaseCHistoryRow(
     val volume: Long,
     val deliveryQuantity: Long?,
     val deliveryPct: Double?
+)
+
+data class PhaseCWakeUpVolumeExport(
+    val latestDayVolume: Long,
+    val previousDayVolume: Long,
+    val volumeRatioVsPreviousDay: Double,
+    val volumeIs2xOrMore: Boolean,
 )

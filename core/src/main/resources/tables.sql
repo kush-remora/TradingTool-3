@@ -153,6 +153,7 @@ CREATE TABLE IF NOT EXISTS public.phase_c_watchlist (
     close_price NUMERIC(18, 4),
     pct_change TEXT,
     volume BIGINT,
+    previous_day_volume BIGINT,
     sector TEXT,
     industry TEXT,
     roce_pct NUMERIC(10, 2),

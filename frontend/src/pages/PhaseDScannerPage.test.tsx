@@ -1,6 +1,13 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildDistinctNumberFilters, buildWakeUpSignal, PhaseDScannerPage, parseCsvOrTsv } from "./PhaseDScannerPage";
+import {
+  buildDistinctNumberFilters,
+  buildWakeUpSignal,
+  PhaseDScannerPage,
+  parseCsvOrTsv,
+  resolveWakeUpSortRatio,
+  resolveWakeUpVolumeContext,
+} from "./PhaseDScannerPage";
 
 const fetchMock = vi.fn();
 
@@ -19,6 +26,7 @@ function buildRow(overrides: Record<string, unknown> = {}) {
     closePrice: 1540.5,
     pctChange: "2.10%",
     volume: 250000,
+    previousDayVolume: 180000,
     sector: "IT",
     industry: "Software",
     rocePct: 31.2,
@@ -331,6 +339,39 @@ describe("PhaseDScannerPage", () => {
     expect(tableRows[1]?.textContent).toContain("INFY");
   });
 
+  it("sorts wake-up by latest day volume vs t-1 ratio", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [
+        buildRow({
+          symbol: "INFY",
+          volume: 200000,
+          previousDayVolume: 100000,
+        }),
+        buildRow({
+          symbol: "TCS",
+          stockName: "TCS",
+          instrumentToken: 2953217,
+          volume: 450000,
+          previousDayVolume: 100000,
+        }),
+      ],
+    });
+
+    const { container } = render(<PhaseDScannerPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("INFY")).toBeInTheDocument();
+      expect(screen.getAllByText("TCS").length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByText("Wake-Up")[0]);
+
+    const tableRows = Array.from(container.querySelectorAll(".ant-table-tbody > tr.ant-table-row"));
+    expect(tableRows[0]?.textContent).toContain("TCS");
+    expect(tableRows[1]?.textContent).toContain("INFY");
+  });
+
   it("builds distinct number filters for grouped column menus", () => {
     expect(buildDistinctNumberFilters([3, 1, 3, null], "60D Min")).toEqual([
       { text: "60D Min 1", value: "1" },
@@ -368,6 +409,28 @@ describe("PhaseDScannerPage", () => {
       score: 0,
       label: "Quiet",
     });
+  });
+
+  it("resolves wake-up volumes from live data first and daily fallback after market close", () => {
+    expect(resolveWakeUpVolumeContext(600000, 250000, 180000)).toEqual({
+      currentVolume: 600000,
+      currentVolumeLabel: "Now",
+      comparisonVolume: 250000,
+      comparisonVolumeLabel: "T-1",
+    });
+
+    expect(resolveWakeUpVolumeContext(null, 250000, 180000)).toEqual({
+      currentVolume: 250000,
+      currentVolumeLabel: "Day",
+      comparisonVolume: 180000,
+      comparisonVolumeLabel: "T-1",
+    });
+  });
+
+  it("resolves wake-up sort ratio from latest day volume vs t-1", () => {
+    expect(resolveWakeUpSortRatio(250000, 100000)).toBe(2.5);
+    expect(resolveWakeUpSortRatio(250000, 0)).toBeNull();
+    expect(resolveWakeUpSortRatio(null, 100000)).toBeNull();
   });
 
   it("parses the cleaned CSV headers without losing columns", () => {

@@ -100,6 +100,7 @@ object DatabaseConstants {
         const val CLOSE_PRICE = "close_price"
         const val PCT_CHANGE = "pct_change"
         const val VOLUME = "volume"
+        const val PREVIOUS_DAY_VOLUME = "previous_day_volume"
         const val SECTOR = "sector"
         const val INDUSTRY = "industry"
         const val ROCE_PCT = "roce_pct"

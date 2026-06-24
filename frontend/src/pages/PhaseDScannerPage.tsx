@@ -37,6 +37,7 @@ interface PhaseCWatchlistDto {
   closePrice: number | null;
   pctChange: string | null;
   volume: number | null;
+  previousDayVolume: number | null;
   sector: string | null;
   industry: string | null;
   rocePct: number | null;
@@ -115,6 +116,13 @@ type WakeUpSignal = {
   color: string;
   priceChangePct: number | null;
   volumeRatio: number | null;
+};
+
+type WakeUpVolumeContext = {
+  currentVolume: number | null;
+  currentVolumeLabel: string;
+  comparisonVolume: number | null;
+  comparisonVolumeLabel: string;
 };
 
 const WAKE_UP_PRICE_MOVE_THRESHOLD_PCT = 4;
@@ -235,26 +243,66 @@ export function buildWakeUpSignal(
   };
 }
 
+export function resolveWakeUpVolumeContext(
+  liveVolume: number | null | undefined,
+  latestDayVolume: number | null | undefined,
+  previousDayVolume: number | null | undefined,
+): WakeUpVolumeContext {
+  if (liveVolume != null) {
+    return {
+      currentVolume: liveVolume,
+      currentVolumeLabel: "Now",
+      comparisonVolume: latestDayVolume ?? null,
+      comparisonVolumeLabel: "T-1",
+    };
+  }
+
+  return {
+    currentVolume: latestDayVolume ?? null,
+    currentVolumeLabel: "Day",
+    comparisonVolume: previousDayVolume ?? null,
+    comparisonVolumeLabel: "T-1",
+  };
+}
+
+export function resolveWakeUpSortRatio(
+  latestDayVolume: number | null | undefined,
+  previousDayVolume: number | null | undefined,
+): number | null {
+  if (latestDayVolume == null || previousDayVolume == null || previousDayVolume <= 0) {
+    return null;
+  }
+
+  return latestDayVolume / previousDayVolume;
+}
+
 function WakeUpFlagCell({
   symbol,
   fallbackChangePercent,
-  baseVolume,
+  latestDayVolume,
+  previousDayVolume,
 }: {
   symbol: string;
   fallbackChangePercent: number | null;
-  baseVolume: number | null;
+  latestDayVolume: number | null;
+  previousDayVolume: number | null;
 }) {
   const data = useLiveMarketData(`NSE:${symbol}`);
+  const volumeContext = resolveWakeUpVolumeContext(
+    data?.volume,
+    latestDayVolume,
+    previousDayVolume,
+  );
   const signal = buildWakeUpSignal(
     data?.changePercent ?? fallbackChangePercent,
-    data?.volume,
-    baseVolume,
+    volumeContext.currentVolume,
+    volumeContext.comparisonVolume,
   );
 
   const tooltipText = [
     `Price Move: ${signal.priceChangePct != null ? `${signal.priceChangePct.toFixed(2)}%` : "-"}`,
-    `Today Vol: ${data?.volume != null ? formatNumber(data.volume) : "-"}`,
-    `T-1 Vol: ${formatNumber(baseVolume)}`,
+    `${volumeContext.currentVolumeLabel} Vol: ${formatNumber(volumeContext.currentVolume)}`,
+    `${volumeContext.comparisonVolumeLabel} Vol: ${formatNumber(volumeContext.comparisonVolume)}`,
     `Vol Ratio: ${signal.volumeRatio != null ? formatRatio(signal.volumeRatio) : "-"}`,
   ].join(" | ");
 
@@ -264,10 +312,10 @@ function WakeUpFlagCell({
         <Tag color={signal.color}>{signal.label}</Tag>
       </Tooltip>
       <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-        Now: {formatNumber(data?.volume)}
+        {volumeContext.currentVolumeLabel}: {formatNumber(volumeContext.currentVolume)}
       </Typography.Text>
       <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-        T-1: {formatNumber(baseVolume)}
+        {volumeContext.comparisonVolumeLabel}: {formatNumber(volumeContext.comparisonVolume)}
       </Typography.Text>
     </Space>
   );
@@ -826,11 +874,16 @@ export function PhaseDScannerPage() {
         title: "Wake-Up",
         key: "wakeUp",
         width: 130,
+        sorter: (left, right) =>
+          (resolveWakeUpSortRatio(left.volume, left.previousDayVolume) ?? Number.NEGATIVE_INFINITY) -
+          (resolveWakeUpSortRatio(right.volume, right.previousDayVolume) ?? Number.NEGATIVE_INFINITY),
+        sortDirections: ["descend", "ascend"],
         render: (_value, row) => (
           <WakeUpFlagCell
             symbol={row.symbol}
             fallbackChangePercent={parsePctChange(row.pctChange)}
-            baseVolume={row.volume}
+            latestDayVolume={row.volume}
+            previousDayVolume={row.previousDayVolume}
           />
         ),
       },

@@ -46,6 +46,7 @@ data class PhaseCFreshFieldUpdate(
     val closePrice: Double,
     val pctChange: String,
     val volume: Long,
+    val previousDayVolume: Long,
     val high52w: Double,
     val low52w: Double,
     val dist200dHighPct: Double,
