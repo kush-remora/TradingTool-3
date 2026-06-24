@@ -1,6 +1,7 @@
 package com.tradingtool.eventservice
 
 import com.tradingtool.core.kite.KiteConnectClient
+import com.tradingtool.core.kite.NseMarketClock
 import com.tradingtool.core.kite.TickSnapshot
 import com.tradingtool.core.kite.TickStore
 import com.tradingtool.core.kite.TickerSubscriptions
@@ -8,9 +9,8 @@ import com.zerodhatech.ticker.KiteTicker
 import com.zerodhatech.ticker.OnError
 import org.slf4j.LoggerFactory
 import java.time.Duration
-import java.time.ZoneId
 import java.time.ZonedDateTime
-import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
@@ -22,10 +22,9 @@ import java.util.concurrent.TimeUnit
  * without depending on the event-service module directly.
  *
  * Lifecycle:
- * - [startWithMarketSchedule] — called at startup. Starts immediately if within market hours,
- *   and schedules daily start/stop at NSE open/close times.
+ * - [start] — called at startup. Registers daily open/close handling.
  * - [restart] — called by KiteConnectClient's token refresh callback (token expiry at 6 AM IST).
- * - [addInstrument] / [removeInstrument] — called by StockResource on watchlist changes.
+ * - [addInstrument] / [removeInstrument] — called by HTTP resources as pages open/close.
  */
 class KiteTickerService(
     private val kiteClient: KiteConnectClient,
@@ -33,10 +32,11 @@ class KiteTickerService(
 ) : TickerSubscriptions {
 
     private val log = LoggerFactory.getLogger(KiteTickerService::class.java)
-    private val ist = ZoneId.of("Asia/Kolkata")
 
     @Volatile private var ticker: KiteTicker? = null
-    private val subscribedTokens = CopyOnWriteArrayList<Long>()
+    @Volatile private var schedulerStarted: Boolean = false
+    private val subscriptionLock = Any()
+    private val subscriptionCounts = ConcurrentHashMap<Long, Int>()
 
     private val scheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { r ->
         Thread(r, "kite-ticker-scheduler").also { it.isDaemon = true }
@@ -45,20 +45,18 @@ class KiteTickerService(
     // ── Public API ──────────────────────────────────────────────────────────
 
     /**
-     * Called from Application.kt after auth and DB stock query.
-     * Starts immediately if within market hours, then schedules daily open/close.
+     * Called from Application.kt during startup.
+     * Registers daily open/close handling once. The actual ticker connection is lazy
+     * and only happens after at least one page subscribes to symbols during market hours.
      */
-    fun startWithMarketSchedule(tokens: List<Long>) {
-        subscribedTokens.addAll(tokens)
-
-        if (isMarketHours()) {
-            connect()
-        } else {
-            log.info("[KiteTicker] Outside market hours — waiting for 9:14 AM IST to connect")
+    fun start() {
+        synchronized(subscriptionLock) {
+            if (schedulerStarted) {
+                return
+            }
+            schedulerStarted = true
         }
 
-        // Task 4: schedule daily market open (9:14 AM IST) and close (3:31 PM IST).
-        // India has no DST, so 24h fixed periods are exact.
         scheduler.scheduleAtFixedRate(
             ::onMarketOpen,
             millisUntil(9, 14), 24 * 60 * 60 * 1000L, TimeUnit.MILLISECONDS
@@ -76,33 +74,76 @@ class KiteTickerService(
     }
 
     /** Task 1: Called by KiteConnectClient.setTokenRefreshCallback when cron-job refreshes token. */
-    fun restart(newAccessToken: String) {
+    fun restart(_newAccessToken: String) {
         log.info("[KiteTicker] Restarting with refreshed access token")
         stop()
-        if (isMarketHours()) connect()
+        if (isStreamingAvailable() && hasActiveSubscriptions()) {
+            connect()
+        }
     }
 
-    /** Task 2: Called by StockResource when a new stock is added to the watchlist. */
     override fun addInstrument(token: Long) {
-        if (subscribedTokens.contains(token)) return
-        subscribedTokens.add(token)
+        val shouldSubscribeNow = synchronized(subscriptionLock) {
+            val count = subscriptionCounts[token] ?: 0
+            subscriptionCounts[token] = count + 1
+            count == 0
+        }
+
+        if (!shouldSubscribeNow) {
+            return
+        }
+
+        if (ticker == null) {
+            if (isStreamingAvailable()) {
+                connect()
+            }
+            return
+        }
+
         ticker?.subscribe(arrayListOf(token))
         ticker?.setMode(arrayListOf(token), KiteTicker.modeFull)
-        log.info("[KiteTicker] Subscribed to instrument $token")
+        log.info("[KiteTicker] Subscribed to instrument {}", token)
     }
 
-    /** Task 2: Called by StockResource when a stock is removed from the watchlist. */
     override fun removeInstrument(token: Long) {
-        subscribedTokens.remove(token)
+        val shouldUnsubscribeNow = synchronized(subscriptionLock) {
+            val count = subscriptionCounts[token] ?: return@synchronized null
+            if (count <= 1) {
+                subscriptionCounts.remove(token)
+                true
+            } else {
+                subscriptionCounts[token] = count - 1
+                false
+            }
+        }
+
+        if (shouldUnsubscribeNow != true) {
+            return
+        }
+
         ticker?.unsubscribe(arrayListOf(token))
-        log.info("[KiteTicker] Unsubscribed from instrument $token")
+        log.info("[KiteTicker] Unsubscribed from instrument {}", token)
+
+        if (!hasActiveSubscriptions()) {
+            stop()
+        }
     }
+
+    override fun isStreamingAvailable(): Boolean = kiteClient.isAuthenticated && NseMarketClock.isMarketOpen()
 
     // ── Private ─────────────────────────────────────────────────────────────
 
     private fun onMarketOpen() {
         log.info("[KiteTicker] Market open — connecting")
-        if (kiteClient.isAuthenticated) connect() else log.warn("[KiteTicker] Market open but Kite not authenticated — skipping connect")
+        if (!isStreamingAvailable()) {
+            log.warn("[KiteTicker] Market open but Kite not authenticated — skipping connect")
+            return
+        }
+        if (!hasActiveSubscriptions()) {
+            log.info("[KiteTicker] Market open but no active page subscriptions — staying idle")
+            return
+        }
+        connect()
     }
 
     private fun onMarketClose() {
@@ -111,9 +152,18 @@ class KiteTickerService(
     }
 
     private fun connect() {
+        if (!isStreamingAvailable()) {
+            return
+        }
+        if (ticker != null) {
+            return
+        }
+
         val accessToken = kiteClient.accessToken
         val apiKey = kiteClient.apiKey
-        val tokens = subscribedTokens.toList()
+        val tokens = synchronized(subscriptionLock) {
+            subscriptionCounts.keys.toList()
+        }
 
         if (tokens.isEmpty()) {
             log.warn("[KiteTicker] connect() called with no subscribed tokens — skipping")
@@ -165,18 +215,13 @@ class KiteTickerService(
         ticker = t
     }
 
-    private fun isMarketHours(): Boolean {
-        val now = ZonedDateTime.now(ist)
-        val open  = now.withHour(9).withMinute(14).withSecond(0).withNano(0)
-        val close = now.withHour(15).withMinute(31).withSecond(0).withNano(0)
-        return now.isAfter(open) && now.isBefore(close)
-    }
-
     /** Milliseconds until the next occurrence of [hour]:[minute] IST. */
     private fun millisUntil(hour: Int, minute: Int): Long {
-        val now = ZonedDateTime.now(ist)
+        val now = ZonedDateTime.now(NseMarketClock.zone)
         var next = now.withHour(hour).withMinute(minute).withSecond(0).withNano(0)
         if (!next.isAfter(now)) next = next.plusDays(1)
         return Duration.between(now, next).toMillis()
     }
+
+    private fun hasActiveSubscriptions(): Boolean = subscriptionCounts.isNotEmpty()
 }

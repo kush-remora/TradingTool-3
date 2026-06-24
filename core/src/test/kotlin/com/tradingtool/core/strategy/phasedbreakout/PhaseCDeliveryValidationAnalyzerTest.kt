@@ -22,7 +22,7 @@ class PhaseCDeliveryValidationAnalyzerTest {
             val isConvictionDay = index >= 56
             deliveryRow(
                 tradingDate = candle.candleDate,
-                deliveryQuantity = if (isConvictionDay) 180L else 100L,
+                deliveryQuantity = if (isConvictionDay) 180L else if (index < 6) 100L else 80L,
                 deliveryPct = if (isConvictionDay) 60.0 else 48.0,
             )
         }
@@ -35,12 +35,12 @@ class PhaseCDeliveryValidationAnalyzerTest {
 
         assertEquals("PASSED", result.status)
         assertEquals("strong_delivery_support", result.reason)
-        assertEquals(4, result.deliverySpikeDays10d)
-        assertEquals(4, result.deliverySpikeDays20d)
+        assertEquals(10, result.deliverySpikeDays10d)
+        assertEquals(20, result.deliverySpikeDays20d)
         assertEquals(4, result.deliverySupportDays10d)
         assertEquals(4, result.deliverySupportDays20d)
-        assertEquals(100L, result.wholesaleBaseDq)
-        assertEquals(1.8, result.deliverySpikeRatio)
+        assertEquals(80L, result.wholesaleBaseDq)
+        assertEquals(2.25, result.deliverySpikeRatio)
     }
 
     @Test
@@ -79,10 +79,10 @@ class PhaseCDeliveryValidationAnalyzerTest {
             val close = if (offset < 6) 90.0 else 120.0 + offset
             candle(date = date, close = close)
         }
-        val deliveries = candles.map { candle ->
+        val deliveries = candles.mapIndexed { index, candle ->
             deliveryRow(
                 tradingDate = candle.candleDate,
-                deliveryQuantity = 110L,
+                deliveryQuantity = if (index < 6) 110L else 80L,
                 deliveryPct = 51.0,
             )
         }
@@ -95,11 +95,11 @@ class PhaseCDeliveryValidationAnalyzerTest {
 
         assertEquals("NOT_PASSED", result.status)
         assertEquals("no_delivery_confirmation", result.reason)
-        assertEquals(0, result.deliverySpikeDays10d)
-        assertEquals(0, result.deliverySpikeDays20d)
+        assertEquals(10, result.deliverySpikeDays10d)
+        assertEquals(20, result.deliverySpikeDays20d)
         assertEquals(0, result.deliverySupportDays10d)
         assertEquals(0, result.deliverySupportDays20d)
-        assertEquals(110L, result.wholesaleBaseDq)
+        assertEquals(80L, result.wholesaleBaseDq)
         assertEquals(1.0, result.deliverySpikeRatio)
     }
 
@@ -115,7 +115,7 @@ class PhaseCDeliveryValidationAnalyzerTest {
             val isLateSpike = index >= 56
             deliveryRow(
                 tradingDate = candle.candleDate,
-                deliveryQuantity = if (isLateSpike) 180L else 100L,
+                deliveryQuantity = if (isLateSpike) 180L else if (index < 6) 100L else 80L,
                 deliveryPct = 50.0,
             )
         }
@@ -127,8 +127,8 @@ class PhaseCDeliveryValidationAnalyzerTest {
         )
 
         assertEquals("NOT_PASSED", result.status)
-        assertEquals(4, result.deliverySpikeDays10d)
-        assertEquals(4, result.deliverySpikeDays20d)
+        assertEquals(10, result.deliverySpikeDays10d)
+        assertEquals(20, result.deliverySpikeDays20d)
         assertEquals(0, result.deliverySupportDays10d)
         assertEquals(0, result.deliverySupportDays20d)
     }

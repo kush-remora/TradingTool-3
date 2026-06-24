@@ -11,8 +11,6 @@ import com.tradingtool.di.ServiceModule
 import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.kite.KiteTokenReadDao
 import com.tradingtool.core.kite.KiteTokenWriteDao
-import com.tradingtool.core.indexconstituents.dao.IndexConstituentReadDao
-import com.tradingtool.core.indexconstituents.dao.IndexConstituentWriteDao
 import com.tradingtool.resources.ALL_RESOURCE_CLASSES
 import com.tradingtool.eventservice.KiteTickerService
 import io.dropwizard.core.Application
@@ -150,9 +148,6 @@ class DropwizardApplication : Application<DropwizardConfig>() {
         // Populate instrument cache at startup (now guaranteed to have auth).
         val instrumentCache = injector.getInstance(com.tradingtool.core.kite.InstrumentCache::class.java)
         val kiteTickerService = injector.getInstance(KiteTickerService::class.java)
-        val indexConstituentDb = injector.getInstance(
-            Key.get(object : TypeLiteral<JdbiHandler<IndexConstituentReadDao, IndexConstituentWriteDao>>() {})
-        )
         // Task 1: when the cron-job refreshes the daily Kite token, restart the ticker.
         kiteClient.setTokenRefreshCallback { newToken ->
             kiteTickerService.restart(newToken)
@@ -167,15 +162,11 @@ class DropwizardApplication : Application<DropwizardConfig>() {
                 log.error("[InstrumentCache] Failed to load at startup: {}", e.message)
             }
 
-            // Task 4: start ticker with market-hours schedule (start 9:14 AM IST, stop 3:31 PM IST).
+            // Register ticker market-hour lifecycle. Actual ticker connections stay lazy
+            // and only start after a page subscribes to live symbols.
             try {
-                val tokens = runBlocking {
-                    indexConstituentDb.read { dao -> dao.listAllActive() }
-                }.map { row -> row.instrumentToken }
-                    .filter { token -> token > 0L }
-                    .distinct()
-                kiteTickerService.startWithMarketSchedule(tokens)
-                log.info("[KiteTicker] Market schedule registered — {} instruments queued", tokens.size)
+                kiteTickerService.start()
+                log.info("[KiteTicker] Market schedule registered for lazy live subscriptions")
             } catch (e: Exception) {
                 log.error("[KiteTicker] Failed to register market schedule: {}", e.message)
             }

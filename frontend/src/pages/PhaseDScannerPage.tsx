@@ -20,6 +20,7 @@ import {
   Statistic,
   Table,
   Tabs,
+  Tooltip,
   Tag,
   Typography,
   Upload,
@@ -27,6 +28,7 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import type { TabsProps, UploadProps } from "antd";
 import { LiveMarketWidget } from "../components/LiveMarketWidget";
+import { useLiveMarketData } from "../hooks/useLiveMarketData";
 
 interface PhaseCWatchlistDto {
   symbol: string;
@@ -107,6 +109,14 @@ type SummaryStats = {
   phase2DataMissing: number;
 };
 
+type WakeUpSignal = {
+  score: number;
+  label: string;
+  color: string;
+  priceChangePct: number | null;
+  volumeRatio: number | null;
+};
+
 const HEADER_ALIASES: Record<keyof PhaseCWatchlistDto, string[]> = {
   symbol: ["symbol"],
   stockName: ["stock name", "stock_name"],
@@ -159,6 +169,99 @@ function formatRatio(value: number | null | undefined): string {
   }
 
   return `${value.toFixed(2)}x`;
+}
+
+function parsePctChange(value: string | null | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(value.replace("%", "").trim());
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+export function buildWakeUpSignal(
+  priceChangePct: number | null,
+  liveVolume: number | null | undefined,
+  baseVolume: number | null | undefined,
+): WakeUpSignal {
+  const hasPriceAnomaly = priceChangePct != null && Math.abs(priceChangePct) >= 4;
+  const volumeRatio =
+    liveVolume != null && baseVolume != null && baseVolume > 0 ? liveVolume / baseVolume : null;
+  const hasVolumeAnomaly = volumeRatio != null && volumeRatio >= 5;
+
+  if (hasPriceAnomaly && hasVolumeAnomaly) {
+    return {
+      score: 3,
+      label: "PRICE + VOL",
+      color: "red",
+      priceChangePct,
+      volumeRatio,
+    };
+  }
+
+  if (hasVolumeAnomaly) {
+    return {
+      score: 2,
+      label: "VOL 5x",
+      color: "orange",
+      priceChangePct,
+      volumeRatio,
+    };
+  }
+
+  if (hasPriceAnomaly) {
+    return {
+      score: 1,
+      label: "MOVE 4%",
+      color: "gold",
+      priceChangePct,
+      volumeRatio,
+    };
+  }
+
+  return {
+    score: 0,
+    label: "Quiet",
+    color: "default",
+    priceChangePct,
+    volumeRatio,
+  };
+}
+
+function WakeUpFlagCell({
+  symbol,
+  fallbackChangePercent,
+  baseVolume,
+}: {
+  symbol: string;
+  fallbackChangePercent: number | null;
+  baseVolume: number | null;
+}) {
+  const data = useLiveMarketData(`NSE:${symbol}`);
+  const signal = buildWakeUpSignal(
+    data?.changePercent ?? fallbackChangePercent,
+    data?.volume,
+    baseVolume,
+  );
+
+  const tooltipText = [
+    `Price Move: ${signal.priceChangePct != null ? `${signal.priceChangePct.toFixed(2)}%` : "-"}`,
+    `Today Vol: ${data?.volume != null ? formatNumber(data.volume) : "-"}`,
+    `T-1 Vol: ${formatNumber(baseVolume)}`,
+    `Vol Ratio: ${signal.volumeRatio != null ? formatRatio(signal.volumeRatio) : "-"}`,
+  ].join(" | ");
+
+  return (
+    <Space orientation="vertical" size={2}>
+      <Tooltip title={tooltipText}>
+        <Tag color={signal.color}>{signal.label}</Tag>
+      </Tooltip>
+      <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+        T-1: {formatNumber(baseVolume)}
+      </Typography.Text>
+    </Space>
+  );
 }
 
 function buildStatusTag(status: string) {
@@ -233,6 +336,18 @@ function parseDelimitedLine(line: string, separator: string): string[] {
 
   values.push(current);
   return values.map((value) => value.trim());
+}
+
+export function buildDistinctNumberFilters(
+  values: Array<number | null | undefined>,
+  labelPrefix: string,
+): Array<{ text: string; value: string }> {
+  return Array.from(new Set(values.filter((value): value is number => value != null)))
+    .sort((left, right) => left - right)
+    .map((value) => ({
+      text: `${labelPrefix} ${value}`,
+      value: String(value),
+    }));
 }
 
 function findColumnIndex(headers: string[], aliases: string[]): number {
@@ -566,6 +681,21 @@ export function PhaseDScannerPage() {
     disabled: uploading,
   };
 
+  const dryUp60dFilters = useMemo(
+    () => buildDistinctNumberFilters(watchlist.map((row) => row.volDry60dMinCount), "60D Min"),
+    [watchlist],
+  );
+
+  const atrCountFilters = useMemo(
+    () => buildDistinctNumberFilters(watchlist.map((row) => row.atrLt2pctCount), "ATR Count"),
+    [watchlist],
+  );
+
+  const dqHits10dFilters = useMemo(
+    () => buildDistinctNumberFilters(watchlist.map((row) => row.deliverySpikeDays10d), "DQ Hits 10D"),
+    [watchlist],
+  );
+
   const columns = useMemo<ColumnsType<PhaseCWatchlistRow>>(
     () => [
       {
@@ -631,7 +761,7 @@ export function PhaseDScannerPage() {
             <Typography.Text style={{ fontSize: 12 }}>Today DQ: {formatNumber(row.deliveryQuantityToday)}</Typography.Text>
             <Typography.Text style={{ fontSize: 12 }}>Today Del %: {formatPercent(row.deliveryPctToday)}</Typography.Text>
             <Typography.Text style={{ fontSize: 12 }}>Base DQ: {formatNumber(row.wholesaleBaseDq)}</Typography.Text>
-            <Typography.Text style={{ fontSize: 12 }}>Spike: {formatRatio(row.deliverySpikeRatio)}</Typography.Text>
+            <Typography.Text style={{ fontSize: 12 }}>DQ Ratio: {formatRatio(row.deliverySpikeRatio)}</Typography.Text>
           </Space>
         ),
       },
@@ -639,9 +769,14 @@ export function PhaseDScannerPage() {
         title: "Rolling Counts",
         key: "rollingCounts",
         width: 170,
+        filters: dqHits10dFilters,
+        filterSearch: true,
+        onFilter: (value, row) => String(row.deliverySpikeDays10d ?? "") === value,
+        sorter: (left, right) => (left.deliverySpikeDays10d ?? -1) - (right.deliverySpikeDays10d ?? -1),
+        sortDirections: ["descend", "ascend"],
         render: (_value, row) => (
           <Space orientation="vertical" size={0}>
-            <Typography.Text style={{ fontSize: 12 }}>Spike 10D / 20D: {formatNumber(row.deliverySpikeDays10d)} / {formatNumber(row.deliverySpikeDays20d)}</Typography.Text>
+            <Typography.Text style={{ fontSize: 12 }}>DQ Hits 10D / 20D: {formatNumber(row.deliverySpikeDays10d)} / {formatNumber(row.deliverySpikeDays20d)}</Typography.Text>
             <Typography.Text style={{ fontSize: 12 }}>Support 10D / 20D: {formatNumber(row.deliverySupportDays10d)} / {formatNumber(row.deliverySupportDays20d)}</Typography.Text>
           </Space>
         ),
@@ -667,12 +802,26 @@ export function PhaseDScannerPage() {
         title: "Live Market",
         key: "liveMarket",
         width: 140,
+        sorter: (left, right) => (parsePctChange(left.pctChange) ?? Number.NEGATIVE_INFINITY) - (parsePctChange(right.pctChange) ?? Number.NEGATIVE_INFINITY),
+        sortDirections: ["descend", "ascend"],
         render: (_value, row) => (
           <LiveMarketWidget
             symbol={`NSE:${row.symbol}`}
             fallbackLtp={row.closePrice}
-            fallbackChangePercent={row.pctChange ? parseFloat(row.pctChange) : null}
+            fallbackChangePercent={parsePctChange(row.pctChange)}
             showDetails={true}
+          />
+        ),
+      },
+      {
+        title: "Wake-Up",
+        key: "wakeUp",
+        width: 130,
+        render: (_value, row) => (
+          <WakeUpFlagCell
+            symbol={row.symbol}
+            fallbackChangePercent={parsePctChange(row.pctChange)}
+            baseVolume={row.volume}
           />
         ),
       },
@@ -680,6 +829,11 @@ export function PhaseDScannerPage() {
         title: "Dry-Up Profile",
         key: "dryup",
         width: 190,
+        filters: dryUp60dFilters,
+        filterSearch: true,
+        onFilter: (value, row) => String(row.volDry60dMinCount ?? "") === value,
+        sorter: (left, right) => (left.volDry60dMinCount ?? -1) - (right.volDry60dMinCount ?? -1),
+        sortDirections: ["descend", "ascend"],
         render: (_value, row) => (
           <Space orientation="vertical" size={0}>
             <Typography.Text style={{ fontSize: 12 }}>200D Min: {formatNumber(row.volDry200dMinCount)}</Typography.Text>
@@ -693,6 +847,11 @@ export function PhaseDScannerPage() {
         title: "Structure",
         key: "structure",
         width: 190,
+        filters: atrCountFilters,
+        filterSearch: true,
+        onFilter: (value, row) => String(row.atrLt2pctCount ?? "") === value,
+        sorter: (left, right) => (left.atrLt2pctCount ?? -1) - (right.atrLt2pctCount ?? -1),
+        sortDirections: ["descend", "ascend"],
         render: (_value, row) => (
           <Space orientation="vertical" size={0}>
             <Typography.Text style={{ fontSize: 12 }}>Dist 200D High: {formatPercent(row.dist200dHighPct)}</Typography.Text>
@@ -732,7 +891,7 @@ export function PhaseDScannerPage() {
         ),
       },
     ],
-    [],
+    [atrCountFilters, dqHits10dFilters, dryUp60dFilters],
   );
 
   const tabItems: TabsProps["items"] = [
@@ -951,7 +1110,7 @@ export function PhaseDScannerPage() {
                 style={{ width: 320 }}
               />
 
-              <Space size={8}>
+              <Space wrap size={8}>
                 <Button type={quickFilter === "all" ? "primary" : "default"} size="small" onClick={() => setQuickFilter("all")}>
                   All
                 </Button>

@@ -1,13 +1,10 @@
 # Delivery Reconciliation Report
 
 - Requested date: `latest`
-- Resolved date: `2026-06-18`
-- Expected symbols: `2434`
-- Present rows: `2434`
+- Resolved date: `2026-06-23`
+- Expected symbols: `2731`
+- Present rows: `2731`
 - Missing from source: `0`
-- Nullable stock_id rows: `2309`
-- Watchlist-linked rows: `125`
-- Non-watchlist rows: `2309`
 - Fetched from source: `false`
 - Already complete: `true`
 - Blocking issues: `0`
@@ -17,24 +14,14 @@
 
 ### Present
 
-| Symbol | Token | stock_id | Status | Delivery % |
-|---|---:|---:|---|---:|
-| `21STCENMGM` | `1025` | `-` | `PRESENT` | `100.0` |
-| `AARTIIND` | `1793` | `-` | `PRESENT` | `27.91` |
-| `ABB` | `3329` | `-` | `PRESENT` | `31.95` |
-| `GATECHDVR` | `4353` | `-` | `PRESENT` | `69.79` |
-| `STYRENIX` | `4865` | `-` | `PRESENT` | `64.88` |
+| Symbol | Token | Status | Delivery % |
+|---|---:|---|---:|
+| `21STCENMGM` | `1025` | `PRESENT` | `64.23` |
+| `AARTIIND` | `1793` | `PRESENT` | `45.36` |
+| `ABB` | `3329` | `PRESENT` | `42.39` |
+| `GATECHDVR` | `4353` | `PRESENT` | `83.85` |
+| `STYRENIX` | `4865` | `PRESENT` | `53.2` |
 
 ### Missing From Source
 
 _None_
-
-### Nullable stock_id
-
-| Symbol | Token | stock_id | Status | Delivery % |
-|---|---:|---:|---|---:|
-| `21STCENMGM` | `1025` | `-` | `PRESENT` | `100.0` |
-| `AARTIIND` | `1793` | `-` | `PRESENT` | `27.91` |
-| `ABB` | `3329` | `-` | `PRESENT` | `31.95` |
-| `GATECHDVR` | `4353` | `-` | `PRESENT` | `69.79` |
-| `STYRENIX` | `4865` | `-` | `PRESENT` | `64.88` |

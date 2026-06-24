@@ -69,3 +69,39 @@ This remains a **current-state watchlist**, not a historical evaluation archive.
 - The `phase_c_watchlist` table is a **current-state watchlist**, not a historical daily archive.
 - If the same symbol is uploaded again, it updates the existing row rather than creating a new dated history row.
 - The Dashboard reads this table and shows the current watchlist with token status, dry-up metrics, structure context, and quality fields.
+
+### Current Working State (2026-06-24)
+
+The current live flow is now "Phase 1 shortlist review first, then Phase 2 delivery validation on demand" on the same Phase D page. The backend analyzer, API route, dashboard summaries, and the two-tab UI are already implemented and the focused backend and frontend tests still pass after the latest local edits.
+
+The current uncommitted local changes narrow to three things: the analyzer now keeps zero-baseline cases inside `NOT_PASSED` with a `zero_baseline` reason instead of returning `DATA_MISSING`, the default delivery-quantity spike threshold was relaxed from `1.5` to `1.0`, and the frontend wording now says `DQ Ratio` / `DQ Hits` for those delivery-count columns. One mismatch remains: the export metadata text in `PhaseCWatchlistService` still describes the rolling hit counts as `>= 1.5x of base`, so that description is now stale relative to the active config.
+
+### Next Task: Manual Output Validation Loop
+
+The next task is not new feature work. It is a validation pass on the current Phase 1 plus Phase 2 output so each stock can be manually reviewed and any bug, misleading label, bad threshold, or logic gap can be fixed from real examples rather than assumptions.
+
+Working loop:
+
+- review one stock at a time from the current watchlist output
+- compare the displayed result against the expected Wyckoff interpretation
+- classify each issue as one of:
+  - data bug
+  - UI wording / explanation bug
+  - threshold tuning issue
+  - logic bug
+  - missing context / observability
+- fix only the proven issue, then re-run the smallest relevant test set
+
+Important guardrail: manual review findings should drive small targeted corrections, not a broad redesign. If repeated examples show the same confusion pattern, that becomes evidence for a rule or UX refinement.
+
+### Validation-Driven Tuning Update
+
+The first manual review case (`CASTROLIND`) exposed that the previous `60`-trading-day Phase 2 base window was probably too stale for the current quiet-setup question. The baseline could stay inflated by older heavy-delivery behavior and make recent conviction look weaker than it should.
+
+The active config was therefore tightened from a `60`-trading-day base window to `40` trading days so the base stays closer to an approximately 2-month setup. This is a deliberate tuning change, not a bug fix to the arithmetic itself. The export description for delivery hit counts was also updated so it no longer claims the older `1.5x` wording while the active local threshold is `1.0x`.
+
+### Filtering Need From Manual Review
+
+The next usability gap is list reduction during manual review. The current table shows the full current watchlist plus the Phase 2 status, but it does not yet let the user quickly narrow to the most interesting quiet-setup names when the important signals live inside grouped cells rather than one flat sortable numeric column.
+
+The user specifically cares about names that are structurally quieter first, especially quarter-low-volume style behavior, and then wants to prioritize those names further by repeated delivery support or repeated delivery-hit counts. This suggests the right UX is not per-column table filters on the grouped cells, but a small dedicated review filter/sort panel that can rank and narrow the watchlist using a few high-signal criteria.

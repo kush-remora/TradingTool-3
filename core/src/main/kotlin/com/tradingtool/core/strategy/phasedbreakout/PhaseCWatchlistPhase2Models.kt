@@ -3,9 +3,9 @@ package com.tradingtool.core.strategy.phasedbreakout
 import java.time.LocalDate
 
 data class Phase2DeliveryConfig(
-    val baselineLookbackDays: Int = 60,
+    val baselineLookbackDays: Int = 40,
     val basementPercentile: Double = 0.10,
-    val deliverySpikeThreshold: Double = 1.5,
+    val deliverySpikeThreshold: Double = 1.0,
     val deliveryPctSupportThreshold: Double = 55.0,
     val watchCount10d: Int = 1,
     val watchCount20d: Int = 2,

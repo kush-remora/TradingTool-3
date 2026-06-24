@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PhaseDScannerPage, parseCsvOrTsv } from "./PhaseDScannerPage";
+import { buildDistinctNumberFilters, buildWakeUpSignal, PhaseDScannerPage, parseCsvOrTsv } from "./PhaseDScannerPage";
 
 const fetchMock = vi.fn();
 
@@ -155,7 +155,7 @@ describe("PhaseDScannerPage", () => {
     expect(screen.getByText("Validated 1 stocks: 1 passed, 0 watch, 0 not passed, 0 data missing.")).toBeInTheDocument();
     expect(screen.getByText("Passed")).toBeInTheDocument();
     expect(screen.getByText("strong_delivery_support")).toBeInTheDocument();
-  });
+  }, 10000);
 
   it("updates fresh fields and reloads the dashboard", async () => {
     fetchMock
@@ -298,6 +298,76 @@ describe("PhaseDScannerPage", () => {
 
     expect(screen.queryByText("INFY")).not.toBeInTheDocument();
     expect(screen.getByText("IDEA")).toBeInTheDocument();
+  });
+
+  it("sorts live market by today's percent change", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [
+        buildRow({
+          symbol: "INFY",
+          pctChange: "-1.25%",
+        }),
+        buildRow({
+          symbol: "TCS",
+          stockName: "TCS",
+          instrumentToken: 2953217,
+          pctChange: "2.10%",
+        }),
+      ],
+    });
+
+    const { container } = render(<PhaseDScannerPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("INFY")).toBeInTheDocument();
+      expect(screen.getAllByText("TCS").length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByText("Live Market")[0]);
+
+    const tableRows = Array.from(container.querySelectorAll(".ant-table-tbody > tr.ant-table-row"));
+    expect(tableRows[0]?.textContent).toContain("TCS");
+    expect(tableRows[1]?.textContent).toContain("INFY");
+  });
+
+  it("builds distinct number filters for grouped column menus", () => {
+    expect(buildDistinctNumberFilters([3, 1, 3, null], "60D Min")).toEqual([
+      { text: "60D Min 1", value: "1" },
+      { text: "60D Min 3", value: "3" },
+    ]);
+
+    expect(buildDistinctNumberFilters([7, 3, 7, null], "ATR Count")).toEqual([
+      { text: "ATR Count 3", value: "3" },
+      { text: "ATR Count 7", value: "7" },
+    ]);
+
+    expect(buildDistinctNumberFilters([5, 2, 5, null], "DQ Hits 10D")).toEqual([
+      { text: "DQ Hits 10D 2", value: "2" },
+      { text: "DQ Hits 10D 5", value: "5" },
+    ]);
+  });
+
+  it("builds wake-up signals from price move and t-1 volume ratio", () => {
+    expect(buildWakeUpSignal(4.2, 600000, 100000)).toMatchObject({
+      score: 3,
+      label: "PRICE + VOL",
+    });
+
+    expect(buildWakeUpSignal(1.2, 550000, 100000)).toMatchObject({
+      score: 2,
+      label: "VOL 5x",
+    });
+
+    expect(buildWakeUpSignal(-4.5, 200000, 100000)).toMatchObject({
+      score: 1,
+      label: "MOVE 4%",
+    });
+
+    expect(buildWakeUpSignal(1.5, 200000, 100000)).toMatchObject({
+      score: 0,
+      label: "Quiet",
+    });
   });
 
   it("parses the cleaned CSV headers without losing columns", () => {

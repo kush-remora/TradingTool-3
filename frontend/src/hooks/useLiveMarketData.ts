@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { LiveMarketUpdate } from "../types";
 import { apiBaseUrl } from "../utils/api";
+import { isIndianEquityMarketOpen } from "../utils/marketHours";
 
-type Listener = (update: LiveMarketUpdate) => void;
+type Listener = (updates: LiveMarketUpdate[]) => void;
+const MARKET_HOURS_CHECK_MS = 60_000;
 
 /**
  * Singleton manager to coordinate a single SSE connection for multiple symbols.
@@ -12,8 +14,10 @@ class LiveMarketManager {
   private eventSource: EventSource | null = null;
   private listeners = new Set<Listener>();
   private cache = new Map<string, LiveMarketUpdate>();
-  private updateTimer: any = null;
+  private updateTimer: number | null = null;
+  private marketHoursTimer: number | null = null;
   private buyerDominancePct: number | null = null;
+  private unloadHandlerRegistered = false;
 
   subscribe(symbol: string, buyerDominancePct: number | undefined, listener: Listener) {
     this.buyerDominancePct = buyerDominancePct ?? null;
@@ -22,7 +26,7 @@ class LiveMarketManager {
     
     // Provide immediate cached value if available
     const cached = this.cache.get(symbol);
-    if (cached) listener(cached);
+    if (cached) listener([cached]);
     
     this.debounceUpdate();
   }
@@ -39,17 +43,21 @@ class LiveMarketManager {
   }
 
   private debounceUpdate() {
-    if (this.updateTimer) clearTimeout(this.updateTimer);
+    if (this.updateTimer !== null) window.clearTimeout(this.updateTimer);
     this.updateTimer = setTimeout(() => this.updateConnection(), 100);
   }
 
   private updateConnection() {
+    this.ensureMarketHoursWatcher();
+
     if (this.subscribers.size === 0) {
-      if (this.eventSource) {
-        console.log("🔌 Closing LiveMarket SSE (no subscribers)");
-        this.eventSource.close();
-        this.eventSource = null;
-      }
+      this.closeConnection();
+      this.stopMarketHoursWatcher();
+      return;
+    }
+
+    if (!isIndianEquityMarketOpen()) {
+      this.closeConnection();
       return;
     }
 
@@ -65,29 +73,69 @@ class LiveMarketManager {
       // EventSource.url is absolute
       const absoluteUrl = new URL(url, window.location.origin).toString();
       if (this.eventSource.url === absoluteUrl) return;
-      
-      console.log(`🔌 Reconnecting LiveMarket SSE for symbols: ${symbols}`);
+
       this.eventSource.close();
-    } else {
-      console.log(`🔌 Connecting LiveMarket SSE for symbols: ${symbols}`);
     }
 
     this.eventSource = new EventSource(url);
+    this.ensureUnloadHandler();
     
     this.eventSource.onmessage = (event) => {
       try {
-        const update = JSON.parse(event.data) as LiveMarketUpdate;
-        this.cache.set(update.symbol, update);
-        this.listeners.forEach((l) => l(update));
+        const payload = JSON.parse(event.data);
+        const updates = Array.isArray(payload) ? payload as LiveMarketUpdate[] : [payload as LiveMarketUpdate];
+        updates.forEach((u) => this.cache.set(u.symbol, u));
+        this.listeners.forEach((l) => l(updates));
       } catch (e) {
         // Ignore malformed JSON
       }
     };
 
     this.eventSource.onerror = () => {
-      // EventSource automatically handles reconnection logic
+      if (!isIndianEquityMarketOpen()) {
+        this.closeConnection();
+      }
     };
   }
+
+  private closeConnection() {
+    if (!this.eventSource) return;
+
+    this.eventSource.close();
+    this.eventSource = null;
+  }
+
+  private ensureMarketHoursWatcher() {
+    if (this.marketHoursTimer !== null) {
+      return;
+    }
+
+    this.marketHoursTimer = window.setInterval(() => {
+      this.updateConnection();
+    }, MARKET_HOURS_CHECK_MS);
+  }
+
+  private stopMarketHoursWatcher() {
+    if (this.marketHoursTimer === null) {
+      return;
+    }
+
+    window.clearInterval(this.marketHoursTimer);
+    this.marketHoursTimer = null;
+  }
+
+  private ensureUnloadHandler() {
+    if (this.unloadHandlerRegistered) {
+      return;
+    }
+
+    window.addEventListener("beforeunload", this.handleBeforeUnload);
+    this.unloadHandlerRegistered = true;
+  }
+
+  private readonly handleBeforeUnload = () => {
+    this.closeConnection();
+  };
 }
 
 const manager = new LiveMarketManager();
@@ -102,9 +150,10 @@ export function useLiveMarketData(symbol: string, buyerDominancePct?: number) {
   useEffect(() => {
     if (!symbol) return;
 
-    const listener = (update: LiveMarketUpdate) => {
-      if (update.symbol === symbol) {
-        setData(update);
+    const listener = (updates: LiveMarketUpdate[]) => {
+      const myUpdate = updates.find((u) => u.symbol === symbol);
+      if (myUpdate) {
+        setData(myUpdate);
       }
     };
 

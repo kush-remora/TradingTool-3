@@ -331,8 +331,8 @@ class PhaseCWatchlistService(
             "deliveryPctToday" to "The delivery percentage on the evaluated date.",
             "wholesaleBaseDq" to "The wholesale base delivery quantity calculated for the stock.",
             "deliverySpikeRatio" to "The ratio of today's delivery quantity vs the wholesale base delivery quantity.",
-            "deliverySpikeDays10d" to "Number of days in the last 10 trading days where delivery quantity spiked >= 1.5x of base.",
-            "deliverySpikeDays20d" to "Number of days in the last 20 trading days where delivery quantity spiked >= 1.5x of base.",
+            "deliverySpikeDays10d" to "Number of days in the last 10 trading days where delivery quantity met or exceeded the active base delivery quantity.",
+            "deliverySpikeDays20d" to "Number of days in the last 20 trading days where delivery quantity met or exceeded the active base delivery quantity.",
             "deliverySupportDays10d" to "Number of days in the last 10 trading days where delivery percentage was >= 55%.",
             "deliverySupportDays20d" to "Number of days in the last 20 trading days where delivery percentage was >= 55%."
         )

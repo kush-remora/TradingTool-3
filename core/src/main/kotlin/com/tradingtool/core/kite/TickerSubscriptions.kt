@@ -10,4 +10,5 @@ package com.tradingtool.core.kite
 interface TickerSubscriptions {
     fun addInstrument(token: Long)
     fun removeInstrument(token: Long)
+    fun isStreamingAvailable(): Boolean
 }

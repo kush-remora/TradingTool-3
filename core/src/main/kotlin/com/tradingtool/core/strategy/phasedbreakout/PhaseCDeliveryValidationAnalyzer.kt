@@ -47,20 +47,18 @@ object PhaseCDeliveryValidationAnalyzer {
             .takeIf { values -> values.isNotEmpty() }
             ?.average()
             ?.takeIf { value -> value > 0.0 }
-        if (wholesaleBaseDq == null) {
-            return missingMetrics(evaluationDate, "zero_baseline")
-        }
 
         val latestRow = recentDeliveries.last()
         val recentDeliveries10d = recentDeliveries.takeLast(10)
         val recentDeliveries20d = recentDeliveries.takeLast(20)
 
-        val deliverySpikeDays10d = recentDeliveries10d.count { row -> isSpikeDay(row, wholesaleBaseDq, config) }
-        val deliverySpikeDays20d = recentDeliveries20d.count { row -> isSpikeDay(row, wholesaleBaseDq, config) }
         val deliverySupportDays10d = recentDeliveries10d.count { row -> isSupportDay(row, config) }
         val deliverySupportDays20d = recentDeliveries20d.count { row -> isSupportDay(row, config) }
 
-        val todaySpikeRatio = latestRow.delivQty?.let { quantity -> quantity / wholesaleBaseDq }
+        val deliverySpikeDays10d = if (wholesaleBaseDq != null) recentDeliveries10d.count { row -> isSpikeDay(row, wholesaleBaseDq, config) } else 0
+        val deliverySpikeDays20d = if (wholesaleBaseDq != null) recentDeliveries20d.count { row -> isSpikeDay(row, wholesaleBaseDq, config) } else 0
+
+        val todaySpikeRatio = if (wholesaleBaseDq != null) latestRow.delivQty?.let { quantity -> quantity / wholesaleBaseDq } else null
         
         val passCondition10d = deliverySpikeDays10d >= config.passCount10d && deliverySupportDays10d >= config.passCount10d
         val passCondition20d = deliverySpikeDays20d >= config.passCount20d && deliverySupportDays20d >= config.passCount20d
@@ -72,9 +70,10 @@ object PhaseCDeliveryValidationAnalyzer {
             watchCondition10d || watchCondition20d -> WATCH
             else -> NOT_PASSED
         }
-        val reason = when (status) {
-            PASSED -> "strong_delivery_support"
-            WATCH -> "emerging_delivery_support"
+        val reason = when {
+            status == PASSED -> "strong_delivery_support"
+            status == WATCH -> "emerging_delivery_support"
+            wholesaleBaseDq == null -> "zero_baseline"
             else -> "no_delivery_confirmation"
         }
 
@@ -84,7 +83,7 @@ object PhaseCDeliveryValidationAnalyzer {
             evaluatedOn = latestRow.tradingDate,
             deliveryQuantityToday = latestRow.delivQty,
             deliveryPctToday = latestRow.delivPer,
-            wholesaleBaseDq = wholesaleBaseDq.toLong(),
+            wholesaleBaseDq = wholesaleBaseDq?.toLong(),
             deliverySpikeRatio = todaySpikeRatio?.roundTo2(),
             deliverySpikeDays10d = deliverySpikeDays10d,
             deliverySpikeDays20d = deliverySpikeDays20d,
