@@ -12,22 +12,22 @@ import java.time.LocalDate
 import java.time.OffsetDateTime
 
 class DeliveryBreakoutAnalyzerTest {
-    private val config = DeliveryBreakoutConfig()
+    private val config = DeliveryBreakoutConfig(volumeMultiplier = 2.0, deliveryMultiplier = 2.0)
 
     @Test
-    fun `stage1 candidate requires both volume and delivery to beat prior 10 day maxima`() {
+    fun `stage1 candidate requires both volume and delivery to beat prior day by multiplier`() {
         val tradeDate = LocalDate.of(2026, 6, 23)
-        val history = (1..10).map { offset ->
+        val history = listOf(
             deliveryRow(
-                tradingDate = tradeDate.minusDays((11 - offset).toLong()),
-                volume = 10_000L + offset,
-                deliveryQuantity = 5_000L + offset,
+                tradingDate = tradeDate.minusDays(1),
+                volume = 10_000L,
+                deliveryQuantity = 5_000L,
             )
-        }
+        )
         val current = deliveryRow(
             tradingDate = tradeDate,
             volume = 20_000L,
-            deliveryQuantity = 8_000L,
+            deliveryQuantity = 10_000L,
         )
 
         val candidate = requireNotNull(
@@ -39,114 +39,52 @@ class DeliveryBreakoutAnalyzerTest {
         )
 
         assertEquals(20_000L, candidate.volume)
-        assertEquals(10_010L, candidate.prior10dMaxVolume)
-        assertEquals(5_010L, candidate.prior10dMaxDeliveryQuantity)
-        assertEquals(2.0, candidate.volumeRatioVs10dMax)
-        assertEquals(1.6, candidate.deliveryRatioVs10dMax)
+        assertEquals(10_000L, candidate.prevVolume)
+        assertEquals(5_000L, candidate.prevDeliveryQuantity)
+        assertEquals(2.0, candidate.volumeRatio)
+        assertEquals(2.0, candidate.deliveryRatio)
     }
 
     @Test
-    fun `stage1 candidate rejects rows with insufficient history`() {
+    fun `stage1 candidate rejects if volume or delivery fails to beat multiplier`() {
         val tradeDate = LocalDate.of(2026, 6, 23)
-        val history = (1..9).map { offset ->
+        val history = listOf(
             deliveryRow(
-                tradingDate = tradeDate.minusDays(offset.toLong()),
-                volume = 10_000L + offset,
-                deliveryQuantity = 5_000L + offset,
+                tradingDate = tradeDate.minusDays(1),
+                volume = 10_000L,
+                deliveryQuantity = 5_000L,
             )
-        }
+        )
+        
+        // Volume high enough, delivery too low
+        assertNull(
+            DeliveryBreakoutAnalyzer.buildStage1Candidate(
+                row = deliveryRow(tradingDate = tradeDate, volume = 20_000L, deliveryQuantity = 9_000L),
+                history = history,
+                config = config,
+            )
+        )
+        
+        // Delivery high enough, volume too low
+        assertNull(
+            DeliveryBreakoutAnalyzer.buildStage1Candidate(
+                row = deliveryRow(tradingDate = tradeDate, volume = 19_000L, deliveryQuantity = 10_000L),
+                history = history,
+                config = config,
+            )
+        )
+    }
 
+    @Test
+    fun `stage1 candidate rejects rows with no history`() {
+        val tradeDate = LocalDate.of(2026, 6, 23)
         val candidate = DeliveryBreakoutAnalyzer.buildStage1Candidate(
             row = deliveryRow(tradingDate = tradeDate, volume = 20_000L, deliveryQuantity = 9_000L),
-            history = history,
+            history = emptyList(),
             config = config,
         )
 
         assertNull(candidate)
-    }
-
-    @Test
-    fun `quiet clue resolves to d minus 1 before d minus 2`() {
-        val tradeDate = LocalDate.of(2026, 6, 23)
-        val deliveries = (0..12).map { offset ->
-            val day = tradeDate.minusDays((12 - offset).toLong())
-            val isQuietClueDay = day == tradeDate.minusDays(1) || day == tradeDate.minusDays(2)
-            deliveryRow(
-                tradingDate = day,
-                volume = if (isQuietClueDay) 25_000L + offset else 10_000L + offset,
-                deliveryQuantity = if (isQuietClueDay) 12_000L + offset else 5_000L + offset,
-            )
-        }
-        val candles = listOf(
-            candle(tradeDate.minusDays(3), close = 100.0),
-            candle(tradeDate.minusDays(2), close = 98.0),
-            candle(tradeDate.minusDays(1), close = 99.0),
-            candle(tradeDate, close = 103.0),
-        )
-
-        val quietClueDay = DeliveryBreakoutAnalyzer.resolveQuietClueDay(
-            deliveries = deliveries,
-            candles = candles,
-            tradeDate = tradeDate,
-            config = config,
-        )
-
-        assertEquals(tradeDate.minusDays(1), quietClueDay)
-    }
-
-    @Test
-    fun `quiet clue uses previous trading sessions instead of calendar days`() {
-        val tradeDate = LocalDate.of(2026, 6, 22)
-        val tradingDates = listOf(
-            LocalDate.of(2026, 6, 5),
-            LocalDate.of(2026, 6, 8),
-            LocalDate.of(2026, 6, 9),
-            LocalDate.of(2026, 6, 10),
-            LocalDate.of(2026, 6, 11),
-            LocalDate.of(2026, 6, 12),
-            LocalDate.of(2026, 6, 15),
-            LocalDate.of(2026, 6, 16),
-            LocalDate.of(2026, 6, 17),
-            LocalDate.of(2026, 6, 18),
-            LocalDate.of(2026, 6, 19),
-            LocalDate.of(2026, 6, 22),
-        )
-        val deliveries = tradingDates.mapIndexed { index, date ->
-            deliveryRow(
-                tradingDate = date,
-                volume = if (date == LocalDate.of(2026, 6, 19)) 30_000L else 10_000L + index,
-                deliveryQuantity = if (date == LocalDate.of(2026, 6, 19)) 15_000L else 5_000L + index,
-            )
-        }
-        val candles = listOf(
-            candle(LocalDate.of(2026, 6, 18), close = 100.0),
-            candle(LocalDate.of(2026, 6, 19), close = 101.0),
-            candle(LocalDate.of(2026, 6, 22), close = 104.0),
-        )
-
-        val quietClueDay = DeliveryBreakoutAnalyzer.resolveQuietClueDay(
-            deliveries = deliveries,
-            candles = candles,
-            tradeDate = tradeDate,
-            config = config,
-        )
-
-        assertEquals(LocalDate.of(2026, 6, 19), quietClueDay)
-    }
-
-    @Test
-    fun `confirmed breakout requires greater than six percent move`() {
-        assertFalse(DeliveryBreakoutAnalyzer.isConfirmedBreakoutToday(6.0))
-        assertTrue(DeliveryBreakoutAnalyzer.isConfirmedBreakoutToday(6.01))
-        assertFalse(DeliveryBreakoutAnalyzer.isConfirmedBreakoutToday(null))
-    }
-
-    @Test
-    fun `sma proximity allows any lower bound but caps two percent above`() {
-        assertEquals(true, DeliveryBreakoutAnalyzer.isNearSma200(-15.0))
-        assertEquals(true, DeliveryBreakoutAnalyzer.isNearSma200(2.0))
-        assertEquals(false, DeliveryBreakoutAnalyzer.isNearSma200(2.01))
-        assertNull(DeliveryBreakoutAnalyzer.isNearSma200(null))
     }
 
     private fun deliveryRow(

@@ -114,97 +114,42 @@ export function DeliveryBreakoutScannerPage() {
           onFilter: (value, record) => String(record.delivery_percentage) === value,
         },
         {
-          title: "Vol vs 10D Max",
-          dataIndex: "volume_ratio_vs_10d_max",
-          key: "volume_ratio_vs_10d_max",
+          title: "Prev Vol",
+          dataIndex: "prev_volume",
+          key: "prev_volume",
+          render: (value: number) => formatInteger(value),
+          sorter: (left, right) => left.prev_volume - right.prev_volume,
+          filters: getFilters("prev_volume", formatInteger),
+          onFilter: (value, record) => String(record.prev_volume) === value,
+        },
+        {
+          title: "Prev Delivery Qty",
+          dataIndex: "prev_delivery_quantity",
+          key: "prev_delivery_quantity",
+          render: (value: number) => formatInteger(value),
+          sorter: (left, right) => left.prev_delivery_quantity - right.prev_delivery_quantity,
+          filters: getFilters("prev_delivery_quantity", formatInteger),
+          onFilter: (value, record) => String(record.prev_delivery_quantity) === value,
+        },
+        {
+          title: "Vol Ratio",
+          dataIndex: "volume_ratio",
+          key: "volume_ratio",
           render: (value: number) => formatRatio(value),
-          sorter: (left, right) => left.volume_ratio_vs_10d_max - right.volume_ratio_vs_10d_max,
-          filters: getFilters("volume_ratio_vs_10d_max", formatRatio),
-          onFilter: (value, record) => String(record.volume_ratio_vs_10d_max) === value,
+          sorter: (left, right) => left.volume_ratio - right.volume_ratio,
+          filters: getFilters("volume_ratio", formatRatio),
+          onFilter: (value, record) => String(record.volume_ratio) === value,
         },
         {
-          title: "Delivery vs 10D Max",
-          dataIndex: "delivery_ratio_vs_10d_max",
-          key: "delivery_ratio_vs_10d_max",
+          title: "Delivery Ratio",
+          dataIndex: "delivery_ratio",
+          key: "delivery_ratio",
           render: (value: number) => formatRatio(value),
-          sorter: (left, right) => left.delivery_ratio_vs_10d_max - right.delivery_ratio_vs_10d_max,
-          filters: getFilters("delivery_ratio_vs_10d_max", formatRatio),
-          onFilter: (value, record) => String(record.delivery_ratio_vs_10d_max) === value,
+          sorter: (left, right) => left.delivery_ratio - right.delivery_ratio,
+          filters: getFilters("delivery_ratio", formatRatio),
+          onFilter: (value, record) => String(record.delivery_ratio) === value,
         },
-        {
-          title: "Quiet Clue",
-          dataIndex: "has_quiet_clue",
-          key: "has_quiet_clue",
-          render: (value: boolean, row) =>
-            value ? <Tag color="green">YES {row.quiet_clue_day}</Tag> : <Tag>NO</Tag>,
-          sorter: (left, right) => Number(left.has_quiet_clue) - Number(right.has_quiet_clue),
-          filters: [
-            { text: "YES", value: "true" },
-            { text: "NO", value: "false" },
-          ],
-          onFilter: (value, record) => String(record.has_quiet_clue) === value,
-        },
-        {
-          title: "Breakout Today",
-          dataIndex: "is_confirmed_breakout_today",
-          key: "is_confirmed_breakout_today",
-          render: (value: boolean) => (value ? <Tag color="blue">YES</Tag> : <Tag>NO</Tag>),
-          sorter: (left, right) => Number(left.is_confirmed_breakout_today) - Number(right.is_confirmed_breakout_today),
-          filters: [
-            { text: "YES", value: "true" },
-            { text: "NO", value: "false" },
-          ],
-          onFilter: (value, record) => String(record.is_confirmed_breakout_today) === value,
-        },
-        {
-          title: "200 SMA",
-          dataIndex: "sma200",
-          key: "sma200",
-          render: (value: number | null) => formatNumber(value),
-          sorter: (left, right) => (left.sma200 ?? Number.NEGATIVE_INFINITY) - (right.sma200 ?? Number.NEGATIVE_INFINITY),
-          filters: getFilters("sma200", formatNumber),
-          onFilter: (value, record) => String(record.sma200) === value,
-        },
-        {
-          title: "% From 200 SMA",
-          dataIndex: "distance_from_sma200_pct",
-          key: "distance_from_sma200_pct",
-          render: (value: number | null) => formatPercent(value),
-          sorter: (left, right) => (left.distance_from_sma200_pct ?? Number.NEGATIVE_INFINITY) - (right.distance_from_sma200_pct ?? Number.NEGATIVE_INFINITY),
-          filters: getFilters("distance_from_sma200_pct", formatPercent),
-          onFilter: (value, record) => String(record.distance_from_sma200_pct) === value,
-        },
-        {
-          title: "Zone",
-          dataIndex: "is_near_200_sma",
-          key: "is_near_200_sma",
-          render: (value: boolean | null) => {
-            if (value == null) {
-              return <Tag>NO_SMA</Tag>;
-            }
-            return value ? <Tag color="gold">NEAR_200_SMA</Tag> : <Tag>EXTENDED_ABOVE</Tag>;
-          },
-          sorter: (left, right) => {
-            const l = left.is_near_200_sma === null ? -1 : (left.is_near_200_sma ? 1 : 0);
-            const r = right.is_near_200_sma === null ? -1 : (right.is_near_200_sma ? 1 : 0);
-            return l - r;
-          },
-          filters: [
-            { text: "NEAR_200_SMA", value: "true" },
-            { text: "EXTENDED_ABOVE", value: "false" },
-            { text: "NO_SMA", value: "null" },
-          ],
-          onFilter: (value, record) => String(record.is_near_200_sma) === value,
-        },
-        {
-          title: "Label",
-          dataIndex: "label",
-          key: "label",
-          render: (value: string) => <Tag>{value}</Tag>,
-          sorter: (left, right) => (left.label || "").localeCompare(right.label || ""),
-          filters: getFilters("label"),
-          onFilter: (value, record) => String(record.label) === value,
-        },
+
       ];
     },
     [data],
@@ -232,8 +177,6 @@ export function DeliveryBreakoutScannerPage() {
               <Tag>Scanned {formatInteger(data.meta.scanned_count)}</Tag>
               <Tag>Liquidity OK {formatInteger(data.meta.liquidity_eligible_count)}</Tag>
               <Tag color="green">Shortlisted {formatInteger(data.meta.shortlisted_count)}</Tag>
-              <Tag color="purple">Breakouts {formatInteger(data.meta.confirmed_breakout_count)}</Tag>
-              <Tag color="gold">Quiet Clues {formatInteger(data.meta.quiet_clue_count)}</Tag>
             </Space>
           ) : null}
 

@@ -25,6 +25,7 @@ class DeliveryBreakoutScannerService @Inject constructor(
     private val candleDataService: CandleDataService,
     private val kiteClient: KiteConnectClient,
     private val configService: DeliveryBreakoutConfigService,
+    private val etfService: DeliveryBreakoutEtfService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -34,7 +35,13 @@ class DeliveryBreakoutScannerService @Inject constructor(
         val config = configService.loadConfig()
 
         val currentRows = stockDeliveryHandler.read { dao -> dao.findAllByTradingDate(tradeDate) }
-        val liquidityEligibleRows = currentRows.filter { row ->
+        val nonEtfRows = etfService.filterNonEtfRows(currentRows)
+        val excludedEtfCount = currentRows.size - nonEtfRows.size
+        if (excludedEtfCount > 0) {
+            log.info("Delivery breakout excluded {} ETF rows for {}", excludedEtfCount, tradeDate)
+        }
+
+        val liquidityEligibleRows = nonEtfRows.filter { row ->
             val volume = row.ttlTrdQnty
             val deliveryQuantity = row.delivQty
             volume != null && volume >= config.minCurrentVolume && deliveryQuantity != null
@@ -44,11 +51,9 @@ class DeliveryBreakoutScannerService @Inject constructor(
             return DeliveryBreakoutDashboardResponse(
                 meta = DeliveryBreakoutDashboardMeta(
                     trade_date = tradeDate.toString(),
-                    scanned_count = currentRows.size,
+                    scanned_count = nonEtfRows.size,
                     liquidity_eligible_count = 0,
                     shortlisted_count = 0,
-                    confirmed_breakout_count = 0,
-                    quiet_clue_count = 0,
                 ),
                 rows = emptyList(),
             )
@@ -69,11 +74,9 @@ class DeliveryBreakoutScannerService @Inject constructor(
             return DeliveryBreakoutDashboardResponse(
                 meta = DeliveryBreakoutDashboardMeta(
                     trade_date = tradeDate.toString(),
-                    scanned_count = currentRows.size,
+                    scanned_count = nonEtfRows.size,
                     liquidity_eligible_count = liquidityEligibleRows.size,
                     shortlisted_count = 0,
-                    confirmed_breakout_count = 0,
-                    quiet_clue_count = 0,
                 ),
                 rows = emptyList(),
             )
@@ -88,17 +91,6 @@ class DeliveryBreakoutScannerService @Inject constructor(
             )
             val close = candles.firstOrNull { candle -> candle.candleDate == tradeDate }?.close?.roundTo2()
             val closePctChange = DeliveryBreakoutAnalyzer.calculatePctChange(candles, tradeDate)
-            val quietClueDay = DeliveryBreakoutAnalyzer.resolveQuietClueDay(
-                deliveries = deliveries,
-                candles = candles,
-                tradeDate = tradeDate,
-                config = config,
-            )
-            val hasQuietClue = quietClueDay != null
-            val isConfirmedBreakoutToday = DeliveryBreakoutAnalyzer.isConfirmedBreakoutToday(closePctChange)
-            val sma200 = DeliveryBreakoutAnalyzer.calculateSma200(candles, tradeDate)
-            val distanceFromSma200Pct = DeliveryBreakoutAnalyzer.calculateDistanceFromSma200(close, sma200)
-            val isNearSma200 = DeliveryBreakoutAnalyzer.isNearSma200(distanceFromSma200Pct)
 
             DeliveryBreakoutDashboardRow(
                 symbol = candidate.symbol,
@@ -108,36 +100,22 @@ class DeliveryBreakoutScannerService @Inject constructor(
                 volume = candidate.volume,
                 delivery_quantity = candidate.deliveryQuantity,
                 delivery_percentage = candidate.deliveryPercentage,
-                prior_10d_max_volume = candidate.prior10dMaxVolume,
-                prior_10d_max_delivery_quantity = candidate.prior10dMaxDeliveryQuantity,
-                volume_ratio_vs_10d_max = candidate.volumeRatioVs10dMax,
-                delivery_ratio_vs_10d_max = candidate.deliveryRatioVs10dMax,
-                has_quiet_clue = hasQuietClue,
-                quiet_clue_day = quietClueDay?.toString(),
-                is_confirmed_breakout_today = isConfirmedBreakoutToday,
-                sma200 = sma200,
-                distance_from_sma200_pct = distanceFromSma200Pct,
-                is_near_200_sma = isNearSma200,
-                label = DeliveryBreakoutAnalyzer.resolveLabel(
-                    closePctChange = closePctChange,
-                    hasQuietClue = hasQuietClue,
-                ),
+                prev_volume = candidate.prevVolume,
+                prev_delivery_quantity = candidate.prevDeliveryQuantity,
+                volume_ratio = candidate.volumeRatio,
+                delivery_ratio = candidate.deliveryRatio,
             )
         }.sortedWith(
-            compareByDescending<DeliveryBreakoutDashboardRow> { row -> row.is_confirmed_breakout_today }
-                .thenByDescending { row -> row.has_quiet_clue }
-                .thenByDescending { row -> row.delivery_ratio_vs_10d_max }
-                .thenByDescending { row -> row.volume_ratio_vs_10d_max },
+            compareByDescending<DeliveryBreakoutDashboardRow> { row -> row.delivery_ratio }
+                .thenByDescending { row -> row.volume_ratio },
         )
 
         return DeliveryBreakoutDashboardResponse(
             meta = DeliveryBreakoutDashboardMeta(
                 trade_date = tradeDate.toString(),
-                scanned_count = currentRows.size,
+                scanned_count = nonEtfRows.size,
                 liquidity_eligible_count = liquidityEligibleRows.size,
                 shortlisted_count = dashboardRows.size,
-                confirmed_breakout_count = dashboardRows.count { row -> row.is_confirmed_breakout_today },
-                quiet_clue_count = dashboardRows.count { row -> row.has_quiet_clue },
             ),
             rows = dashboardRows,
         )
@@ -219,8 +197,8 @@ class DeliveryBreakoutScannerService @Inject constructor(
     }
 
     private companion object {
-        private const val DELIVERY_HISTORY_CALENDAR_DAYS = 45L
-        private const val CANDLE_HISTORY_CALENDAR_DAYS = 320L
+        private const val DELIVERY_HISTORY_CALENDAR_DAYS = 15L
+        private const val CANDLE_HISTORY_CALENDAR_DAYS = 10L
         private const val MAX_PARALLEL_SYMBOL_LOADS = 16
     }
 }
