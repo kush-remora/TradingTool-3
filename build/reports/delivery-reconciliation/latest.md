@@ -1,9 +1,9 @@
 # Delivery Reconciliation Report
 
 - Requested date: `latest`
-- Resolved date: `2026-06-24`
-- Expected symbols: `2871`
-- Present rows: `2871`
+- Resolved date: `2026-06-25`
+- Expected symbols: `2872`
+- Present rows: `2872`
 - Missing from source: `0`
 - Fetched from source: `false`
 - Already complete: `true`
@@ -17,10 +17,10 @@
 | Symbol | Token | Status | Delivery % |
 |---|---:|---|---:|
 | `GOLDSTAR` | `257` | `PRESENT` | `100.0` |
-| `21STCENMGM` | `1025` | `PRESENT` | `91.3` |
-| `AARTIIND` | `1793` | `PRESENT` | `50.35` |
-| `ABB` | `3329` | `PRESENT` | `39.42` |
-| `GATECHDVR` | `4353` | `PRESENT` | `22.81` |
+| `21STCENMGM` | `1025` | `PRESENT` | `97.34` |
+| `AARTIIND` | `1793` | `PRESENT` | `47.7` |
+| `ABB` | `3329` | `PRESENT` | `45.77` |
+| `GATECHDVR` | `4353` | `PRESENT` | `85.37` |
 
 ### Missing From Source
 

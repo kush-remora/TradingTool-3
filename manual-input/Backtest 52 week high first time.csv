@@ -1,0 +1,245 @@
+date,symbol,marketcapname,sector
+31-10-2025,CHOICEIN,Midcap,Financials
+31-10-2025,NAVINFLUOR,Largecap,Chemicals
+03-11-2025,RPEL,Midcap,Building Materials
+03-11-2025,SBFC,Midcap,Financials
+04-11-2025,GARUDA,Smallcap,Realty
+07-11-2025,NEULANDLAB,Largecap,Healthcare
+10-11-2025,TORNTPHARM,Largecap,Healthcare
+10-11-2025,NEULANDLAB,Largecap,Healthcare
+10-11-2025,GAYAPROJ,Smallcap,Realty
+11-11-2025,M&M,Largecap,Auto
+11-11-2025,CANFINHOME,Midcap,Financials
+12-11-2025,BIOCON,Largecap,Healthcare
+13-11-2025,THYROCARE,Midcap,Healthcare
+17-11-2025,PANSARI,Smallcap,Realty
+19-11-2025,INDOTHAI,Smallcap,Financials
+20-11-2025,EICHERMOT,Largecap,Auto
+27-11-2025,STEL,Smallcap,Financials
+01-12-2025,GLOBAL,Smallcap,Services
+04-12-2025,HINDCOPPER,Largecap,Metals & Mining
+05-12-2025,SHRIPISTON,Midcap,Auto
+08-12-2025,TEAMGTY,Smallcap,Financials
+08-12-2025,DREDGECORP,Smallcap,Miscellaneous
+10-12-2025,JINDALPHOT,Smallcap,Financials
+12-12-2025,HINDZINC,Largecap,Metals & Mining
+12-12-2025,NAVINFLUOR,Largecap,Chemicals
+12-12-2025,SMCGLOBAL,Smallcap,Financials
+19-12-2025,GPPL,Midcap,Transportation
+24-12-2025,SANDUMA,Midcap,Metals & Mining
+24-12-2025,MANAPPURAM,Largecap,Financials
+30-12-2025,CHOICEIN,Midcap,Financials
+31-12-2025,CHOICEIN,Midcap,Financials
+31-12-2025,LTF,Largecap,Financials
+31-12-2025,INDUSTOWER,Largecap,Telecom
+01-01-2026,KIRIINDUS,Smallcap,Chemicals
+01-01-2026,BAJAJ-AUTO,Largecap,Auto
+01-01-2026,INDUSTOWER,Largecap,Telecom
+02-01-2026,CHOLAFIN,Largecap,Financials
+02-01-2026,COALINDIA,Largecap,Metals & Mining
+02-01-2026,AETHER,Midcap,Chemicals
+05-01-2026,IIFLCAPS,Midcap,Financials
+05-01-2026,SAILIFE,Largecap,Healthcare
+06-01-2026,BLISSGVS,Midcap,Healthcare
+07-01-2026,BLISSGVS,Midcap,Healthcare
+07-01-2026,JBCHEPHARM,Largecap,Healthcare
+07-01-2026,AGIIL,Smallcap,Realty
+13-01-2026,AIIL,Largecap,Financials
+22-01-2026,CREDITACC,Largecap,Financials
+23-01-2026,SEAMECLTD,Smallcap,Miscellaneous
+28-01-2026,BEL,Largecap,Aerospace & Defence
+28-01-2026,GESHIP,Largecap,Transportation
+28-01-2026,OIL,Largecap,Energy
+29-01-2026,ACUTAAS,Largecap,Healthcare
+03-02-2026,PFOCUS,Midcap,Realty
+03-02-2026,ECLERX,Midcap,I.T
+03-02-2026,NAM-INDIA,Largecap,Financials
+04-02-2026,AIAENG,Largecap,Industrials
+05-02-2026,SAKAR,Smallcap,Healthcare
+09-02-2026,BLISSGVS,Midcap,Healthcare
+10-02-2026,BSE,Largecap,Financials
+11-02-2026,GRASIM,Largecap,Textiles
+11-02-2026,EICHERMOT,Largecap,Auto
+11-02-2026,ANURAS,Midcap,Chemicals
+12-02-2026,HAPPYFORGE,Midcap,Industrials
+13-02-2026,TORNTPHARM,Largecap,Healthcare
+13-02-2026,DELPHIFX,Smallcap,Financials
+13-02-2026,DIVGIITTS,Smallcap,Auto
+16-02-2026,TORNTPHARM,Largecap,Healthcare
+16-02-2026,JBCHEPHARM,Largecap,Healthcare
+16-02-2026,RACLGEAR,Smallcap,Auto
+16-02-2026,JPOLYINVST,Smallcap,Financials
+17-02-2026,GRAPHITE,Midcap,Industrials
+17-02-2026,TFCILTD,Smallcap,Financials
+17-02-2026,JPOLYINVST,Smallcap,Financials
+18-02-2026,CUMMINSIND,Largecap,Industrials
+18-02-2026,UNIVPHOTO,Smallcap,Consumer Discretionary
+18-02-2026,ABSLAMC,Largecap,Financials
+20-02-2026,UNITEDTEA,Smallcap,FMCG
+23-02-2026,MASFIN,Midcap,Financials
+25-02-2026,AGIIL,Smallcap,Realty
+26-02-2026,DATAPATTNS,Largecap,Aerospace & Defence
+27-02-2026,AEROFLEX,Midcap,Metals & Mining
+27-02-2026,SAILIFE,Largecap,Healthcare
+10-03-2026,AUROPHARMA,Largecap,Healthcare
+12-03-2026,COALINDIA,Largecap,Metals & Mining
+16-03-2026,TIMKEN,Largecap,Industrials
+17-03-2026,IPCALAB,Largecap,Healthcare
+18-03-2026,MAHAPEXLTD,Smallcap,Financials
+20-03-2026,TATAPOWER,Largecap,Power & Utilities
+24-03-2026,PFOCUS,Midcap,Realty
+25-03-2026,GRANULES,Midcap,Healthcare
+08-04-2026,STEELCAS,Smallcap,Industrials
+08-04-2026,ADANIENSOL,Largecap,Power & Utilities
+09-04-2026,BSE,Largecap,Financials
+10-04-2026,CUMMINSIND,Largecap,Industrials
+10-04-2026,TDPOWERSYS,Midcap,Industrials
+10-04-2026,MCX,Largecap,Financials
+10-04-2026,SHRIPISTON,Midcap,Auto
+10-04-2026,SONACOMS,Largecap,Auto
+10-04-2026,INOXINDIA,Midcap,Industrials
+13-04-2026,MCX,Largecap,Financials
+15-04-2026,TATAPOWER,Largecap,Power & Utilities
+15-04-2026,TIMKEN,Largecap,Industrials
+15-04-2026,NMDC,Largecap,Metals & Mining
+15-04-2026,PFC,Largecap,Financials
+15-04-2026,PAISALO,Midcap,Financials
+15-04-2026,KIRLOSENG,Largecap,Industrials
+15-04-2026,QPOWER,Midcap,Industrials
+16-04-2026,VEDL,Largecap,Metals & Mining
+16-04-2026,NLCINDIA,Largecap,Power & Utilities
+16-04-2026,SCI,Midcap,Transportation
+16-04-2026,GMDCLTD,Midcap,Metals & Mining
+16-04-2026,NATIONALUM,Largecap,Metals & Mining
+16-04-2026,IMFA,Midcap,Metals & Mining
+16-04-2026,DIVGIITTS,Smallcap,Auto
+16-04-2026,AZAD,Midcap,Aerospace & Defence
+16-04-2026,SENORES,Midcap,Healthcare
+17-04-2026,LLOYDSME,Largecap,Metals & Mining
+17-04-2026,NAVA,Midcap,Miscellaneous
+17-04-2026,SATIN,Smallcap,Financials
+17-04-2026,LAURUSLABS,Largecap,Healthcare
+17-04-2026,NAM-INDIA,Largecap,Financials
+20-04-2026,NDLVENTURE,Smallcap,Financials
+20-04-2026,NOVARTIND,Smallcap,Healthcare
+20-04-2026,GRAPHITE,Midcap,Industrials
+20-04-2026,KOVAI,Midcap,Healthcare
+20-04-2026,CUPID,Largecap,FMCG
+20-04-2026,ARIHANT,Smallcap,Realty
+20-04-2026,POWERGRID,Largecap,Power & Utilities
+20-04-2026,BHARATWIRE,Smallcap,Metals & Mining
+20-04-2026,ADANIGREEN,Largecap,Power & Utilities
+20-04-2026,HAPPYFORGE,Midcap,Industrials
+21-04-2026,NESTLEIND,Largecap,FMCG
+21-04-2026,JSWENERGY,Largecap,Power & Utilities
+21-04-2026,MUTHOOTMF,Smallcap,Financials
+22-04-2026,MMFL,Smallcap,Industrials
+22-04-2026,JSWENERGY,Largecap,Power & Utilities
+22-04-2026,AHLEAST,Smallcap,Services
+22-04-2026,NINSYS,Smallcap,I.T
+22-04-2026,ANGELONE,Largecap,Financials
+22-04-2026,ROLEXRINGS,Smallcap,Auto
+23-04-2026,LUPIN,Largecap,Healthcare
+24-04-2026,SBCL,Smallcap,Metals & Mining
+27-04-2026,CESC,Largecap,Power & Utilities
+27-04-2026,SBCL,Smallcap,Metals & Mining
+27-04-2026,ENGINERSIN,Midcap,Realty
+27-04-2026,POWERGRID,Largecap,Power & Utilities
+27-04-2026,NTPCGREEN,Largecap,Power & Utilities
+29-04-2026,GESHIP,Largecap,Transportation
+29-04-2026,COALINDIA,Largecap,Metals & Mining
+30-04-2026,MUTHOOTMF,Smallcap,Financials
+30-04-2026,SAILIFE,Largecap,Healthcare
+04-05-2026,PRIVISCL,Midcap,Chemicals
+04-05-2026,BAJAJ-AUTO,Largecap,Auto
+04-05-2026,MASFIN,Midcap,Financials
+04-05-2026,ASTERDM,Largecap,Healthcare
+04-05-2026,KMEW,Midcap,Transportation
+04-05-2026,AETHER,Midcap,Chemicals
+04-05-2026,MUTHOOTMF,Smallcap,Financials
+05-05-2026,ADVENZYMES,Smallcap,Healthcare
+05-05-2026,CREDITACC,Largecap,Financials
+06-05-2026,LUPIN,Largecap,Healthcare
+06-05-2026,GRWRHITECH,Midcap,Industrials
+06-05-2026,SUNPHARMA,Largecap,Healthcare
+06-05-2026,TFCILTD,Smallcap,Financials
+06-05-2026,ABCAPITAL,Largecap,Financials
+06-05-2026,GLOBAL,Smallcap,Services
+06-05-2026,SJS,Midcap,Auto
+07-05-2026,AEROENTER,Smallcap,Metals & Mining
+07-05-2026,LINDEINDIA,Largecap,Chemicals
+07-05-2026,ARMANFIN,Smallcap,Financials
+07-05-2026,ANURAS,Midcap,Chemicals
+07-05-2026,YATHARTH,Midcap,Healthcare
+07-05-2026,NORTHARC,Smallcap,Financials
+08-05-2026,MAYURUNIQ,Smallcap,Consumer Discretionary
+08-05-2026,ADVENZYMES,Smallcap,Healthcare
+08-05-2026,SOFTTECH,Smallcap,I.T
+08-05-2026,METROPOLIS,Midcap,Healthcare
+08-05-2026,YATHARTH,Midcap,Healthcare
+11-05-2026,TORNTPHARM,Largecap,Healthcare
+11-05-2026,ARMANFIN,Smallcap,Financials
+11-05-2026,ADVENZYMES,Smallcap,Healthcare
+11-05-2026,NORTHARC,Smallcap,Financials
+14-05-2026,SHAILY,Midcap,Plastic products
+14-05-2026,OIL,Largecap,Energy
+15-05-2026,IPCALAB,Largecap,Healthcare
+15-05-2026,BIOCON,Largecap,Healthcare
+18-05-2026,SOLARINDS,Largecap,Aerospace & Defence
+18-05-2026,GLAND,Largecap,Healthcare
+19-05-2026,OFSS,Largecap,I.T
+19-05-2026,APOLLO,Midcap,Aerospace & Defence
+20-05-2026,MANAPPURAM,Largecap,Financials
+20-05-2026,ZYDUSLIFE,Largecap,Healthcare
+20-05-2026,APOLLO,Midcap,Aerospace & Defence
+21-05-2026,INDOBORAX,Smallcap,Chemicals
+21-05-2026,MANAPPURAM,Largecap,Financials
+21-05-2026,TRITURBINE,Largecap,Industrials
+22-05-2026,SHILPAMED,Midcap,Healthcare
+22-05-2026,SOUTHWEST,Smallcap,Metals & Mining
+25-05-2026,RUBYMILLS,Smallcap,Textiles
+25-05-2026,SHILPAMED,Midcap,Healthcare
+25-05-2026,BALAMINES,Midcap,Chemicals
+25-05-2026,RATEGAIN,Midcap,I.T
+26-05-2026,TATACOMM,Largecap,Telecom-Service
+26-05-2026,DIVGIITTS,Smallcap,Auto
+29-05-2026,MOTOGENFIN,Smallcap,Realty
+29-05-2026,AFIL,Smallcap,Financials
+01-06-2026,MANCREDIT,Smallcap,Financials
+01-06-2026,ACMESOLAR,Largecap,Realty
+02-06-2026,PTCIL,Largecap,Industrials
+02-06-2026,ACMESOLAR,Largecap,Realty
+03-06-2026,IFCI,Largecap,Financials
+05-06-2026,TIPSMUSIC,Midcap,Media
+05-06-2026,RPEL,Midcap,Building Materials
+05-06-2026,PARAS,Midcap,Aerospace & Defence
+08-06-2026,THYROCARE,Midcap,Healthcare
+08-06-2026,SVLL,Smallcap,Transportation
+08-06-2026,KIMS,Largecap,Healthcare
+08-06-2026,INOXINDIA,Midcap,Industrials
+09-06-2026,DATAPATTNS,Largecap,Aerospace & Defence
+10-06-2026,CAPLIPOINT,Midcap,Healthcare
+10-06-2026,GOLDIAM,Midcap,Consumer Discretionary
+11-06-2026,MSTCLTD,Smallcap,I.T
+12-06-2026,CAPLIPOINT,Midcap,Healthcare
+12-06-2026,GOLDIAM,Midcap,Consumer Discretionary
+15-06-2026,PIDILITIND,Largecap,Chemicals
+15-06-2026,SANGHVIMOV,Smallcap,Miscellaneous
+15-06-2026,CGCL,Largecap,Financials
+16-06-2026,GMRAIRPORT,Largecap,Miscellaneous
+16-06-2026,LALPATHLAB,Largecap,Healthcare
+16-06-2026,ABCAPITAL,Largecap,Financials
+17-06-2026,AEROENTER,Smallcap,Metals & Mining
+18-06-2026,INGERRAND,Midcap,Industrials
+19-06-2026,THELEELA,Midcap,Services
+22-06-2026,TEXINFRA,Smallcap,Realty
+22-06-2026,EDELWEISS,Midcap,Financials
+22-06-2026,KMEW,Midcap,Transportation
+22-06-2026,PRUDENT,Midcap,Financials
+23-06-2026,KOVAI,Midcap,Healthcare
+24-06-2026,STEELCAS,Smallcap,Industrials
+24-06-2026,AUROPHARMA,Largecap,Healthcare
+24-06-2026,KPRMILL,Largecap,Consumer Discretionary
+24-06-2026,AETHER,Midcap,Chemicals
+25-06-2026,PIXTRANS,Smallcap,FMCG
+25-06-2026,AUROPHARMA,Largecap,Healthcare

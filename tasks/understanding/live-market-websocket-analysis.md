@@ -40,7 +40,7 @@ After the backend-side fix, the remaining hot path was mostly on the frontend. A
 - `LiveMarketWidget` only mounts the drawer when the user actually opens it and passes the current live snapshot into the drawer.
 - `useLiveMarketData` now routes updates directly to listeners for the matching symbol instead of broadcasting every update batch to every mounted hook.
 - The ignored `buyerDominancePct` query parameter is no longer included in the SSE URL, which avoids pointless connection churn from a value the backend does not use.
-- `useStockQuotes` now skips its initial quote fetch when the market is already closed and shuts down its poll loop as soon as market hours end.
+- `useStockQuotes` now performs exactly one snapshot fetch when the market is already closed so the UI can still show the last available candle/quote, and it still shuts down its poll loop as soon as market hours end.
 
 ### Follow-up validation
 

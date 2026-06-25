@@ -1,5 +1,7 @@
 package com.tradingtool.core.strategy.deliverybreakout
 
+import java.time.LocalDate
+
 data class DeliveryBreakoutDashboardResponse(
     val meta: DeliveryBreakoutDashboardMeta,
     val rows: List<DeliveryBreakoutDashboardRow>,
@@ -16,6 +18,7 @@ data class DeliveryBreakoutDashboardRow(
     val symbol: String,
     val trade_date: String,
     val close: Double?,
+    val prev_close: Double?,
     val close_pct_change: Double?,
     val volume: Long,
     val delivery_quantity: Long,

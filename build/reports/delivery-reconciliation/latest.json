@@ -1,8 +1,8 @@
 {
   "requestedDate" : null,
-  "resolvedDate" : "2026-06-24",
-  "expectedSymbolCount" : 2871,
-  "presentCount" : 2871,
+  "resolvedDate" : "2026-06-25",
+  "expectedSymbolCount" : 2872,
+  "presentCount" : 2872,
   "missingFromSourceCount" : 0,
   "fetchedFromSource" : false,
   "alreadyComplete" : true,
@@ -17,22 +17,22 @@
     "instrumentToken" : 1025,
     "symbol" : "21STCENMGM",
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 91.3
+    "delivPer" : 97.34
   }, {
     "instrumentToken" : 1793,
     "symbol" : "AARTIIND",
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 50.35
+    "delivPer" : 47.7
   }, {
     "instrumentToken" : 3329,
     "symbol" : "ABB",
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 39.42
+    "delivPer" : 45.77
   }, {
     "instrumentToken" : 4353,
     "symbol" : "GATECHDVR",
     "reconciliationStatus" : "PRESENT",
-    "delivPer" : 22.81
+    "delivPer" : 85.37
   } ],
   "missingFromSourceSamples" : [ ]
 }

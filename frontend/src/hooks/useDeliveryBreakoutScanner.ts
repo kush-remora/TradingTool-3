@@ -17,6 +17,7 @@ export function useDeliveryBreakoutScanner() {
       const path = tradeDate
         ? `${DASHBOARD_PATH}?tradeDate=${encodeURIComponent(tradeDate)}`
         : DASHBOARD_PATH;
+      
       const result = await getJson<DeliveryBreakoutDashboardResponse>(path, { useCache: false });
       setData(result);
       return result;

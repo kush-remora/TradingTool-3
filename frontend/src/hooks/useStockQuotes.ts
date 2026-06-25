@@ -79,12 +79,10 @@ export function useStockQuotes(symbols: string[]): UseStockQuotesResult {
       }, 10_000);
     };
 
+    void fetchQuotes(true);
+
     if (isIndianEquityMarketOpen()) {
-      void fetchQuotes(true);
       startPolling();
-    } else {
-      setLoading(false);
-      setError(null);
     }
 
     return () => {

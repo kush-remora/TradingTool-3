@@ -83,19 +83,22 @@ class DeliveryBreakoutScannerService @Inject constructor(
         }
 
         val candlesBySymbol = loadCandlesBySymbol(stage1Candidates, tradeDate)
-        val dashboardRows = stage1Candidates.map { candidate ->
+        val dashboardRows = stage1Candidates.mapNotNull { candidate ->
             val candles = candlesBySymbol[candidate.symbol].orEmpty()
             val deliveries = buildDeliverySeries(
                 history = deliveryHistoryByToken[candidate.instrumentToken].orEmpty(),
                 currentRow = requireNotNull(currentRowsByToken[candidate.instrumentToken]),
             )
-            val close = candles.firstOrNull { candle -> candle.candleDate == tradeDate }?.close?.roundTo2()
+            val candleIndex = candles.indexOfFirst { candle -> candle.candleDate == tradeDate }
+            val close = candles.getOrNull(candleIndex)?.close?.roundTo2()
+            val prevClose = if (candleIndex > 0) candles[candleIndex - 1].close.roundTo2() else null
             val closePctChange = DeliveryBreakoutAnalyzer.calculatePctChange(candles, tradeDate)
 
             DeliveryBreakoutDashboardRow(
                 symbol = candidate.symbol,
                 trade_date = candidate.tradeDate,
                 close = close,
+                prev_close = prevClose,
                 close_pct_change = closePctChange,
                 volume = candidate.volume,
                 delivery_quantity = candidate.deliveryQuantity,

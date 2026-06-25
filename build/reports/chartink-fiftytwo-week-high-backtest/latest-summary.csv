@@ -1,0 +1,9 @@
+strategy_name,market_cap_bucket,total_signals,entered_trades,success_count,stop_loss_count,end_exit_count,no_entry_count,success_rate_pct,avg_holding_trading_days,median_holding_trading_days
+target_5_stop_5,Overall,244,181,92,83,6,63,50.83,4.57,2.0
+target_5_stop_5,Largecap,106,102,46,53,3,4,45.1,6.3,4.0
+target_5_stop_5,Midcap,72,58,33,22,3,14,56.9,2.69,1.0
+target_5_stop_5,Smallcap,66,21,13,8,0,45,61.9,1.33,1.0
+target_10_stop_5,Overall,244,181,55,112,14,63,30.39,8.9,5.0
+target_10_stop_5,Largecap,106,102,24,70,8,4,23.53,11.59,9.0
+target_10_stop_5,Midcap,72,58,23,29,6,14,39.66,6.07,3.0
+target_10_stop_5,Smallcap,66,21,8,13,0,45,38.1,3.67,2.0
