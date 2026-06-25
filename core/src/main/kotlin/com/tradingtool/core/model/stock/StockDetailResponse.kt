@@ -14,9 +14,20 @@ data class DayDetail(
     @get:JsonProperty("vol_ratio") val volRatio: Double?,
 )
 
+data class PivotLevels(
+    val pivot: Double,
+    val r1: Double,
+    val r2: Double,
+    val r3: Double,
+    val s1: Double,
+    val s2: Double,
+    val s3: Double,
+)
+
 data class StockDetailResponse(
     val symbol: String,
     val exchange: String,
     @get:JsonProperty("avg_volume_20d") val avgVolume20d: Double?,
+    @get:JsonProperty("pivot_levels") val pivotLevels: PivotLevels?,
     val days: List<DayDetail>,
 )

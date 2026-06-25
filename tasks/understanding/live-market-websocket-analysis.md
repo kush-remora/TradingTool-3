@@ -29,3 +29,22 @@ Focused validation after the patch:
 - `npm --prefix frontend run build` passed
 
 One unrelated existing frontend test still timed out during a broader `PhaseDScannerPage.test.tsx` run; the live-market code paths compiled and the targeted checks above passed.
+
+### Follow-up runtime finding
+
+After the backend-side fix, the remaining hot path was mostly on the frontend. A Phase D page with 25 visible rows was mounting one `useLiveMarketData` subscription in `LiveMarketWidget` and a second hidden subscription inside every closed `LiveMarketDetailDrawer`, so a single table could double its live listeners before any drawer was even opened. The shared live manager also fanned every SSE batch out to every mounted listener and then let each listener search for its own symbol, which creates avoidable per-tick churn when a page is showing dozens of stocks.
+
+### Follow-up implementation
+
+- `LiveMarketDetailDrawer` no longer opens its own live subscription when it is closed.
+- `LiveMarketWidget` only mounts the drawer when the user actually opens it and passes the current live snapshot into the drawer.
+- `useLiveMarketData` now routes updates directly to listeners for the matching symbol instead of broadcasting every update batch to every mounted hook.
+- The ignored `buyerDominancePct` query parameter is no longer included in the SSE URL, which avoids pointless connection churn from a value the backend does not use.
+- `useStockQuotes` now skips its initial quote fetch when the market is already closed and shuts down its poll loop as soon as market hours end.
+
+### Follow-up validation
+
+- `npm --prefix frontend test -- --run src/components/LiveMarketWidget.test.tsx src/components/LiveMarketDetailDrawer.test.tsx src/hooks/useLiveMarketData.test.tsx` passed
+- `npm --prefix frontend test -- --run src/components/LiveMarketWidget.test.tsx src/components/LiveMarketDetailDrawer.test.tsx src/hooks/useLiveMarketData.test.tsx src/hooks/useStockQuotes.test.tsx` passed
+- `npm --prefix frontend run build` passed
+- Manual smoke check against `http://localhost:5173/TradingTool-3/console/phase-d` with the backend running on `http://localhost:8080` showed only dashboard requests after market close and no follow-up `/api/stocks/quotes` or `/api/market/live` requests, which matches the expected market-hours gate.

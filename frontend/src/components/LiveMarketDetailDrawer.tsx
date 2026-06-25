@@ -1,8 +1,8 @@
 import { Drawer, Space, Typography } from "antd";
 import { ArrowDownOutlined, ArrowUpOutlined } from "@ant-design/icons";
-import { useLiveMarketData } from "../hooks/useLiveMarketData";
+import { useStockDetail } from "../hooks/useStockDetail";
 import { TradeMarketHistoryPanel } from "./TradeMarketHistoryPanel";
-import type { StockQuoteSnapshot } from "../types";
+import type { LiveMarketUpdate, StockQuoteSnapshot } from "../types";
 
 const { Text, Title } = Typography;
 
@@ -13,6 +13,7 @@ interface LiveMarketDetailDrawerProps {
   snapshot?: StockQuoteSnapshot | null;
   fallbackLtp?: number | null;
   fallbackChangePercent?: number | null;
+  liveData?: LiveMarketUpdate | null;
 }
 
 function formatPrice(value: number | null | undefined): string {
@@ -78,21 +79,23 @@ export function LiveMarketDetailDrawer({
   snapshot = null,
   fallbackLtp = null,
   fallbackChangePercent = null,
+  liveData = null,
 }: LiveMarketDetailDrawerProps) {
-  const data = useLiveMarketData(symbol);
   const displaySymbol = symbol.replace(/^NSE:/, "");
+  const { data: detailData } = useStockDetail(open ? displaySymbol : null, 10);
 
-  const ltp = data?.ltp ?? snapshot?.ltp ?? fallbackLtp;
-  const averagePrice = data?.averagePrice ?? snapshot?.average_price ?? null;
-  const changePercent = data?.changePercent ?? snapshot?.change_percent ?? fallbackChangePercent;
-  const openPrice = data?.open ?? snapshot?.day_open ?? null;
-  const high = data?.high ?? snapshot?.day_high ?? null;
-  const low = data?.low ?? snapshot?.day_low ?? null;
-  const volume = data?.volume ?? snapshot?.volume ?? null;
+  const ltp = liveData?.ltp ?? snapshot?.ltp ?? fallbackLtp;
+  const averagePrice = liveData?.averagePrice ?? snapshot?.average_price ?? null;
+  const changePercent = liveData?.changePercent ?? snapshot?.change_percent ?? fallbackChangePercent;
+  const openPrice = liveData?.open ?? snapshot?.day_open ?? null;
+  const high = liveData?.high ?? snapshot?.day_high ?? null;
+  const low = liveData?.low ?? snapshot?.day_low ?? null;
+  const volume = liveData?.volume ?? snapshot?.volume ?? null;
   const previousDayVolume = snapshot?.previous_day_volume ?? null;
-  const avgVol20d = data?.avgVol20d ?? null;
-  const buyQuantity = data?.buyQuantity ?? null;
-  const sellQuantity = data?.sellQuantity ?? null;
+  const avgVol20d = liveData?.avgVol20d ?? detailData?.avg_volume_20d ?? null;
+  const pivotLevels = detailData?.pivot_levels ?? null;
+  const buyQuantity = liveData?.buyQuantity ?? null;
+  const sellQuantity = liveData?.sellQuantity ?? null;
   const pressureSplit = resolvePressureSplit(buyQuantity, sellQuantity);
   const volumeRatioVsPreviousDay = volume != null && previousDayVolume != null && previousDayVolume > 0
     ? volume / previousDayVolume
@@ -154,6 +157,76 @@ export function LiveMarketDetailDrawer({
             </div>
           </Space>
         </div>
+
+        {pivotLevels != null && (
+          <div
+            style={{
+              border: "1px solid #f0f0f0",
+              borderRadius: 12,
+              padding: 16,
+              background: "#fff",
+            }}
+          >
+            <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+              <Text style={{ fontSize: 18, fontWeight: 700, color: "#2f3751" }}>Support and Resistance</Text>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "10px 16px" }}>
+                <Text style={{ fontSize: 15, color: "#4a5168" }}>R3</Text>
+                <Text style={{ fontSize: 15, fontWeight: 700, color: "#4a5168" }}>{pivotLevels.r3.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                <Text style={{ fontSize: 15, color: "#4a5168" }}>R2</Text>
+                <Text style={{ fontSize: 15, fontWeight: 700, color: "#4a5168" }}>{pivotLevels.r2.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                <Text style={{ fontSize: 15, color: "#4a5168" }}>R1</Text>
+                <Text style={{ fontSize: 15, fontWeight: 700, color: "#4a5168" }}>{pivotLevels.r1.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+              </div>
+
+              <div style={{ position: "relative", padding: "10px 0 4px" }}>
+                <div style={{ borderTop: "1px solid #d9dee8" }} />
+                <div
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: 0,
+                    transform: "translateX(-50%)",
+                    background: "#f4f6fb",
+                    color: "#59627d",
+                    borderRadius: 999,
+                    padding: "3px 14px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: 1.2,
+                  }}
+                >
+                  PIVOT {pivotLevels.pivot.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: 28,
+                    transform: "translateX(-50%)",
+                    background: "#7d8faa",
+                    color: "#fff",
+                    borderRadius: 999,
+                    padding: "3px 14px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: 1.2,
+                  }}
+                >
+                  PRICE {ltp != null ? ltp.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "10px 16px", marginTop: 16 }}>
+                <Text style={{ fontSize: 15, color: "#4a5168" }}>S1</Text>
+                <Text style={{ fontSize: 15, fontWeight: 700, color: "#4a5168" }}>{pivotLevels.s1.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                <Text style={{ fontSize: 15, color: "#4a5168" }}>S2</Text>
+                <Text style={{ fontSize: 15, fontWeight: 700, color: "#4a5168" }}>{pivotLevels.s2.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                <Text style={{ fontSize: 15, color: "#4a5168" }}>S3</Text>
+                <Text style={{ fontSize: 15, fontWeight: 700, color: "#4a5168" }}>{pivotLevels.s3.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+              </div>
+            </Space>
+          </div>
+        )}
 
         <div
           style={{

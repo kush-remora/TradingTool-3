@@ -3,13 +3,18 @@ package com.tradingtool.resources
 import com.google.inject.Inject
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.kite.KiteConnectClient
+import com.tradingtool.core.model.stock.DayDetail
 import com.tradingtool.core.model.stock.InstrumentSearchResult
+import com.tradingtool.core.model.stock.PivotLevels
+import com.tradingtool.core.model.stock.StockDetailResponse
 import com.tradingtool.core.model.stock.StockQuoteSnapshot
 import com.tradingtool.resources.common.badRequest
 import com.tradingtool.resources.common.endpoint
+import com.tradingtool.resources.common.notFound
 import com.tradingtool.resources.common.ok
 import jakarta.ws.rs.GET
 import jakarta.ws.rs.Path
+import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
@@ -18,6 +23,7 @@ import org.slf4j.LoggerFactory
 import java.time.Instant
 import java.util.Locale
 import java.util.concurrent.CompletableFuture
+import kotlin.math.round
 
 import com.tradingtool.core.database.CandleJdbiHandler
 import com.tradingtool.core.kite.InstrumentCache
@@ -138,6 +144,76 @@ class StockResource @Inject constructor(
         return ok(results)
     }
 
+    @GET
+    @Path("/by-symbol/{symbol}/detail")
+    fun getStockDetail(
+        @PathParam("symbol") symbol: String,
+        @QueryParam("days") days: Int?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val normalizedSymbol = symbol.trim().uppercase(Locale.ROOT)
+        if (normalizedSymbol.isBlank()) {
+            return@endpoint badRequest("symbol is required.")
+        }
+
+        val requestedDays = (days ?: 7).coerceIn(1, 200)
+        val token = instrumentCache.token("NSE", normalizedSymbol)
+            ?: return@endpoint notFound("Unknown NSE symbol: $normalizedSymbol")
+
+        val recentCandles = candleDb.read { it.getRecentDailyCandles(token, requestedDays + 21) }
+            .sortedBy { candle -> candle.candleDate }
+
+        if (recentCandles.isEmpty()) {
+            return@endpoint notFound("No daily candle data found for: $normalizedSymbol")
+        }
+
+        val daysToDisplay = recentCandles.takeLast(requestedDays)
+        val displayStartIndex = recentCandles.size - daysToDisplay.size
+        val detailDays = daysToDisplay.mapIndexed { index, candle ->
+            val sourceIndex = displayStartIndex + index
+            val previousCandle = recentCandles.getOrNull(sourceIndex - 1)
+            val prior20 = recentCandles.subList(maxOf(0, sourceIndex - 20), sourceIndex)
+            val avgPrior20Volume = prior20
+                .takeIf { it.isNotEmpty() }
+                ?.map { prior -> prior.volume.toDouble() }
+                ?.average()
+                ?.takeIf { average -> average.isFinite() && average > 0.0 }
+
+            DayDetail(
+                date = candle.candleDate.toString(),
+                open = candle.open,
+                high = candle.high,
+                low = candle.low,
+                close = candle.close,
+                volume = candle.volume,
+                dailyChangePct = previousCandle
+                    ?.takeIf { previous -> previous.close > 0.0 }
+                    ?.let { previous -> roundTo2(((candle.close - previous.close) / previous.close) * 100) },
+                rsi14 = null,
+                volRatio = avgPrior20Volume?.let { average -> roundTo2(candle.volume / average) },
+            )
+        }
+
+        val latestDayIndex = recentCandles.lastIndex
+        val latestPrior20 = recentCandles
+            .subList(maxOf(0, latestDayIndex - 20), latestDayIndex)
+            .map { candle -> candle.volume.toDouble() }
+            .takeIf { volumes -> volumes.isNotEmpty() }
+            ?.average()
+            ?.takeIf { average -> average.isFinite() && average > 0.0 }
+            ?.let(::roundTo2)
+        val pivotLevels = buildPivotLevels(recentCandles.last())
+
+        ok(
+            StockDetailResponse(
+                symbol = normalizedSymbol,
+                exchange = "NSE",
+                avgVolume20d = latestPrior20,
+                pivotLevels = pivotLevels,
+                days = detailDays,
+            )
+        )
+    }
+
     private suspend fun fetchFallbackQuotes(symbols: List<String>): List<StockQuoteSnapshot> {
         return symbols.mapNotNull { symbol ->
             val token = instrumentCache.token("NSE", symbol) ?: return@mapNotNull null
@@ -166,5 +242,30 @@ class StockResource @Inject constructor(
     private suspend fun loadPreviousDayVolume(token: Long): Long? {
         val recentCandles = candleDb.read { it.getRecentDailyCandles(token, 2) }
         return recentCandles.getOrNull(1)?.volume
+    }
+
+    private fun roundTo2(value: Double): Double {
+        return round(value * 100.0) / 100.0
+    }
+
+    private fun buildPivotLevels(candle: com.tradingtool.core.candle.DailyCandle): PivotLevels {
+        val pivot = (candle.high + candle.low + candle.close) / 3.0
+        val r1 = (2 * pivot) - candle.low
+        val s1 = (2 * pivot) - candle.high
+        val range = candle.high - candle.low
+        val r2 = pivot + range
+        val s2 = pivot - range
+        val r3 = candle.high + 2 * (pivot - candle.low)
+        val s3 = candle.low - 2 * (candle.high - pivot)
+
+        return PivotLevels(
+            pivot = roundTo2(pivot),
+            r1 = roundTo2(r1),
+            r2 = roundTo2(r2),
+            r3 = roundTo2(r3),
+            s1 = roundTo2(s1),
+            s2 = roundTo2(s2),
+            s3 = roundTo2(s3),
+        )
     }
 }

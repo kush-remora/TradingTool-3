@@ -3,7 +3,7 @@ import { LiveMarketUpdate } from "../types";
 import { apiBaseUrl } from "../utils/api";
 import { isIndianEquityMarketOpen } from "../utils/marketHours";
 
-type Listener = (updates: LiveMarketUpdate[]) => void;
+type Listener = (update: LiveMarketUpdate) => void;
 const MARKET_HOURS_CHECK_MS = 60_000;
 
 /**
@@ -12,21 +12,21 @@ const MARKET_HOURS_CHECK_MS = 60_000;
 class LiveMarketManager {
   private subscribers = new Map<string, number>(); // symbol -> mount count
   private eventSource: EventSource | null = null;
-  private listeners = new Set<Listener>();
+  private listenersBySymbol = new Map<string, Set<Listener>>();
   private cache = new Map<string, LiveMarketUpdate>();
   private updateTimer: number | null = null;
   private marketHoursTimer: number | null = null;
-  private buyerDominancePct: number | null = null;
   private unloadHandlerRegistered = false;
 
-  subscribe(symbol: string, buyerDominancePct: number | undefined, listener: Listener) {
-    this.buyerDominancePct = buyerDominancePct ?? null;
+  subscribe(symbol: string, _buyerDominancePct: number | undefined, listener: Listener) {
     this.subscribers.set(symbol, (this.subscribers.get(symbol) || 0) + 1);
-    this.listeners.add(listener);
+    const listeners = this.listenersBySymbol.get(symbol) ?? new Set<Listener>();
+    listeners.add(listener);
+    this.listenersBySymbol.set(symbol, listeners);
     
     // Provide immediate cached value if available
     const cached = this.cache.get(symbol);
-    if (cached) listener([cached]);
+    if (cached) listener(cached);
     
     this.debounceUpdate();
   }
@@ -38,7 +38,15 @@ class LiveMarketManager {
     } else {
       this.subscribers.set(symbol, count - 1);
     }
-    this.listeners.delete(listener);
+
+    const listeners = this.listenersBySymbol.get(symbol);
+    if (listeners) {
+      listeners.delete(listener);
+      if (listeners.size === 0) {
+        this.listenersBySymbol.delete(symbol);
+      }
+    }
+
     this.debounceUpdate();
   }
 
@@ -67,9 +75,6 @@ class LiveMarketManager {
 
     const symbols = Array.from(this.subscribers.keys()).sort().join(",");
     const query = new URLSearchParams({ symbols });
-    if (this.buyerDominancePct != null) {
-      query.set("buyerDominancePct", String(this.buyerDominancePct));
-    }
     const url = `${apiBaseUrl}/api/market/live?${query.toString()}`;
 
     // If already connected to the same set of symbols, do nothing
@@ -89,8 +94,10 @@ class LiveMarketManager {
       try {
         const payload = JSON.parse(event.data);
         const updates = Array.isArray(payload) ? payload as LiveMarketUpdate[] : [payload as LiveMarketUpdate];
-        updates.forEach((u) => this.cache.set(u.symbol, u));
-        this.listeners.forEach((l) => l(updates));
+        updates.forEach((update) => {
+          this.cache.set(update.symbol, update);
+          this.listenersBySymbol.get(update.symbol)?.forEach((listener) => listener(update));
+        });
       } catch (e) {
         // Ignore malformed JSON
       }
@@ -161,11 +168,8 @@ export function useLiveMarketData(symbol: string, buyerDominancePct?: number) {
   useEffect(() => {
     if (!symbol) return;
 
-    const listener = (updates: LiveMarketUpdate[]) => {
-      const myUpdate = updates.find((u) => u.symbol === symbol);
-      if (myUpdate) {
-        setData(myUpdate);
-      }
+    const listener = (update: LiveMarketUpdate) => {
+      setData(update);
     };
 
     manager.subscribe(symbol, buyerDominancePct, listener);

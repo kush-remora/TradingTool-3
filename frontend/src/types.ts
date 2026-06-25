@@ -132,10 +132,21 @@ export interface DayDetail {
   vol_ratio: number | null;
 }
 
+export interface PivotLevels {
+  pivot: number;
+  r1: number;
+  r2: number;
+  r3: number;
+  s1: number;
+  s2: number;
+  s3: number;
+}
+
 export interface StockDetailResponse {
   symbol: string;
   exchange: string;
   avg_volume_20d: number | null;
+  pivot_levels: PivotLevels | null;
   days: DayDetail[];
 }
 

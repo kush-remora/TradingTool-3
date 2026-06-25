@@ -37,8 +37,16 @@ describe("TradeMarketHistoryPanel", () => {
         symbol: "NETWEB",
         avg_volume_20d: null,
         days: [
-          makeDay("2026-04-01", 100, 102, 99, 105, 200),
-          makeDay("2026-04-02", 100, 99, 99, 104, 100),
+          {
+            ...makeDay("2026-04-01", 100, 102, 99, 105, 200),
+            daily_change_pct: 2.0,
+            vol_ratio: 2.0,
+          },
+          {
+            ...makeDay("2026-04-02", 100, 99, 99, 104, 100),
+            daily_change_pct: -1.0,
+            vol_ratio: 1.0,
+          },
         ],
       },
       loading: false,
@@ -64,9 +72,12 @@ describe("TradeMarketHistoryPanel", () => {
     expect(screen.getAllByText(/high vol/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/low in buy zone/i)).toBeInTheDocument();
     expect(screen.getByText(/low at\/below entry/i)).toBeInTheDocument();
-    expect(screen.getAllByText("Day").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Low→High %").length).toBeGreaterThan(0);
-    expect(screen.getByText("Wednesday")).toBeInTheDocument();
+    expect(screen.getAllByText("Px").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Vol / Sig").length).toBeGreaterThan(0);
+    expect(screen.getByText("Wed")).toBeInTheDocument();
+    expect(screen.getByText("C ₹99.00")).toBeInTheDocument();
+    expect(screen.getAllByText(/0x|1\.0x|2\.0x/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("HV").length).toBeGreaterThan(0);
   });
 
   it("falls back cleanly without signalConfig", () => {

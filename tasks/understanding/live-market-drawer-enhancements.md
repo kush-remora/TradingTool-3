@@ -1,0 +1,9 @@
+# Live market drawer enhancements
+
+The drawer now exists and already shows live context, but two gaps are visible in real usage: `20D Avg Vol` is often empty because the live SSE payload does not consistently populate that field, and the drawer still lacks a structural price-context block. The right fix is not to scrape or mirror Groww logic directly, but to extend our own stock-detail contract with the minimum stable analytics the drawer needs.
+
+The first enhancement should use the stock-detail API as the source of truth for `avg_volume_20d` whenever live SSE does not provide it. The second enhancement should add a simple, standard support/resistance section using classic pivot-point levels derived from the latest completed daily candle: `Pivot`, `R1-R3`, and `S1-S3`. This keeps the math transparent, easy to validate, and cheap to compute from our own candle DB without introducing a larger indicator engine into the drawer.
+
+Implementation now follows that plan. The backend stock-detail response includes both `avg_volume_20d` and `pivot_levels`, the drawer falls back to `avg_volume_20d` when live data does not have it, and the new support/resistance card renders only when pivot data is available. The pivot math is the standard classic formula based on the latest completed daily candle, which is a good fit here because it is stable, explainable, and easy to sanity-check against external platforms.
+
+The next usability gap was in the recent-sessions history table. The older narrow-table shape technically exposed the data, but in practice it read like disconnected raw numbers inside the drawer. The improved direction is to reduce cognitive load: combine `Open → Close` into a single session column with a colored outcome, combine `Low → High` into a single range column with percent/point context, and keep `Volume` visible with `vs 20D` context so volume stands out without requiring mental math.

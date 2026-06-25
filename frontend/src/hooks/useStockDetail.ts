@@ -15,7 +15,7 @@ export function useStockDetail(symbol: string | null, days: number = 7) {
     }
     setLoading(true);
     setError(null);
-    getJson<StockDetailResponse>(`/api/stocks/by-symbol/${symbol}/detail?days=${days}`)
+    getJson<StockDetailResponse>(`/api/stocks/by-symbol/${encodeURIComponent(symbol)}/detail?days=${days}`)
       .then(setData)
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load detail"))
       .finally(() => setLoading(false));

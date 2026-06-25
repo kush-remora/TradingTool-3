@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useLiveMarketData } from "../hooks/useLiveMarketData";
 import { ArrowUpOutlined, ArrowDownOutlined } from "@ant-design/icons";
 import { LiveMarketDetailDrawer } from "./LiveMarketDetailDrawer";
-import type { StockQuoteSnapshot } from "../types";
+import type { LiveMarketUpdate, StockQuoteSnapshot } from "../types";
 
 const { Text } = Typography;
 
@@ -16,6 +16,16 @@ interface LiveMarketWidgetProps {
   fallbackLtp?: number | null;
   fallbackChangePercent?: number | null;
 }
+
+type LiveMarketDetailDrawerProps = {
+  symbol: string;
+  detailOpen: boolean;
+  closeDetail: () => void;
+  snapshot: StockQuoteSnapshot | null;
+  fallbackLtp: number | null;
+  fallbackChangePercent: number | null;
+  liveData: LiveMarketUpdate | null;
+};
 
 type PressureSplit = {
   buyPct: number;
@@ -86,6 +96,32 @@ function resolveVolumeRatioTone(volumeRatioVsPreviousDay: number | null): string
   }
 
   return undefined;
+}
+
+function renderLiveMarketDetailDrawer({
+  symbol,
+  detailOpen,
+  closeDetail,
+  snapshot,
+  fallbackLtp,
+  fallbackChangePercent,
+  liveData,
+}: LiveMarketDetailDrawerProps) {
+  if (!detailOpen) {
+    return null;
+  }
+
+  return (
+    <LiveMarketDetailDrawer
+      symbol={symbol}
+      open={detailOpen}
+      onClose={closeDetail}
+      snapshot={snapshot}
+      fallbackLtp={fallbackLtp}
+      fallbackChangePercent={fallbackChangePercent}
+      liveData={liveData}
+    />
+  );
 }
 
 export function LiveMarketWidget({
@@ -183,14 +219,15 @@ export function LiveMarketWidget({
             </Space>
           )}
         </div>
-        <LiveMarketDetailDrawer
-          symbol={symbol}
-          open={detailOpen}
-          onClose={() => setDetailOpen(false)}
-          snapshot={snapshot}
-          fallbackLtp={fallbackLtp}
-          fallbackChangePercent={fallbackChangePercent}
-        />
+        {renderLiveMarketDetailDrawer({
+          symbol,
+          detailOpen,
+          closeDetail: () => setDetailOpen(false),
+          snapshot,
+          fallbackLtp,
+          fallbackChangePercent,
+          liveData: data,
+        })}
       </>
     );
   }
@@ -262,14 +299,15 @@ export function LiveMarketWidget({
           </div>
         )}
       </div>
-      <LiveMarketDetailDrawer
-        symbol={symbol}
-        open={detailOpen}
-        onClose={() => setDetailOpen(false)}
-        snapshot={snapshot}
-        fallbackLtp={fallbackLtp}
-        fallbackChangePercent={fallbackChangePercent}
-      />
+      {renderLiveMarketDetailDrawer({
+        symbol,
+        detailOpen,
+        closeDetail: () => setDetailOpen(false),
+        snapshot,
+        fallbackLtp,
+        fallbackChangePercent,
+        liveData: data,
+      })}
     </>
   );
 }

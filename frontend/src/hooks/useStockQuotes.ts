@@ -28,6 +28,7 @@ export function useStockQuotes(symbols: string[]): UseStockQuotesResult {
 
   useEffect(() => {
     let active = true;
+    let pollId: number | null = null;
 
     if (normalizedSymbols.length === 0) {
       setQuotesBySymbol({});
@@ -60,12 +61,31 @@ export function useStockQuotes(symbols: string[]): UseStockQuotesResult {
       }
     };
 
-    void fetchQuotes(true);
-    const pollId = isIndianEquityMarketOpen()
-      ? window.setInterval(() => {
+    const startPolling = () => {
+      if (pollId != null) {
+        return;
+      }
+
+      pollId = window.setInterval(() => {
+        if (!isIndianEquityMarketOpen()) {
+          if (pollId != null) {
+            window.clearInterval(pollId);
+            pollId = null;
+          }
+          return;
+        }
+
         void fetchQuotes(false);
-      }, 10_000)
-      : null;
+      }, 10_000);
+    };
+
+    if (isIndianEquityMarketOpen()) {
+      void fetchQuotes(true);
+      startPolling();
+    } else {
+      setLoading(false);
+      setError(null);
+    }
 
     return () => {
       active = false;

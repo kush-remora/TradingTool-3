@@ -21,13 +21,13 @@ interface TradeMarketHistoryPanelProps {
 }
 
 const WEEKDAY_LABELS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
+  "Sun",
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thu",
+  "Fri",
+  "Sat",
 ] as const;
 
 function formatPrice(value: number): string {
@@ -43,6 +43,24 @@ function formatVolume(value: number): string {
 
 function formatRange(value: number): string {
   return value.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+}
+
+function formatPercent(value: number): string {
+  const sign = value > 0 ? "+" : value < 0 ? "" : "";
+  return `${sign}${value.toFixed(2)}%`;
+}
+
+function getMoveTone(value: number): string {
+  if (value > 0) return "#237804";
+  if (value < 0) return "#a8071a";
+  return "#595959";
+}
+
+function getVolumeTone(value: number | null): string {
+  if (value == null) return "#595959";
+  if (value >= 2.0) return "#237804";
+  if (value >= 1.3) return "#ad6800";
+  return "#595959";
 }
 
 function getWeekdayLabel(date: string): string {
@@ -61,6 +79,7 @@ function rowBackgroundColor(dominantSignal: "dip_recovery" | "dip_in_zone" | "be
 
 interface SignalBadgeStyle {
   label: string;
+  compactLabel: string;
   color: string;
   background: string;
   border: string;
@@ -69,37 +88,42 @@ interface SignalBadgeStyle {
 const SIGNAL_BADGE: Record<SessionSignalKind, SignalBadgeStyle> = {
   dip_recovery: {
     label: "↑ dip + recovery",
+    compactLabel: "DR",
     color: "#237804",
     background: "#f6ffed",
     border: "#b7eb8f",
   },
   dip_in_zone: {
     label: "↘ dip in zone",
+    compactLabel: "DZ",
     color: "#874d00",
     background: "#fff7e6",
     border: "#ffd591",
   },
   bearish_close: {
     label: "↓ bearish close",
+    compactLabel: "BC",
     color: "#a8071a",
     background: "#fff1f0",
     border: "#ffa39e",
   },
   high_vol: {
     label: "↑ high vol",
+    compactLabel: "HV",
     color: "#0958d9",
     background: "#e6f4ff",
     border: "#91caff",
   },
   range_compression: {
     label: "↔ compression",
+    compactLabel: "CMP",
     color: "#595959",
     background: "#fafafa",
     border: "#d9d9d9",
   },
 };
 
-function renderSignalTag(signal: SessionSignalKind): React.ReactElement {
+function renderSignalTag(signal: SessionSignalKind, compact = false): React.ReactElement {
   const style = SIGNAL_BADGE[signal];
   return (
     <Tag
@@ -108,12 +132,16 @@ function renderSignalTag(signal: SessionSignalKind): React.ReactElement {
         margin: 0,
         borderRadius: 6,
         fontWeight: 600,
+        fontSize: compact ? 11 : undefined,
+        lineHeight: compact ? "16px" : undefined,
+        paddingInline: compact ? 6 : undefined,
         color: style.color,
         background: style.background,
         borderColor: style.border,
       }}
+      title={style.label}
     >
-      {style.label}
+      {compact ? style.compactLabel : style.label}
     </Tag>
   );
 }
@@ -149,114 +177,66 @@ export function TradeMarketHistoryPanel({
     () => [
       {
         title: "Date",
-        dataIndex: "date",
         key: "date",
-        width: 110,
-      },
-      {
-        title: "Day",
-        key: "day",
         width: 120,
-        render: (_: unknown, record: DayDetail) => getWeekdayLabel(record.date),
+        render: (_: unknown, record: DayDetail) => (
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6, whiteSpace: "nowrap" }}>
+            <Text style={{ fontWeight: 600 }}>{record.date}</Text>
+            <Text type="secondary" style={{ fontSize: 11 }}>{getWeekdayLabel(record.date)}</Text>
+          </div>
+        ),
       },
       {
-        title: "Open",
-        dataIndex: "open",
-        key: "open",
-        width: 110,
-        render: (value: number) => formatPrice(value),
-      },
-      {
-        title: "Close",
-        dataIndex: "close",
-        key: "close",
-        width: 115,
-        render: (value: number) => formatPrice(value),
-      },
-      {
-        title: "Low",
-        dataIndex: "low",
-        key: "low",
-        width: 130,
-        render: (value: number, record: DayDetail) => {
-          const rowSignal = signalState.rowsByDate[record.date];
-          if (!rowSignal) return formatPrice(value);
-
-          const color = rowSignal.lowSeverity === "entry_hit"
-            ? "#cf1322"
-            : rowSignal.lowSeverity === "buy_zone"
-              ? "#ad6800"
-              : "#262626";
-          const marker = rowSignal.lowSeverity === "entry_hit"
-            ? " 🔴"
-            : rowSignal.lowSeverity === "buy_zone"
-              ? " ⚠"
-              : "";
+        title: "Px",
+        key: "price",
+        width: 180,
+        render: (_: unknown, record: DayDetail) => {
+          const dailyChangePct = record.daily_change_pct ?? (record.open > 0
+            ? ((record.close - record.open) / record.open) * 100
+            : 0);
+          const tone = getMoveTone(dailyChangePct);
+          const rangePct = record.low > 0 ? ((record.high - record.low) / record.low) * 100 : 0;
 
           return (
-            <Text style={{ color, fontWeight: rowSignal.lowSeverity === "none" ? 500 : 700 }}>
-              {formatPrice(value)}{marker}
-            </Text>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <Text style={{ fontWeight: 600 }}>
+                C {formatPrice(record.close)}
+              </Text>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                <Text style={{ color: tone, fontSize: 12, fontWeight: 600 }}>
+                  {formatPercent(dailyChangePct)}
+                </Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  O {formatPrice(record.open)} · R {rangePct.toFixed(1)}%
+                </Text>
+              </div>
+            </div>
           );
         },
       },
       {
-        title: "High",
-        dataIndex: "high",
-        key: "high",
-        width: 110,
-        render: (value: number) => formatPrice(value),
-      },
-      {
-        title: "Range",
-        key: "range",
-        width: 90,
+        title: "Vol / Sig",
+        key: "volume_signal",
+        width: 170,
         render: (_: unknown, record: DayDetail) => {
           const rowSignal = signalState.rowsByDate[record.date];
-          if (!rowSignal) return "-";
-          return formatRange(rowSignal.range);
-        },
-      },
-      {
-        title: "Low→High %",
-        key: "low_high_pct",
-        width: 120,
-        render: (_: unknown, record: DayDetail) => {
-          const pct = record.low > 0 ? ((record.high - record.low) / record.low) * 100 : 0;
-          const sign = record.close > record.open ? "+" : record.close < record.open ? "-" : "";
-          const color = sign === "+" ? "#237804" : sign === "-" ? "#a8071a" : "#595959";
+          const signalTags = rowSignal?.signals ?? [];
+          const volumeRatioLabel = record.vol_ratio != null ? `${record.vol_ratio.toFixed(1)}x` : "-";
+
           return (
-            <Text style={{ color, fontWeight: 600 }}>
-              {sign}{pct.toFixed(2)}%
-            </Text>
-          );
-        },
-      },
-      {
-        title: "LTP",
-        dataIndex: "close",
-        key: "ltp",
-        width: 110,
-        render: (value: number) => formatPrice(value),
-      },
-      {
-        title: "Vol",
-        dataIndex: "volume",
-        key: "volume",
-        width: 120,
-        render: (value: number) => formatVolume(value),
-      },
-      {
-        title: "Signal",
-        key: "signal",
-        width: 320,
-        render: (_: unknown, record: DayDetail) => {
-          const rowSignal = signalState.rowsByDate[record.date];
-          if (!rowSignal || rowSignal.signals.length === 0) return <Text type="secondary">-</Text>;
-          return (
-            <Space size={6} wrap>
-              {rowSignal.signals.map((signal) => renderSignalTag(signal))}
-            </Space>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <Text style={{ fontWeight: 600 }}>
+                {formatVolume(record.volume)}
+              </Text>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minHeight: 18 }}>
+                <Text style={{ color: getVolumeTone(record.vol_ratio), fontSize: 12, fontWeight: 600 }}>
+                  {volumeRatioLabel}
+                </Text>
+                {signalTags.length > 0
+                  ? signalTags.map((signal) => renderSignalTag(signal, true))
+                  : <Text type="secondary" style={{ fontSize: 12 }}>-</Text>}
+              </div>
+            </div>
           );
         },
       },
@@ -343,7 +323,6 @@ export function TradeMarketHistoryPanel({
                 pagination={false}
                 dataSource={displayedDays}
                 columns={columns}
-                scroll={{ x: 1400 }}
                 onRow={(record) => {
                   const rowSignal = signalState.rowsByDate[record.date];
                   return {
