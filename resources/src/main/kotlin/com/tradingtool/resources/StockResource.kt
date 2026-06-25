@@ -73,6 +73,7 @@ class StockResource @Inject constructor(
                     StockQuoteSnapshot(
                         symbol = symbol,
                         ltp = tick.ltp,
+                        averagePrice = tick.averagePrice,
                         changePercent = if (tick.close > 0) ((tick.ltp - tick.close) / tick.close) * 100 else null,
                         dayOpen = tick.open,
                         dayHigh = tick.high,
@@ -100,6 +101,7 @@ class StockResource @Inject constructor(
                         StockQuoteSnapshot(
                             symbol = symbol,
                             ltp = quote.lastPrice,
+                            averagePrice = quote.averagePrice.takeIf { averagePrice -> averagePrice > 0.0 },
                             changePercent = quote.ohlc?.close?.takeIf { close -> close > 0.0 }?.let { close ->
                                 ((quote.lastPrice - close) / close) * 100
                             },
@@ -149,6 +151,7 @@ class StockResource @Inject constructor(
             StockQuoteSnapshot(
                 symbol = symbol,
                 ltp = lastCandle.close,
+                averagePrice = null,
                 changePercent = changePercent,
                 dayOpen = lastCandle.open,
                 dayHigh = lastCandle.high,

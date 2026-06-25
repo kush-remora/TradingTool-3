@@ -758,7 +758,7 @@ export function PhaseDScannerPage() {
       {
         title: "Live Market",
         key: "liveMarket",
-        width: 140,
+        width: 190,
         sorter: (left, right) =>
           (resolveMarketChangePercent(left.symbol, quotesBySymbol[left.symbol.toUpperCase()], parsePctChange(left.pctChange)) ?? Number.NEGATIVE_INFINITY) -
           (resolveMarketChangePercent(right.symbol, quotesBySymbol[right.symbol.toUpperCase()], parsePctChange(right.pctChange)) ?? Number.NEGATIVE_INFINITY),
@@ -768,6 +768,7 @@ export function PhaseDScannerPage() {
           snapshot: quotesBySymbol[row.symbol.toUpperCase()],
           fallbackLtp: row.closePrice,
           fallbackChangePercent: parsePctChange(row.pctChange),
+          mode: "wide",
         }),
       },
       {

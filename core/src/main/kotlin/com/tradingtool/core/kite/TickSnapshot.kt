@@ -3,6 +3,7 @@ package com.tradingtool.core.kite
 data class TickSnapshot(
     val instrumentToken: Long,
     val ltp: Double,
+    val averagePrice: Double?,
     val volume: Long,
     val changePercent: Double,
     val open: Double,

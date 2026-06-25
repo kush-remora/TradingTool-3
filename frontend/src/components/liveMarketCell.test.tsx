@@ -14,11 +14,13 @@ vi.mock("./LiveMarketWidget", () => ({
     fallbackLtp,
     fallbackChangePercent,
     showDetails,
+    mode,
   }: {
     symbol: string;
     fallbackLtp?: number | null;
     fallbackChangePercent?: number | null;
     showDetails?: boolean;
+    mode?: "standard" | "wide";
   }) => (
     <div
       data-testid="live-market-widget"
@@ -26,6 +28,7 @@ vi.mock("./LiveMarketWidget", () => ({
       data-ltp={fallbackLtp == null ? "" : String(fallbackLtp)}
       data-change={fallbackChangePercent == null ? "" : String(fallbackChangePercent)}
       data-show-details={showDetails ? "true" : "false"}
+      data-mode={mode ?? "standard"}
     />
   ),
 }));
@@ -72,5 +75,6 @@ describe("renderLiveMarketCell", () => {
     expect(widget).toHaveAttribute("data-ltp", "1520.5");
     expect(widget).toHaveAttribute("data-change", "1.25");
     expect(widget).toHaveAttribute("data-show-details", "false");
+    expect(widget).toHaveAttribute("data-mode", "standard");
   });
 });

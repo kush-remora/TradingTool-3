@@ -188,6 +188,7 @@ class KiteTickerService(
                     TickSnapshot(
                         instrumentToken = tick.instrumentToken,
                         ltp             = tick.lastTradedPrice,
+                        averagePrice    = tick.averageTradePrice.takeIf { averagePrice -> averagePrice > 0.0 },
                         volume          = tick.volumeTradedToday,
                         changePercent   = tick.change,
                         open            = tick.openPrice,

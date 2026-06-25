@@ -19,3 +19,23 @@ Validation is covered by:
 
 - the focused Phase D page test for the new volume-context fallback behavior
 - the focused Kotlin fresh-field calculator test for `previousDayVolume`
+
+## Trading interpretation to preserve
+
+The important product direction is not just "show more live fields." The real goal is better intraday context around whether today's tape is meaningfully different from a normal or sleepy session.
+
+Priority order for interpretation:
+
+- `LTP vs average_price` is useful as a fast intraday tone read. If `LTP > average_price`, the tape is generally acting stronger; if `LTP < average_price`, it is generally acting weaker.
+- `today volume vs T-1 volume` is the stronger participation confirmation. This directly answers the practical question: "is something different today, and are people materially more interested than yesterday?"
+- `total buy quantity vs total sell quantity` is useful only as secondary microstructure context. It can hint at tailwind from buyers or sellers, but it should not outrank price behavior or volume expansion because order-book pressure can be noisy and reversible.
+
+The recommended use is:
+
+- show `average_price` in the live market widget
+- keep `today volume` visible
+- keep `T-1 volume` visible wherever volume expansion matters
+- show a clear ratio such as `today volume / T-1 volume`
+- treat buy-vs-sell quantity as an optional supporting badge, not the core signal
+
+The main thesis to preserve is: the best "something is different today" confirmation comes from `price behavior + LTP vs average_price + today volume vs T-1 volume`, with buy/sell quantity acting only as extra texture.

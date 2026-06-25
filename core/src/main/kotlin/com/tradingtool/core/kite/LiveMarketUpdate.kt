@@ -10,6 +10,7 @@ data class LiveMarketUpdate(
     val symbol: String,
     val instrumentToken: Long,
     val ltp: Double,
+    val averagePrice: Double?,
     val changePercent: Double,
     val open: Double,
     val high: Double,

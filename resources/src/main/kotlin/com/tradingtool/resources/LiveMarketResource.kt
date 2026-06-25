@@ -119,6 +119,7 @@ class LiveMarketResource @Inject constructor(
             symbol = resolvedSymbol.symbol,
             instrumentToken = resolvedSymbol.instrumentToken,
             ltp = tick.ltp,
+            averagePrice = tick.averagePrice,
             changePercent = if (tick.close > 0) ((tick.ltp - tick.close) / tick.close) * 100 else 0.0,
             open = tick.open,
             high = tick.high,

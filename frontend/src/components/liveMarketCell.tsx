@@ -8,6 +8,7 @@ type RenderLiveMarketCellOptions = {
   fallbackLtp?: number | null;
   fallbackChangePercent?: number | null;
   showDetails?: boolean;
+  mode?: "standard" | "wide";
 };
 
 export function resolveMarketChangePercent(
@@ -24,6 +25,7 @@ export function renderLiveMarketCell({
   fallbackLtp = null,
   fallbackChangePercent = null,
   showDetails = true,
+  mode = "standard",
 }: RenderLiveMarketCellOptions) {
   return (
     <LiveMarketWidget
@@ -32,6 +34,7 @@ export function renderLiveMarketCell({
       fallbackLtp={fallbackLtp}
       fallbackChangePercent={fallbackChangePercent}
       showDetails={showDetails}
+      mode={mode}
     />
   );
 }

@@ -3,6 +3,7 @@
 export interface TickSnapshot {
   instrumentToken: number;
   ltp: number;
+  averagePrice?: number | null;
   volume: number;
   changePercent: number;
   open: number;
@@ -16,6 +17,7 @@ export interface LiveMarketUpdate {
   symbol: string;
   instrumentToken: number;
   ltp: number;
+  averagePrice?: number | null;
   changePercent: number;
   open: number;
   high: number;
@@ -140,6 +142,7 @@ export interface StockDetailResponse {
 export interface StockQuoteSnapshot {
   symbol: string;
   ltp: number | null;
+  average_price?: number | null;
   change_percent?: number | null;
   day_open: number | null;
   day_high: number | null;
