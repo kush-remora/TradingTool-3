@@ -1,0 +1,7 @@
+# Live market clickable expand
+
+The next step after compact widget tuning is not adding more dense fields into the table cell, but turning the live-market cell into a drill-down entry point. The user wants the widget to stay plugin-play across screens while allowing a richer intraday review when one row becomes interesting. The cleanest fit is a shared clickable interaction that opens a right-side detail drawer, reusing existing frontend patterns instead of inventing a new screen-specific popup.
+
+The first implementation should stay frontend-only and reuse current data sources: live SSE market fields from `useLiveMarketData`, quote snapshot fallbacks already flowing through `LiveMarketWidget`, and recent daily history from `useStockDetail` / `TradeMarketHistoryPanel`. The first drawer should focus on fast decision context, not charting: symbol, LTP, % change, O/H/L, average price, live volume, `T-1` ratio, buy/sell pressure, and recent daily history. We should wire it through the shared widget so `Trade Book`, `Phase D`, and the other live-market tables get the same expand behavior automatically.
+
+Implementation on 2026-06-25 followed that path: `LiveMarketWidget` now opens a shared `LiveMarketDetailDrawer` on click/keyboard activation, and the drawer reuses `TradeMarketHistoryPanel` for recent daily history instead of introducing a separate fetch/render path. Validation passed with `npm --prefix frontend run test:run -- src/components/LiveMarketWidget.test.tsx` and `npm --prefix frontend run build`.
