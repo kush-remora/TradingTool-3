@@ -5,16 +5,27 @@ import {
   buildWakeUpSignal,
   PhaseDScannerPage,
   parseCsvOrTsv,
+  resolveDisplayedWakeUpSortRatio,
   resolveWakeUpSortRatio,
   resolveWakeUpVolumeContext,
 } from "./PhaseDScannerPage";
 
 const fetchMock = vi.fn();
 const useStockQuotesMock = vi.fn();
+const getCachedLiveMarketDataMock = vi.fn();
 
 vi.mock("../hooks/useStockQuotes", () => ({
   useStockQuotes: (...args: unknown[]) => useStockQuotesMock(...args),
 }));
+
+vi.mock("../hooks/useLiveMarketData", async () => {
+  const actual = await vi.importActual<typeof import("../hooks/useLiveMarketData")>("../hooks/useLiveMarketData");
+
+  return {
+    ...actual,
+    getCachedLiveMarketData: (...args: unknown[]) => getCachedLiveMarketDataMock(...args),
+  };
+});
 
 class MockEventSource {
   constructor(public url: string) {}
@@ -74,6 +85,7 @@ describe("PhaseDScannerPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useStockQuotesMock.mockReturnValue({ quotesBySymbol: {}, loading: false, error: null });
+    getCachedLiveMarketDataMock.mockReturnValue(null);
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("EventSource", MockEventSource);
   });
@@ -94,6 +106,13 @@ describe("PhaseDScannerPage", () => {
     expect(screen.getByText("Run Delivery Validation")).toBeInTheDocument();
     expect(screen.getByText("Update Fresh Fields")).toBeInTheDocument();
     expect(screen.getByText("All Phase 1 Stocks (1)")).toBeInTheDocument();
+    expect(screen.getAllByText("Daily Close / Day Vol").length).toBeGreaterThan(0);
+    expect(screen.getByText("Day %: 2.10%")).toBeInTheDocument();
+    expect(screen.getByText("Day Vol: 2,50,000")).toBeInTheDocument();
+    expect(screen.getAllByText("T-1 Close / T-1 Vol").length).toBeGreaterThan(0);
+    expect(screen.getByText("1,508.81")).toBeInTheDocument();
+    expect(screen.getByText("T-1 Close")).toBeInTheDocument();
+    expect(screen.getByText("T-1 Vol: 1,80,000")).toBeInTheDocument();
     expect(screen.getByText("INFY")).toBeInTheDocument();
     expect(screen.getAllByText("Resolved").length).toBeGreaterThan(0);
   });
@@ -439,6 +458,29 @@ describe("PhaseDScannerPage", () => {
     expect(resolveWakeUpSortRatio(250000, 100000)).toBe(2.5);
     expect(resolveWakeUpSortRatio(250000, 0)).toBeNull();
     expect(resolveWakeUpSortRatio(null, 100000)).toBeNull();
+  });
+
+  it("prefers live cached volume for wake-up sorting", () => {
+    getCachedLiveMarketDataMock.mockReturnValueOnce({ volume: 320000 });
+
+    expect(
+      resolveDisplayedWakeUpSortRatio(
+        "INFY",
+        {
+          symbol: "INFY",
+          ltp: 1500,
+          change_percent: 1.2,
+          day_open: null,
+          day_high: null,
+          day_low: null,
+          volume: 200000,
+          previous_day_volume: 100000,
+          updated_at: "2026-06-25",
+        },
+        180000,
+        90000,
+      ),
+    ).toBe(3.2);
   });
 
   it("parses the cleaned CSV headers without losing columns", () => {

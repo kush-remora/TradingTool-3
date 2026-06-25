@@ -1,6 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { renderLiveMarketCell } from "./liveMarketCell";
+import { renderLiveMarketCell, resolveMarketChangePercent } from "./liveMarketCell";
+
+const getCachedLiveMarketDataMock = vi.fn();
+
+vi.mock("../hooks/useLiveMarketData", () => ({
+  getCachedLiveMarketData: (...args: unknown[]) => getCachedLiveMarketDataMock(...args),
+}));
 
 vi.mock("./LiveMarketWidget", () => ({
   LiveMarketWidget: ({
@@ -25,6 +31,32 @@ vi.mock("./LiveMarketWidget", () => ({
 }));
 
 describe("renderLiveMarketCell", () => {
+  it("prefers live cached percent change for sorting", () => {
+    getCachedLiveMarketDataMock.mockReturnValueOnce({ changePercent: 1.85 });
+
+    expect(
+      resolveMarketChangePercent(
+        "INFY",
+        { symbol: "INFY", ltp: 1500, change_percent: -0.25, day_open: null, day_high: null, day_low: null, volume: null, updated_at: "2026-06-25" },
+        -0.5,
+      ),
+    ).toBe(1.85);
+  });
+
+  it("falls back to snapshot and row values when live data is absent", () => {
+    getCachedLiveMarketDataMock.mockReturnValue(null);
+
+    expect(
+      resolveMarketChangePercent(
+        "INFY",
+        { symbol: "INFY", ltp: 1500, change_percent: -0.25, day_open: null, day_high: null, day_low: null, volume: null, updated_at: "2026-06-25" },
+        -0.5,
+      ),
+    ).toBe(-0.25);
+
+    expect(resolveMarketChangePercent("INFY", null, -0.5)).toBe(-0.5);
+  });
+
   it("uses the shared live market widget contract", () => {
     render(
       renderLiveMarketCell({

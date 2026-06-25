@@ -42,6 +42,10 @@ class LiveMarketManager {
     this.debounceUpdate();
   }
 
+  getCached(symbol: string): LiveMarketUpdate | null {
+    return this.cache.get(symbol) ?? null;
+  }
+
   private debounceUpdate() {
     if (this.updateTimer !== null) globalThis.clearTimeout(this.updateTimer);
     this.updateTimer = globalThis.setTimeout(() => this.updateConnection(), 100);
@@ -142,6 +146,10 @@ class LiveMarketManager {
 }
 
 const manager = new LiveMarketManager();
+
+export function getCachedLiveMarketData(symbol: string): LiveMarketUpdate | null {
+  return manager.getCached(symbol);
+}
 
 /**
  * Hook to subscribe to real-time market updates for a specific symbol.

@@ -264,9 +264,9 @@ export function WyckoffPhase1Page() {
           matchesColumnFilter(row, key, String(filterValue))),
         sorter: key === "liveMarket" ? ((a: WyckoffPhase1Row, b: WyckoffPhase1Row) => {
           return (
-            resolveMarketChangePercent(quotesBySymbol[a.symbol.toUpperCase()]) ?? Number.NEGATIVE_INFINITY
+            resolveMarketChangePercent(a.symbol, quotesBySymbol[a.symbol.toUpperCase()]) ?? Number.NEGATIVE_INFINITY
           ) - (
-            resolveMarketChangePercent(quotesBySymbol[b.symbol.toUpperCase()]) ?? Number.NEGATIVE_INFINITY
+            resolveMarketChangePercent(b.symbol, quotesBySymbol[b.symbol.toUpperCase()]) ?? Number.NEGATIVE_INFINITY
           );
         }) : ((a: WyckoffPhase1Row, b: WyckoffPhase1Row) => {
           const left = valueForSort(a[key as keyof WyckoffPhase1Row]);

@@ -84,8 +84,8 @@ export function DeliveryBreakoutScannerPage() {
             fallbackChangePercent: record.close_pct_change,
           }),
           sorter: (left, right) =>
-            (resolveMarketChangePercent(quotesBySymbol[left.symbol.toUpperCase()], left.close_pct_change) ?? Number.NEGATIVE_INFINITY) -
-            (resolveMarketChangePercent(quotesBySymbol[right.symbol.toUpperCase()], right.close_pct_change) ?? Number.NEGATIVE_INFINITY),
+            (resolveMarketChangePercent(left.symbol, quotesBySymbol[left.symbol.toUpperCase()], left.close_pct_change) ?? Number.NEGATIVE_INFINITY) -
+            (resolveMarketChangePercent(right.symbol, quotesBySymbol[right.symbol.toUpperCase()], right.close_pct_change) ?? Number.NEGATIVE_INFINITY),
           filters: getFilters("close", formatNumber),
           onFilter: (value, record) => String(record.close) === value,
         },

@@ -1,5 +1,5 @@
 import { Space, Tag, Tooltip, Typography } from "antd";
-import { useLiveMarketData } from "../hooks/useLiveMarketData";
+import { getCachedLiveMarketData, useLiveMarketData } from "../hooks/useLiveMarketData";
 import type { StockQuoteSnapshot } from "../types";
 
 type WakeUpSignal = {
@@ -140,6 +140,20 @@ export function resolveWakeUpSortRatio(
   }
 
   return currentVolume / previousVolume;
+}
+
+export function resolveDisplayedWakeUpSortRatio(
+  symbol: string,
+  snapshot?: StockQuoteSnapshot | null,
+  fallbackCurrentVolume?: number | null,
+  fallbackPreviousVolume?: number | null,
+): number | null {
+  const liveData = getCachedLiveMarketData(`NSE:${symbol}`);
+
+  return resolveWakeUpSortRatio(
+    liveData?.volume ?? snapshot?.volume ?? fallbackCurrentVolume,
+    snapshot?.previous_day_volume ?? fallbackPreviousVolume,
+  );
 }
 
 export function WakeUpVolumeCell({

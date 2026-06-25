@@ -30,11 +30,17 @@ import type { TabsProps, UploadProps } from "antd";
 import { renderLiveMarketCell, resolveMarketChangePercent } from "../components/liveMarketCell";
 import {
   WakeUpVolumeCell,
+  resolveDisplayedWakeUpSortRatio,
   resolveWakeUpSortRatio,
 } from "../components/WakeUpVolumeCell";
 import { useStockQuotes } from "../hooks/useStockQuotes";
 
-export { buildWakeUpSignal, resolveWakeUpSortRatio, resolveWakeUpVolumeContext } from "../components/WakeUpVolumeCell";
+export {
+  buildWakeUpSignal,
+  resolveDisplayedWakeUpSortRatio,
+  resolveWakeUpSortRatio,
+  resolveWakeUpVolumeContext,
+} from "../components/WakeUpVolumeCell";
 
 interface PhaseCWatchlistDto {
   symbol: string;
@@ -177,6 +183,23 @@ function parsePctChange(value: string | null | undefined): number | null {
 
   const parsed = Number.parseFloat(value.replace("%", "").trim());
   return Number.isNaN(parsed) ? null : parsed;
+}
+
+function derivePreviousClosePrice(
+  latestClosePrice: number | null | undefined,
+  pctChange: string | null | undefined,
+): number | null {
+  const parsedPctChange = parsePctChange(pctChange);
+  if (latestClosePrice == null || parsedPctChange == null) {
+    return null;
+  }
+
+  const denominator = 1 + (parsedPctChange / 100);
+  if (denominator <= 0) {
+    return null;
+  }
+
+  return latestClosePrice / denominator;
 }
 
 function buildStatusTag(status: string) {
@@ -699,7 +722,7 @@ export function PhaseDScannerPage() {
         ),
       },
       {
-        title: "Prev Close / Vol",
+        title: "Daily Close / Day Vol",
         key: "close",
         width: 120,
         align: "right",
@@ -707,10 +730,27 @@ export function PhaseDScannerPage() {
           <Space orientation="vertical" size={0} style={{ width: "100%" }}>
             <Typography.Text>{formatNumber(row.closePrice, 2)}</Typography.Text>
             <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-              {row.pctChange || "-"}
+              Day %: {row.pctChange || "-"}
             </Typography.Text>
             <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-              Vol: {formatNumber(row.volume)}
+              Day Vol: {formatNumber(row.volume)}
+            </Typography.Text>
+          </Space>
+        ),
+      },
+      {
+        title: "T-1 Close / T-1 Vol",
+        key: "previousDay",
+        width: 130,
+        align: "right",
+        render: (_value, row) => (
+          <Space orientation="vertical" size={0} style={{ width: "100%" }}>
+            <Typography.Text>{formatNumber(derivePreviousClosePrice(row.closePrice, row.pctChange), 2)}</Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+              T-1 Close
+            </Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+              T-1 Vol: {formatNumber(row.previousDayVolume)}
             </Typography.Text>
           </Space>
         ),
@@ -720,8 +760,8 @@ export function PhaseDScannerPage() {
         key: "liveMarket",
         width: 140,
         sorter: (left, right) =>
-          (resolveMarketChangePercent(quotesBySymbol[left.symbol.toUpperCase()], parsePctChange(left.pctChange)) ?? Number.NEGATIVE_INFINITY) -
-          (resolveMarketChangePercent(quotesBySymbol[right.symbol.toUpperCase()], parsePctChange(right.pctChange)) ?? Number.NEGATIVE_INFINITY),
+          (resolveMarketChangePercent(left.symbol, quotesBySymbol[left.symbol.toUpperCase()], parsePctChange(left.pctChange)) ?? Number.NEGATIVE_INFINITY) -
+          (resolveMarketChangePercent(right.symbol, quotesBySymbol[right.symbol.toUpperCase()], parsePctChange(right.pctChange)) ?? Number.NEGATIVE_INFINITY),
         sortDirections: ["descend", "ascend"],
         render: (_value, row) => renderLiveMarketCell({
           symbol: row.symbol,
@@ -735,18 +775,18 @@ export function PhaseDScannerPage() {
         key: "wakeUp",
         width: 130,
         sorter: (left, right) =>
-          (
-            resolveWakeUpSortRatio(
-              quotesBySymbol[left.symbol.toUpperCase()]?.volume ?? left.volume,
-              quotesBySymbol[left.symbol.toUpperCase()]?.previous_day_volume ?? left.previousDayVolume,
-            ) ?? Number.NEGATIVE_INFINITY
-          ) -
-          (
-            resolveWakeUpSortRatio(
-              quotesBySymbol[right.symbol.toUpperCase()]?.volume ?? right.volume,
-              quotesBySymbol[right.symbol.toUpperCase()]?.previous_day_volume ?? right.previousDayVolume,
-            ) ?? Number.NEGATIVE_INFINITY
-          ),
+          (resolveDisplayedWakeUpSortRatio(
+            left.symbol,
+            quotesBySymbol[left.symbol.toUpperCase()],
+            left.volume,
+            left.previousDayVolume,
+          ) ?? Number.NEGATIVE_INFINITY) -
+          (resolveDisplayedWakeUpSortRatio(
+            right.symbol,
+            quotesBySymbol[right.symbol.toUpperCase()],
+            right.volume,
+            right.previousDayVolume,
+          ) ?? Number.NEGATIVE_INFINITY),
         sortDirections: ["descend", "ascend"],
         render: (_value, row) => (
           <WakeUpVolumeCell

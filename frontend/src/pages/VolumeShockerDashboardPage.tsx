@@ -220,9 +220,9 @@ export function VolumeShockerDashboardPage() {
         sorter: (left: VolumeShockerDashboardRow, right: VolumeShockerDashboardRow) => {
           if (key === "ltp") {
             return (
-              resolveMarketChangePercent(quotesBySymbol[left.symbol.toUpperCase()]) ?? Number.NEGATIVE_INFINITY
+              resolveMarketChangePercent(left.symbol, quotesBySymbol[left.symbol.toUpperCase()]) ?? Number.NEGATIVE_INFINITY
             ) - (
-              resolveMarketChangePercent(quotesBySymbol[right.symbol.toUpperCase()]) ?? Number.NEGATIVE_INFINITY
+              resolveMarketChangePercent(right.symbol, quotesBySymbol[right.symbol.toUpperCase()]) ?? Number.NEGATIVE_INFINITY
             );
           }
           const leftValue = left[key];

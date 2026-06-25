@@ -1,4 +1,5 @@
 import { LiveMarketWidget } from "./LiveMarketWidget";
+import { getCachedLiveMarketData } from "../hooks/useLiveMarketData";
 import type { StockQuoteSnapshot } from "../types";
 
 type RenderLiveMarketCellOptions = {
@@ -10,10 +11,11 @@ type RenderLiveMarketCellOptions = {
 };
 
 export function resolveMarketChangePercent(
+  symbol: string,
   snapshot: StockQuoteSnapshot | null | undefined,
   fallbackChangePercent?: number | null,
 ): number | null {
-  return snapshot?.change_percent ?? fallbackChangePercent ?? null;
+  return getCachedLiveMarketData(`NSE:${symbol}`)?.changePercent ?? snapshot?.change_percent ?? fallbackChangePercent ?? null;
 }
 
 export function renderLiveMarketCell({

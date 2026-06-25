@@ -3,6 +3,7 @@ import { Button, DatePicker, Form, Input, Modal, Space, Table, Tag, Tooltip, Typ
 import type { ColumnType } from "antd/es/table";
 import dayjs from "dayjs";
 import { useMemo, useState } from "react";
+import { useLiveMarketData } from "../hooks/useLiveMarketData";
 import { useStockQuotes } from "../hooks/useStockQuotes";
 import type { CloseTradeInput, GttTarget, TradeWithTargets } from "../types";
 import { calculatePnL, type PnLResult } from "../utils/pnlUtils";
@@ -27,11 +28,16 @@ interface CloseModalState {
 }
 
 interface EnrichedTrade extends TradeWithTargets {
-  currentLtp: number | null;
   dayLow: number | null;
   dayHigh: number | null;
-  pnlData: PnLResult | null;
   closedPnlData: PnLResult | null;
+}
+
+interface CurrentPnlTagProps {
+  avgBuyPrice: string;
+  quantity: number;
+  symbol: string;
+  snapshotLtp: number | null;
 }
 
 function formatPrice(value: number | null | undefined): string {
@@ -45,6 +51,42 @@ function getWeekdayLabel(date: string): string {
   const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
   const labels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
   return labels[weekday] ?? "";
+}
+
+function CurrentPnlTag({
+  avgBuyPrice,
+  quantity,
+  symbol,
+  snapshotLtp,
+}: CurrentPnlTagProps) {
+  const liveMarketData = useLiveMarketData(`NSE:${symbol}`);
+  const pnlData = calculatePnL(avgBuyPrice, liveMarketData?.ltp ?? snapshotLtp, quantity);
+
+  if (!pnlData) {
+    return <Text type="secondary">-</Text>;
+  }
+
+  const { pnl, pnlPct, isProfit } = pnlData;
+  const color = isProfit ? "#00b386" : "#eb3a3a";
+  const bg = isProfit ? "#f0fdf4" : "#fff1f0";
+  const border = isProfit ? "#bbf7d0" : "#ffa39e";
+
+  return (
+    <Tag
+      style={{
+        background: bg,
+        borderColor: border,
+        color,
+        fontWeight: 700,
+        fontSize: 12,
+        borderRadius: 6,
+        padding: "2px 10px",
+      }}
+    >
+      {isProfit ? "+" : ""}₹{Math.abs(pnl).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+      &nbsp;({isProfit ? "+" : ""}{pnlPct.toFixed(1)}%)
+    </Tag>
+  );
 }
 
 export function TradeJournalTable({
@@ -70,14 +112,11 @@ export function TradeJournalTable({
   const enrichedTrades = useMemo<EnrichedTrade[]>(() => {
     return trades.map((tradeRow) => {
       const quote = quotesBySymbol[tradeRow.trade.nse_symbol.toUpperCase()];
-      const ltp = quote?.ltp ?? null;
       const closedPriceNum = parseFloat(tradeRow.trade.close_price ?? "0");
       return {
         ...tradeRow,
-        currentLtp: ltp,
         dayLow: quote?.day_low ?? null,
         dayHigh: quote?.day_high ?? null,
-        pnlData: calculatePnL(tradeRow.trade.avg_buy_price, ltp, tradeRow.trade.quantity),
         closedPnlData: calculatePnL(tradeRow.trade.avg_buy_price, closedPriceNum || null, tradeRow.trade.quantity),
       };
     });
@@ -164,7 +203,7 @@ export function TradeJournalTable({
       render: (_, record) => renderLiveMarketCell({
         symbol: record.trade.nse_symbol,
         snapshot: quotesBySymbol[record.trade.nse_symbol.toUpperCase()],
-        fallbackLtp: record.currentLtp,
+        fallbackLtp: quotesBySymbol[record.trade.nse_symbol.toUpperCase()]?.ltp ?? null,
       }),
     },
     {
@@ -172,28 +211,13 @@ export function TradeJournalTable({
       key: "current_pnl",
       width: 160,
       render: (_, record) => {
-        if (!record.pnlData) return <Text type="secondary">-</Text>;
-        
-        const { pnl, pnlPct, isProfit } = record.pnlData;
-        const color = isProfit ? "#00b386" : "#eb3a3a";
-        const bg = isProfit ? "#f0fdf4" : "#fff1f0";
-        const border = isProfit ? "#bbf7d0" : "#ffa39e";
-        
         return (
-          <Tag
-            style={{
-              background: bg,
-              borderColor: border,
-              color,
-              fontWeight: 700,
-              fontSize: 12,
-              borderRadius: 6,
-              padding: "2px 10px",
-            }}
-          >
-            {isProfit ? "+" : ""}₹{Math.abs(pnl).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-            &nbsp;({isProfit ? "+" : ""}{pnlPct.toFixed(1)}%)
-          </Tag>
+          <CurrentPnlTag
+            avgBuyPrice={record.trade.avg_buy_price}
+            quantity={record.trade.quantity}
+            symbol={record.trade.nse_symbol}
+            snapshotLtp={quotesBySymbol[record.trade.nse_symbol.toUpperCase()]?.ltp ?? null}
+          />
         );
       },
     },
