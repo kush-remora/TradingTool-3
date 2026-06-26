@@ -21,6 +21,12 @@ data class TrailingStopBacktestConfig(
     val allocationPerTrade: Double = 10000.0,
 )
 
+data class TrailingStopBacktestApiRequest(
+    val csvContent: String,
+    val priceDataToDate: String?,
+    val allocationPerTrade: Double?,
+)
+
 data class TrailingStopTradeRow(
     val symbol: String,
     val marketCapName: String,

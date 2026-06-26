@@ -3,8 +3,9 @@ package com.tradingtool.core.strategy.trailingstopbacktest
 import com.tradingtool.core.candle.dao.CandleReadDao
 import com.tradingtool.core.database.CandleJdbiHandler
 import java.time.LocalDate
+import com.google.inject.Inject
 
-class TrailingStopBacktestService(
+class TrailingStopBacktestService @Inject constructor(
     private val signalCsvSource: TrailingStopSignalCsvSource,
     private val engine: TrailingStopBacktestEngine,
     private val candleHandler: CandleJdbiHandler,

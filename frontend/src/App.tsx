@@ -10,6 +10,7 @@ import { WyckoffPhase1Page } from "./pages/WyckoffPhase1Page";
 import { TradePage } from "./pages/TradePage";
 import { PhaseDScannerPage } from "./pages/PhaseDScannerPage";
 import { ChartinkFiftyTwoWeekHighPage } from "./pages/ChartinkFiftyTwoWeekHighPage";
+import { TrailingStopBacktestPage } from "./pages/TrailingStopBacktestPage";
 
 type V1PageKey =
   | "trade"
@@ -18,7 +19,8 @@ type V1PageKey =
   | "delivery-breakout"
   | "hot-sma"
   | "phase-d"
-  | "chartink-52w";
+  | "chartink-52w"
+  | "trailing-stop";
 
 type PageKey = V1PageKey;
 
@@ -27,6 +29,7 @@ const menuItems: MenuProps["items"] = [
   { key: "delivery-breakout", label: "Delivery Breakout", icon: <FundOutlined /> },
   { key: "hot-sma", label: "SMA Buy Zone", icon: <HeatMapOutlined /> },
   { key: "chartink-52w", label: "Chartink 52W Backtest", icon: <LineChartOutlined /> },
+  { key: "trailing-stop", label: "Trailing Stop Backtest", icon: <LineChartOutlined /> },
   { key: "wyckoff-phase1", label: "Wyckoff Phase-1", icon: <BarChartOutlined /> },
   { key: "phase-d", label: "Phase D Scanner", icon: <FundOutlined /> },
   { key: "trade", label: "Trade Journal", icon: <BookOutlined /> },
@@ -40,6 +43,7 @@ const validPages: PageKey[] = [
   "hot-sma",
   "phase-d",
   "chartink-52w",
+  "trailing-stop",
 ];
 
 export default function App() {
@@ -132,6 +136,7 @@ export default function App() {
             {route === "hot-sma" && <HotSmaPage />}
             { route === "phase-d" && <PhaseDScannerPage /> }
             {route === "chartink-52w" && <ChartinkFiftyTwoWeekHighPage />}
+            {route === "trailing-stop" && <TrailingStopBacktestPage />}
           </Layout.Content>
         </Layout>
       </Layout>

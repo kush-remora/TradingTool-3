@@ -38,6 +38,7 @@ class StrategyResource @Inject constructor(
     private val growwVolumeShockerDashboardService: GrowwVolumeShockerDashboardService,
     private val chartinkFiftyTwoWeekHighReportService: ChartinkFiftyTwoWeekHighReportService,
     private val phaseCWatchlistService: com.tradingtool.core.strategy.phasedbreakout.PhaseCWatchlistService,
+    private val trailingStopBacktestService: com.tradingtool.core.strategy.trailingstopbacktest.TrailingStopBacktestService,
 ) {
     private val ioScope = resourceScope.ioScope
 
@@ -179,6 +180,32 @@ class StrategyResource @Inject constructor(
     @Path("/phase-c/export")
     fun exportPhaseCData(): CompletableFuture<Response> = ioScope.endpoint {
         ok(phaseCWatchlistService.getExportData())
+    }
+
+    @POST
+    @Path("/trailing-stop-backtest/run")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runTrailingStopBacktest(
+        request: com.tradingtool.core.strategy.trailingstopbacktest.TrailingStopBacktestApiRequest?
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+
+        val tempFile = java.nio.file.Files.createTempFile("trailing_stop_", ".csv")
+        try {
+            java.nio.file.Files.writeString(tempFile, body.csvContent)
+            
+            val toDate = body.priceDataToDate?.let { LocalDate.parse(it) } ?: LocalDate.now()
+            val config = com.tradingtool.core.strategy.trailingstopbacktest.TrailingStopBacktestConfig(
+                inputFile = tempFile,
+                priceDataToDate = toDate,
+                allocationPerTrade = body.allocationPerTrade ?: 10000.0
+            )
+            
+            val report = trailingStopBacktestService.run(config)
+            ok(report)
+        } finally {
+            java.nio.file.Files.deleteIfExists(tempFile)
+        }
     }
 }
 

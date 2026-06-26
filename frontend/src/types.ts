@@ -2323,3 +2323,45 @@ export interface IntradayShockBacktestResponse {
   diagnostics: IntradayShockBacktestDiagnostics;
   trades: IntradayShockBacktestTrade[];
 }
+
+export interface TrailingStopTradeRow {
+    symbol: string;
+    marketCapName: string;
+    sector: string;
+    signalDate: string;
+    entryDate: string;
+    exitDate: string;
+    entryPrice: number;
+    exitPrice: number;
+    shares: number;
+    investedAmount: number;
+    profitLoss: number;
+    profitLossPct: number;
+    holdingTradingDays: number;
+    outcome: string;
+}
+
+export interface TrailingStopAggregateResult {
+    marketCapName: string;
+    sector: string;
+    totalTrades: number;
+    profitableTrades: number;
+    totalInvested: number;
+    totalProfitLoss: number;
+    averageReturnPct: number | null;
+}
+
+export interface TrailingStopBacktestReport {
+    generatedAt: string;
+    inputFile: string;
+    priceDataToDate: string;
+    totalSignals: number;
+    trades: TrailingStopTradeRow[];
+    aggregations: TrailingStopAggregateResult[];
+}
+
+export interface TrailingStopBacktestApiRequest {
+    csvContent: string;
+    priceDataToDate?: string;
+    allocationPerTrade?: number;
+}

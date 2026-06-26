@@ -3,8 +3,9 @@ package com.tradingtool.core.strategy.trailingstopbacktest
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.technical.roundTo2
 import java.time.OffsetDateTime
+import com.google.inject.Inject
 
-class TrailingStopBacktestEngine {
+class TrailingStopBacktestEngine @Inject constructor() {
 
     fun run(
         inputFile: String,

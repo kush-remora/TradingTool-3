@@ -9,8 +9,9 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import com.google.inject.Inject
 
-class TrailingStopSignalCsvSource {
+class TrailingStopSignalCsvSource @Inject constructor() {
 
     suspend fun load(inputFile: Path): List<TrailingStopSignal> = withContext(Dispatchers.IO) {
         Files.newBufferedReader(inputFile).use { reader ->
