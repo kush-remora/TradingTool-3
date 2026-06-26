@@ -2,6 +2,7 @@ package com.tradingtool.resources
 
 import com.google.inject.Inject
 import com.tradingtool.core.di.ResourceScope
+import com.tradingtool.core.strategy.fiftytwohigh.ChartinkFiftyTwoWeekHighReportService
 import com.tradingtool.core.strategy.hotsma.HotSmaRunConfig
 import com.tradingtool.core.strategy.hotsma.HotSmaRunRequest
 import com.tradingtool.core.strategy.hotsma.HotSmaScannerService
@@ -14,6 +15,7 @@ import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1ScannerService
 import com.tradingtool.core.volumeshocker.groww.GrowwVolumeShockerDashboardService
 import com.tradingtool.resources.common.badRequest
 import com.tradingtool.resources.common.endpoint
+import com.tradingtool.resources.common.notFound
 import com.tradingtool.resources.common.ok
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.GET
@@ -34,6 +36,7 @@ class StrategyResource @Inject constructor(
     private val wyckoffPhase1ScannerService: WyckoffPhase1ScannerService,
     private val wyckoffPhase1ConfigService: WyckoffPhase1ConfigService,
     private val growwVolumeShockerDashboardService: GrowwVolumeShockerDashboardService,
+    private val chartinkFiftyTwoWeekHighReportService: ChartinkFiftyTwoWeekHighReportService,
     private val phaseCWatchlistService: com.tradingtool.core.strategy.phasedbreakout.PhaseCWatchlistService,
 ) {
     private val ioScope = resourceScope.ioScope
@@ -55,6 +58,16 @@ class StrategyResource @Inject constructor(
             return@endpoint badRequest("tradeDate must be a valid ISO date in YYYY-MM-DD format.")
         }
         ok(deliveryBreakoutScannerService.getDashboard(parsedTradeDate))
+    }
+
+    @GET
+    @Path("/chartink-fiftytwo-week-high/report")
+    fun getChartinkFiftyTwoWeekHighReport(): CompletableFuture<Response> = ioScope.endpoint {
+        try {
+            ok(chartinkFiftyTwoWeekHighReportService.loadLatestReport())
+        } catch (error: IllegalArgumentException) {
+            notFound(error.message ?: "Chartink 52-week-high report not found.")
+        }
     }
 
     @POST

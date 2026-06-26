@@ -36,6 +36,7 @@ import com.tradingtool.core.delivery.reconciliation.DeliveryReconciliationServic
 import com.tradingtool.core.delivery.source.NseDeliverySourceAdapter
 import com.tradingtool.core.screener.CandleDataService
 import com.tradingtool.core.strategy.profitlookback.ProfitLookbackService
+import com.tradingtool.core.strategy.fiftytwohigh.ChartinkFiftyTwoWeekHighReportService
 import com.tradingtool.core.strategy.hotsma.HotSmaScannerService
 import com.tradingtool.core.volumeshocker.groww.dao.GrowwVolumeShockerReadDao
 import com.tradingtool.core.volumeshocker.groww.dao.GrowwVolumeShockerWriteDao
@@ -249,6 +250,13 @@ class ServiceModule(
         candleCacheService = candleCacheService,
         candleDataService = candleDataService,
         kiteClient = kiteClient,
+    )
+
+    @Provides @Singleton
+    fun provideChartinkFiftyTwoWeekHighReportService(
+        objectMapper: com.fasterxml.jackson.databind.ObjectMapper,
+    ): ChartinkFiftyTwoWeekHighReportService = ChartinkFiftyTwoWeekHighReportService(
+        objectMapper = objectMapper,
     )
 
     @Provides @Singleton

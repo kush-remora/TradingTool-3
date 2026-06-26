@@ -271,6 +271,81 @@ export interface EarningsDashboardExportDocument {
   raw_daily_candles_20d: EarningsDashboardRawCandleBlock[];
 }
 
+// ==================== Chartink 52-Week High Backtest ====================
+
+export interface ChartinkFiftyTwoWeekHighStrategy {
+  name: string;
+  profitTargetPct: number;
+  stopLossPct: number;
+}
+
+export interface ChartinkFiftyTwoWeekHighBucketSummary {
+  strategyName: string;
+  marketCapBucket: string;
+  totalSignals: number;
+  enteredTrades: number;
+  successCount: number;
+  stopLossCount: number;
+  endExitCount: number;
+  noEntryCount: number;
+  successRatePct: number;
+  avgHoldingTradingDays: number | null;
+  medianHoldingTradingDays: number | null;
+}
+
+export interface ChartinkFiftyTwoWeekHighStrategySummary {
+  strategyName: string;
+  totalSignals: number;
+  enteredTrades: number;
+  successCount: number;
+  stopLossCount: number;
+  endExitCount: number;
+  noEntryCount: number;
+  successRatePct: number;
+  avgHoldingTradingDays: number | null;
+  medianHoldingTradingDays: number | null;
+  buckets: ChartinkFiftyTwoWeekHighBucketSummary[];
+}
+
+export interface ChartinkFiftyTwoWeekHighTradeRow {
+  strategyName: string;
+  symbol: string;
+  marketCapName: string;
+  marketCapBucket: string;
+  sector: string;
+  signalDate: string;
+  entryDate: string | null;
+  exitDate: string | null;
+  entryPrice: number | null;
+  exitPrice: number | null;
+  targetPrice: number | null;
+  stopPrice: number | null;
+  outcome: string;
+  success: boolean;
+  holdingTradingDays: number | null;
+  holdingCalendarDays: number | null;
+  returnPct: number | null;
+  maxFavorableExcursionPct: number | null;
+  maxAdverseExcursionPct: number | null;
+  forward5dReturnPct: number | null;
+  forward10dReturnPct: number | null;
+  forward20dReturnPct: number | null;
+  forward60dReturnPct: number | null;
+  exitWasAmbiguous: boolean;
+  latestAvailableDate: string | null;
+}
+
+export interface ChartinkFiftyTwoWeekHighBacktestReport {
+  generatedAt: string;
+  inputFile: string;
+  priceDataToDate: string;
+  strategies: ChartinkFiftyTwoWeekHighStrategy[];
+  signalCount: number;
+  uniqueSymbolCount: number;
+  summaries: ChartinkFiftyTwoWeekHighStrategySummary[];
+  trades: ChartinkFiftyTwoWeekHighTradeRow[];
+}
+
 
 
 // ==================== Watchlist Dashboard ====================
