@@ -11,6 +11,9 @@ import { TradePage } from "./pages/TradePage";
 import { PhaseDScannerPage } from "./pages/PhaseDScannerPage";
 import { ChartinkFiftyTwoWeekHighPage } from "./pages/ChartinkFiftyTwoWeekHighPage";
 import { TrailingStopBacktestPage } from "./pages/TrailingStopBacktestPage";
+import { FiftyTwoWeekMomentumRule5Page } from "./pages/FiftyTwoWeekMomentumRule5Page";
+import { CsvBacktestPage } from "./pages/CsvBacktestPage";
+import { BacktestReviewsPage } from "./pages/BacktestReviewsPage";
 
 type V1PageKey =
   | "trade"
@@ -20,7 +23,10 @@ type V1PageKey =
   | "hot-sma"
   | "phase-d"
   | "chartink-52w"
-  | "trailing-stop";
+  | "trailing-stop"
+  | "52w-momentum-rule5"
+  | "csv-backtest"
+  | "backtest-reviews";
 
 type PageKey = V1PageKey;
 
@@ -30,6 +36,9 @@ const menuItems: MenuProps["items"] = [
   { key: "hot-sma", label: "SMA Buy Zone", icon: <HeatMapOutlined /> },
   { key: "chartink-52w", label: "Chartink 52W Backtest", icon: <LineChartOutlined /> },
   { key: "trailing-stop", label: "Trailing Stop Backtest", icon: <LineChartOutlined /> },
+  { key: "52w-momentum-rule5", label: "52W Momentum Rule 5", icon: <LineChartOutlined /> },
+  { key: "csv-backtest", label: "CSV Backtest Tool", icon: <LineChartOutlined /> },
+  { key: "backtest-reviews", label: "Saved Backtest Reviews", icon: <BookOutlined /> },
   { key: "wyckoff-phase1", label: "Wyckoff Phase-1", icon: <BarChartOutlined /> },
   { key: "phase-d", label: "Phase D Scanner", icon: <FundOutlined /> },
   { key: "trade", label: "Trade Journal", icon: <BookOutlined /> },
@@ -44,6 +53,9 @@ const validPages: PageKey[] = [
   "phase-d",
   "chartink-52w",
   "trailing-stop",
+  "52w-momentum-rule5",
+  "csv-backtest",
+  "backtest-reviews",
 ];
 
 export default function App() {
@@ -137,6 +149,9 @@ export default function App() {
             { route === "phase-d" && <PhaseDScannerPage /> }
             {route === "chartink-52w" && <ChartinkFiftyTwoWeekHighPage />}
             {route === "trailing-stop" && <TrailingStopBacktestPage />}
+            {route === "52w-momentum-rule5" && <FiftyTwoWeekMomentumRule5Page />}
+            {route === "csv-backtest" && <CsvBacktestPage />}
+            {route === "backtest-reviews" && <BacktestReviewsPage />}
           </Layout.Content>
         </Layout>
       </Layout>

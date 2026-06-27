@@ -223,3 +223,41 @@ This is the observation that most cleanly separates the accumulation window (Feb
 **What it does not tell us:** A stock can also orbit its 200D average simply because it has no catalysts — not because of active accumulation. This rule is the strongest of the five but still needs the volume rule (Rule 4) alongside it. The combination of volume drying up AND price orbiting the 200D average is much harder to fake than either signal alone.
 
 **Note on the rigidity problem:** The ±2% band is a starting point. A more volatile stock may naturally orbit at ±4%. Report all three bands and compare the stock's own history rather than applying a fixed threshold.
+
+---
+
+## The Problem of Rigid Constraints
+
+### Why fixed thresholds break in practice
+
+Every rule above uses illustrative numbers to show what a signal looks like in BHEL's data — an 8% range, a 4% daily move, a ±2% band, "5 days minimum." These were never meant to be universal cutoffs. Each rule flags this in passing, but the consequence is worth stating plainly, because it is the way this framework actually fails when it gets used:
+
+**A threshold calibrated on one stock — or on the population in general — misclassifies any stock whose normal "style" differs from that baseline.** A high-beta small-cap will trip a fixed "erratic day" flag (e.g. >4%) routinely, even while it is genuinely accumulating, because 4–5% moves are just its normal daily texture. A historically calm large-cap may pass a fixed "compression" check (e.g. <8% range) without doing anything meaningful, because 8% is wide for that stock's usual behaviour. The same applies to count-based gates — "at least 5 of 30 days below the 5-day average" or "no more than 2–3 erratic days" assume every stock has the same baseline frequency of that event. It doesn't. A thinly traded stock can show that count purely from noise; a heavily traded one might never reach it even during a real accumulation phase.
+
+The underlying issue: an absolute threshold is calibrated against *some* reference distribution — BHEL's, or the broader market's — and then applied to a *different* stock with its own distribution. It's the equivalent of using one person's resting heart rate as the cutoff for "healthy" in everyone else, regardless of age or fitness.
+
+### The fix: measure each stock against its own history, not a universal cutoff
+
+Replace "is X below 2%?" with "is X unusually low *for this stock*?" Concretely:
+
+1. **Maintain each stock's own historical distribution** of every raw metric in this document — 30D range %, daily move %, volume ratio, proximity %, and so on — over a trailing window (e.g. the last 2–3 years).
+2. **Convert today's raw value into a relative position within that distribution**, instead of comparing it to a fixed number:
+    - *Percentile rank* — "Today's 30D range is in the bottom 10th percentile of all 30D ranges this stock has shown over the last 2 years." This statement means the same thing whether the stock is BHEL, a small-cap, or a high-beta name, because each is judged against itself.
+    - *Z-score* — (today's value − this stock's own historical mean) ÷ this stock's own historical standard deviation. Useful, but price and volume data have fat tails, so a robust version — using the median and MAD (median absolute deviation) instead of mean and standard deviation — resists distortion from a handful of extreme sell-off days.
+3. **For count-based checks**, make the threshold that defines an "event" self-relative first (e.g. "exceeded this stock's own 90th percentile single-day move"), then count how many of the last 30 days clear that self-relative bar, and express it as a percentage of the window rather than a fixed minimum count. Rule 4 and Rule 5 already lean this way (percentage of days, all three bands reported); Rule 1's "8–10%" framing and Rule 3's "4% / 2–3 days" framing don't yet.
+4. **No manual bucketing required.** This doesn't need stocks pre-sorted by market cap or sector (though that's a reasonable shortcut for early testing). Measuring a stock against its own trailing history captures its "style" automatically — a naturally choppy stock's own choppy history becomes the denominator, so a normal choppy day for it stops registering as a false erratic-day flag.
+
+### How this applies to each rule
+
+- **Rule 1 (range compression):** instead of "below 8–10%," ask whether today's 30D range sits in the bottom N% of this stock's own rolling 30D ranges over the last 2 years.
+- **Rule 3, Check 1 (erratic days):** instead of "moved >4%," ask whether the move exceeded this stock's own 85th/90th percentile single-day move, then count days clearing that self-relative bar.
+- **Rule 4 (volume drying up):** the ratio-vs-5-day-average and "% of days below average" already self-normalize well, since they compare a stock to its own recent volume. Extend the same logic to the absolute volume floor (e.g. "4.2M shares") by expressing it as a percentile of this stock's own trailing volume distribution, so floors are comparable across stocks of very different sizes.
+- **Rule 5 (200D average proximity):** already closest to the right design — report all three bands and compare to the stock's own history. Go one step further: also report what percentage of *this stock's own* trading history typically falls within each band, so 79% within ±2% can be read against this stock's own normal behaviour, not just an absolute number.
+
+### What stays the same
+
+Keep raw numbers as the primary Phase 1 output — no pass/fail. The self-relative versions (percentiles, robust z-scores) are an additional layer computed on top of the raw numbers, not a replacement for them. This preserves the "let the data speak" principle already stated above, while making it possible to compare stocks of different styles on equal footing once Phase 2 scoring begins. Resist the temptation to fix a single percentile cutoff (e.g. "bottom 10%") as the next hard rule — report several (5%, 10%, 20%) the way Rule 5 reports three absolute bands, and choose the right cutoff only after testing across a deliberately diverse set of stocks (different market caps, liquidity levels, sectors), not just BHEL.
+
+### One more rigidity worth flagging: the 30-day window itself
+
+The window length is subject to the same problem as the thresholds. Rather than mandating 30 days for every stock, the same self-relative logic can be applied to window choice: test multiple window lengths (20/30/45 days) per stock and see which one produces the most stable, strongest version of these self-relative signals for that particular stock — rather than fixing one window size as universal.

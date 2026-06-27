@@ -2360,8 +2360,123 @@ export interface TrailingStopBacktestReport {
     aggregations: TrailingStopAggregateResult[];
 }
 
+export interface Rule5ApiRequest {
+  csvContent: string;
+}
+
+export interface Rule5DailyDetail {
+  date: string;
+  closePrice: number;
+  sma200: number;
+  in2Pct: boolean;
+  in3Pct: boolean;
+  in4Pct: boolean;
+}
+
+export interface Rule5SymbolResult {
+  date: string;
+  symbol: string;
+  marketCapName: string;
+  sector: string;
+  closePrice: number;
+  sma200: number;
+  fiftyTwoWeekHigh: number;
+  fiftyTwoWeekLow: number;
+  distTo52wHighPct: number;
+  distTo52wLowPct: number;
+  daysIn2Pct: number;
+  daysIn3Pct: number;
+  daysIn4Pct: number;
+  dailyBreakdown: Rule5DailyDetail[];
+}
+
+export interface Rule5ApiResponse {
+  results: Rule5SymbolResult[];
+}
+
 export interface TrailingStopBacktestApiRequest {
     csvContent: string;
     priceDataToDate?: string;
     allocationPerTrade?: number;
+}
+
+// ==================== CSV Backtest ====================
+
+export interface CsvBacktestApiRequest {
+  csvContent: string;
+  type: string;
+  targetPct: number | null;
+  stopLossPct: number;
+}
+
+export interface CsvBacktestTradeResult {
+  symbol: string;
+  marketCapName: string;
+  sector: string;
+  signalDate: string;
+  entryDate: string | null;
+  entryPrice: number | null;
+  exitDate: string | null;
+  exitPrice: number | null;
+  profitLossPct: number | null;
+  daysHeld: number;
+  slHit: boolean;
+  isOpen: boolean;
+}
+
+export interface CsvBacktestSummary {
+  month: string;
+  totalTrades: number;
+  winTrades: number;
+  lossTrades: number;
+  avgHoldingPeriod: number;
+  avgProfitPct: number;
+}
+
+export interface CsvBacktestResponse {
+  trades: CsvBacktestTradeResult[];
+  summaries: CsvBacktestSummary[];
+}
+
+// ==================== CSV Backtest Trade Reviews ====================
+
+export interface BacktestTradeReview {
+  id?: string;
+  symbol: string;
+  signalDate: string;
+  marketCap: string | null;
+  sector: string | null;
+  entryDate: string | null;
+  entryPrice: number | null;
+  exitDate: string | null;
+  exitPrice: number | null;
+  pnlPct: number | null;
+  daysHeld: number | null;
+  slHit: boolean | null;
+  isPass: boolean | null;
+  reasonTags: string | null;
+  notes: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface BacktestTradeReviewApiRequest {
+  symbol: string;
+  signalDate: string;
+  marketCap: string | null;
+  sector: string | null;
+  entryDate: string | null;
+  entryPrice: number | null;
+  exitDate: string | null;
+  exitPrice: number | null;
+  pnlPct: number | null;
+  daysHeld: number | null;
+  slHit: boolean | null;
+  isPass: boolean | null;
+  reasonTags: string | null;
+  notes: string | null;
+}
+
+export interface BacktestTradeReviewApiResponse {
+  reviews: BacktestTradeReview[];
 }

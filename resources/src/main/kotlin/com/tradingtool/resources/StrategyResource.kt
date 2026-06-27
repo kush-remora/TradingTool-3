@@ -39,6 +39,9 @@ class StrategyResource @Inject constructor(
     private val chartinkFiftyTwoWeekHighReportService: ChartinkFiftyTwoWeekHighReportService,
     private val phaseCWatchlistService: com.tradingtool.core.strategy.phasedbreakout.PhaseCWatchlistService,
     private val trailingStopBacktestService: com.tradingtool.core.strategy.trailingstopbacktest.TrailingStopBacktestService,
+    private val fiftyTwoWeekMomentumRule5Service: com.tradingtool.core.strategy.fiftytwomomentum.FiftyTwoWeekMomentumRule5Service,
+    private val csvBacktestService: com.tradingtool.core.strategy.csvbacktest.CsvBacktestService,
+    private val backtestTradeReviewService: com.tradingtool.core.strategy.csvbacktest.BacktestTradeReviewService,
 ) {
     private val ioScope = resourceScope.ioScope
 
@@ -206,6 +209,50 @@ class StrategyResource @Inject constructor(
         } finally {
             java.nio.file.Files.deleteIfExists(tempFile)
         }
+    }
+
+    @POST
+    @Path("/52w-momentum/rule5/csv")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun run52wMomentumRule5(
+        request: com.tradingtool.core.strategy.fiftytwomomentum.Rule5ApiRequest?
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        val report = fiftyTwoWeekMomentumRule5Service.runRule5Analysis(body.csvContent)
+        ok(report)
+    }
+
+    @POST
+    @Path("/csv-backtest/run")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runCsvBacktest(
+        request: com.tradingtool.core.strategy.csvbacktest.CsvBacktestApiRequest?
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        val response = csvBacktestService.runBacktest(
+            csvContent = body.csvContent,
+            type = body.type,
+            targetPct = body.targetPct,
+            stopLossPct = body.stopLossPct
+        )
+        ok(response)
+    }
+
+    @GET
+    @Path("/csv-backtest/reviews")
+    fun getBacktestTradeReviews(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(backtestTradeReviewService.getAllReviews())
+    }
+
+    @POST
+    @Path("/csv-backtest/reviews")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun upsertBacktestTradeReview(
+        request: com.tradingtool.core.strategy.csvbacktest.BacktestTradeReviewApiRequest?
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        backtestTradeReviewService.upsertReview(body)
+        ok(mapOf("success" to true))
     }
 }
 

@@ -277,8 +277,27 @@ class ServiceModule(
             instrumentTokenResolver = instrumentTokenResolver
         )
 
+    @Provides @Singleton
+    fun provideCsvBacktestService(
+        candleHandler: CandleJdbiHandler,
+        candleDataService: CandleDataService,
+        kiteClient: KiteConnectClient
+    ): com.tradingtool.core.strategy.csvbacktest.CsvBacktestService =
+        com.tradingtool.core.strategy.csvbacktest.CsvBacktestService(
+            candleHandler = candleHandler,
+            candleDataService = candleDataService,
+            kiteClient = kiteClient
+        )
 
+    @Provides @Singleton
+    fun provideBacktestTradeReviewJdbiHandler(config: DatabaseConfig): JdbiHandler<com.tradingtool.core.strategy.csvbacktest.dao.BacktestTradeReviewReadDao, com.tradingtool.core.strategy.csvbacktest.dao.BacktestTradeReviewWriteDao> =
+        handler<com.tradingtool.core.strategy.csvbacktest.dao.BacktestTradeReviewReadDao, com.tradingtool.core.strategy.csvbacktest.dao.BacktestTradeReviewWriteDao>(config)
 
+    @Provides @Singleton
+    fun provideBacktestTradeReviewService(
+        handler: JdbiHandler<com.tradingtool.core.strategy.csvbacktest.dao.BacktestTradeReviewReadDao, com.tradingtool.core.strategy.csvbacktest.dao.BacktestTradeReviewWriteDao>
+    ): com.tradingtool.core.strategy.csvbacktest.BacktestTradeReviewService =
+        com.tradingtool.core.strategy.csvbacktest.BacktestTradeReviewService(handler)
 
     private companion object {
         fun readPositiveIntEnv(envName: String, defaultValue: Int): Int {
