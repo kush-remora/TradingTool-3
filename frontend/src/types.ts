@@ -2480,3 +2480,14 @@ export interface BacktestTradeReviewApiRequest {
 export interface BacktestTradeReviewApiResponse {
   reviews: BacktestTradeReview[];
 }
+
+export interface ReviewReason {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export interface ReviewReasonsResponse {
+  acceptanceReasons: ReviewReason[];
+  rejectionReasons: ReviewReason[];
+}

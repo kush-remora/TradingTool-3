@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Card, 
   Space, 
@@ -22,9 +22,10 @@ import type { UploadProps, UploadFile } from "antd/es/upload/interface";
 import { 
   CsvBacktestApiRequest, 
   CsvBacktestResponse,
-  BacktestTradeReviewApiRequest
+  BacktestTradeReviewApiRequest,
+  ReviewReasonsResponse,
+  ReviewReason
 } from "../types";
-import { ACCEPTANCE_REASONS, REJECTION_REASONS } from "../utils/tradeReviewReasons";
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -50,6 +51,15 @@ export function CsvBacktestPage() {
   const [reviewForm] = Form.useForm();
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewPassMode, setReviewPassMode] = useState<boolean | null>(null);
+  
+  const [reviewReasons, setReviewReasons] = useState<ReviewReasonsResponse | null>(null);
+
+  useEffect(() => {
+    fetch("/api/strategy/csv-backtest/reviews/reasons")
+      .then(res => res.json())
+      .then(data => setReviewReasons(data as ReviewReasonsResponse))
+      .catch(err => console.error("Failed to load review reasons", err));
+  }, []);
 
   const handleUpload: UploadProps["onChange"] = (info) => {
     let newFileList = [...info.fileList];
@@ -215,6 +225,19 @@ export function CsvBacktestPage() {
     },
   ];
 
+  const getReasonOptions = () => {
+    if (!reviewReasons) return [];
+    const list = reviewPassMode ? reviewReasons.acceptanceReasons : reviewReasons.rejectionReasons;
+    return list.map((reason: ReviewReason) => (
+      <Select.Option key={reason.id} value={reason.label} label={reason.label}>
+        <div>
+          <div style={{ fontWeight: 'bold' }}>{reason.label}</div>
+          <div style={{ fontSize: '12px', color: '#888' }}>{reason.description}</div>
+        </div>
+      </Select.Option>
+    ));
+  };
+
   return (
     <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
       <Space direction="vertical" size={24} style={{ width: "100%" }}>
@@ -316,11 +339,13 @@ export function CsvBacktestPage() {
                 name="reasonTags" 
                 label={reviewPassMode ? "Acceptance Reasons" : "Rejection Reasons"}
               >
-                <Select mode="tags" style={{ width: '100%' }} placeholder="Select or type reasons...">
-                  {reviewPassMode 
-                    ? ACCEPTANCE_REASONS.map(r => <Select.Option key={r} value={r}>{r}</Select.Option>)
-                    : REJECTION_REASONS.map(r => <Select.Option key={r} value={r}>{r}</Select.Option>)
-                  }
+                <Select 
+                  mode="tags" 
+                  style={{ width: '100%' }} 
+                  placeholder="Select or type reasons..."
+                  optionLabelProp="label"
+                >
+                  {getReasonOptions()}
                 </Select>
               </Form.Item>
             )}

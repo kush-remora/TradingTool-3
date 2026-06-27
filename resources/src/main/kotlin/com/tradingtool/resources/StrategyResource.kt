@@ -254,6 +254,12 @@ class StrategyResource @Inject constructor(
         backtestTradeReviewService.upsertReview(body)
         ok(mapOf("success" to true))
     }
+
+    @GET
+    @Path("/csv-backtest/reviews/reasons")
+    fun getBacktestTradeReviewReasons(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(com.tradingtool.core.strategy.csvbacktest.BacktestTradeReviewReasonConfig.reasons)
+    }
 }
 
 internal fun validateHotSmaRunRequest(request: HotSmaRunRequest): HotSmaRunRequest {
