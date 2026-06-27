@@ -2,6 +2,9 @@ package com.tradingtool.core.strategy.trailingstopbacktest
 
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.technical.roundTo2
+import com.tradingtool.core.technical.toTa4jSeries
+import com.tradingtool.core.technical.calculateEma
+import com.tradingtool.core.technical.getDoubleValue
 import java.time.OffsetDateTime
 import com.google.inject.Inject
 
@@ -37,15 +40,16 @@ class TrailingStopBacktestEngine @Inject constructor() {
         allocationPerTrade: Double,
     ): TrailingStopTradeRow {
         val signal = context.signal
-        val candles = context.candles.sortedBy { it.candleDate }
+        val candles = context.candles.distinctBy { it.candleDate }.sortedBy { it.candleDate }
+        
+        val ta4jSeries = candles.toTa4jSeries()
+        val ema20Indicator = ta4jSeries.calculateEma(20)
         
         val signalCandle = candles.find { it.candleDate == signal.signalDate }
         
         if (signalCandle == null) {
             return createEmptyRow(signal, "NO_SIGNAL_CANDLE_FOUND")
         }
-
-        val initialSl = signalCandle.low
 
         val entryIndex = candles.indexOfFirst { it.candleDate > signal.signalDate }
         if (entryIndex < 0) {
@@ -61,30 +65,20 @@ class TrailingStopBacktestEngine @Inject constructor() {
         val shares = maxOf(1, (allocationPerTrade / entryPrice).toInt())
         val investedAmount = shares * entryPrice
 
-        var currentSl = initialSl
         var exitPrice: Double? = null
         var exitIndex: Int? = null
         var outcome = "OPEN"
 
         for (i in entryIndex until candles.size) {
             val todayCandle = candles[i]
+            val todayEma20 = ema20Indicator.getDoubleValue(i)
             
-            // Check if we hit the stop loss
-            if (todayCandle.open <= currentSl) {
-                // Gap down below SL at the open
-                exitPrice = todayCandle.open
+            // Check if we hit the stop loss (close < EMA20)
+            if (todayEma20 > 0.0 && todayCandle.close < todayEma20) {
+                exitPrice = todayCandle.close
                 exitIndex = i
-                outcome = "STOP_LOSS_GAP_DOWN"
+                outcome = "STOP_LOSS_EMA20"
                 break
-            } else if (todayCandle.low <= currentSl) {
-                // Hit SL intraday
-                exitPrice = currentSl
-                exitIndex = i
-                outcome = "STOP_LOSS_HIT"
-                break
-            } else {
-                // Survived the day, update trailing SL using today's low (move up only)
-                currentSl = maxOf(currentSl, todayCandle.low)
             }
         }
 

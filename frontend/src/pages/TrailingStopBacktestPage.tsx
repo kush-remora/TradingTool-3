@@ -1,5 +1,5 @@
-import { UploadOutlined } from "@ant-design/icons";
-import { Alert, Button, Card, Col, Divider, Row, Space, Statistic, Table, Typography, Upload, message } from "antd";
+import { UploadOutlined, SettingOutlined } from "@ant-design/icons";
+import { Alert, Button, Card, Col, Divider, Row, Space, Statistic, Table, Typography, Upload, message, InputNumber } from "antd";
 import type { UploadFile, UploadProps } from "antd/es/upload/interface";
 import { useMemo, useState } from "react";
 import type { TrailingStopBacktestReport, TrailingStopBacktestApiRequest, TrailingStopTradeRow } from "../types";
@@ -25,6 +25,7 @@ export function TrailingStopBacktestPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<TrailingStopBacktestReport | null>(null);
+  const [successThresholdPct, setSuccessThresholdPct] = useState<number>(10);
 
   const handleUpload: UploadProps["onChange"] = (info) => {
     let fileList = [...info.fileList];
@@ -93,13 +94,13 @@ export function TrailingStopBacktestPage() {
   
   const overallSummary = useMemo(() => {
     const totalTrades = enteredTrades.length;
-    const profitableTrades = enteredTrades.filter(t => t.profitLoss > 0).length;
+    const profitableTrades = enteredTrades.filter(t => (t.profitLossPct ?? 0) >= successThresholdPct).length;
     const totalProfitLoss = enteredTrades.reduce((sum, t) => sum + t.profitLoss, 0);
     const totalInvested = enteredTrades.reduce((sum, t) => sum + t.investedAmount, 0);
     const averageReturnPct = totalInvested > 0 ? (totalProfitLoss / totalInvested) * 100 : 0;
     const winRatePct = totalTrades > 0 ? (profitableTrades / totalTrades) * 100 : 0;
     return { totalTrades, winRatePct, averageReturnPct, totalProfitLoss };
-  }, [enteredTrades]);
+  }, [enteredTrades, successThresholdPct]);
 
   const groupBy = (trades: TrailingStopTradeRow[], key: keyof TrailingStopTradeRow) => {
     const groups = new Map<string, TrailingStopTradeRow[]>();
@@ -112,7 +113,7 @@ export function TrailingStopBacktestPage() {
     
     return Array.from(groups.entries()).map(([name, groupTrades]) => {
       const totalTrades = groupTrades.length;
-      const profitableTrades = groupTrades.filter(t => t.profitLoss > 0).length;
+      const profitableTrades = groupTrades.filter(t => (t.profitLossPct ?? 0) >= successThresholdPct).length;
       const totalProfitLoss = groupTrades.reduce((sum, t) => sum + t.profitLoss, 0);
       const totalInvested = groupTrades.reduce((sum, t) => sum + t.investedAmount, 0);
       const averageReturnPct = totalInvested > 0 ? (totalProfitLoss / totalInvested) * 100 : 0;
@@ -121,8 +122,37 @@ export function TrailingStopBacktestPage() {
     });
   };
 
-  const marketCapSummary = useMemo(() => groupBy(enteredTrades, 'marketCapName'), [enteredTrades]);
-  const sectorSummary = useMemo(() => groupBy(enteredTrades, 'sector'), [enteredTrades]);
+  const marketCapSummary = useMemo(() => groupBy(enteredTrades, 'marketCapName'), [enteredTrades, successThresholdPct]);
+  const sectorSummary = useMemo(() => groupBy(enteredTrades, 'sector'), [enteredTrades, successThresholdPct]);
+
+  const groupedBySectorAndMarketCap = useMemo(() => {
+    const groups = new Map<string, TrailingStopTradeRow[]>();
+    for (const t of enteredTrades) {
+      const key = `${t.sector} - ${t.marketCapName}`;
+      const current = groups.get(key) || [];
+      current.push(t);
+      groups.set(key, current);
+    }
+    
+    return Array.from(groups.entries()).map(([key, groupTrades]) => {
+      const totalTrades = groupTrades.length;
+      const profitableTrades = groupTrades.filter(t => (t.profitLossPct ?? 0) >= successThresholdPct).length;
+      const totalProfitLoss = groupTrades.reduce((sum, t) => sum + t.profitLoss, 0);
+      const totalInvested = groupTrades.reduce((sum, t) => sum + t.investedAmount, 0);
+      const averageReturnPct = totalInvested > 0 ? (totalProfitLoss / totalInvested) * 100 : 0;
+      const winRatePct = totalTrades > 0 ? (profitableTrades / totalTrades) * 100 : 0;
+      return { 
+        key, 
+        name: key, 
+        totalTrades, 
+        profitableTrades, 
+        winRatePct, 
+        averageReturnPct, 
+        totalProfitLoss,
+        trades: groupTrades.sort((a, b) => a.signalDate.localeCompare(b.signalDate))
+      };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }, [enteredTrades, successThresholdPct]);
 
   const aggregateColumns = (keyTitle: string) => [
     { title: keyTitle, dataIndex: "name", key: "name", render: (val: string) => <Text strong>{val}</Text> },
@@ -131,6 +161,37 @@ export function TrailingStopBacktestPage() {
     { title: "Win Rate", dataIndex: "winRatePct", key: "winRatePct", render: (val: number) => formatPercent(val), sorter: (a: any, b: any) => a.winRatePct - b.winRatePct },
     { title: "Avg Return", dataIndex: "averageReturnPct", key: "averageReturnPct", render: (val: number) => formatPercent(val), sorter: (a: any, b: any) => a.averageReturnPct - b.averageReturnPct },
     { title: "P&L", dataIndex: "totalProfitLoss", key: "totalProfitLoss", render: (val: number) => `₹${formatNumber(val)}`, sorter: (a: any, b: any) => a.totalProfitLoss - b.totalProfitLoss },
+  ];
+
+  const tradeColumns = [
+    { title: "Signal Date", dataIndex: "signalDate", key: "signalDate" },
+    { title: "Symbol", dataIndex: "symbol", key: "symbol", render: (val: string) => <Text strong>{val}</Text> },
+    { title: "Outcome", dataIndex: "outcome", key: "outcome", render: (val: string) => {
+        let color = "default";
+        if (val === "STOP_LOSS_HIT" || val === "STOP_LOSS_GAP_DOWN" || val === "STOP_LOSS_EMA20") color = "red";
+        else if (val === "TARGET_HIT") color = "green";
+        else if (val === "OPEN_MTM") color = "blue";
+        return <Typography.Text style={{ color }}>{val}</Typography.Text>;
+    }},
+    { title: "Entry", key: "entry", render: (_: any, row: TrailingStopTradeRow) => (
+      <Space direction="vertical" size={0}>
+        <Text>{row.entryDate}</Text>
+        <Text type="secondary">₹{formatNumber(row.entryPrice)}</Text>
+      </Space>
+    )},
+    { title: "Exit", key: "exit", render: (_: any, row: TrailingStopTradeRow) => (
+      <Space direction="vertical" size={0}>
+        <Text>{row.exitDate}</Text>
+        <Text type="secondary">₹{formatNumber(row.exitPrice)}</Text>
+      </Space>
+    )},
+    { title: "Hold Days", dataIndex: "holdingTradingDays", key: "holdingTradingDays" },
+    { title: "P&L", dataIndex: "profitLoss", key: "profitLoss", render: (val: number) => (
+      <Text style={{ color: val >= 0 ? '#3f8600' : '#cf1322' }}>₹{formatNumber(val)}</Text>
+    )},
+    { title: "Return", dataIndex: "profitLossPct", key: "profitLossPct", render: (val: number) => (
+      <Text style={{ color: val >= 0 ? '#3f8600' : '#cf1322' }}>{formatPercent(val)}</Text>
+    )},
   ];
 
   return (
@@ -149,6 +210,16 @@ export function TrailingStopBacktestPage() {
             <Button type="primary" onClick={runBacktest} loading={loading} disabled={!csvContent}>
               Run Backtest
             </Button>
+            <Space style={{ marginLeft: 16 }}>
+              <Text type="secondary">Success Target (%):</Text>
+              <InputNumber 
+                value={successThresholdPct} 
+                onChange={(v) => setSuccessThresholdPct(v ?? 0)} 
+                min={0} 
+                max={100}
+                addonAfter="%"
+              />
+            </Space>
           </Space>
 
           {error && <Alert type="error" message={error} showIcon />}
@@ -184,6 +255,26 @@ export function TrailingStopBacktestPage() {
                   </Card>
                 </Col>
               </Row>
+
+              <Divider orientation="left">Deep Dive: Sector x Market Cap</Divider>
+              <Table 
+                dataSource={groupedBySectorAndMarketCap} 
+                columns={aggregateColumns('Sector & Market Cap')}
+                pagination={{ pageSize: 15 }}
+                size="middle"
+                bordered
+                expandable={{
+                  expandedRowRender: (record) => (
+                    <Table 
+                      dataSource={record.trades}
+                      columns={tradeColumns}
+                      rowKey={(row) => `${row.symbol}-${row.signalDate}`}
+                      pagination={false}
+                      size="small"
+                    />
+                  )
+                }}
+              />
 
               <Divider orientation="left">Performance by Market Cap</Divider>
               <Table 

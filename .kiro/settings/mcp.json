@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "kite": {
+      "url": "https://mcp.kite.trade/mcp",
+      "disabled": false,
+      "autoApprove": [
+        "login",
+        "get_quotes",
+        "get_historical_data"
+      ]
+    }
+  }
+}
