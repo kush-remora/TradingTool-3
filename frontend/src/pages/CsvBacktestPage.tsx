@@ -35,6 +35,45 @@ const formatNumber = (num: number | null | undefined, decimals = 2) => {
   return num.toFixed(decimals);
 };
 
+const filterCsv = (rawCsv: string, selectedMonths: string[], selectedMarketCaps: string[]) => {
+  if ((!selectedMonths || !selectedMonths.length) && (!selectedMarketCaps || !selectedMarketCaps.length)) return rawCsv;
+  
+  const lines = rawCsv.split('\n');
+  if (lines.length <= 1) return rawCsv;
+  
+  const header = lines[0];
+  const headerCols = header.toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
+  const dateIdx = headerCols.indexOf("date");
+  const mcIdx = headerCols.indexOf("marketcapname");
+  
+  if (dateIdx === -1) return rawCsv;
+  
+  const filteredLines = [header];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    const cols = line.split(',').map(s => s.trim());
+    if (cols.length <= dateIdx) continue;
+    
+    const dateStr = cols[dateIdx];
+    const mcStr = mcIdx !== -1 && cols.length > mcIdx ? cols[mcIdx] : "";
+    
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const monthYear = `${parts[1]}-${parts[2]}`;
+      const passMonth = !selectedMonths || selectedMonths.length === 0 || selectedMonths.includes(monthYear);
+      const passMc = !selectedMarketCaps || selectedMarketCaps.length === 0 || selectedMarketCaps.includes(mcStr);
+      
+      if (passMonth && passMc) {
+        filteredLines.push(line);
+      }
+    } else {
+      filteredLines.push(line);
+    }
+  }
+  return filteredLines.join('\n');
+};
+
 export function CsvBacktestPage() {
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [csvContent, setCsvContent] = useState<string | null>(null);
@@ -45,13 +84,16 @@ export function CsvBacktestPage() {
   const [form] = Form.useForm();
   const [type, setType] = useState<"FIXED" | "TRAILING">("FIXED");
 
+  // Filter State
+  const [availableMonths, setAvailableMonths] = useState<string[]>([]);
+  const [availableMarketCaps, setAvailableMarketCaps] = useState<string[]>([]);
+
   // Review Drawer State
   const [reviewDrawerVisible, setReviewDrawerVisible] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState<any | null>(null);
   const [reviewForm] = Form.useForm();
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewPassMode, setReviewPassMode] = useState<boolean | null>(null);
-  
   const [reviewReasons, setReviewReasons] = useState<ReviewReasonsResponse | null>(null);
 
   useEffect(() => {
@@ -60,6 +102,40 @@ export function CsvBacktestPage() {
       .then(data => setReviewReasons(data as ReviewReasonsResponse))
       .catch(err => console.error("Failed to load review reasons", err));
   }, []);
+
+  useEffect(() => {
+    if (!csvContent) {
+      setAvailableMonths([]);
+      setAvailableMarketCaps([]);
+      return;
+    }
+    const lines = csvContent.split('\n');
+    if (lines.length <= 1) return;
+    
+    const header = lines[0].toLowerCase().split(',').map(s => s.trim().replace(/"/g, ''));
+    const dateIdx = header.indexOf("date");
+    const mcIdx = header.indexOf("marketcapname");
+    
+    const months = new Set<string>();
+    const mcs = new Set<string>();
+    
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      const cols = line.split(',').map(s => s.trim());
+      if (cols.length > dateIdx && dateIdx !== -1) {
+        const parts = cols[dateIdx].split('-');
+        if (parts.length === 3) {
+          months.add(`${parts[1]}-${parts[2]}`);
+        }
+      }
+      if (cols.length > mcIdx && mcIdx !== -1) {
+        if (cols[mcIdx]) mcs.add(cols[mcIdx]);
+      }
+    }
+    setAvailableMonths(Array.from(months).sort());
+    setAvailableMarketCaps(Array.from(mcs).sort());
+  }, [csvContent]);
 
   const handleUpload: UploadProps["onChange"] = (info) => {
     let newFileList = [...info.fileList];
@@ -70,6 +146,7 @@ export function CsvBacktestPage() {
       const reader = new FileReader();
       reader.onload = (e) => {
         setCsvContent(e.target?.result as string);
+        form.setFieldsValue({ filterMonths: [], filterMarketCaps: [] });
       };
       reader.onerror = () => {
         message.error("Failed to read file");
@@ -99,8 +176,10 @@ export function CsvBacktestPage() {
     setResponse(null);
 
     try {
+      const filteredCsv = filterCsv(csvContent, values.filterMonths || [], values.filterMarketCaps || []);
+
       const requestPayload: CsvBacktestApiRequest = {
-        csvContent,
+        csvContent: filteredCsv,
         type: values.type,
         targetPct: values.type === "FIXED" ? values.targetPct : null,
         stopLossPct: values.stopLossPct,
@@ -179,7 +258,19 @@ export function CsvBacktestPage() {
 
   const tradesColumns = [
     { title: "Sr.", key: "index", width: 50, render: (_: any, __: any, index: number) => index + 1 },
-    { title: "Symbol", dataIndex: "symbol", key: "symbol", render: (val: string) => <Text strong>{val}</Text>, sorter: (a: any, b: any) => a.symbol.localeCompare(b.symbol) },
+    { 
+      title: "Symbol", 
+      dataIndex: "symbol", 
+      key: "symbol", 
+      render: (val: string, record: any) => record.instrumentToken ? (
+        <a href={`https://kite.zerodha.com/chart/web/tvc/NSE/${val}/${record.instrumentToken}`} target="_blank" rel="noopener noreferrer">
+          <Text strong>{val}</Text>
+        </a>
+      ) : (
+        <Text strong>{val}</Text>
+      ), 
+      sorter: (a: any, b: any) => a.symbol.localeCompare(b.symbol) 
+    },
     { title: "Market Cap", dataIndex: "marketCapName", key: "marketCapName", sorter: (a: any, b: any) => a.marketCapName.localeCompare(b.marketCapName) },
     { title: "Sector", dataIndex: "sector", key: "sector", sorter: (a: any, b: any) => a.sector.localeCompare(b.sector) },
     { title: "Signal Date", dataIndex: "signalDate", key: "signalDate", sorter: (a: any, b: any) => a.signalDate.localeCompare(b.signalDate) },
@@ -239,7 +330,7 @@ export function CsvBacktestPage() {
   };
 
   return (
-    <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
+    <div style={{ padding: 24, maxWidth: '100%', margin: '0 auto' }}>
       <Space direction="vertical" size={24} style={{ width: "100%" }}>
         <Card title="CSV Backtesting Engine">
           <Form 
@@ -260,6 +351,28 @@ export function CsvBacktestPage() {
                   <Button icon={<UploadOutlined />}>Select CSV File</Button>
                 </Upload>
               </Form.Item>
+
+              {csvContent && (
+                <Space size="large" style={{ display: 'flex' }}>
+                  <Form.Item label="Filter by Month" name="filterMonths" style={{ width: 250 }}>
+                    <Select 
+                      mode="multiple" 
+                      placeholder="All Months"
+                      options={availableMonths.map(m => ({ label: m, value: m }))}
+                      allowClear
+                    />
+                  </Form.Item>
+                  
+                  <Form.Item label="Filter by Market Cap" name="filterMarketCaps" style={{ width: 350 }}>
+                    <Select 
+                      mode="multiple" 
+                      placeholder="All Market Caps"
+                      options={availableMarketCaps.map(mc => ({ label: mc, value: mc }))}
+                      allowClear
+                    />
+                  </Form.Item>
+                </Space>
+              )}
 
               <Form.Item label="Strategy Type" name="type">
                 <Radio.Group onChange={(e) => setType(e.target.value)}>
@@ -310,7 +423,7 @@ export function CsvBacktestPage() {
                   rowKey={(row) => `${row.symbol}-${row.signalDate}`} 
                   pagination={{ pageSize: 100 }}
                   size="small"
-                  scroll={{ x: 1200 }}
+                  scroll={{ x: 'max-content' }}
                 />
               </Tabs.TabPane>
             </Tabs>

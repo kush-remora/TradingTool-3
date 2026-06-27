@@ -2411,6 +2411,7 @@ export interface CsvBacktestApiRequest {
 
 export interface CsvBacktestTradeResult {
   symbol: string;
+  instrumentToken: number | null;
   marketCapName: string;
   sector: string;
   signalDate: string;

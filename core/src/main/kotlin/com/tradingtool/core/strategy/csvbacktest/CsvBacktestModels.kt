@@ -9,6 +9,7 @@ data class CsvBacktestApiRequest(
 
 data class CsvBacktestTradeResult(
     val symbol: String,
+    val instrumentToken: Long?,
     val marketCapName: String,
     val sector: String,
     val signalDate: String,

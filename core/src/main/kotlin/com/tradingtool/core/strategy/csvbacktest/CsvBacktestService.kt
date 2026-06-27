@@ -111,6 +111,7 @@ class CsvBacktestService(
                 trades.add(
                     CsvBacktestTradeResult(
                         symbol = signal.symbol,
+                        instrumentToken = null,
                         marketCapName = signal.marketCapName,
                         sector = signal.sector,
                         signalDate = signal.date.format(dateFormatter),
@@ -204,6 +205,7 @@ class CsvBacktestService(
             trades.add(
                 CsvBacktestTradeResult(
                     symbol = signal.symbol,
+                    instrumentToken = entryCandle.instrumentToken,
                     marketCapName = signal.marketCapName,
                     sector = signal.sector,
                     signalDate = signal.date.format(dateFormatter),
