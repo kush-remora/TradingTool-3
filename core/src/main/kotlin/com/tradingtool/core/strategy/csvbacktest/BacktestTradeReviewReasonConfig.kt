@@ -20,6 +20,7 @@ object BacktestTradeReviewReasonConfig {
 //            ReviewReason("HIGH_RELATIVE_STRENGTH", "High Relative Strength", "Stock is outperforming the broader market significantly."),
 //            ReviewReason("EARNINGS_CATALYST", "Earnings Catalyst", "Positive earnings surprise or guidance driving the momentum."),
 //            ReviewReason("MA_SUPPORT", "Moving Average Support", "Bouncing perfectly off a key moving average (e.g. 50 SMA / 200 SMA)."),
+            ReviewReason("WYCKOFF_ACCUMULATION & DIP after 52 BREAKOUT", "WYCKOFF_ACCUMULATION & DIP after 52 BREAKOUT", "Clear spring or sign of strength in a defined trading range."),
             ReviewReason("WYCKOFF_ACCUMULATION", "Wyckoff Accumulation Phase C/D", "Clear spring or sign of strength in a defined trading range."),
 //            ReviewReason("INSTITUTIONAL_BUYING", "Institutional Buying Imprint", "Massive volume spikes on up days, low volume on down days.")
         ),

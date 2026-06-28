@@ -9,10 +9,10 @@ interface BacktestTradeReviewWriteDao {
         """
         INSERT INTO backtest_trade_reviews (
             symbol, signal_date, market_cap, sector, entry_date, entry_price, 
-            exit_date, exit_price, pnl_pct, days_held, sl_hit, is_pass, reason_tags, notes, updated_at
+            exit_date, exit_price, pnl_pct, days_held, sl_hit, pass, reason_tags, notes, updated_at
         ) VALUES (
             :symbol, :signalDate, :marketCap, :sector, :entryDate, :entryPrice,
-            :exitDate, :exitPrice, :pnlPct, :daysHeld, :slHit, :isPass, :reasonTags, :notes, NOW()
+            :exitDate, :exitPrice, :pnlPct, :daysHeld, :slHit, :pass, :reasonTags, :notes, NOW()
         )
         ON CONFLICT (symbol, signal_date) DO UPDATE SET
             market_cap = EXCLUDED.market_cap,
@@ -24,7 +24,7 @@ interface BacktestTradeReviewWriteDao {
             pnl_pct = EXCLUDED.pnl_pct,
             days_held = EXCLUDED.days_held,
             sl_hit = EXCLUDED.sl_hit,
-            is_pass = EXCLUDED.is_pass,
+            pass = EXCLUDED.pass,
             reason_tags = EXCLUDED.reason_tags,
             notes = EXCLUDED.notes,
             updated_at = NOW()

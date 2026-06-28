@@ -16,19 +16,20 @@ class BacktestTradeReviewService(
     }
 
     suspend fun upsertReview(request: BacktestTradeReviewApiRequest) = withContext(Dispatchers.IO) {
+        val dateFormatter = java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy")
         val review = BacktestTradeReview(
             symbol = request.symbol,
-            signalDate = LocalDate.parse(request.signalDate),
+            signalDate = LocalDate.parse(request.signalDate, dateFormatter),
             marketCap = request.marketCap,
             sector = request.sector,
-            entryDate = request.entryDate?.let { LocalDate.parse(it) },
+            entryDate = request.entryDate?.let { LocalDate.parse(it, dateFormatter) },
             entryPrice = request.entryPrice,
-            exitDate = request.exitDate?.let { LocalDate.parse(it) },
+            exitDate = request.exitDate?.let { LocalDate.parse(it, dateFormatter) },
             exitPrice = request.exitPrice,
             pnlPct = request.pnlPct,
             daysHeld = request.daysHeld,
             slHit = request.slHit,
-            isPass = request.isPass,
+            pass = request.pass,
             reasonTags = request.reasonTags,
             notes = request.notes
         )

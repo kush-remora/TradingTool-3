@@ -316,17 +316,19 @@ export function CsvBacktestPage() {
     },
   ];
 
-  const getReasonOptions = () => {
+  const getOptions = () => {
     if (!reviewReasons) return [];
     const list = reviewPassMode ? reviewReasons.acceptanceReasons : reviewReasons.rejectionReasons;
-    return list.map((reason: ReviewReason) => (
-      <Select.Option key={reason.id} value={reason.label} label={reason.label}>
+    if (!list) return [];
+    return list.map((reason: ReviewReason) => ({
+      value: reason.label,
+      label: (
         <div>
-          <div style={{ fontWeight: 'bold' }}>{reason.label}</div>
-          <div style={{ fontSize: '12px', color: '#888' }}>{reason.description}</div>
+          <div style={{ fontWeight: 'bold', lineHeight: '1.2' }}>{reason.label}</div>
+          <div style={{ fontSize: '12px', color: '#888', whiteSpace: 'normal', lineHeight: '1.2' }}>{reason.description}</div>
         </div>
-      </Select.Option>
-    ));
+      )
+    }));
   };
 
   return (
@@ -456,10 +458,9 @@ export function CsvBacktestPage() {
                   mode="tags" 
                   style={{ width: '100%' }} 
                   placeholder="Select or type reasons..."
-                  optionLabelProp="label"
-                >
-                  {getReasonOptions()}
-                </Select>
+                  optionLabelProp="value"
+                  options={getOptions()}
+                />
               </Form.Item>
             )}
 

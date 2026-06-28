@@ -21,7 +21,7 @@ interface BacktestTradeReviewReadDao {
             pnl_pct,
             days_held,
             sl_hit,
-            is_pass,
+            pass,
             reason_tags,
             notes,
             created_at,

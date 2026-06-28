@@ -3,6 +3,7 @@ package com.tradingtool.core.strategy.csvbacktest
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.util.UUID
+import com.fasterxml.jackson.annotation.JsonProperty
 
 data class BacktestTradeReview(
     val id: UUID? = null,
@@ -17,7 +18,7 @@ data class BacktestTradeReview(
     val pnlPct: Double?,
     val daysHeld: Int?,
     val slHit: Boolean?,
-    val isPass: Boolean?,
+    @JsonProperty("isPass") val pass: Boolean?,
     val reasonTags: String?,
     val notes: String?,
     val createdAt: OffsetDateTime? = null,
@@ -36,7 +37,7 @@ data class BacktestTradeReviewApiRequest(
     val pnlPct: Double?,
     val daysHeld: Int?,
     val slHit: Boolean?,
-    val isPass: Boolean?,
+    @JsonProperty("isPass") val pass: Boolean?,
     val reasonTags: String?,
     val notes: String?
 )

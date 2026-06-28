@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS backtest_trade_reviews (
     pnl_pct NUMERIC,
     days_held INT,
     sl_hit BOOLEAN,
-    is_pass BOOLEAN,
+    pass BOOLEAN,
     reason_tags VARCHAR(500),
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
