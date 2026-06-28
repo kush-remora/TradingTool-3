@@ -11,24 +11,24 @@ The examples in this document are targeted at **Large Cap** stocks, looking for 
 Because different rules measure different timeframes, the standard for "tightness" changes depending on whether you are looking at a week or a single day. If you are adapting this for different segments, use these industry-standard baselines:
 
 *   **Large Caps (e.g., Nifty 50):** 
-    *   *Weekly Filter (Rule 1):* Set to `<= 2%` or `<= 3%`. (A normal week drifts 3-5%).
-    *   *Daily Filter (Rule 2):* Set to `<= 1%` or `<= 1.5%`. (A normal day's body is 1.5-2.5%).
+    *   *Weekly Filter (Rule 1):* Set to `<= 5%`. (A normal week drifts 5-8%).
+    *   *Daily Filter (Rule 2):* Set to `<= 3%`. (A normal day's body is 2-4%).
 *   **Mid Caps:** 
-    *   *Weekly Filter (Rule 1):* Set to `<= 4%`.
-    *   *Daily Filter (Rule 2):* Set to `<= 2%` or `<= 2.5%`.
+    *   *Weekly Filter (Rule 1):* Set to `<= 6%`.
+    *   *Daily Filter (Rule 2):* Set to `<= 4%`.
 *   **Small/Micro Caps:** 
-    *   *Weekly Filter (Rule 1):* Set to `<= 5%` or `<= 6%`.
-    *   *Daily Filter (Rule 2):* Set to `<= 3%` or `<= 4%`.
+    *   *Weekly Filter (Rule 1):* Set to `<= 8%`.
+    *   *Daily Filter (Rule 2):* Set to `<= 5%`.
 
 ## The Logic Breakdown
 
 ### 1. The Rolling Price Compression Check
 
 **Chartink Logic:**
-`Daily count( 30, 1 where  abs (  daily close -  5 days ago close ) /  5 days ago close *  100 <=  3 ) >=  18`
+`Daily count( 30, 1 where  abs (  daily close -  5 days ago close ) /  5 days ago close *  100 <=  5 ) >=  18`
 
 **What it does:**
-It evaluates a 30-day window (6 weeks of checks). For every single day in that window, it checks if the price closed within 3% of where it was exactly one week (5 days) ago. It passes the stock only if this statement is true for at least 18 out of those 30 days.
+It evaluates a 30-day window (6 weeks of checks). For every single day in that window, it checks if the price closed within 5% of where it was exactly one week (5 days) ago. It passes the stock only if this statement is true for at least 18 out of those 30 days.
 
 *Important Data Caveat:* While the loop runs 30 times, the *actual* historical footprint required is 35 days. This is because on the 30th day back (the oldest day being evaluated), the formula must look another 5 days further back to find the anchor price.
 
@@ -61,10 +61,10 @@ By setting the threshold to `18`, we are intuitively saying: *"The stock must be
 ### 2. The Daily Footprint (Body Compression) Check
 
 **Chartink Logic:**
-`Daily count( 30, 1 where  abs (  daily close -  daily open ) /  daily open *  100 <=  1 ) >=  24`
+`Daily count( 30, 1 where  abs (  daily close -  daily open ) /  daily open *  100 <=  3 ) >=  24`
 
 **What it does:**
-It evaluates the same 30-day window. For every single day, it checks the difference between the open and the close price (the "body" of the candle), completely ignoring the intraday high and low. It passes if this open-close range is 1% or less on at least 24 of those 30 days.
+It evaluates the same 30-day window. For every single day, it checks the difference between the open and the close price (the "body" of the candle), completely ignoring the intraday high and low. It passes if this open-close range is 3% or less on at least 24 of those 30 days.
 
 **The Observation (What it reveals):**
 Intraday wicks (highs and lows) are often just noise created by stop-loss hunting or temporary panic. The Open-Close is the true "daily footprint"—it represents where the market actually started and where it settled. If the open and close are consistently near each other, the daily footprint is compressed.
@@ -112,16 +112,16 @@ By demanding the difference be `<= 4` in a 30-day window, we ensure that nobody 
 ### 4. The Erratic Day (Intraday Panic) Filter
 
 **Chartink Logic:**
-`Daily count( 30, 1 where  (  daily high -  daily low ) /  daily open *  100 >=  5 ) <=  2`
+`Daily count( 30, 1 where  (  daily high -  daily low ) /  daily open *  100 >=  5 ) <=  3`
 
 **What it does:**
-It looks at the same 30-day window. For every single day, it measures the entire intraday range from the absolute lowest price to the absolute highest price (the wicks of the candle). If this range is 5% or greater, it flags the day as "erratic". It passes the stock only if there are **no more than 2** erratic days in the entire month and a half.
+It looks at the same 30-day window. For every single day, it measures the entire intraday range from the absolute lowest price to the absolute highest price (the wicks of the candle). If this range is 5% or greater, it flags the day as "erratic". It passes the stock only if there are **no more than 3** erratic days in the entire month and a half.
 
 **The Observation (What it reveals):**
 Rule 2 only checks the Open-Close body. A stock could open at 100, crash to 85, spike to 115, and close at 101. Rule 2 would see a tiny 1% body and think it was a perfectly calm day. Rule 4 prevents that illusion. It looks at the extreme highs and lows (wicks) and guarantees the stock didn't experience violent intraday swings.
 
 **The Philosophy (Why it matters):**
-Accumulation cannot happen in chaos. If a stock is routinely whipping up and down 5% in a single day, it means participants are panicked, stops are being hunted, and there is zero control. Smart money needs a stable floor to build a position. We allow up to `2` erratic days because occasional news shocks or market-wide drops happen, but any more than that means the stock is not in a true silent phase.
+Accumulation cannot happen in chaos. If a stock is routinely whipping up and down 5% in a single day, it means participants are panicked, stops are being hunted, and there is zero control. Smart money needs a stable floor to build a position. We allow up to `3` erratic days because occasional news shocks or market-wide drops happen, but any more than that means the stock is not in a true silent phase.
 
 **How to tweak this for your own study:**
 - **To change the accumulation length (Number of Days):** 
@@ -131,3 +131,46 @@ Accumulation cannot happen in chaos. If a stock is routinely whipping up and dow
   *   **Large Caps:** A 5% intraday swing is huge. Keep it at `>= 5%` or tighten to `>= 4%`.
   *   **Mid Caps:** Keep at `>= 5%`.
   *   **Small/Micro Caps:** Small caps swing 5% easily. You might loosen the definition of erratic to `>= 7%` or `>= 8%`.
+
+### 5. The Personality (Average Volatility) Check
+
+**Chartink Logic:**
+`Daily Ema (  (  Daily High -  Daily Low ) /  Daily Open *  100 , 30 ) <=  3.5`
+
+**What it does:**
+Instead of counting individual days, this calculates the **average** intraday range (High minus Low) over the entire 30-day window using an Exponential Moving Average (EMA). By using an EMA instead of a Simple Moving Average (SMA), it gives much more mathematical weight to the *most recent* days. It passes the stock only if its exponentially weighted average daily swing is 3.5% or less.
+
+**The Observation (What it reveals):**
+Rule 4 eliminates stocks that have occasional, isolated panic days. This rule evaluates the stock's *overall personality*. If a stock's average daily swing is massive, it means the stock is naturally loose and chaotic. But more importantly, because it uses an EMA, it looks for *progressive tightening*. A stock that was wildly volatile 25 days ago but has become dead-quiet over the last 5 days will pass an EMA check, but might fail an SMA check.
+
+**The Philosophy (Why it matters):**
+In Wyckoff theory, a stock transitions from a Markdown phase (or Phase A - Stopping the trend) into Phase B (Consolidation). Phase A is full of violent swings (Selling Climaxes, Automatic Rallies). Phase B is where supply and demand reach equilibrium and volatility dies. By using an EMA, we explicitly reward stocks that are *calming down*. A low EMA is the mathematical footprint of a stock that has successfully digested its old volatility and is now fully absorbed. 
+
+**How to tweak this for your own study:**
+- **To adjust for Market Cap (Tightness %):** 
+  Because this is an *average* over 30 days, the number should be much tighter than Rule 4's outlier check. (If you use `<= 5%` for Large Caps here, you are allowing meme-stock levels of daily chaos!).
+  *   **Large Caps:** Target `<= 3%` or `<= 3.5%`.
+  *   **Mid Caps:** Target `<= 4%` or `<= 4.5%`.
+  *   **Small/Micro Caps:** Target `<= 5%` or `<= 6%`.
+
+### 6. The Volume Dry-Up (Supply Exhaustion) Check
+
+**Chartink Logic:**
+`Daily count( 30, 1 where  daily volume <  daily sma (  daily volume , 5 ) ) >=  21`
+
+**What it does:**
+For every single day in the 30-day window, it checks if today's volume is *lower* than the average volume of the last 5 days. It passes the stock only if this statement is true for at least 21 out of those 30 days (70% of the time).
+
+**The Observation (What it reveals):**
+When volume is constantly dropping below its own short-term average, it means trading activity is progressively dying. The market is not experiencing bursts of heavy trading; instead, the stock is grinding into silence. 
+
+**The Philosophy (Why it matters):**
+In Wyckoff theory, accumulation cannot complete until floating supply is completely exhausted. If there are still eager sellers, the smart money will wait and let them sell. A stock where 70% of the days have below-average volume is a stock where nobody is rushing for the exit anymore. The sellers are gone, and the buyers are just quietly absorbing the last few shares in the dark. 
+
+**How to tweak this for your own study:**
+- **To change the accumulation length (Number of Days):** 
+  The golden ratio here is **70%**. 
+  If you look back 20 days, 70% is 14 days (`Daily count( 20... ) >= 14`).
+  If you look back 40 days, 70% is 28 days (`Daily count( 40... ) >= 28`).
+- **Does this change by Market Cap?**
+  **No.** Supply exhaustion is a universal concept. Volume drying up behaves the same way on a Large Cap as it does on a Micro Cap. You do not need to adjust the 70% threshold based on company size.
