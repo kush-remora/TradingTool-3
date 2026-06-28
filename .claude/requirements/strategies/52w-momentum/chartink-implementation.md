@@ -85,4 +85,49 @@ By setting the threshold to `24`, we are intuitively saying: *"The daily footpri
   *(Example for 40 days: 40 days = 8 weeks. Threshold = 40 - 8 = 32. Code becomes: `Daily count( 40... ) >= 32`)*
 
 - **To demand tighter or looser price action (Tightness %):** 
-  Change `<= 3` to your desired percentage based on the Market Cap Baseline rules at the top of this document.
+  Change `<= 1` to your desired percentage based on the Market Cap Baseline rules at the top of this document.
+
+### 3. The Balance of Power (Up/Down Day Symmetry) Check
+
+**Chartink Logic:**
+`Abs (  Daily count( 30, 1 where  daily close >  daily open ) -  Daily count( 30, 1 where  daily close <  daily open ) ) <=  4`
+
+**What it does:**
+Over the last 30 days, it counts the total number of "Up" days (close > open) and "Down" days (close < open). It then calculates the difference between those two counts. By using `Abs` (Absolute Value), it ignores whether there are more up days or down days—it only cares about the *gap* between them. It passes only if the difference is 4 or less.
+
+**The Observation (What it reveals):**
+In a trending stock, one side is clearly winning (e.g., 22 up days vs 8 down days). In an accumulating stock, the days are roughly equal (e.g., 17 up days vs 13 down days, which is a difference of exactly 4). This reveals a state of perfect equilibrium.
+
+**The Philosophy (Why it matters):**
+Accumulation is an absorption process, not a rally. When the "Composite Man" (smart money) builds a massive position, they buy quietly. When the price ticks up, they pause and let the price drift back down so they don't accidentally spark a breakout before they are ready. This creates a seesaw effect. 
+By demanding the difference be `<= 4` in a 30-day window, we ensure that nobody is dominating. 
+
+**How to tweak this for your own study:**
+- **To change the accumulation length (Number of Days):** 
+  If you increase the days, you must give the gap more breathing room. A solid rule of thumb is to allow a maximum gap of ~20% of the total days. 
+  *(Example for 40 days: 20% of 40 is 8. Code becomes: `Abs( count... - count... ) <= 8`)*
+- **Does this change by Market Cap?**
+  **No.** Unlike price volatility (which swings wildly in small caps), the *balance of power* represents market equilibrium. Equilibrium looks the same whether it is a Large Cap or a Micro Cap. You do not need to adjust this threshold based on company size.
+
+### 4. The Erratic Day (Intraday Panic) Filter
+
+**Chartink Logic:**
+`Daily count( 30, 1 where  (  daily high -  daily low ) /  daily open *  100 >=  5 ) <=  2`
+
+**What it does:**
+It looks at the same 30-day window. For every single day, it measures the entire intraday range from the absolute lowest price to the absolute highest price (the wicks of the candle). If this range is 5% or greater, it flags the day as "erratic". It passes the stock only if there are **no more than 2** erratic days in the entire month and a half.
+
+**The Observation (What it reveals):**
+Rule 2 only checks the Open-Close body. A stock could open at 100, crash to 85, spike to 115, and close at 101. Rule 2 would see a tiny 1% body and think it was a perfectly calm day. Rule 4 prevents that illusion. It looks at the extreme highs and lows (wicks) and guarantees the stock didn't experience violent intraday swings.
+
+**The Philosophy (Why it matters):**
+Accumulation cannot happen in chaos. If a stock is routinely whipping up and down 5% in a single day, it means participants are panicked, stops are being hunted, and there is zero control. Smart money needs a stable floor to build a position. We allow up to `2` erratic days because occasional news shocks or market-wide drops happen, but any more than that means the stock is not in a true silent phase.
+
+**How to tweak this for your own study:**
+- **To change the accumulation length (Number of Days):** 
+  If you increase the days (e.g., to 60 days), you might allow up to `3` or `4` erratic days. The ratio is very strict: roughly 1 erratic day allowed per 15 trading days.
+- **To adjust for Market Cap (Tightness %):** 
+  Change `>= 5` based on what is considered an "erratic" move for that market cap.
+  *   **Large Caps:** A 5% intraday swing is huge. Keep it at `>= 5%` or tighten to `>= 4%`.
+  *   **Mid Caps:** Keep at `>= 5%`.
+  *   **Small/Micro Caps:** Small caps swing 5% easily. You might loosen the definition of erratic to `>= 7%` or `>= 8%`.
