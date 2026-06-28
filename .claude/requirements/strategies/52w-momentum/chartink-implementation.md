@@ -251,3 +251,15 @@ Because this formula uses `abs()` (Absolute Value) and allows a `10%` variance, 
   *   **Small/Micro Caps:** Small caps frequently experience savage 20% shakeouts to clear weak hands. Increase the band to `<= 20%` or even `<= 25%`.
 - **To change the accumulation length (Number of Days):** 
   The threshold here is roughly 50%. So for a 40-day window, set the count to `20`.
+
+### 10. The Distance from Breakout (52-Week High Proximity)
+
+**Chartink Logic:**
+`( 1 day ago Max ( 250 ,  Daily High ) -  Daily Close ) /  1 day ago Max ( 250 ,  Daily High ) *  100 >=  20`
+
+**What it does:**
+It ensures the accumulation base is forming at least 20% *below* the 52-week high (far away from it).
+
+**The Philosophy (Why it matters):**
+This system is designed as a **backward-sweep** from a 52-week high trigger. If a stock hits a 52-week high today, we want to look backward in time to see if the Composite Man built a massive cause *before* the run. 
+If the accumulation base is sitting at 0% or 5% away from the 52-week high, it means there was no markup (Phase D)—the stock is just sitting at the top. True accumulation must happen deep below the high (e.g., 20% to 50% below). The base is the *Cause*, and the 20%+ run up to the 52-week high is the *Effect*. This rule mathematically forces the scanner to find the true, deep accumulation floors that preceded the massive runs.
