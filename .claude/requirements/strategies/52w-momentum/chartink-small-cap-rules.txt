@@ -1,0 +1,12 @@
+# Chartink Screener Code: Small Cap (Nifty Smallcap 250)
+# Copy and paste these lines into a new Chartink Screener.
+
+Daily count( 30, 1 where abs ( daily close - 5 days ago close ) / 5 days ago close * 100 <= 8 ) >= 18
+and Daily count( 30, 1 where abs ( daily close - daily open ) / daily open * 100 <= 5 ) >= 24
+and Abs ( Daily count( 30, 1 where daily close > daily open ) - Daily count( 30, 1 where daily close < daily open ) ) <= 4
+and Daily count( 30, 1 where ( daily high - daily low ) / daily open * 100 >= 7 ) <= 3
+and Daily Ema ( ( Daily High - Daily Low ) / Daily Open * 100 , 30 ) <= 6.0
+and Daily count( 30, 1 where daily volume < daily sma ( daily volume , 30 ) ) >= 21
+and Daily count( 30, 1 where daily volume < 1 day ago volume ) >= 15
+and Daily countstreak( 30, 1 where daily volume <= 1 day ago volume ) >= 3
+and Daily count( 30, 1 where abs ( daily close - daily sma ( daily close , 200 ) ) / daily sma ( daily close , 200 ) * 100 <= 20 ) >= 15
