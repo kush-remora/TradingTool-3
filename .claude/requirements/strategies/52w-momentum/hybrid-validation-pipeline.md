@@ -73,3 +73,15 @@ This mathematical formula is the holy grail for shape detection because it ignor
    *   **The Upward Drift (Valid):** If **$b > 0$**, the price is grinding higher.
 
 *Action:* If the backend detects a highly negative $a$ (Inverted U), it immediately tags the cluster as `DISTRIBUTION - REJECTED`.
+
+## 7. Step 6: The Event-Driven Markup Pipeline (Phase C to D)
+Once the base is formed (Phase B), the pipeline transitions into an event-driven architecture to detect the markup (Phase D). Because a single scanner cannot accurately process the entire timeline, the system decouples the detection into discrete micro-scanners and backend validations:
+
+1. **Event 1 (Chartink - Accumulation):** The base mathematical compression screener flags that a stock is accumulating.
+2. **Validation 1 (Kotlin - Shape):** The backend runs polynomial regression to ensure the shape is valid (rejecting distributions).
+3. **Event 2 (Chartink - Exhaustion):** A separate scanner flags the "Dead Pocket" (Phase C supply exhaustion). The backend cross-references this to confirm it occurred immediately after a valid accumulation base.
+4. **Event 3 (Chartink - Ignition):** The Ignition Scanner flags the exact moment institutional demand steps in (e.g., a 2-day volume explosion, consecutive green candles, and closes in the top 25% of the daily range). 
+5. **Event 4 (Chartink - Momentum/Trend):** A distinct Momentum Scanner verifies macro trend guardrails (e.g., 20 DMA > 50 DMA, and Price > 100 DMA). Keeping this separate from Ignition allows the system to track early institutional footprints even before the macro moving averages have fully bent upward.
+6. **Validation 2 (Kotlin - True Resistance Breakout):** Once Ignition and Momentum are triggered, the Kotlin backend takes final control. Instead of relying on a rigid, blind 20-day high rule in Chartink, Kotlin dynamically calculates the exact Master Resistance Line (The Creek) of the full historical base. It mathematically verifies if today's price successfully broke out.
+
+If a stock survives this entire 6-step gauntlet, it is flagged as a high-probability, structurally verified **Phase D Markup**.
