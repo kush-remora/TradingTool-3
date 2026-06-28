@@ -20,6 +20,18 @@ Because different rules measure different timeframes, the standard for "tightnes
     *   *Weekly Filter (Rule 1):* Set to `<= 8%`.
     *   *Daily Filter (Rule 2):* Set to `<= 5%`.
 
+## The Four Valid Shapes of Accumulation
+
+When the "Composite Man" accumulates a stock, they typically do so in one of four ways:
+1.  **The Flat Base (The Perfect Setup):** The stock sits in a perfectly tight, horizontal equilibrium. The price hugs the 200 DMA closely.
+2.  **The Downward Drift (The Markdown/Spring):** The stock slowly grinds downward, or sharply dips below the 200 DMA (a Wyckoff Spring). They absorb supply as panicked retail traders sell.
+3.  **The Upward Drift (The Slow Walk):** The stock slowly grinds upward, absorbing supply while gently walking the price higher before the explosive breakout.
+4.  **The Slow Saucer / Cup (The 30-Day 'U' Shape):** The stock spends roughly 15 days slowly drifting downward, and 15 days slowly creeping back up. Because the days are slow and quiet, it perfectly captures the Wyckoff transition from Phase A (Stopping) to Phase C (Spring) and Phase D (Markup).
+
+**What are the INVALID shapes?**
+1. **The Downward U (Rounding Top):** This is the ultimate enemy. A stock that goes up, stalls, and rounds slowly downward is in Wyckoff **Distribution** (Stan Weinstein Stage 3). The Composite Man is dumping shares, not buying them. 
+2. **The Violent V-Shape:** A stock that crashes 20% in two days and rockets up 20% in two days is not being accumulated. It is just volatile chaos. Accumulation requires *time* and *boredom*. The logic in this document is designed specifically to filter out these invalid shapes.
+
 ## The Logic Breakdown
 
 ### 1. The Rolling Price Compression Check
@@ -156,16 +168,16 @@ In Wyckoff theory, a stock transitions from a Markdown phase (or Phase A - Stopp
 ### 6. The Volume Dry-Up (Supply Exhaustion) Check
 
 **Chartink Logic:**
-`Daily count( 30, 1 where  daily volume <  daily sma (  daily volume , 5 ) ) >=  21`
+`Daily count( 30, 1 where  daily volume <  daily sma (  daily volume , 30 ) ) >=  21`
 
 **What it does:**
-For every single day in the 30-day window, it checks if today's volume is *lower* than the average volume of the last 5 days. It passes the stock only if this statement is true for at least 21 out of those 30 days (70% of the time).
+For every single day in the 30-day window, it checks if today's volume is *lower* than the 30-day average volume. It passes the stock only if this statement is true for at least 21 out of those 30 days (70% of the time).
 
 **The Observation (What it reveals):**
-When volume is constantly dropping below its own short-term average, it means trading activity is progressively dying. The market is not experiencing bursts of heavy trading; instead, the stock is grinding into silence. 
+If a stock spends 70% of its days *below* its own long-term average volume, it means that average is being propped up by a small handful of massive volume spikes. The vast majority of the time, the stock is dead quiet.
 
 **The Philosophy (Why it matters):**
-In Wyckoff theory, accumulation cannot complete until floating supply is completely exhausted. If there are still eager sellers, the smart money will wait and let them sell. A stock where 70% of the days have below-average volume is a stock where nobody is rushing for the exit anymore. The sellers are gone, and the buyers are just quietly absorbing the last few shares in the dark. 
+This perfectly captures the Wyckoff Accumulation footprint. The "Composite Man" steps in with massive volume to stop a downtrend (Selling Climax) or to shake out weak hands (Spring). These few high-volume events push the 30-day SMA up. For the rest of the phase, the stock goes quiet (Supply Exhaustion) as they slowly absorb shares. By checking `volume < sma(volume, 30)`, we guarantee that the stock is structurally quiet, and that any volume spikes are rare, isolated events rather than continuous distribution. 
 
 **How to tweak this for your own study:**
 - **To change the accumulation length (Number of Days):** 
@@ -174,3 +186,68 @@ In Wyckoff theory, accumulation cannot complete until floating supply is complet
   If you look back 40 days, 70% is 28 days (`Daily count( 40... ) >= 28`).
 - **Does this change by Market Cap?**
   **No.** Supply exhaustion is a universal concept. Volume drying up behaves the same way on a Large Cap as it does on a Micro Cap. You do not need to adjust the 70% threshold based on company size.
+
+### 7. The Day-over-Day Volume Drop Check
+
+**Chartink Logic:**
+`Daily count( 30, 1 where  daily volume <  1 day ago volume ) >=  15`
+
+**What it does:**
+For every single day in the 30-day window, it checks if today's volume was strictly lower than yesterday's volume. It passes the stock only if this statement is true for at least 15 out of those 30 days (50% of the time).
+
+**The Observation (What it reveals):**
+In a perfectly random stock, day-over-day volume will drop about 50% of the time (like a coin flip) and rise 50% of the time. By requiring the stock to hit or exceed this 50% mark, we ensure the volume is mathematically biased toward shrinking. If a stock drops day-over-day 15 to 17 times out of 30, the overall trajectory of trading activity is pointing down.
+
+**The Philosophy (Why it matters):**
+While Rule 6 measures volume against a smoothed average, this rule measures the *immediacy* of supply exhaustion. When sellers step away, they do so progressively. A stock being accumulated will frequently have days where activity just falls off a cliff compared to the day prior. By demanding that volume drops on at least half of the days, we filter out stocks that are experiencing constant daily increases in speculative excitement. 
+
+**How to tweak this for your own study:**
+- **To change the accumulation length (Number of Days):** 
+  The golden ratio here is **50%**. 
+  If you look back 40 days, 50% is 20 days (`Daily count( 40... ) >= 20`).
+- **To demand a steeper drop trajectory:**
+  If you want to find stocks where volume is aggressively disappearing, increase the threshold to 60% of the days (e.g., `>= 18` for a 30-day window).
+
+### 8. The Volume Contraction Streak (The "Ending Phase" Clue)
+
+**Chartink Logic:**
+`Daily countstreak( 30, 1 where  daily volume <=  1 day ago volume ) >=  3`
+
+**What it does:**
+Instead of counting total days across the month, the `countstreak` function looks for *consecutive* days. It requires that somewhere in the last 30 days, there was a sequence of at least 3 days in a row where the volume shrank (or remained perfectly flat) every single day.
+
+**The Observation (What it reveals):**
+A 3-day streak of vanishing volume means the market completely went to sleep. For three straight days, trading activity literally stepped down a staircase into silence. 
+
+**The Philosophy (Why it matters):**
+In Wyckoff theory, accumulation is a long, boring process (Phase B). But right before the stock gets ready to launch (entering Phase C or Phase D mark-up), supply dries up to an absolute trickle. The final sellers give up, creating a signature "dead pocket" of volume. If you see a 3-day streak of progressively shrinking volume inside a broader flat base, it is the ultimate clue that the accumulation phase is on the "ending side" and the stock is preparing for a move. 
+
+**How to tweak this for your own study:**
+- **To demand deeper exhaustion:** 
+  You can increase this to `>= 4`. (In our real-world BHEL case study, the stock had a maximum streak of exactly 4 consecutive shrinking volume days right near the end of its accumulation phase). 
+- **Does this change by Market Cap?**
+  **No.** The structural footprint of final exhaustion looks exactly the same across all market caps.
+
+### 9. The Fair Value (200 DMA) Equilibrium Check
+
+**Chartink Logic:**
+`Daily count( 30, 1 where  abs (  daily close -  daily sma (  daily close , 200 ) ) /  daily sma (  daily close , 200 ) *  100 <=  10 ) >=  15`
+
+**What it does:**
+For every single day in the 30-day window, it checks if the closing price is within a +/- 10% band around the 200-day Simple Moving Average. It passes the stock only if the price stays inside this Fair Value band for at least 15 out of 30 days (50% of the time).
+
+**The Observation (What it reveals):**
+The 200-day moving average is the ultimate line of "Fair Value." In a trending market, the price is far away from this line. In a consolidating market, the 200 DMA flattens out, and the price oscillates tightly around it as supply and demand reach equilibrium.
+
+**The Philosophy (Why it matters):**
+Both Wyckoff (Phase B) and Stan Weinstein (Stage 1) define accumulation as the period where the stock returns to its 200 DMA and goes sideways. However, the Composite Man will routinely push the price *below* the 200 DMA to trigger retail stop-losses (a Wyckoff Phase C "Spring"). 
+Because this formula uses `abs()` (Absolute Value) and allows a `10%` variance, it brilliantly permits these intentional shakeouts. The stock can dive 9% below the 200 DMA to trap retail traders, and the scanner will still consider it valid accumulation. 
+
+**How to tweak this for your own study:**
+- **To adjust for Market Cap (Band Width %):** 
+  The depth of a Phase C Shakeout depends on the size of the company.
+  *   **Large Caps:** A 10% shakeout is severe. Keep the band at `<= 10%`.
+  *   **Mid Caps:** They swing wider. Increase the band to `<= 15%`.
+  *   **Small/Micro Caps:** Small caps frequently experience savage 20% shakeouts to clear weak hands. Increase the band to `<= 20%` or even `<= 25%`.
+- **To change the accumulation length (Number of Days):** 
+  The threshold here is roughly 50%. So for a 40-day window, set the count to `20`.
