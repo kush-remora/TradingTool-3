@@ -35,7 +35,7 @@ Because liquidity behavior changes drastically based on company size, the multip
 ### 2. The Two-Day Volume Surge (Ignition)
 
 **Chartink Logic:**
-`Daily countstreak( 2, 1 where  daily volume >  ( 1 day ago sma ( daily volume , 20 ) * 1.5 ) ) >=  2`
+`Daily countstreak( 2, 0 where  daily volume >  ( 1 day ago sma ( daily volume , 20 ) * 1.5 ) ) >=  2`
 
 **What it does:**
 It looks precisely at the last 2 days (Yesterday and Today) and demands that *both* days experienced a massive volume surge (e.g., at least 50% above the recent 20-day average).
@@ -58,7 +58,7 @@ The `1.5` multiplier (a 50% surge) is **not universal**. It must scale drastical
 ### 3. The Price Action Confirmation (The Green Streak & Upward Progress)
 
 **Chartink Logic:**
-`Daily countstreak( 2, 1 where ( Daily Close > Daily Open and Daily Close > 1 day ago Close ) ) >=  2`
+`Daily countstreak( 2, 0 where ( Daily Close > Daily Open and Daily Close > 1 day ago Close ) ) >=  2`
 
 **What it does:**
 It looks at the last 2 days (Yesterday and Today) and demands two things:
@@ -77,7 +77,7 @@ In Wyckoff methodology, high volume is meaningless on its own. If you have a mas
 ### 4. The Strong Close (No Rejection)
 
 **Chartink Logic:**
-`Daily countstreak( 2, 1 where  daily close >=  (  daily high -  (  daily high -  daily low ) *  0.25 ) ) >=  2` *(See Market Cap rules below for the multiplier)*
+`Daily countstreak( 2, 0 where  daily close >=  (  daily high -  (  daily high -  daily low ) *  0.25 ) ) >=  2` *(See Market Cap rules below for the multiplier)*
 
 **What it does:**
 It looks at the last 2 days and demands that the closing price was strictly within the **top 25%** of the entire daily range (High minus Low). 

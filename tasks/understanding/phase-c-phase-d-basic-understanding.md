@@ -105,3 +105,8 @@ The active config was therefore tightened from a `60`-trading-day base window to
 The next usability gap is list reduction during manual review. The current table shows the full current watchlist plus the Phase 2 status, but it does not yet let the user quickly narrow to the most interesting quiet-setup names when the important signals live inside grouped cells rather than one flat sortable numeric column.
 
 The user specifically cares about names that are structurally quieter first, especially quarter-low-volume style behavior, and then wants to prioritize those names further by repeated delivery support or repeated delivery-hit counts. This suggests the right UX is not per-column table filters on the grouped cells, but a small dedicated review filter/sort panel that can rank and narrow the watchlist using a few high-signal criteria.
+
+### Pending Tasks for Next Session (June 2026)
+
+1. **Exit Strategy / New Pipeline:** Need to design and document a complete Exit Strategy pipeline. This will define stop losses, trailing stops, and the mathematical footprints of Wyckoff Distribution to know exactly when to sell after a Phase D markup has run its course.
+2. **Delivery Quantity & Percentage Ranking:** We need to figure out how to use Delivery Volume and Delivery % specifically during the accumulation period (Phase B) to confirm conviction. When multiple stocks are accumulating at the same time, we need a mathematical way to rank them by "conviction quality" so we know which ones to prioritize for Phase D ignition.

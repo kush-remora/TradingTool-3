@@ -85,3 +85,19 @@ Once the base is formed (Phase B), the pipeline transitions into an event-driven
 6. **Validation 2 (Kotlin - True Resistance Breakout):** Once Ignition and Momentum are triggered, the Kotlin backend takes final control. Instead of relying on a rigid, blind 20-day high rule in Chartink, Kotlin dynamically calculates the exact Master Resistance Line (The Creek) of the full historical base. It mathematically verifies if today's price successfully broke out.
 
 If a stock survives this entire 6-step gauntlet, it is flagged as a high-probability, structurally verified **Phase D Markup**.
+
+## 8. The Daily Operational Workflow (The 11-CSV Ingestion)
+To maintain total granular control over the timeline of every stock, the system does *not* use a single massive scanner. Instead, it generates 11 highly specific CSVs every day. The Kotlin backend acts as a time-series database, ingesting these files and mathematically stitching the Wyckoff lifecycle together:
+
+**Phase B (Accumulation) - 6 CSVs:**
+*   Large, Mid, Small Cap (Run *without* the Rule 3 equilibrium filter to catch all shapes) = 3 CSVs
+*   Large, Mid, Small Cap (Run *with* the Rule 3 equilibrium filter to flag Grade A+ flat bases) = 3 CSVs
+
+**Phase C (Exhaustion) - 3 CSVs:**
+*   Large, Mid, Small Cap (The Dead Pocket / Volume Dry-Up) = 3 CSVs
+
+**Phase D (Markup) - 2 CSVs:**
+*   **Ignition (1 CSV):** Flags the exact day of the 2-day volume and price explosion.
+*   **Momentum (1 CSV):** Flags stocks where the macro trend (20>50, Close>100) is structurally confirmed.
+
+By running these separately, your Kotlin backend will possess a perfect, bias-free historical ledger. It knows exactly when a stock started accumulating, exactly when selling pressure died, exactly when the first institutional footprint appeared (Ignition), and exactly when the macro trend officially shifted (Momentum).
