@@ -249,3 +249,18 @@ Completion rules:
 - Backend, data-model, and API changes are not complete unless `backend-architect` has been consulted.
 - `coding-standards` is always required, regardless of task area.
 
+## Core Trading Philosophy (The "No Hurry" Conviction Engine)
+
+As a permanent operating instruction for this repository, you must align all architectural and product decisions with this trading philosophy:
+
+*   **Quality Over Quantity:** Do not design for high-frequency trading. The system exists to find 15-20 perfect, high-conviction Wyckoff setups per year (aiming for 30%+ returns), not to force 100 mediocre trades at 5%.
+*   **Decision Fatigue is the Enemy:** Reducing the number of trades preserves mental capital. Every trade is a decision, and too many decisions lead to psychological friction, slippage, and execution errors.
+*   **The Power of the Forward Flow (Patience):** To execute a 30% swing trade without getting shaken out, the user needs absolute conviction. That conviction is built by monitoring stocks *while* they are in the boring Phase B/C (like the perfect BHEL case study), providing weeks of time to research fundamentals before the breakout.
+*   **The Roadmap to Live Trading:** We are in no hurry. The strict operational path is:
+    1. Documentation (Mapping the logic)
+    2. Implementation, Validation & Bug Fixing
+    3. Backtesting (Testing the logic on historical data)
+    4. Paper Trading
+    5. Live Trading (Making money)
+*   **AI Agent Directive:** Never rush the process. Do not over-engineer complex mathematical baselines when simple, robust checks (like cross-referencing Chartink's dry-up dates for delivery spikes) work better. Prioritize architectures that buy the user *time* to make a researched, unemotional decision.
+

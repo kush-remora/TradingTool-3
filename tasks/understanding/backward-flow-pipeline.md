@@ -63,17 +63,34 @@ The Kotlin backend takes the Phase D Candidate list and **intersects** it with t
 Only on those specific stocks (and their specific historical dates), Kotlin fetches the raw EOD data and runs a Quadratic Regression ($y = ax^2 + bx + c$).
 *   **The Action:** Chartink cannot see direction, so Kotlin mathematically rejects Inverted U's (distribution). It confirms the Chartink footprint is a valid flat, downward drift, or upward drift accumulation shape.
 
-### C. Phase C Delivery Validation (The Wholesale Baseline)
-**The Denominator Flaw:** We do *not* use raw Delivery Percentage (%). High-Frequency Trading (HFT) mathematically crushes delivery percentages in trending stocks, causing false negatives. 
+### C. Phase C Delivery Validation (The Simple Inverse Check)
+We do not force Kotlin to calculate massive historical baselines. Chartink has already mathematically isolated the exact days where total volume collapsed (e.g., `volume < 5-day SMA`). 
 
-Instead, Kotlin mathematically proves absorption using the **Wholesale Delivery Baseline**:
-1. **Isolate the Basement:** Kotlin looks at the historical base window, sorts the prices, and isolates the bottom 10% (the absolute cheapest days). 
-2. **Calculate Wholesale Base DQ:** It finds the average *absolute* Delivery Quantity (DQ) specifically on those basement days.
-3. **The Accumulation Spike:** It checks if the absolute Delivery Quantity on the ignition days spiked significantly (e.g., $\ge 1.5x$) compared to that clean Wholesale Base.
-4. **The Volatility Squeeze Guardrail:** It ensures the price bar contracted heavily (using True Range) right before the spike, proving the asset reached "Dead Silence" (Phase C supply exhaustion) before the markup.
+Kotlin simply looks at those exact dates and applies the inverse logic:
+1. **The Inverse Spike:** As total trading volume crashed, did the *Absolute Delivery Quantity (DQ)* remain steady or spike? (This proves institutions were absorbing the remaining float).
+2. **The Red Day Divergence:** On the days inside that dry-up cluster where the stock closed RED (price down), did the Delivery Quantity increase? (This proves limit-order buying on the dip).
 
 ---
 
-## Step 5: The Final Output
+## Step 5: The Final Output View
 
-If a stock survives the Grading System AND the Kotlin Backward Forensics, it is presented on the UI as a **Structurally Verified Phase D Breakout**. 
+The system outputs a raw convergence UI to aid fast decision-making:
+*   **Identity:** Symbol, Market Cap Segment.
+*   **The Backward Timeline:** Groww (Days Ago), Delivery (Days Ago), Ignition (Days Ago), Momentum (Days Ago).
+*   **Base Forensics:** Shape (Flat/Drift), Base Duration, Delivery Divergence confirmed (Yes/No).
+*   **Today's Action:** Close Price, Volume Surge multiplier, Distance to Base Breakout level.
+
+---
+
+## The Core Strategy: Decision Fatigue & High Conviction
+
+While mathematically it seems appealing to run 100 trades at 5%, the human reality of trading dictates the exact opposite. 
+
+**The Decision Constraint:**
+To execute 100 trades a year, you must make 100 perfect decisions. Every single decision carries the risk of cognitive fatigue, emotional mistakes, and execution errors. Furthermore, transaction costs, slippage, and taxes aggressively eat into high-frequency, low-margin trading.
+
+**The Pipeline Alignment (Fewer Decisions, Bigger Swings):**
+The true goal of this software is to enable **Scenario 4 (15 to 20 trades a year aiming for 30%+ returns)**. 
+By drastically reducing the number of trades, you preserve mental capital. You only execute when the system flags an absolute Grade A+ Wyckoff setup with perfect institutional footprints. 
+
+Because we are aiming for 30% swings, we must hold the stock for longer periods (weeks/months). To have the psychological conviction to hold a stock that long without getting shaken out, the trader *must* have time to deeply research the company's fundamentals before entering. This makes the **Forward Flow (Phase B Watchlist)** the most critical part of the entire system, as it provides the time required to build that conviction.
