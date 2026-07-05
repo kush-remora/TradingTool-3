@@ -10,15 +10,18 @@ The examples in this document are targeted at **Large Cap** stocks, looking for 
 
 Because different rules measure different timeframes, the standard for "tightness" changes depending on whether you are looking at a week or a single day. If you are adapting this for different segments, use these industry-standard baselines:
 
-*   **Large Caps (e.g., Nifty 50):** 
+*   **Large Caps (Nifty 100):** 
     *   *Weekly Filter (Rule 1):* Set to `<= 5%`. (A normal week drifts 5-8%).
     *   *Daily Filter (Rule 2):* Set to `<= 3%`. (A normal day's body is 2-4%).
-*   **Mid Caps:** 
+*   **Mid Caps (Nifty Midcap 150):** 
     *   *Weekly Filter (Rule 1):* Set to `<= 6%`.
     *   *Daily Filter (Rule 2):* Set to `<= 4%`.
-*   **Small/Micro Caps:** 
+*   **Small Caps (Nifty Smallcap 250):** 
     *   *Weekly Filter (Rule 1):* Set to `<= 8%`.
     *   *Daily Filter (Rule 2):* Set to `<= 5%`.
+*   **Micro Caps (Nifty Microcap 250):** 
+    *   *Weekly Filter (Rule 1):* Set to `<= 10%`.
+    *   *Daily Filter (Rule 2):* Set to `<= 6%`.
 
 ## The Four Valid Shapes of Accumulation
 
@@ -142,7 +145,8 @@ Accumulation cannot happen in chaos. If a stock is routinely whipping up and dow
   Change `>= 5` based on what is considered an "erratic" move for that market cap.
   *   **Large Caps:** A 5% intraday swing is huge. Keep it at `>= 5%` or tighten to `>= 4%`.
   *   **Mid Caps:** Keep at `>= 5%`.
-  *   **Small/Micro Caps:** Small caps swing 5% easily. You might loosen the definition of erratic to `>= 7%` or `>= 8%`.
+  *   **Small Caps:** Small caps swing 5% easily. You might loosen the definition of erratic to `>= 7%`.
+  *   **Micro Caps:** Micro caps are extremely volatile. Set to `>= 8%`.
 
 ### 5. The Personality (Average Volatility) Check
 
@@ -163,7 +167,8 @@ In Wyckoff theory, a stock transitions from a Markdown phase (or Phase A - Stopp
   Because this is an *average* over 30 days, the number should be much tighter than Rule 4's outlier check. (If you use `<= 5%` for Large Caps here, you are allowing meme-stock levels of daily chaos!).
   *   **Large Caps:** Target `<= 3%` or `<= 3.5%`.
   *   **Mid Caps:** Target `<= 4%` or `<= 4.5%`.
-  *   **Small/Micro Caps:** Target `<= 5%` or `<= 6%`.
+  *   **Small Caps:** Target `<= 6.0%`.
+  *   **Micro Caps:** Target `<= 7.5%`.
 
 ### 6. The Volume Dry-Up (Supply Exhaustion) Check
 
@@ -248,7 +253,8 @@ Because this formula uses `abs()` (Absolute Value) and allows a `10%` variance, 
   The depth of a Phase C Shakeout depends on the size of the company.
   *   **Large Caps:** A 10% shakeout is severe. Keep the band at `<= 10%`.
   *   **Mid Caps:** They swing wider. Increase the band to `<= 15%`.
-  *   **Small/Micro Caps:** Small caps frequently experience savage 20% shakeouts to clear weak hands. Increase the band to `<= 20%` or even `<= 25%`.
+  *   **Small Caps:** Small caps frequently experience savage 20% shakeouts to clear weak hands. Increase the band to `<= 20%`.
+  *   **Micro Caps:** Micro caps can experience even deeper shakeouts. Increase the band to `<= 25%`.
 - **To change the accumulation length (Number of Days):** 
   The threshold here is roughly 50%. So for a 40-day window, set the count to `20`.
 
