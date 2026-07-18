@@ -12,7 +12,20 @@ import org.jdbi.v3.sqlobject.customizer.BindList
 
 @RegisterRowMapper(IndexSummaryMapper::class)
 @RegisterRowMapper(InstrumentUniverseMapper::class)
+@RegisterRowMapper(IndexSymbolMembershipMapper::class)
 interface IndexConstituentReadDao {
+    @SqlQuery(
+        """
+        SELECT ${IndexConstituentColumns.SYMBOL}, ${IndexConstituentColumns.INDEX_KEY}
+        FROM public.${Tables.INDEX_CONSTITUENTS}
+        WHERE ${IndexConstituentColumns.IS_ACTIVE} = true
+          AND ${IndexConstituentColumns.SYMBOL} IN (<symbols>)
+        ORDER BY ${IndexConstituentColumns.SYMBOL}, ${IndexConstituentColumns.INDEX_KEY}
+        """,
+    )
+    fun findActiveMembershipsBySymbols(
+        @BindList("symbols") symbols: List<String>,
+    ): List<IndexSymbolMembershipRow>
     @SqlQuery(
         """
         SELECT 
@@ -87,6 +100,20 @@ interface IndexConstituentReadDao {
     fun findUniverseByInstrumentTokens(
         @BindList("instrumentTokens") instrumentTokens: List<Long>,
     ): List<InstrumentUniverseRow>
+}
+
+data class IndexSymbolMembershipRow(
+    val symbol: String,
+    val indexKey: String,
+)
+
+class IndexSymbolMembershipMapper : RowMapper<IndexSymbolMembershipRow> {
+    override fun map(rs: ResultSet, ctx: StatementContext): IndexSymbolMembershipRow {
+        return IndexSymbolMembershipRow(
+            symbol = rs.getString(IndexConstituentColumns.SYMBOL),
+            indexKey = rs.getString(IndexConstituentColumns.INDEX_KEY),
+        )
+    }
 }
 
 data class InstrumentUniverseRow(

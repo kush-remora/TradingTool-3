@@ -14,6 +14,7 @@ import { TrailingStopBacktestPage } from "./pages/TrailingStopBacktestPage";
 import { FiftyTwoWeekMomentumRule5Page } from "./pages/FiftyTwoWeekMomentumRule5Page";
 import { CsvBacktestPage } from "./pages/CsvBacktestPage";
 import { BacktestReviewsPage } from "./pages/BacktestReviewsPage";
+import { ChartinkEvidencePage } from "./pages/ChartinkEvidencePage";
 
 type V1PageKey =
   | "trade"
@@ -26,7 +27,8 @@ type V1PageKey =
   | "trailing-stop"
   | "52w-momentum-rule5"
   | "csv-backtest"
-  | "backtest-reviews";
+  | "backtest-reviews"
+  | "chartink-evidence";
 
 type PageKey = V1PageKey;
 
@@ -41,6 +43,7 @@ const menuItems: MenuProps["items"] = [
   { key: "backtest-reviews", label: "Saved Backtest Reviews", icon: <BookOutlined /> },
   { key: "wyckoff-phase1", label: "Wyckoff Phase-1", icon: <BarChartOutlined /> },
   { key: "phase-d", label: "Phase D Scanner", icon: <FundOutlined /> },
+  { key: "chartink-evidence", label: "Chartink Evidence", icon: <FundOutlined /> },
   { key: "trade", label: "Trade Journal", icon: <BookOutlined /> },
 ];
 
@@ -56,6 +59,7 @@ const validPages: PageKey[] = [
   "52w-momentum-rule5",
   "csv-backtest",
   "backtest-reviews",
+  "chartink-evidence",
 ];
 
 export default function App() {
@@ -152,6 +156,7 @@ export default function App() {
             {route === "52w-momentum-rule5" && <FiftyTwoWeekMomentumRule5Page />}
             {route === "csv-backtest" && <CsvBacktestPage />}
             {route === "backtest-reviews" && <BacktestReviewsPage />}
+            {route === "chartink-evidence" && <ChartinkEvidencePage />}
           </Layout.Content>
         </Layout>
       </Layout>

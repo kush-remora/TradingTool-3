@@ -1,4 +1,4 @@
-# Dual Conviction Systems — Interview Log
+ # Dual Conviction Systems — Interview Log
 
 This file is the source of truth for discovery. It captures the interview trail in question/answer form so we do not mutate the HLD on every answer and accidentally create inconsistencies. The HLD should be compiled from this log after the interview is sufficiently complete.
 

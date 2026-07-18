@@ -13,6 +13,8 @@ import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1RunConfig
 import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1RunRequest
 import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1ScannerService
 import com.tradingtool.core.volumeshocker.groww.GrowwVolumeShockerDashboardService
+import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceService
+import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceUploadRequest
 import com.tradingtool.resources.common.badRequest
 import com.tradingtool.resources.common.endpoint
 import com.tradingtool.resources.common.notFound
@@ -42,6 +44,7 @@ class StrategyResource @Inject constructor(
     private val fiftyTwoWeekMomentumRule5Service: com.tradingtool.core.strategy.fiftytwomomentum.FiftyTwoWeekMomentumRule5Service,
     private val csvBacktestService: com.tradingtool.core.strategy.csvbacktest.CsvBacktestService,
     private val backtestTradeReviewService: com.tradingtool.core.strategy.csvbacktest.BacktestTradeReviewService,
+    private val chartinkEvidenceService: ChartinkEvidenceService,
 ) {
     private val ioScope = resourceScope.ioScope
 
@@ -71,6 +74,33 @@ class StrategyResource @Inject constructor(
             ok(chartinkFiftyTwoWeekHighReportService.loadLatestReport())
         } catch (error: IllegalArgumentException) {
             notFound(error.message ?: "Chartink 52-week-high report not found.")
+        }
+    }
+
+    @POST
+    @Path("/chartink-evidence/upload")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun uploadChartinkEvidence(
+        request: ChartinkEvidenceUploadRequest?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        try {
+            ok(chartinkEvidenceService.upload(body))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid Chartink evidence upload.")
+        }
+    }
+
+    @GET
+    @Path("/chartink-evidence/dashboard")
+    fun getChartinkEvidenceDashboard(
+        @jakarta.ws.rs.QueryParam("months") months: Int?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val selectedMonths = months ?: 1
+        try {
+            ok(chartinkEvidenceService.getDashboard(selectedMonths))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid dashboard period.")
         }
     }
 

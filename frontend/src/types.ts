@@ -2492,3 +2492,34 @@ export interface ReviewReasonsResponse {
   acceptanceReasons: ReviewReason[];
   rejectionReasons: ReviewReason[];
 }
+
+// ==================== Chartink Evidence ====================
+
+export interface ChartinkEvidenceUploadRequest {
+  slot: string;
+  csvContent: string;
+  fileName: string;
+}
+
+export interface ChartinkEvidenceUploadResult {
+  source: "ACCUMULATION" | "PHASE_D" | "T2_HIGH" | "FRESH_BREAKOUT";
+  storedCount: number;
+  skippedOutsideUniverseCount: number;
+  duplicateCount: number;
+}
+
+export interface ChartinkEvidenceDashboardRow {
+  symbol: string;
+  universeKey: string;
+  curatedWatchlists: string[];
+  accumulationLatestDate: string | null;
+  phaseDLatestDate: string | null;
+  t2HighLatestDate: string | null;
+  freshBreakoutLatestDate: string | null;
+}
+
+export interface ChartinkEvidenceDashboardResponse {
+  months: number;
+  fromDate: string;
+  rows: ChartinkEvidenceDashboardRow[];
+}

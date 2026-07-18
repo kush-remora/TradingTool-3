@@ -11,6 +11,7 @@ object DatabaseConstants {
         const val INDEX_CONSTITUENTS = "index_constituents"
         const val GROWW_VOLUME_SHOCKER_DAILY = "groww_volume_shocker_daily"
         const val PHASE_C_WATCHLIST = "phase_c_watchlist"
+        const val CHARTINK_SCAN_EVENTS = "chartink_scan_events"
     }
 
     object KiteTokenColumns {
@@ -131,5 +132,16 @@ object DatabaseConstants {
         const val DELIVERY_SPIKE_DAYS_20D = "delivery_spike_days_20d"
         const val DELIVERY_SUPPORT_DAYS_10D = "delivery_support_days_10d"
         const val DELIVERY_SUPPORT_DAYS_20D = "delivery_support_days_20d"
+    }
+
+    object ChartinkScanEventColumns {
+        const val SOURCE = "source"
+        const val UNIVERSE_KEY = "universe_key"
+        const val EVENT_DATE = "event_date"
+        const val SYMBOL = "symbol"
+        const val MARKETCAP_NAME = "marketcap_name"
+        const val SECTOR = "sector"
+        const val SOURCE_FILE_NAME = "source_file_name"
+        const val UPLOADED_AT = "uploaded_at"
     }
 }

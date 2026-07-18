@@ -40,6 +40,14 @@ import com.tradingtool.core.strategy.fiftytwohigh.ChartinkFiftyTwoWeekHighReport
 import com.tradingtool.core.strategy.hotsma.HotSmaScannerService
 import com.tradingtool.core.volumeshocker.groww.dao.GrowwVolumeShockerReadDao
 import com.tradingtool.core.volumeshocker.groww.dao.GrowwVolumeShockerWriteDao
+import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceJdbiHandler
+import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceService
+import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceStore
+import com.tradingtool.core.strategy.chartinkevidence.ChartinkUniverseMembershipStore
+import com.tradingtool.core.strategy.chartinkevidence.JdbiChartinkEvidenceStore
+import com.tradingtool.core.strategy.chartinkevidence.JdbiChartinkUniverseMembershipStore
+import com.tradingtool.core.strategy.chartinkevidence.dao.ChartinkEvidenceReadDao
+import com.tradingtool.core.strategy.chartinkevidence.dao.ChartinkEvidenceWriteDao
 import com.tradingtool.core.telegram.TelegramApiClient
 import com.tradingtool.core.telegram.TelegramNotifier
 import com.tradingtool.core.telegram.TelegramSender
@@ -111,6 +119,25 @@ class ServiceModule(
     @Provides @Singleton
     fun provideIndexConstituentJdbiHandler(config: DatabaseConfig): IndexConstituentJdbiHandler =
         handler<com.tradingtool.core.indexconstituents.dao.IndexConstituentReadDao, com.tradingtool.core.indexconstituents.dao.IndexConstituentWriteDao>(config)
+
+    @Provides @Singleton
+    fun provideChartinkEvidenceJdbiHandler(config: DatabaseConfig): ChartinkEvidenceJdbiHandler =
+        handler<ChartinkEvidenceReadDao, ChartinkEvidenceWriteDao>(config)
+
+    @Provides @Singleton
+    fun provideChartinkEvidenceStore(handler: ChartinkEvidenceJdbiHandler): ChartinkEvidenceStore =
+        JdbiChartinkEvidenceStore(handler)
+
+    @Provides @Singleton
+    fun provideChartinkUniverseMembershipStore(
+        handler: IndexConstituentJdbiHandler,
+    ): ChartinkUniverseMembershipStore = JdbiChartinkUniverseMembershipStore(handler)
+
+    @Provides @Singleton
+    fun provideChartinkEvidenceService(
+        evidenceStore: ChartinkEvidenceStore,
+        membershipStore: ChartinkUniverseMembershipStore,
+    ): ChartinkEvidenceService = ChartinkEvidenceService(evidenceStore, membershipStore)
 
 
 
