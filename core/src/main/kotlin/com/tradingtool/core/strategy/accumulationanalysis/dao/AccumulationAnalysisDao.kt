@@ -6,6 +6,7 @@ import com.tradingtool.core.strategy.accumulationanalysis.AccumulationCaseSnapsh
 import com.tradingtool.core.strategy.accumulationanalysis.AccumulationRunStatus
 import com.tradingtool.core.strategy.accumulationanalysis.AccumulationShape
 import com.tradingtool.core.strategy.accumulationanalysis.AccumulationShapeDecision
+import com.tradingtool.core.strategy.accumulationanalysis.AccumulationShapeMetrics
 import com.tradingtool.core.strategy.accumulationanalysis.AnalysisEvidenceEvent
 import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceSource
 import org.jdbi.v3.core.mapper.RowMapper
@@ -75,7 +76,7 @@ class AccumulationAnalysisRunMapper : RowMapper<AccumulationAnalysisRun> {
 class AccumulationCaseSnapshotMapper : RowMapper<AccumulationCaseSnapshot> {
     override fun map(rs: ResultSet, ctx: StatementContext): AccumulationCaseSnapshot {
         val details = rs.getString("details")
-        return AccumulationCaseSnapshot(rs.getLong("run_id"), rs.getString("symbol"), rs.getDate("chain_start_date").toLocalDate(), rs.getDate("chain_end_date").toLocalDate(), rs.getDate("as_of_date").toLocalDate(), rs.getInt("chain_length_sessions"), rs.getInt("hit_count"), AccumulationShape.valueOf(rs.getString("shape")), AccumulationShapeDecision.valueOf(rs.getString("shape_decision")), rs.getBoolean("valid"), rs.getDate("first_phase_d_date")?.toLocalDate(), rs.getDate("first_breakout_date")?.toLocalDate(), rs.getObject("sessions_to_phase_d") as Int?, rs.getObject("sessions_to_breakout") as Int?, details, confirmationDatesFrom(details))
+        return AccumulationCaseSnapshot(rs.getLong("run_id"), rs.getString("symbol"), rs.getDate("chain_start_date").toLocalDate(), rs.getDate("chain_end_date").toLocalDate(), rs.getDate("as_of_date").toLocalDate(), rs.getInt("chain_length_sessions"), rs.getInt("hit_count"), AccumulationShape.valueOf(rs.getString("shape")), AccumulationShapeDecision.valueOf(rs.getString("shape_decision")), rs.getBoolean("valid"), rs.getDate("first_phase_d_date")?.toLocalDate(), rs.getDate("first_breakout_date")?.toLocalDate(), rs.getObject("sessions_to_phase_d") as Int?, rs.getObject("sessions_to_breakout") as Int?, details, confirmationDatesFrom(details), shapeMetrics = shapeMetricsFrom(details))
     }
 }
 
@@ -91,6 +92,17 @@ internal fun confirmationDatesFrom(details: String): com.tradingtool.core.strate
         freshBreakout = dates("freshBreakoutDates"),
         fiftyTwoWeekHigh = dates("fiftyTwoWeekHighDates"),
     )
+}
+
+internal fun shapeMetricsFrom(details: String): AccumulationShapeMetrics? {
+    val regression = objectMapper.readTree(details).path("regression")
+    if (!regression.isObject) return null
+    fun number(name: String): Double? = regression.path(name).takeIf { it.isNumber }?.asDouble()
+    val curvature = number("curvature") ?: return null
+    val centerSlope = number("centerSlopePerTenSessions") ?: return null
+    val startSlope = number("startSlopePerTenSessions") ?: return null
+    val endSlope = number("endSlopePerTenSessions") ?: return null
+    return AccumulationShapeMetrics(curvature, centerSlope, startSlope, endSlope, number("vertexPosition"))
 }
 
 private val objectMapper = jacksonObjectMapper().findAndRegisterModules()

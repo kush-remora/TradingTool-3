@@ -61,6 +61,15 @@ data class AccumulationCaseSnapshot(
     val confirmationDates: AccumulationConfirmationDates = AccumulationConfirmationDates(),
     val curatedWatchlists: List<String> = emptyList(),
     val sixMonthEvidence: AccumulationEvidenceLane? = null,
+    val shapeMetrics: AccumulationShapeMetrics? = null,
+)
+
+data class AccumulationShapeMetrics(
+    val curvature: Double,
+    val centerSlopePerTenSessions: Double,
+    val startSlopePerTenSessions: Double,
+    val endSlopePerTenSessions: Double,
+    val vertexPosition: Double?,
 )
 
 data class AccumulationConfirmationDates(

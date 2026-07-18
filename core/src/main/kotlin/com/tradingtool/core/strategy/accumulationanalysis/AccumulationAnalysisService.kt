@@ -73,8 +73,8 @@ class AccumulationAnalysisService(private val store: AccumulationAnalysisStore, 
                 val confirmations = AccumulationConfirmationDates(dates(ChartinkEvidenceSource.PHASE_D), dates(ChartinkEvidenceSource.FRESH_BREAKOUT), dates(ChartinkEvidenceSource.FIFTY_TWO_WEEK_HIGH))
                 val phaseD = confirmations.phaseD.firstOrNull()
                 val breakout = confirmations.freshBreakout.firstOrNull()
-                val details = objectMapper.writeValueAsString(mapOf("hitDates" to chain, "chainHitStartDate" to chain.first(), "chainHitEndDate" to validationDate, "shapeWindowStartDate" to baseStartDate, "shapeWindowSessions" to shapeWindow.size, "regression" to mapOf("curvature" to classification.curvature, "slope" to classification.slope), "phaseDDates" to confirmations.phaseD, "freshBreakoutDates" to confirmations.freshBreakout, "fiftyTwoWeekHighDates" to confirmations.fiftyTwoWeekHigh))
-                AccumulationCaseSnapshot(run.id, symbol, baseStartDate, validationDate, candle.candleDate, shapeWindow.size, chain.size, classification.shape, classification.decision, classification.decision == AccumulationShapeDecision.VALID, phaseD, breakout, phaseD?.let { engine.tradingSessionsBetween(validationDate, it, candles) }, breakout?.let { engine.tradingSessionsBetween(validationDate, it, candles) }, details, confirmations)
+                val details = objectMapper.writeValueAsString(mapOf("hitDates" to chain, "chainHitStartDate" to chain.first(), "chainHitEndDate" to validationDate, "shapeWindowStartDate" to baseStartDate, "shapeWindowSessions" to shapeWindow.size, "regression" to classification.metrics, "phaseDDates" to confirmations.phaseD, "freshBreakoutDates" to confirmations.freshBreakout, "fiftyTwoWeekHighDates" to confirmations.fiftyTwoWeekHigh))
+                AccumulationCaseSnapshot(run.id, symbol, baseStartDate, validationDate, candle.candleDate, shapeWindow.size, chain.size, classification.shape, classification.decision, classification.decision == AccumulationShapeDecision.VALID, phaseD, breakout, phaseD?.let { engine.tradingSessionsBetween(validationDate, it, candles) }, breakout?.let { engine.tradingSessionsBetween(validationDate, it, candles) }, details, confirmations, shapeMetrics = classification.metrics)
             }
         }
     }
@@ -96,7 +96,7 @@ class AccumulationAnalysisService(private val store: AccumulationAnalysisStore, 
 
     private fun withUnclassifiedShape(snapshots: List<AccumulationCaseSnapshot>, run: AccumulationAnalysisRun): List<AccumulationCaseSnapshot> =
         if (run.algorithmVersion == engine.algorithmVersion) snapshots else snapshots.map { snapshot ->
-            snapshot.copy(shape = AccumulationShape.UNCLASSIFIED, shapeDecision = AccumulationShapeDecision.NEEDS_REVIEW, valid = false)
+            snapshot.copy(shape = AccumulationShape.UNCLASSIFIED, shapeDecision = AccumulationShapeDecision.NEEDS_REVIEW, valid = false, shapeMetrics = null)
         }
 
     private suspend fun isStale(run: AccumulationAnalysisRun): Boolean =

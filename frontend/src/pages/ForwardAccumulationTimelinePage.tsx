@@ -5,6 +5,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useAccumulationAnalysis } from "../hooks/useAccumulationAnalysis";
 import type { AccumulationCaseSnapshot } from "../types";
 import { AccumulationEvidenceDates, AccumulationEvidenceLaneView } from "../components/AccumulationEvidenceLane";
+import { AccumulationShapeMetric } from "../components/AccumulationShapeMetric";
 
 interface ForwardAccumulationTimelinePageProps {
   runId: number;
@@ -21,6 +22,7 @@ const columns: ColumnsType<AccumulationCaseSnapshot> = [
   { title: "Sessions", dataIndex: "chainLengthSessions", sorter: (left, right) => left.chainLengthSessions - right.chainLengthSessions },
   { title: "Hits", dataIndex: "hitCount", sorter: (left, right) => left.hitCount - right.hitCount },
   { title: "Shape", dataIndex: "shape", sorter: (left, right) => left.shape.localeCompare(right.shape), render: (shape) => <Tag color={shape === "INVALID" ? "red" : shape === "UNCLASSIFIED" ? "gold" : "green"}>{shape}</Tag> },
+  { title: "Decision metric", key: "metric", sorter: (left, right) => (left.shapeMetrics?.centerSlopePerTenSessions ?? 0) - (right.shapeMetrics?.centerSlopePerTenSessions ?? 0), render: (_, row) => <AccumulationShapeMetric metrics={row.shapeMetrics} /> },
   { title: "Decision", dataIndex: "shapeDecision", sorter: (left, right) => left.shapeDecision.localeCompare(right.shapeDecision) },
   { title: "Phase D", key: "phaseD", render: (_, row) => <DateTags dates={row.confirmationDates.phaseD} /> },
   { title: "Fresh breakout", key: "breakout", render: (_, row) => <DateTags dates={row.confirmationDates.freshBreakout} /> },

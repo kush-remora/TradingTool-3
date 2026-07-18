@@ -13,14 +13,14 @@ data class AccumulationShapeConfig(
     val shapeWindowSessions: Int,
     val normalizedCurvatureThreshold: Double,
     val normalizedFlatSlopeThreshold: Double,
+    val normalizedTurningSlopeThreshold: Double,
     val note: String,
 )
 
 data class AccumulationShapeClassification(
     val shape: AccumulationShape,
     val decision: AccumulationShapeDecision,
-    val curvature: Double?,
-    val slope: Double?,
+    val metrics: AccumulationShapeMetrics?,
 )
 
 class AccumulationShapeEngine(private val config: AccumulationShapeConfig = AccumulationShapeConfigLoader.load()) {
@@ -40,23 +40,37 @@ class AccumulationShapeEngine(private val config: AccumulationShapeConfig = Accu
 
     fun classify(candles: List<DailyCandle>): AccumulationShapeClassification {
         if (candles.size < config.shapeWindowSessions) {
-            return AccumulationShapeClassification(AccumulationShape.UNCLASSIFIED, AccumulationShapeDecision.NEEDS_REVIEW, null, null)
+            return AccumulationShapeClassification(AccumulationShape.UNCLASSIFIED, AccumulationShapeDecision.NEEDS_REVIEW, null)
         }
 
         val coefficients = quadraticRegression(candles.map(DailyCandle::close))
+        val metrics = coefficients.metrics(candles.size)
+        val turningSlopeThreshold = turningThresholdPerTenSessions(candles.size)
+        val hasTurningPointInsideWindow = metrics.vertexPosition?.let { it in -1.0..1.0 } == true
+        val isCup = coefficients.curvature >= config.normalizedCurvatureThreshold &&
+            metrics.startSlopePerTenSessions <= -turningSlopeThreshold &&
+            metrics.endSlopePerTenSessions >= turningSlopeThreshold &&
+            hasTurningPointInsideWindow
+        val isInvertedU = coefficients.curvature <= -config.normalizedCurvatureThreshold &&
+            metrics.startSlopePerTenSessions >= turningSlopeThreshold &&
+            metrics.endSlopePerTenSessions <= -turningSlopeThreshold &&
+            hasTurningPointInsideWindow
         val shape = when {
-            coefficients.curvature <= -config.normalizedCurvatureThreshold -> AccumulationShape.INVALID
-            coefficients.curvature >= config.normalizedCurvatureThreshold -> AccumulationShape.CUP
+            isInvertedU -> AccumulationShape.INVALID
+            isCup -> AccumulationShape.CUP
             kotlin.math.abs(coefficients.slope) <= config.normalizedFlatSlopeThreshold -> AccumulationShape.FLAT
             coefficients.slope < 0 -> AccumulationShape.DOWNWARD_DRIFT
             else -> AccumulationShape.UPWARD_DRIFT
         }
         val decision = if (shape == AccumulationShape.INVALID) AccumulationShapeDecision.INVALID else AccumulationShapeDecision.VALID
-        return AccumulationShapeClassification(shape, decision, coefficients.curvature, coefficients.slope)
+        return AccumulationShapeClassification(shape, decision, metrics)
     }
 
     fun tradingSessionsBetween(from: LocalDate, to: LocalDate, candles: List<DailyCandle>): Int =
         candles.count { it.candleDate > from && it.candleDate <= to }
+
+    private fun turningThresholdPerTenSessions(sessionCount: Int): Double =
+        config.normalizedTurningSlopeThreshold * sessionScalePerTenSessions(sessionCount) * 100.0
 
     private fun quadraticRegression(closes: List<Double>): QuadraticCoefficients {
         val meanClose = closes.average()
@@ -74,7 +88,21 @@ class AccumulationShapeEngine(private val config: AccumulationShapeConfig = Accu
         )
     }
 
-    private data class QuadraticCoefficients(val curvature: Double, val slope: Double)
+    private fun sessionScalePerTenSessions(sessionCount: Int): Double = 20.0 / (sessionCount - 1)
+
+    private data class QuadraticCoefficients(val curvature: Double, val slope: Double) {
+        fun metrics(sessionCount: Int): AccumulationShapeMetrics {
+            val scale = 20.0 / (sessionCount - 1) * 100.0
+            val vertex = if (kotlin.math.abs(curvature) > 1e-9) -slope / (2.0 * curvature) else null
+            return AccumulationShapeMetrics(
+                curvature = curvature,
+                centerSlopePerTenSessions = slope * scale,
+                startSlopePerTenSessions = (slope - 2.0 * curvature) * scale,
+                endSlopePerTenSessions = (slope + 2.0 * curvature) * scale,
+                vertexPosition = vertex,
+            )
+        }
+    }
 }
 
 object AccumulationShapeConfigLoader {

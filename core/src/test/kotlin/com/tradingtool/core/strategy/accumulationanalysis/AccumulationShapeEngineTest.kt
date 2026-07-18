@@ -40,6 +40,22 @@ class AccumulationShapeEngineTest {
     }
 
     @Test
+    fun `does not call a monotonic curve a cup`() {
+        val shape = engine.classify(shapeCandles { index -> 100.0 + 12.0 * (normalizedX(index) + 2.0) * (normalizedX(index) + 2.0) }).shape
+
+        assertEquals(AccumulationShape.UPWARD_DRIFT, shape)
+    }
+
+    @Test
+    fun `reports slope metrics in percentage per ten sessions`() {
+        val metrics = requireNotNull(engine.classify(shapeCandles { index -> 100.0 + index * 0.12 }).metrics)
+
+        assertEquals(true, metrics.centerSlopePerTenSessions > 0)
+        assertEquals(true, metrics.startSlopePerTenSessions > 0)
+        assertEquals(true, metrics.endSlopePerTenSessions > 0)
+    }
+
+    @Test
     fun `BHEL reference window ending on March thirtieth is a downward drift`() {
         val fixture = Path.of("..", ".claude", "requirements", "strategies", "52w-momentum", "bhel-daily-candle.json")
         val candles = Regex("\\\"candle_date\\\": \\\"([^\\\"]+)\\\"[\\s\\S]*?\\\"close\\\": \\\"([^\\\"]+)\\\"")

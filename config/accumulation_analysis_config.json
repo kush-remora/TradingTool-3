@@ -1,9 +1,10 @@
 {
-  "algorithmVersion": "v4-quadratic-60-session",
+  "algorithmVersion": "v5-quadratic-turning-shapes",
   "maxGapTradingSessions": 15,
   "minimumHitCount": 1,
   "shapeWindowSessions": 60,
   "normalizedCurvatureThreshold": 0.06,
   "normalizedFlatSlopeThreshold": 0.02,
-  "note": "Quadratic regression uses 60 trading sessions ending on the final hit in each 15-session accumulation chain. Thresholds are normalized by the window mean close and calibrated so the BHEL reference window ending 2026-03-30 is a valid downward drift."
+  "normalizedTurningSlopeThreshold": 0.02,
+  "note": "Quadratic regression uses 60 trading sessions ending on the final hit in each 15-session accumulation chain. A cup or inverted-U must turn within the window; otherwise the center slope determines flat, upward, or downward drift. Thresholds are normalized by the window mean close and calibrated so the BHEL reference window ending 2026-03-30 is a valid downward drift."
 }
