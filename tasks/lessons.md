@@ -62,3 +62,7 @@
 - When replacing a strategy's internal logic, do not assume the product name should change too; confirm whether the existing user-facing strategy label should be retained.
 - For daily mover routing workflows, default to separate actionable views per bucket instead of one mixed result surface when the buckets represent different trading behaviors.
 - For new projects or meaningful new discussions, create and maintain a compact discussion-specific understanding document under `tasks/understanding/` instead of using `tasks/todo.md`.
+
+## 2026-07-19
+
+- When extending JSONB-backed snapshots, treat absent, blank, or malformed legacy optional values as empty data at the read boundary; never let one old row fail an entire dashboard response.

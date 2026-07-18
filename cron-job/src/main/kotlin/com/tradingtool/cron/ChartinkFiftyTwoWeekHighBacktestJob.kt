@@ -7,7 +7,17 @@ import com.tradingtool.core.candle.dao.CandleReadDao
 import com.tradingtool.core.candle.dao.CandleWriteDao
 import com.tradingtool.core.config.ConfigLoader
 import com.tradingtool.core.database.CandleJdbiHandler
+import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.model.DatabaseConfig
+import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceJdbiHandler
+import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceService
+import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceUploadRequest
+import com.tradingtool.core.strategy.chartinkevidence.JdbiChartinkEvidenceStore
+import com.tradingtool.core.strategy.chartinkevidence.JdbiChartinkUniverseMembershipStore
+import com.tradingtool.core.strategy.chartinkevidence.dao.ChartinkEvidenceReadDao
+import com.tradingtool.core.strategy.chartinkevidence.dao.ChartinkEvidenceWriteDao
+import com.tradingtool.core.indexconstituents.dao.IndexConstituentReadDao
+import com.tradingtool.core.indexconstituents.dao.IndexConstituentWriteDao
 import com.tradingtool.core.strategy.fiftytwohigh.ChartinkFiftyTwoWeekHighBacktestConfig
 import com.tradingtool.core.strategy.fiftytwohigh.ChartinkFiftyTwoWeekHighBacktestEngine
 import com.tradingtool.core.strategy.fiftytwohigh.ChartinkFiftyTwoWeekHighBacktestReport
@@ -34,6 +44,13 @@ fun main() {
         runCatching {
             val report = runtime.service.run(runtime.config)
             writeArtifacts(runtime.outputDir, report, runtime.objectMapper)
+            runtime.evidenceService.upload(
+                ChartinkEvidenceUploadRequest(
+                    slot = "FIFTY_TWO_WEEK_HIGH",
+                    csvContent = Files.readString(runtime.config.inputFile),
+                    fileName = runtime.config.inputFile.fileName.toString(),
+                ),
+            )
             log.info(
                 "Chartink 52-week-high backtest completed: input={} signals={} trades={} output={}",
                 runtime.config.inputFile,
@@ -56,6 +73,7 @@ private data class ChartinkFiftyTwoWeekHighBacktestRuntime(
     val outputDir: Path,
     val objectMapper: ObjectMapper,
     val service: ChartinkFiftyTwoWeekHighBacktestService,
+    val evidenceService: ChartinkEvidenceService,
 ) {
     companion object {
         fun fromEnvironment(): ChartinkFiftyTwoWeekHighBacktestRuntime {
@@ -71,6 +89,16 @@ private data class ChartinkFiftyTwoWeekHighBacktestRuntime(
                 databaseConfig,
                 CandleReadDao::class.java,
                 CandleWriteDao::class.java,
+            )
+            val evidenceHandler = ChartinkEvidenceJdbiHandler(
+                databaseConfig,
+                ChartinkEvidenceReadDao::class.java,
+                ChartinkEvidenceWriteDao::class.java,
+            )
+            val membershipHandler = IndexConstituentJdbiHandler(
+                databaseConfig,
+                IndexConstituentReadDao::class.java,
+                IndexConstituentWriteDao::class.java,
             )
 
             val service = ChartinkFiftyTwoWeekHighBacktestService(
@@ -101,6 +129,10 @@ private data class ChartinkFiftyTwoWeekHighBacktestRuntime(
                 outputDir = Paths.get(DEFAULT_OUTPUT_DIR),
                 objectMapper = objectMapper,
                 service = service,
+                evidenceService = ChartinkEvidenceService(
+                    JdbiChartinkEvidenceStore(evidenceHandler),
+                    JdbiChartinkUniverseMembershipStore(membershipHandler),
+                ),
             )
         }
     }

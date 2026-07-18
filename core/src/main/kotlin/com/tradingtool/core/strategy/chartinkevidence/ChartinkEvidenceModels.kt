@@ -7,6 +7,7 @@ enum class ChartinkEvidenceSource {
     PHASE_D,
     T2_HIGH,
     FRESH_BREAKOUT,
+    FIFTY_TWO_WEEK_HIGH,
 }
 
 enum class ChartinkEvidenceSlot(
@@ -20,6 +21,7 @@ enum class ChartinkEvidenceSlot(
     PHASE_D(ChartinkEvidenceSource.PHASE_D, null),
     T2_HIGH(ChartinkEvidenceSource.T2_HIGH, null),
     FRESH_BREAKOUT(ChartinkEvidenceSource.FRESH_BREAKOUT, null),
+    FIFTY_TWO_WEEK_HIGH(ChartinkEvidenceSource.FIFTY_TWO_WEEK_HIGH, null),
     ;
 
     companion object {

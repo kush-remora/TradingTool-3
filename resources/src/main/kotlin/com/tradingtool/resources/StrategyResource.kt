@@ -127,8 +127,8 @@ class StrategyResource @Inject constructor(
 
     @GET
     @Path("/accumulation-analysis/runs/{runId}/symbols/{symbol}")
-    fun getAccumulationAnalysisTimeline(@jakarta.ws.rs.PathParam("runId") runId: Long, @jakarta.ws.rs.PathParam("symbol") symbol: String): CompletableFuture<Response> = ioScope.endpoint {
-        try { ok(accumulationAnalysisService.timeline(runId, symbol.uppercase())) } catch (error: IllegalArgumentException) { notFound(error.message ?: "Run not found.") }
+    fun getAccumulationAnalysisTimeline(@jakarta.ws.rs.PathParam("runId") runId: Long, @jakarta.ws.rs.PathParam("symbol") symbol: String, @jakarta.ws.rs.QueryParam("chainStart") chainStart: String?, @jakarta.ws.rs.QueryParam("chainEnd") chainEnd: String?): CompletableFuture<Response> = ioScope.endpoint {
+        try { ok(accumulationAnalysisService.timeline(runId, symbol.uppercase(), chainStart?.let(java.time.LocalDate::parse), chainEnd?.let(java.time.LocalDate::parse))) } catch (error: IllegalArgumentException) { notFound(error.message ?: "Run not found.") }
     }
 
     @POST

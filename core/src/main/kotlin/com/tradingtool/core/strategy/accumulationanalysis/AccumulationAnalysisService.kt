@@ -6,6 +6,9 @@ import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.strategy.accumulationanalysis.dao.AccumulationAnalysisReadDao
 import com.tradingtool.core.strategy.accumulationanalysis.dao.AccumulationAnalysisWriteDao
 import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceSource
+import com.tradingtool.core.strategy.chartinkevidence.ChartinkUniverseMembershipStore
+import com.tradingtool.core.strategy.chartinkevidence.IndexMembership
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import java.time.LocalDate
 import java.time.OffsetDateTime
 
@@ -22,10 +25,10 @@ class JdbiAccumulationAnalysisStore(private val handler: AccumulationAnalysisJdb
     override suspend fun findRuns() = handler.read { it.findRuns() }
     override suspend fun findRun(runId: Long) = handler.read { it.findRun(runId) }
     override suspend fun findLatestSnapshots(runId: Long) = handler.read { it.findLatestSnapshots(runId) }
-    override suspend fun findTimeline(runId: Long, symbol: String) = handler.read { it.findTimeline(runId, symbol) }
+    override suspend fun findTimeline(runId: Long, symbol: String, chainStartDate: LocalDate?, chainEndDate: LocalDate?) = handler.read { it.findTimeline(runId, symbol, chainStartDate, chainEndDate) }
 }
 
-class AccumulationAnalysisService(private val store: AccumulationAnalysisStore, private val candleHandler: CandleJdbiHandler, private val engine: AccumulationShapeEngine = AccumulationShapeEngine()) {
+class AccumulationAnalysisService(private val store: AccumulationAnalysisStore, private val candleHandler: CandleJdbiHandler, private val membershipStore: ChartinkUniverseMembershipStore, private val engine: AccumulationShapeEngine = AccumulationShapeEngine()) {
     suspend fun run(request: AccumulationAnalysisRunRequest): AccumulationAnalysisRun {
         require(request.months in setOf(1, 3, 6, 9)) { "months must be 1, 3, 6, or 9." }
         require(request.universeKey in UNIVERSES) { "Unsupported universe." }
@@ -48,11 +51,12 @@ class AccumulationAnalysisService(private val store: AccumulationAnalysisStore, 
     suspend fun runs(): List<AccumulationAnalysisRun> = store.findRuns()
     suspend fun summary(runId: Long): AccumulationAnalysisSummary {
         val run = requireNotNull(store.findRun(runId)) { "Run not found." }
-        return AccumulationAnalysisSummary(run, store.evidenceRevision(run.universeKey)?.isAfter(run.evidenceRevision) == true, store.findLatestSnapshots(runId).sortedWith(compareBy<AccumulationCaseSnapshot> { !it.valid }.thenBy { it.shape.ordinal }.thenByDescending { it.chainLengthSessions }))
+        val snapshots = store.findLatestSnapshots(runId).sortedWith(compareBy<AccumulationCaseSnapshot> { !it.valid }.thenBy { it.shape.ordinal }.thenByDescending { it.chainLengthSessions })
+        return AccumulationAnalysisSummary(run, store.evidenceRevision(run.universeKey)?.isAfter(run.evidenceRevision) == true, enrichSnapshots(snapshots, run))
     }
-    suspend fun timeline(runId: Long, symbol: String): AccumulationAnalysisTimeline {
+    suspend fun timeline(runId: Long, symbol: String, chainStartDate: LocalDate?, chainEndDate: LocalDate?): AccumulationAnalysisTimeline {
         val run = requireNotNull(store.findRun(runId)) { "Run not found." }
-        return AccumulationAnalysisTimeline(run, store.evidenceRevision(run.universeKey)?.isAfter(run.evidenceRevision) == true, store.findTimeline(runId, symbol))
+        return AccumulationAnalysisTimeline(run, store.evidenceRevision(run.universeKey)?.isAfter(run.evidenceRevision) == true, enrichSnapshots(store.findTimeline(runId, symbol, chainStartDate, chainEndDate), run))
     }
 
     private suspend fun buildSnapshots(symbol: String, events: List<AnalysisEvidenceEvent>, run: AccumulationAnalysisRun): List<AccumulationCaseSnapshot> {
@@ -64,11 +68,32 @@ class AccumulationAnalysisService(private val store: AccumulationAnalysisStore, 
             val start = chain.first(); val end = chain.last()
             val shape = engine.classify(candles.filter { it.candleDate in start..end })
             candles.filter { it.candleDate >= end && !it.candleDate.isAfter(run.toDate) }.map { candle ->
-                val phaseD = events.firstOrNull { it.source == ChartinkEvidenceSource.PHASE_D && it.eventDate >= end && it.eventDate <= candle.candleDate }?.eventDate
-                val breakout = events.firstOrNull { it.source == ChartinkEvidenceSource.FRESH_BREAKOUT && it.eventDate >= end && it.eventDate <= candle.candleDate }?.eventDate
-                AccumulationCaseSnapshot(run.id, symbol, start, end, candle.candleDate, engine.tradingSessionsBetween(start, end, candles), chain.size, shape, engine.decision(shape), engine.decision(shape) == AccumulationShapeDecision.VALID, phaseD, breakout, phaseD?.let { engine.tradingSessionsBetween(end, it, candles) }, breakout?.let { engine.tradingSessionsBetween(end, it, candles) }, "{\"hitDates\":[${chain.joinToString(",") { "\"$it\"" }}]}")
+                fun dates(source: ChartinkEvidenceSource) = events.filter { it.source == source && it.eventDate >= end && it.eventDate >= run.fromDate && it.eventDate <= candle.candleDate }.map { it.eventDate }
+                val confirmations = AccumulationConfirmationDates(dates(ChartinkEvidenceSource.PHASE_D), dates(ChartinkEvidenceSource.FRESH_BREAKOUT), dates(ChartinkEvidenceSource.FIFTY_TWO_WEEK_HIGH))
+                val phaseD = confirmations.phaseD.firstOrNull()
+                val breakout = confirmations.freshBreakout.firstOrNull()
+                val details = objectMapper.writeValueAsString(mapOf("hitDates" to chain, "phaseDDates" to confirmations.phaseD, "freshBreakoutDates" to confirmations.freshBreakout, "fiftyTwoWeekHighDates" to confirmations.fiftyTwoWeekHigh))
+                AccumulationCaseSnapshot(run.id, symbol, start, end, candle.candleDate, engine.tradingSessionsBetween(start, end, candles), chain.size, shape, engine.decision(shape), engine.decision(shape) == AccumulationShapeDecision.VALID, phaseD, breakout, phaseD?.let { engine.tradingSessionsBetween(end, it, candles) }, breakout?.let { engine.tradingSessionsBetween(end, it, candles) }, details, confirmations)
             }
         }
     }
-    private companion object { val UNIVERSES = setOf("nifty_100", "nifty_midcap_150", "nifty_smallcap_250", "nifty_microcap_250") }
+    private fun buildSixMonthEvidence(events: List<AnalysisEvidenceEvent>, run: AccumulationAnalysisRun): AccumulationEvidenceLane {
+        val fromDate = run.toDate.minusMonths(6)
+        fun dates(source: ChartinkEvidenceSource) = events.filter { it.source == source && it.eventDate in fromDate..run.toDate }.map(AnalysisEvidenceEvent::eventDate)
+        return AccumulationEvidenceLane(fromDate, run.toDate, dates(ChartinkEvidenceSource.ACCUMULATION), dates(ChartinkEvidenceSource.PHASE_D), dates(ChartinkEvidenceSource.FRESH_BREAKOUT), dates(ChartinkEvidenceSource.FIFTY_TWO_WEEK_HIGH))
+    }
+    private suspend fun enrichSnapshots(snapshots: List<AccumulationCaseSnapshot>, run: AccumulationAnalysisRun): List<AccumulationCaseSnapshot> {
+        val evidenceBySymbol = store.findEvidence(run.universeKey, run.toDate).groupBy(AnalysisEvidenceEvent::symbol)
+        val memberships = membershipStore.findActiveMemberships(snapshots.map(AccumulationCaseSnapshot::symbol).distinct()).groupBy(IndexMembership::symbol)
+        return snapshots.map { snapshot ->
+            snapshot.copy(
+                curatedWatchlists = memberships[snapshot.symbol].orEmpty().map(IndexMembership::indexKey).filterNot(UNIVERSES::contains).sorted(),
+                sixMonthEvidence = buildSixMonthEvidence(evidenceBySymbol[snapshot.symbol].orEmpty(), run),
+            )
+        }
+    }
+    private companion object {
+        val UNIVERSES = setOf("nifty_100", "nifty_midcap_150", "nifty_smallcap_250", "nifty_microcap_250")
+        val objectMapper = jacksonObjectMapper().findAndRegisterModules()
+    }
 }

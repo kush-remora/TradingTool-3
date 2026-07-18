@@ -40,6 +40,24 @@ data class AccumulationCaseSnapshot(
     val sessionsToPhaseD: Int?,
     val sessionsToBreakout: Int?,
     val details: String,
+    val confirmationDates: AccumulationConfirmationDates = AccumulationConfirmationDates(),
+    val curatedWatchlists: List<String> = emptyList(),
+    val sixMonthEvidence: AccumulationEvidenceLane? = null,
+)
+
+data class AccumulationConfirmationDates(
+    val phaseD: List<LocalDate> = emptyList(),
+    val freshBreakout: List<LocalDate> = emptyList(),
+    val fiftyTwoWeekHigh: List<LocalDate> = emptyList(),
+)
+
+data class AccumulationEvidenceLane(
+    val fromDate: LocalDate,
+    val toDate: LocalDate,
+    val accumulation: List<LocalDate> = emptyList(),
+    val phaseD: List<LocalDate> = emptyList(),
+    val freshBreakout: List<LocalDate> = emptyList(),
+    val fiftyTwoWeekHigh: List<LocalDate> = emptyList(),
 )
 
 data class AccumulationAnalysisSummary(
@@ -63,5 +81,5 @@ interface AccumulationAnalysisStore {
     suspend fun findRuns(): List<AccumulationAnalysisRun>
     suspend fun findRun(runId: Long): AccumulationAnalysisRun?
     suspend fun findLatestSnapshots(runId: Long): List<AccumulationCaseSnapshot>
-    suspend fun findTimeline(runId: Long, symbol: String): List<AccumulationCaseSnapshot>
+    suspend fun findTimeline(runId: Long, symbol: String, chainStartDate: LocalDate?, chainEndDate: LocalDate?): List<AccumulationCaseSnapshot>
 }

@@ -16,6 +16,8 @@ import { CsvBacktestPage } from "./pages/CsvBacktestPage";
 import { BacktestReviewsPage } from "./pages/BacktestReviewsPage";
 import { ChartinkEvidencePage } from "./pages/ChartinkEvidencePage";
 import { ForwardAccumulationAnalysisPage } from "./pages/ForwardAccumulationAnalysisPage";
+import { ForwardAccumulationTimelinePage } from "./pages/ForwardAccumulationTimelinePage";
+import type { AccumulationCaseSnapshot } from "./types";
 
 type V1PageKey =
   | "trade"
@@ -33,6 +35,16 @@ type V1PageKey =
   | "forward-accumulation";
 
 type PageKey = V1PageKey;
+
+interface ForwardAccumulationTimelineRoute {
+  page: "forward-accumulation-timeline";
+  runId: number;
+  symbol: string;
+  chainStartDate: string | null;
+  chainEndDate: string | null;
+}
+
+type Route = PageKey | ForwardAccumulationTimelineRoute;
 
 const menuItems: MenuProps["items"] = [
   { key: "volume-shocker", label: "Volume Shocker", icon: <FundOutlined /> },
@@ -67,12 +79,20 @@ const validPages: PageKey[] = [
 ];
 
 export default function App() {
-  const getInitialRoute = (): PageKey => {
+  const getInitialRoute = (): Route => {
     const path = window.location.pathname;
     const baseUrl = import.meta.env.BASE_URL;
     const internalPath = path.startsWith(baseUrl) ? path.slice(baseUrl.length) : path;
 
     const cleanPath = internalPath.replace(/^\//, "").replace(/\/+$/, "");
+    const timelineMatch = cleanPath.match(/^(?:console|console-v1|console-v2)\/forward-accumulation\/timeline\/(\d+)\/([^/]+)$/);
+    if (timelineMatch) {
+      const runId = Number(timelineMatch[1]);
+      if (Number.isInteger(runId) && runId > 0) {
+        const params = new URLSearchParams(window.location.search);
+        return { page: "forward-accumulation-timeline", runId, symbol: decodeURIComponent(timelineMatch[2]), chainStartDate: params.get("chainStart"), chainEndDate: params.get("chainEnd") };
+      }
+    }
     if (cleanPath === "" || cleanPath === "console-v1" || cleanPath === "console") {
       return "wyckoff-phase1";
     }
@@ -105,7 +125,7 @@ export default function App() {
     return "wyckoff-phase1";
   };
 
-  const [route, setRoute] = useState<PageKey>(getInitialRoute());
+  const [route, setRoute] = useState<Route>(getInitialRoute());
 
   const handleMenuClick: MenuProps["onClick"] = (e) => {
     const page = String(e.key) as PageKey;
@@ -116,7 +136,17 @@ export default function App() {
     }
   };
 
-  const selectedKeys = [route];
+  const openTimeline = (runId: number, row: AccumulationCaseSnapshot) => {
+    const params = new URLSearchParams({ chainStart: row.chainStartDate, chainEnd: row.chainEndDate });
+    window.open(`${import.meta.env.BASE_URL}console/forward-accumulation/timeline/${runId}/${encodeURIComponent(row.symbol)}?${params}`, "_blank", "noopener,noreferrer");
+  };
+
+  const closeTimeline = () => {
+    setRoute("forward-accumulation");
+    window.history.pushState({}, "", `${import.meta.env.BASE_URL}console/forward-accumulation`);
+  };
+
+  const selectedKeys = [typeof route === "string" ? route : "forward-accumulation"];
 
   return (
     <ConfigProvider>
@@ -161,7 +191,8 @@ export default function App() {
             {route === "csv-backtest" && <CsvBacktestPage />}
             {route === "backtest-reviews" && <BacktestReviewsPage />}
             {route === "chartink-evidence" && <ChartinkEvidencePage />}
-            {route === "forward-accumulation" && <ForwardAccumulationAnalysisPage />}
+            {route === "forward-accumulation" && <ForwardAccumulationAnalysisPage onOpenTimeline={openTimeline} />}
+            {typeof route !== "string" && <ForwardAccumulationTimelinePage runId={route.runId} symbol={route.symbol} chainStartDate={route.chainStartDate} chainEndDate={route.chainEndDate} onBack={closeTimeline} />}
           </Layout.Content>
         </Layout>
       </Layout>

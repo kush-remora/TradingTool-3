@@ -19,6 +19,7 @@ import org.jdbi.v3.sqlobject.statement.SqlUpdate
 import java.sql.ResultSet
 import java.time.LocalDate
 import java.time.OffsetDateTime
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 
 @RegisterRowMapper(AccumulationAnalysisRunMapper::class)
 @RegisterRowMapper(AccumulationCaseSnapshotMapper::class)
@@ -42,8 +43,8 @@ interface AccumulationAnalysisReadDao {
     @SqlQuery("SELECT DISTINCT ON (symbol, chain_start_date, chain_end_date) * FROM accumulation_case_snapshots WHERE run_id = :runId ORDER BY symbol, chain_start_date, chain_end_date, as_of_date DESC")
     fun findLatestSnapshots(@Bind("runId") runId: Long): List<AccumulationCaseSnapshot>
 
-    @SqlQuery("SELECT * FROM accumulation_case_snapshots WHERE run_id = :runId AND symbol = :symbol ORDER BY as_of_date")
-    fun findTimeline(@Bind("runId") runId: Long, @Bind("symbol") symbol: String): List<AccumulationCaseSnapshot>
+    @SqlQuery("SELECT * FROM accumulation_case_snapshots WHERE run_id = :runId AND symbol = :symbol AND (:chainStartDate IS NULL OR chain_start_date = :chainStartDate) AND (:chainEndDate IS NULL OR chain_end_date = :chainEndDate) ORDER BY as_of_date")
+    fun findTimeline(@Bind("runId") runId: Long, @Bind("symbol") symbol: String, @Bind("chainStartDate") chainStartDate: LocalDate?, @Bind("chainEndDate") chainEndDate: LocalDate?): List<AccumulationCaseSnapshot>
 }
 
 interface AccumulationAnalysisWriteDao {
@@ -71,8 +72,28 @@ class AccumulationAnalysisRunMapper : RowMapper<AccumulationAnalysisRun> {
     override fun map(rs: ResultSet, ctx: StatementContext) = AccumulationAnalysisRun(rs.getLong("id"), rs.getString("universe_key"), rs.getInt("months"), rs.getDate("from_date").toLocalDate(), rs.getDate("to_date").toLocalDate(), rs.getObject("evidence_revision", OffsetDateTime::class.java), "v1-bhel-calibrated", AccumulationRunStatus.valueOf(rs.getString("status")), rs.getString("details"), rs.getObject("started_at", OffsetDateTime::class.java), rs.getObject("completed_at", OffsetDateTime::class.java))
 }
 class AccumulationCaseSnapshotMapper : RowMapper<AccumulationCaseSnapshot> {
-    override fun map(rs: ResultSet, ctx: StatementContext) = AccumulationCaseSnapshot(rs.getLong("run_id"), rs.getString("symbol"), rs.getDate("chain_start_date").toLocalDate(), rs.getDate("chain_end_date").toLocalDate(), rs.getDate("as_of_date").toLocalDate(), rs.getInt("chain_length_sessions"), rs.getInt("hit_count"), AccumulationShape.valueOf(rs.getString("shape")), AccumulationShapeDecision.valueOf(rs.getString("shape_decision")), rs.getBoolean("valid"), rs.getDate("first_phase_d_date")?.toLocalDate(), rs.getDate("first_breakout_date")?.toLocalDate(), rs.getObject("sessions_to_phase_d") as Int?, rs.getObject("sessions_to_breakout") as Int?, rs.getString("details"))
+    override fun map(rs: ResultSet, ctx: StatementContext): AccumulationCaseSnapshot {
+        val details = rs.getString("details")
+        return AccumulationCaseSnapshot(rs.getLong("run_id"), rs.getString("symbol"), rs.getDate("chain_start_date").toLocalDate(), rs.getDate("chain_end_date").toLocalDate(), rs.getDate("as_of_date").toLocalDate(), rs.getInt("chain_length_sessions"), rs.getInt("hit_count"), AccumulationShape.valueOf(rs.getString("shape")), AccumulationShapeDecision.valueOf(rs.getString("shape_decision")), rs.getBoolean("valid"), rs.getDate("first_phase_d_date")?.toLocalDate(), rs.getDate("first_breakout_date")?.toLocalDate(), rs.getObject("sessions_to_phase_d") as Int?, rs.getObject("sessions_to_breakout") as Int?, details, confirmationDatesFrom(details))
+    }
 }
+
+internal fun confirmationDatesFrom(details: String): com.tradingtool.core.strategy.accumulationanalysis.AccumulationConfirmationDates {
+    val node = objectMapper.readTree(details)
+    fun dates(key: String) = node.path(key).mapNotNull { value ->
+        value.asText().trim().takeIf(String::isNotEmpty)?.let { date ->
+            runCatching { LocalDate.parse(date) }.getOrNull()
+        }
+    }
+    return com.tradingtool.core.strategy.accumulationanalysis.AccumulationConfirmationDates(
+        phaseD = dates("phaseDDates"),
+        freshBreakout = dates("freshBreakoutDates"),
+        fiftyTwoWeekHigh = dates("fiftyTwoWeekHighDates"),
+    )
+}
+
+private val objectMapper = jacksonObjectMapper().findAndRegisterModules()
+
 class AnalysisEvidenceEventMapper : RowMapper<AnalysisEvidenceEvent> {
     override fun map(rs: ResultSet, ctx: StatementContext) = AnalysisEvidenceEvent(ChartinkEvidenceSource.valueOf(rs.getString("source")), rs.getDate("event_date").toLocalDate(), rs.getString("symbol"))
 }

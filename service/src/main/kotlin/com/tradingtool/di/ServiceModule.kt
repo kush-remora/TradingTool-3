@@ -152,7 +152,7 @@ class ServiceModule(
     fun provideAccumulationAnalysisStore(handler: AccumulationAnalysisJdbiHandler): AccumulationAnalysisStore = JdbiAccumulationAnalysisStore(handler)
 
     @Provides @Singleton
-    fun provideAccumulationAnalysisService(store: AccumulationAnalysisStore, candleHandler: CandleJdbiHandler): AccumulationAnalysisService = AccumulationAnalysisService(store, candleHandler)
+    fun provideAccumulationAnalysisService(store: AccumulationAnalysisStore, candleHandler: CandleJdbiHandler, membershipStore: ChartinkUniverseMembershipStore): AccumulationAnalysisService = AccumulationAnalysisService(store, candleHandler, membershipStore)
 
 
 
