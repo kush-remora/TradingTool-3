@@ -11,12 +11,12 @@ class AccumulationShapeEngineTest {
     private val engine = AccumulationShapeEngine()
 
     @Test
-    fun `splits chains after fifteen trading sessions and requires two hits`() {
+    fun `splits chains after fifteen trading sessions and keeps single hits`() {
         val candles = (0..40).map { index -> candle(index, 100.0) }
-        val chains = engine.buildChains(listOf(candles[0].candleDate, candles[15].candleDate, candles[32].candleDate, candles[33].candleDate), candles)
+        val chains = engine.buildChains(listOf(candles[0].candleDate, candles[15].candleDate, candles[32].candleDate), candles)
         assertEquals(2, chains.size)
         assertEquals(2, chains.first().size)
-        assertEquals(2, chains.last().size)
+        assertEquals(1, chains.last().size)
     }
 
     @Test

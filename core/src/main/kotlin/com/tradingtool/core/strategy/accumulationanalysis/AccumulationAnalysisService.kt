@@ -18,7 +18,7 @@ class JdbiAccumulationAnalysisStore(private val handler: AccumulationAnalysisJdb
     override suspend fun createRun(request: AccumulationAnalysisRunRequest, fromDate: LocalDate, toDate: LocalDate, revision: OffsetDateTime): AccumulationAnalysisRun = handler.transaction { read, write -> write.deleteRunScope(request.universeKey, request.months, fromDate, toDate); read.findRun(write.createRun(request.universeKey, request.months, fromDate, toDate, revision))!! }
     override suspend fun replaceSnapshots(runId: Long, snapshots: List<AccumulationCaseSnapshot>) { handler.transaction { _, write -> write.deleteSnapshots(runId); if (snapshots.isNotEmpty()) write.insertSnapshots(snapshots) } }
     override suspend fun completeRun(runId: Long) { handler.write { it.completeRun(runId) } }
-    override suspend fun failRun(runId: Long, message: String) { handler.write { it.failRun(runId, "{\"error\":\"${message.replace("\"", "'")}\"}") } }
+    override suspend fun failRun(runId: Long, message: String) { handler.write { it.failRun(runId, "{\"error\":\"analysis_failed\"}") } }
     override suspend fun findRuns() = handler.read { it.findRuns() }
     override suspend fun findRun(runId: Long) = handler.read { it.findRun(runId) }
     override suspend fun findLatestSnapshots(runId: Long) = handler.read { it.findLatestSnapshots(runId) }
@@ -66,7 +66,7 @@ class AccumulationAnalysisService(private val store: AccumulationAnalysisStore, 
             candles.filter { it.candleDate >= end && !it.candleDate.isAfter(run.toDate) }.map { candle ->
                 val phaseD = events.firstOrNull { it.source == ChartinkEvidenceSource.PHASE_D && it.eventDate >= end && it.eventDate <= candle.candleDate }?.eventDate
                 val breakout = events.firstOrNull { it.source == ChartinkEvidenceSource.FRESH_BREAKOUT && it.eventDate >= end && it.eventDate <= candle.candleDate }?.eventDate
-                AccumulationCaseSnapshot(run.id, symbol, start, end, candle.candleDate, engine.tradingSessionsBetween(start, end, candles), chain.size, shape, engine.decision(shape), engine.decision(shape) == AccumulationShapeDecision.VALID, phaseD, breakout, phaseD?.let { engine.tradingSessionsBetween(end, it, candles) }, breakout?.let { engine.tradingSessionsBetween(end, it, candles) }, "{\"hitDates\":[${chain.joinToString(",") { "\\\"$it\\\"" }}]}")
+                AccumulationCaseSnapshot(run.id, symbol, start, end, candle.candleDate, engine.tradingSessionsBetween(start, end, candles), chain.size, shape, engine.decision(shape), engine.decision(shape) == AccumulationShapeDecision.VALID, phaseD, breakout, phaseD?.let { engine.tradingSessionsBetween(end, it, candles) }, breakout?.let { engine.tradingSessionsBetween(end, it, candles) }, "{\"hitDates\":[${chain.joinToString(",") { "\"$it\"" }}]}")
             }
         }
     }

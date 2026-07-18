@@ -50,7 +50,7 @@ interface AccumulationAnalysisWriteDao {
     @SqlUpdate("DELETE FROM accumulation_analysis_runs WHERE universe_key = :universeKey AND months = :months AND from_date = :fromDate AND to_date = :toDate")
     fun deleteRunScope(@Bind("universeKey") universeKey: String, @Bind("months") months: Int, @Bind("fromDate") fromDate: LocalDate, @Bind("toDate") toDate: LocalDate): Int
 
-    @SqlUpdate("INSERT INTO accumulation_analysis_runs (universe_key, months, from_date, to_date, evidence_revision, algorithm_version, status, details) VALUES (:universeKey, :months, :fromDate, :toDate, :revision, 'v1-bhel-calibrated', 'RUNNING', '{\"maxGapTradingSessions\":15,\"minimumHitCount\":2}'::jsonb)")
+    @SqlUpdate("INSERT INTO accumulation_analysis_runs (universe_key, months, from_date, to_date, evidence_revision, algorithm_version, status, details) VALUES (:universeKey, :months, :fromDate, :toDate, :revision, 'v1-bhel-calibrated', 'RUNNING', '{\"maxGapTradingSessions\":15,\"minimumHitCount\":1}'::jsonb)")
     @GetGeneratedKeys
     fun createRun(@Bind("universeKey") universeKey: String, @Bind("months") months: Int, @Bind("fromDate") fromDate: LocalDate, @Bind("toDate") toDate: LocalDate, @Bind("revision") revision: OffsetDateTime): Long
 

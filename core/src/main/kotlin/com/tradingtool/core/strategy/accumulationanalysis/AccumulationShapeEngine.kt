@@ -6,12 +6,11 @@ import java.time.LocalDate
 class AccumulationShapeEngine {
     fun buildChains(hitDates: List<LocalDate>, candles: List<DailyCandle>): List<List<LocalDate>> {
         val sortedHits = hitDates.distinct().sorted()
-        if (sortedHits.size < MIN_HITS) return emptyList()
         return sortedHits.fold(mutableListOf<MutableList<LocalDate>>()) { chains, date ->
             val active = chains.lastOrNull()
             if (active == null || tradingSessionsBetween(active.last(), date, candles) > MAX_GAP_SESSIONS) chains += mutableListOf(date) else active += date
             chains
-        }.filter { it.size >= MIN_HITS }
+        }
     }
 
     fun classify(candles: List<DailyCandle>): AccumulationShape {
@@ -39,7 +38,6 @@ class AccumulationShapeEngine {
 
     companion object {
         const val MAX_GAP_SESSIONS = 15
-        const val MIN_HITS = 2
         private const val MIN_CANDLES = 5
         // Initial BHEL-calibrated boundaries; the version is persisted with every run.
         private const val FLAT_CHANGE_PCT = 8.0
