@@ -48,7 +48,41 @@ class ChartinkEvidenceServiceTest {
 
         assertEquals(1, result.storedCount)
         assertEquals(1, result.skippedOutsideUniverseCount)
+        assertEquals("OUTSIDE", result.skippedSymbols.single().symbol)
+        assertEquals(ChartinkEvidenceSkipReason.NO_ACTIVE_BASE_UNIVERSE_MEMBERSHIP, result.skippedSymbols.single().reason)
         assertEquals(listOf("INFY"), store.events.map(ChartinkScanEvent::symbol))
+    }
+
+    @Test
+    fun `accumulation upload reports symbols now in another universe`() = runBlocking {
+        val store = FakeEvidenceStore()
+        val service = ChartinkEvidenceService(store, memberships())
+
+        val result = service.upload(
+            request(
+                slot = "ACCUMULATION_NIFTY_MIDCAP_150",
+                csv = csv("2026-07-17,INFY,Largecap,IT"),
+            ),
+        )
+
+        assertEquals(0, result.storedCount)
+        assertEquals(ChartinkEvidenceSkipReason.ACTIVE_IN_DIFFERENT_UNIVERSE, result.skippedSymbols.single().reason)
+        assertEquals("nifty_100", result.skippedSymbols.single().resolvedUniverseKey)
+    }
+
+    @Test
+    fun `upload accepts Chartink day-month-year dates`() = runBlocking {
+        val store = FakeEvidenceStore()
+        val service = ChartinkEvidenceService(store, memberships())
+
+        service.upload(
+            request(
+                slot = "ACCUMULATION_NIFTY_100",
+                csv = csv("26-11-2025,KOTAKBANK,Largecap,Bank"),
+            ),
+        )
+
+        assertEquals(LocalDate.of(2025, 11, 26), store.events.single().eventDate)
     }
 
     @Test
@@ -81,10 +115,29 @@ class ChartinkEvidenceServiceTest {
         assertTrue(dashboard.rows.first().curatedWatchlists.contains("growth_watchlist"))
     }
 
+    @Test
+    fun `dashboard reports the latest upload for each fixed slot`() = runBlocking {
+        val store = FakeEvidenceStore().apply {
+            uploads += StoredChartinkEvidenceUpload(
+                ChartinkEvidenceSource.ACCUMULATION,
+                "nifty_midcap_150",
+                "midcap.csv",
+                "2026-07-18T12:00:00Z",
+            )
+        }
+        val service = ChartinkEvidenceService(store, memberships())
+
+        val dashboard = service.getDashboard(months = 1, asOfDate = LocalDate.parse("2026-07-18"))
+
+        assertEquals("ACCUMULATION_NIFTY_MIDCAP_150", dashboard.uploadStatuses.single().slot)
+        assertEquals("midcap.csv", dashboard.uploadStatuses.single().sourceFileName)
+    }
+
     private fun memberships(): ChartinkUniverseMembershipStore = object : ChartinkUniverseMembershipStore {
         override suspend fun findActiveMemberships(symbols: List<String>): List<IndexMembership> = listOf(
             IndexMembership("INFY", "nifty_100"),
             IndexMembership("INFY", "growth_watchlist"),
+            IndexMembership("KOTAKBANK", "nifty_100"),
             IndexMembership("TCS", "nifty_100"),
         ).filter { membership -> membership.symbol in symbols }
     }
@@ -100,6 +153,7 @@ class ChartinkEvidenceServiceTest {
 
     private class FakeEvidenceStore : ChartinkEvidenceStore {
         val events = mutableListOf<ChartinkScanEvent>()
+        val uploads = mutableListOf<StoredChartinkEvidenceUpload>()
 
         override suspend fun replaceAccumulation(universeKey: String, events: List<ChartinkScanEvent>) {
             this.events.removeIf { event -> event.source == ChartinkEvidenceSource.ACCUMULATION && event.universeKey == universeKey }
@@ -113,5 +167,7 @@ class ChartinkEvidenceServiceTest {
 
         override suspend fun findFromDate(fromDate: LocalDate): List<ChartinkScanEvent> =
             events.filter { event -> event.eventDate >= fromDate }
+
+        override suspend fun findLatestUploads(): List<StoredChartinkEvidenceUpload> = uploads
     }
 }

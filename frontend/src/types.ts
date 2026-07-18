@@ -2505,7 +2505,14 @@ export interface ChartinkEvidenceUploadResult {
   source: "ACCUMULATION" | "PHASE_D" | "T2_HIGH" | "FRESH_BREAKOUT";
   storedCount: number;
   skippedOutsideUniverseCount: number;
+  skippedSymbols: ChartinkEvidenceSkippedSymbol[];
   duplicateCount: number;
+}
+
+export interface ChartinkEvidenceSkippedSymbol {
+  symbol: string;
+  reason: "NO_ACTIVE_BASE_UNIVERSE_MEMBERSHIP" | "ACTIVE_IN_DIFFERENT_UNIVERSE";
+  resolvedUniverseKey: string | null;
 }
 
 export interface ChartinkEvidenceDashboardRow {
@@ -2521,5 +2528,12 @@ export interface ChartinkEvidenceDashboardRow {
 export interface ChartinkEvidenceDashboardResponse {
   months: number;
   fromDate: string;
+  uploadStatuses: ChartinkEvidenceUploadStatus[];
   rows: ChartinkEvidenceDashboardRow[];
+}
+
+export interface ChartinkEvidenceUploadStatus {
+  slot: string;
+  sourceFileName: string;
+  uploadedAt: string;
 }

@@ -28,6 +28,9 @@ class JdbiChartinkEvidenceStore(
     override suspend fun findFromDate(fromDate: LocalDate): List<ChartinkScanEvent> =
         handler.read { readDao -> readDao.findFromDate(fromDate) }
 
+    override suspend fun findLatestUploads(): List<StoredChartinkEvidenceUpload> =
+        handler.read { readDao -> readDao.findLatestUploads() }
+
     private fun insertEvents(writeDao: ChartinkEvidenceWriteDao, events: List<ChartinkScanEvent>) {
         if (events.isEmpty()) {
             return

@@ -1,9 +1,9 @@
 import { UploadOutlined } from "@ant-design/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Button, Card, Empty, Select, Space, Spin, Table, Tag, Typography } from "antd";
+import { Alert, Button, Card, Empty, Select, Space, Spin, Table, Tabs, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useChartinkEvidence } from "../hooks/useChartinkEvidence";
-import type { ChartinkEvidenceDashboardRow } from "../types";
+import type { ChartinkEvidenceDashboardRow, ChartinkEvidenceUploadStatus } from "../types";
 
 type UploadSlot = { key: string; label: string; description: string };
 
@@ -17,11 +17,25 @@ const UPLOAD_SLOTS: UploadSlot[] = [
   { key: "FRESH_BREAKOUT", label: "Fresh Breakout", description: "Cash-market scan" },
 ];
 
+const UNIVERSE_TABS = [
+  { key: "all", label: "All" },
+  { key: "nifty_100", label: "Nifty 100" },
+  { key: "nifty_midcap_150", label: "Midcap 150" },
+  { key: "nifty_smallcap_250", label: "Smallcap 250" },
+  { key: "nifty_microcap_250", label: "Microcap 250" },
+];
+
 function formatDate(value: string | null): string { return value ?? "-"; }
+
+function formatUploadStatus(status: ChartinkEvidenceUploadStatus | undefined): string {
+  if (!status) return "Not uploaded";
+  return `Uploaded ${new Date(status.uploadedAt).toLocaleString("en-IN")} · ${status.sourceFileName}`;
+}
 
 export function ChartinkEvidencePage() {
   const { dashboard, loadingDashboard, uploadingSlot, error, loadDashboard, upload } = useChartinkEvidence();
   const [months, setMonths] = useState(1);
+  const [universeKey, setUniverseKey] = useState("all");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -42,6 +56,11 @@ export function ChartinkEvidencePage() {
     { title: "T2 High", dataIndex: "t2HighLatestDate", key: "t2HighLatestDate", render: formatDate },
     { title: "Fresh Breakout", dataIndex: "freshBreakoutLatestDate", key: "freshBreakoutLatestDate", render: formatDate },
   ], []);
+  const uploadStatuses = useMemo(() => new Map(dashboard?.uploadStatuses.map((status) => [status.slot, status])), [dashboard]);
+  const displayedRows = useMemo(
+    () => dashboard?.rows.filter((row) => universeKey === "all" || row.universeKey === universeKey) ?? [],
+    [dashboard, universeKey],
+  );
 
   return (
     <div style={{ padding: 24, background: "#f5f7fa", minHeight: "calc(100vh - 48px)" }}>
@@ -54,6 +73,7 @@ export function ChartinkEvidencePage() {
             {UPLOAD_SLOTS.map((slot) => (
               <Card key={slot.key} size="small">
                 <Typography.Text strong>{slot.label}</Typography.Text><div><Typography.Text type="secondary">{slot.description}</Typography.Text></div>
+                <div><Typography.Text type={uploadStatuses.has(slot.key) ? "success" : "secondary"}>{formatUploadStatus(uploadStatuses.get(slot.key))}</Typography.Text></div>
                 <input ref={(input) => { fileInputs.current[slot.key] = input; }} type="file" accept=".csv,text/csv" hidden onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (file) void uploadFile(slot, file).catch(() => undefined);
@@ -65,7 +85,8 @@ export function ChartinkEvidencePage() {
           </div>
         </Card>
         <Card size="small" title="Candidate evidence" extra={<Select value={months} style={{ width: 140 }} onChange={setMonths} options={[1, 2, 3, 9].map((value) => ({ value, label: `${value} month${value === 1 ? "" : "s"}` }))} />}>
-          {loadingDashboard ? <Spin /> : (dashboard?.rows.length ?? 0) === 0 ? <Empty description="No evidence in this period" /> : <Table rowKey="symbol" columns={columns} dataSource={dashboard?.rows ?? []} size="small" scroll={{ x: 1000 }} pagination={{ pageSize: 50, showSizeChanger: false }} />}
+          <Tabs activeKey={universeKey} onChange={setUniverseKey} items={UNIVERSE_TABS} />
+          {loadingDashboard ? <Spin /> : displayedRows.length === 0 ? <Empty description="No evidence in this period" /> : <Table rowKey="symbol" columns={columns} dataSource={displayedRows} size="small" scroll={{ x: 1000 }} pagination={{ pageSize: 50, showSizeChanger: false }} />}
         </Card>
       </Space>
     </div>

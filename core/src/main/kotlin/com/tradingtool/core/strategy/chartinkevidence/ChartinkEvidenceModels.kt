@@ -49,13 +49,39 @@ data class ChartinkEvidenceUploadResult(
     val source: ChartinkEvidenceSource,
     val storedCount: Int,
     val skippedOutsideUniverseCount: Int,
+    val skippedSymbols: List<ChartinkEvidenceSkippedSymbol>,
     val duplicateCount: Int,
 )
+
+data class ChartinkEvidenceSkippedSymbol(
+    val symbol: String,
+    val reason: ChartinkEvidenceSkipReason,
+    val resolvedUniverseKey: String?,
+)
+
+enum class ChartinkEvidenceSkipReason {
+    NO_ACTIVE_BASE_UNIVERSE_MEMBERSHIP,
+    ACTIVE_IN_DIFFERENT_UNIVERSE,
+}
 
 data class ChartinkEvidenceDashboardResponse(
     val months: Int,
     val fromDate: LocalDate,
+    val uploadStatuses: List<ChartinkEvidenceUploadStatus>,
     val rows: List<ChartinkEvidenceDashboardRow>,
+)
+
+data class ChartinkEvidenceUploadStatus(
+    val slot: String,
+    val sourceFileName: String,
+    val uploadedAt: String,
+)
+
+data class StoredChartinkEvidenceUpload(
+    val source: ChartinkEvidenceSource,
+    val universeKey: String,
+    val sourceFileName: String,
+    val uploadedAt: String,
 )
 
 data class ChartinkEvidenceDashboardRow(
@@ -77,6 +103,7 @@ interface ChartinkEvidenceStore {
     suspend fun replaceAccumulation(universeKey: String, events: List<ChartinkScanEvent>)
     suspend fun replaceCashSource(source: ChartinkEvidenceSource, events: List<ChartinkScanEvent>)
     suspend fun findFromDate(fromDate: LocalDate): List<ChartinkScanEvent>
+    suspend fun findLatestUploads(): List<StoredChartinkEvidenceUpload>
 }
 
 interface ChartinkUniverseMembershipStore {
