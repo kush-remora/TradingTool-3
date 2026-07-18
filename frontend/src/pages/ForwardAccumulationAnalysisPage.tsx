@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { EyeOutlined } from "@ant-design/icons";
-import { Alert, Button, Card, Empty, Input, Select, Space, Spin, Table, Tag, Tooltip, Typography } from "antd";
+import { Alert, Button, Card, Empty, Input, Select, Space, Spin, Switch, Table, Tag, Tooltip, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useAccumulationAnalysis } from "../hooks/useAccumulationAnalysis";
 import type { AccumulationAnalysisPeriod, AccumulationCaseSnapshot } from "../types";
@@ -48,8 +48,25 @@ function evidenceDatesInRun(
 
 function compactEvidenceDate(dates: string[]): string {
   if (dates.length === 0) return "-";
-  if (dates.length === 1) return dates[0];
-  return `${dates[0]} +${dates.length - 1}`;
+  const latestDate = latestEvidenceDate(dates);
+  if (dates.length === 1) return latestDate;
+  return `${latestDate} +${dates.length - 1}`;
+}
+
+function latestEvidenceDate(dates: string[]): string {
+  return dates.at(-1) ?? "";
+}
+
+export function compareConfirmationRows(
+  left: AccumulationCaseSnapshot,
+  right: AccumulationCaseSnapshot,
+  evidenceDates: (row: AccumulationCaseSnapshot) => string[],
+  keepStockRowsTogether: boolean,
+): number {
+  const confirmationComparison = latestEvidenceDate(evidenceDates(left)).localeCompare(latestEvidenceDate(evidenceDates(right)));
+  if (!keepStockRowsTogether || confirmationComparison !== 0) return confirmationComparison;
+
+  return left.symbol.localeCompare(right.symbol) || left.chainEndDate.localeCompare(right.chainEndDate);
 }
 
 interface ForwardAccumulationAnalysisPageProps {
@@ -61,6 +78,7 @@ export function ForwardAccumulationAnalysisPage({ onOpenTimeline }: ForwardAccum
   const [universeKey, setUniverseKey] = useState("nifty_100");
   const [period, setPeriod] = useState<AccumulationAnalysisPeriod>("SIX_MONTHS");
   const [search, setSearch] = useState("");
+  const [keepStockRowsTogether, setKeepStockRowsTogether] = useState(true);
 
   useEffect(() => { void loadRuns().catch(() => undefined); }, [loadRuns]);
 
@@ -103,7 +121,7 @@ export function ForwardAccumulationAnalysisPage({ onOpenTimeline }: ForwardAccum
     { title: "Decision metric", key: "metric", sorter: (left, right) => (left.shapeMetrics?.centerSlopePerTenSessions ?? 0) - (right.shapeMetrics?.centerSlopePerTenSessions ?? 0), render: (_, row) => <AccumulationShapeMetric metrics={row.shapeMetrics} /> },
     { title: "Decision", dataIndex: "shapeDecision", key: "decision", sorter: (left, right) => left.shapeDecision.localeCompare(right.shapeDecision), filters: filters(rows.map((row) => row.shapeDecision)), onFilter: (value, row) => row.shapeDecision === value },
     {
-      title: "Phase D", key: "phase", sorter: (left, right) => compactEvidenceDate(phaseDDate(left)).localeCompare(compactEvidenceDate(phaseDDate(right))),
+      title: "Phase D", key: "phase", defaultSortOrder: "descend", sorter: (left, right) => compareConfirmationRows(left, right, phaseDDate, keepStockRowsTogether),
       filters: filters(rows.map((row) => compactEvidenceDate(phaseDDate(row)))), filterSearch: true,
       onFilter: (value, row) => compactEvidenceDate(phaseDDate(row)) === value,
       render: (_, row) => {
@@ -113,7 +131,7 @@ export function ForwardAccumulationAnalysisPage({ onOpenTimeline }: ForwardAccum
       },
     },
     {
-      title: "Breakout", key: "breakout", sorter: (left, right) => compactEvidenceDate(breakoutDate(left)).localeCompare(compactEvidenceDate(breakoutDate(right))),
+      title: "Breakout", key: "breakout", sorter: (left, right) => compareConfirmationRows(left, right, breakoutDate, keepStockRowsTogether),
       filters: filters(rows.map((row) => compactEvidenceDate(breakoutDate(row)))), filterSearch: true,
       onFilter: (value, row) => compactEvidenceDate(breakoutDate(row)) === value,
       render: (_, row) => {
@@ -123,14 +141,14 @@ export function ForwardAccumulationAnalysisPage({ onOpenTimeline }: ForwardAccum
       },
     },
     { title: "Days to D / BO", key: "days", sorter: (left, right) => days(left).localeCompare(days(right)), filters: filters(rows.map(days)), onFilter: (value, row) => days(row) === value, render: (_, row) => days(row) },
-  ], [onOpenTimeline, rows, summary]);
+  ], [keepStockRowsTogether, onOpenTimeline, rows, summary]);
 
   return <div style={{ padding: 24 }}><Space orientation="vertical" size={16} style={{ width: "100%" }}>
     <div><Typography.Title level={4} style={{ margin: 0 }}>Forward Accumulation Analysis</Typography.Title><Typography.Text type="secondary">Replay saved daily accumulation states without using future evidence.</Typography.Text></div>
     {error && <Alert type="error" message={error} />}
     <Card size="small" title="Manual run"><Space><Select value={universeKey} onChange={setUniverseKey} options={universes.map((value) => ({ value, label: value.replaceAll("_", " ") }))} /><Select value={period} onChange={setPeriod} options={replayPeriods} /><Button type="primary" loading={loading} onClick={() => void run({ universeKey, period }).catch(() => undefined)}>Run replay</Button></Space></Card>
     <Card size="small" title="Saved runs">{runs.map((item) => <Button key={item.id} size="small" style={{ marginRight: 8, marginBottom: 8 }} onClick={() => void loadSummary(item.id)}>{item.universeKey} · {periodLabel(item.period)} · #{item.id}</Button>)}</Card>
-    <Card size="small" title={summary ? `Run #${summary.run.id}${summary.isStale ? " · stale" : ""}` : "Run results"} extra={<Input allowClear placeholder="Search symbol" value={search} onChange={(event) => setSearch(event.target.value)} style={{ width: 180 }} />}>
+    <Card size="small" title={summary ? `Run #${summary.run.id}${summary.isStale ? " · stale" : ""}` : "Run results"} extra={<Space size={8}><Tooltip title="When sorting Phase D or Breakout, keep every base for the same stock together."><Space size={4}><Typography.Text type="secondary" style={{ fontSize: 12 }}>Group stocks</Typography.Text><Switch aria-label="Keep stock rows together" size="small" checked={keepStockRowsTogether} onChange={setKeepStockRowsTogether} /></Space></Tooltip><Input allowClear placeholder="Search symbol" value={search} onChange={(event) => setSearch(event.target.value)} style={{ width: 180 }} /></Space>}>
       {loading ? <Spin /> : !summary ? <Empty description="Run a universe to view saved snapshots" /> : <Table size="small" rowKey={(row) => `${row.symbol}-${row.chainStartDate}-${row.chainEndDate}`} columns={columns} dataSource={rows} pagination={false} scroll={{ x: 1120 }} />}
     </Card>
   </Space></div>;

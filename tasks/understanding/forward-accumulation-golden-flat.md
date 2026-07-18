@@ -7,3 +7,5 @@ First group Accumulation hits that are at most 15 trading sessions apart. For ea
 The saved 1-day and 1-week replay periods remain in scope and persist a named period so they stay distinct from monthly runs.
 
 Cup and invalid inverted-U decisions now require an actual turning point inside the 60-session window: the fitted slope must be negative at the left edge and positive at the right edge for a Cup (the reverse for inverted-U). A curved line that stays directional is therefore an upward or downward drift, not a Cup. Each snapshot records curvature, center slope, edge slopes (all slopes expressed as percentage per 10 sessions), and the fitted turning-point position. The table shows a compact decision metric and exposes the complete values on hover.
+
+When sorting the table by Phase D or Breakout, the intended review unit is a stock, not one isolated base. The default display therefore ranks stock blocks by their latest confirmation date, keeps each stock's bases adjacent, and shows its newest base first within a descending sort. The visible `+n` confirmation date is also the latest date used for sorting. A compact toggle permits raw row ordering when needed.
