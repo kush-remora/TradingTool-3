@@ -1,10 +1,14 @@
 {
-  "algorithmVersion": "v5-quadratic-turning-shapes",
+  "algorithmVersion": "v7-three-chunk-shapes",
   "maxGapTradingSessions": 15,
   "minimumHitCount": 1,
   "shapeWindowSessions": 60,
   "normalizedCurvatureThreshold": 0.06,
   "normalizedFlatSlopeThreshold": 0.02,
   "normalizedTurningSlopeThreshold": 0.02,
-  "note": "Quadratic regression uses 60 trading sessions ending on the final hit in each 15-session accumulation chain. A cup or inverted-U must turn within the window; otherwise the center slope determines flat, upward, or downward drift. Thresholds are normalized by the window mean close and calibrated so the BHEL reference window ending 2026-03-30 is a valid downward drift."
+  "shapeChunkSessions": 20,
+  "shapeChunkCount": 3,
+  "goldenFlatMaxAbsCenterSlopePerTenSessions": 0.35,
+  "goldenFlatMaxAbsCurvature": 0.02,
+  "note": "Every Accumulation hit uses its preceding 60 sessions as three consecutive 20-session chunks. Each chunk is classified independently; the latest chunk is the current shape, and the saved path preserves the preceding two chunks. A Golden Flat requires both a near-zero center slope and near-zero curvature in that latest 20-session chunk. Thresholds are normalized by the window mean close and calibrated so the BHEL reference window ending 2026-03-30 is a valid downward drift."
 }

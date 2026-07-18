@@ -6,6 +6,8 @@ import { useAccumulationAnalysis } from "../hooks/useAccumulationAnalysis";
 import type { AccumulationAnalysisPeriod, AccumulationCaseSnapshot } from "../types";
 import { AccumulationEvidenceLaneView } from "../components/AccumulationEvidenceLane";
 import { AccumulationShapeMetric } from "../components/AccumulationShapeMetric";
+import { AccumulationShapeLabel } from "../components/AccumulationShapeLabel";
+import { AccumulationShapePath } from "../components/AccumulationShapePath";
 
 const universes = ["nifty_100", "nifty_midcap_150", "nifty_smallcap_250", "nifty_microcap_250"];
 const replayPeriods: Array<{ value: AccumulationAnalysisPeriod; label: string }> = [
@@ -117,8 +119,8 @@ export function ForwardAccumulationAnalysisPage({ onOpenTimeline }: ForwardAccum
     { title: "Base", key: "base", sorter: (left, right) => base(left).localeCompare(base(right)), filters: filters(rows.map(base)), filterSearch: true, onFilter: (value, row) => base(row) === value, render: (_, row) => base(row) },
     { title: "Sessions", dataIndex: "chainLengthSessions", key: "length", sorter: (left, right) => left.chainLengthSessions - right.chainLengthSessions, filters: filters(rows.map((row) => row.chainLengthSessions)), onFilter: (value, row) => row.chainLengthSessions.toString() === value },
     { title: "Hits", dataIndex: "hitCount", key: "hits", sorter: (left, right) => left.hitCount - right.hitCount, filters: filters(rows.map((row) => row.hitCount)), onFilter: (value, row) => row.hitCount.toString() === value },
-    { title: "Shape", dataIndex: "shape", key: "shape", sorter: (left, right) => left.shape.localeCompare(right.shape), filters: filters(rows.map((row) => row.shape)), onFilter: (value, row) => row.shape === value, render: (shape) => <Tag color={shape === "INVALID" ? "red" : shape === "UNCLASSIFIED" ? "gold" : "green"}>{shape}</Tag> },
-    { title: "Decision metric", key: "metric", sorter: (left, right) => (left.shapeMetrics?.centerSlopePerTenSessions ?? 0) - (right.shapeMetrics?.centerSlopePerTenSessions ?? 0), render: (_, row) => <AccumulationShapeMetric metrics={row.shapeMetrics} /> },
+    { title: "Shape", dataIndex: "shape", key: "shape", sorter: (left, right) => left.shape.localeCompare(right.shape), filters: filters(rows.map((row) => row.shape)), onFilter: (value, row) => row.shape === value, render: (shape, row) => <div><AccumulationShapeLabel shape={shape} goldenFlatNode={row.goldenFlatNode} /><AccumulationShapePath chunks={row.shapeChunks} /></div> },
+    { title: "Latest 20D metric", key: "metric", sorter: (left, right) => (left.shapeMetrics?.centerSlopePerTenSessions ?? 0) - (right.shapeMetrics?.centerSlopePerTenSessions ?? 0), render: (_, row) => <AccumulationShapeMetric metrics={row.shapeMetrics} /> },
     { title: "Decision", dataIndex: "shapeDecision", key: "decision", sorter: (left, right) => left.shapeDecision.localeCompare(right.shapeDecision), filters: filters(rows.map((row) => row.shapeDecision)), onFilter: (value, row) => row.shapeDecision === value },
     {
       title: "Phase D", key: "phase", defaultSortOrder: "descend", sorter: (left, right) => compareConfirmationRows(left, right, phaseDDate, keepStockRowsTogether),

@@ -14,6 +14,10 @@ data class AccumulationShapeConfig(
     val normalizedCurvatureThreshold: Double,
     val normalizedFlatSlopeThreshold: Double,
     val normalizedTurningSlopeThreshold: Double,
+    val shapeChunkSessions: Int,
+    val shapeChunkCount: Int,
+    val goldenFlatMaxAbsCenterSlopePerTenSessions: Double,
+    val goldenFlatMaxAbsCurvature: Double,
     val note: String,
 )
 
@@ -23,7 +27,34 @@ data class AccumulationShapeClassification(
     val metrics: AccumulationShapeMetrics?,
 )
 
+data class AccumulationHitShapeAnalysis(
+    val hitDate: LocalDate,
+    val chunks: List<AccumulationShapeChunk>,
+    val classification: AccumulationShapeClassification,
+    val goldenFlatNode: AccumulationGoldenFlatNode?,
+)
+
+data class AccumulationChainShapeAnalysis(
+    val classification: AccumulationShapeClassification,
+    val chunks: List<AccumulationShapeChunk>,
+    val goldenFlatNode: AccumulationGoldenFlatNode?,
+    val hitAnalyses: List<AccumulationHitShapeAnalysis>,
+)
+
+private data class ChunkClassification(
+    val position: Int,
+    val startDate: LocalDate,
+    val endDate: LocalDate,
+    val classification: AccumulationShapeClassification,
+)
+
 class AccumulationShapeEngine(private val config: AccumulationShapeConfig = AccumulationShapeConfigLoader.load()) {
+    init {
+        require(config.shapeWindowSessions == config.shapeChunkSessions * config.shapeChunkCount) {
+            "Shape window must equal the configured chunk count multiplied by chunk size."
+        }
+    }
+
     val algorithmVersion: String = config.algorithmVersion
 
     fun buildChains(hitDates: List<LocalDate>, candles: List<DailyCandle>): List<List<LocalDate>> {
@@ -35,11 +66,55 @@ class AccumulationShapeEngine(private val config: AccumulationShapeConfig = Accu
         }
     }
 
-    fun windowEndingOn(candles: List<DailyCandle>, validationDate: LocalDate): List<DailyCandle> =
-        candles.filter { it.candleDate <= validationDate }.takeLast(config.shapeWindowSessions)
+    fun windowEndingOn(candles: List<DailyCandle>, validationDate: LocalDate, sessions: Int = config.shapeWindowSessions): List<DailyCandle> =
+        candles.filter { it.candleDate <= validationDate }.takeLast(sessions)
+
+    fun analyzeChain(candles: List<DailyCandle>, hitDates: List<LocalDate>): AccumulationChainShapeAnalysis {
+        val hitAnalyses = hitDates.distinct().sorted().mapNotNull { hitDate -> analyzeHit(candles, hitDate) }
+        val latest = hitAnalyses.lastOrNull()
+            ?: return AccumulationChainShapeAnalysis(AccumulationShapeClassification(AccumulationShape.UNCLASSIFIED, AccumulationShapeDecision.NEEDS_REVIEW, null), emptyList(), null, emptyList())
+        return AccumulationChainShapeAnalysis(latest.classification, latest.chunks, latest.goldenFlatNode, hitAnalyses)
+    }
 
     fun classify(candles: List<DailyCandle>): AccumulationShapeClassification {
-        if (candles.size < config.shapeWindowSessions) {
+        return classifyWindow(candles, config.shapeWindowSessions)
+    }
+
+    private fun analyzeHit(candles: List<DailyCandle>, hitDate: LocalDate): AccumulationHitShapeAnalysis? {
+        val window = windowEndingOn(candles, hitDate)
+        if (window.size < config.shapeWindowSessions) return null
+        val chunks = window.chunked(config.shapeChunkSessions)
+        if (chunks.size != config.shapeChunkCount || chunks.any { it.size != config.shapeChunkSessions }) return null
+        val classifiedChunks = chunks.mapIndexed { index, chunk -> classifyChunk(index + 1, chunk) }
+        val latestChunk = requireNotNull(classifiedChunks.lastOrNull())
+        val latestMetrics = requireNotNull(latestChunk.classification.metrics)
+        val goldenFlat = isGoldenFlat(latestMetrics)
+        val goldenFlatNode = if (goldenFlat) AccumulationGoldenFlatNode(config.shapeChunkSessions, latestChunk.startDate, latestChunk.endDate, latestMetrics) else null
+        val classification = goldenFlatNode?.let { AccumulationShapeClassification(AccumulationShape.FLAT_GOLDEN, AccumulationShapeDecision.VALID, it.metrics) }
+            ?: latestChunk.classification
+        return AccumulationHitShapeAnalysis(hitDate, classifiedChunks.map { chunk ->
+            AccumulationShapeChunk(
+                position = chunk.position,
+                startDate = chunk.startDate,
+                endDate = chunk.endDate,
+                shape = chunk.classification.shape,
+                metrics = requireNotNull(chunk.classification.metrics),
+                goldenFlat = chunk == latestChunk && goldenFlat,
+            )
+        }, classification, goldenFlatNode)
+    }
+
+    private fun classifyChunk(position: Int, chunk: List<DailyCandle>): ChunkClassification {
+        val classification = classifyWindow(chunk, config.shapeChunkSessions)
+        return ChunkClassification(position, chunk.first().candleDate, chunk.last().candleDate, classification)
+    }
+
+    private fun isGoldenFlat(metrics: AccumulationShapeMetrics): Boolean =
+        kotlin.math.abs(metrics.centerSlopePerTenSessions) <= config.goldenFlatMaxAbsCenterSlopePerTenSessions &&
+            kotlin.math.abs(metrics.curvature) <= config.goldenFlatMaxAbsCurvature
+
+    private fun classifyWindow(candles: List<DailyCandle>, requiredSessions: Int): AccumulationShapeClassification {
+        if (candles.size < requiredSessions) {
             return AccumulationShapeClassification(AccumulationShape.UNCLASSIFIED, AccumulationShapeDecision.NEEDS_REVIEW, null)
         }
 

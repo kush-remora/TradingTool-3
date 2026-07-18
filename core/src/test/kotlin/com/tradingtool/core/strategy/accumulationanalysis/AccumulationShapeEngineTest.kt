@@ -56,6 +56,21 @@ class AccumulationShapeEngineTest {
     }
 
     @Test
+    fun `uses the newest of three consecutive twenty session chunks for Flat Golden`() {
+        val candles = (0..79).map { index ->
+            val close = if (index < 60) 100.0 + index else 160.0
+            candle(index, close)
+        }
+
+        val analysis = engine.analyzeChain(candles, listOf(candles.last().candleDate))
+
+        assertEquals(AccumulationShape.FLAT_GOLDEN, analysis.classification.shape)
+        assertEquals(3, analysis.chunks.size)
+        assertEquals(20, analysis.goldenFlatNode?.windowSessions)
+        assertEquals(candles[60].candleDate, analysis.goldenFlatNode?.startDate)
+    }
+
+    @Test
     fun `BHEL reference window ending on March thirtieth is a downward drift`() {
         val fixture = Path.of("..", ".claude", "requirements", "strategies", "52w-momentum", "bhel-daily-candle.json")
         val candles = Regex("\\\"candle_date\\\": \\\"([^\\\"]+)\\\"[\\s\\S]*?\\\"close\\\": \\\"([^\\\"]+)\\\"")

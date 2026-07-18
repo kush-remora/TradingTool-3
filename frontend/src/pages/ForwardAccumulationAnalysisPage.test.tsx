@@ -48,5 +48,7 @@ function snapshot(symbol: string, chainEndDate: string): AccumulationCaseSnapsho
     curatedWatchlists: [],
     sixMonthEvidence: null,
     shapeMetrics: null,
+    goldenFlatNode: null,
+    shapeChunks: [],
   };
 }

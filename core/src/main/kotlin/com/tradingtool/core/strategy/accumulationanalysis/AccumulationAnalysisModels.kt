@@ -4,7 +4,7 @@ import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceSource
 import java.time.LocalDate
 import java.time.OffsetDateTime
 
-enum class AccumulationShape { FLAT, CUP, DOWNWARD_DRIFT, UPWARD_DRIFT, UNCLASSIFIED, INVALID }
+enum class AccumulationShape { FLAT_GOLDEN, FLAT, CUP, DOWNWARD_DRIFT, UPWARD_DRIFT, UNCLASSIFIED, INVALID }
 enum class AccumulationShapeDecision { VALID, NEEDS_REVIEW, INVALID }
 enum class AccumulationRunStatus { RUNNING, COMPLETED, FAILED }
 enum class AccumulationAnalysisPeriod {
@@ -62,6 +62,8 @@ data class AccumulationCaseSnapshot(
     val curatedWatchlists: List<String> = emptyList(),
     val sixMonthEvidence: AccumulationEvidenceLane? = null,
     val shapeMetrics: AccumulationShapeMetrics? = null,
+    val goldenFlatNode: AccumulationGoldenFlatNode? = null,
+    val shapeChunks: List<AccumulationShapeChunk> = emptyList(),
 )
 
 data class AccumulationShapeMetrics(
@@ -70,6 +72,22 @@ data class AccumulationShapeMetrics(
     val startSlopePerTenSessions: Double,
     val endSlopePerTenSessions: Double,
     val vertexPosition: Double?,
+)
+
+data class AccumulationGoldenFlatNode(
+    val windowSessions: Int,
+    val startDate: LocalDate,
+    val endDate: LocalDate,
+    val metrics: AccumulationShapeMetrics,
+)
+
+data class AccumulationShapeChunk(
+    val position: Int,
+    val startDate: LocalDate,
+    val endDate: LocalDate,
+    val shape: AccumulationShape,
+    val metrics: AccumulationShapeMetrics,
+    val goldenFlat: Boolean,
 )
 
 data class AccumulationConfirmationDates(
