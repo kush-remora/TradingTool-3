@@ -185,7 +185,7 @@ CREATE TABLE IF NOT EXISTS public.accumulation_case_snapshots (
     hit_count INTEGER NOT NULL,
     shape TEXT NOT NULL,
     shape_decision TEXT NOT NULL,
-    is_valid BOOLEAN NOT NULL,
+    valid BOOLEAN NOT NULL,
     first_phase_d_date DATE,
     first_breakout_date DATE,
     sessions_to_phase_d INTEGER,
@@ -196,6 +196,18 @@ CREATE TABLE IF NOT EXISTS public.accumulation_case_snapshots (
 
 CREATE INDEX IF NOT EXISTS idx_accumulation_analysis_runs_universe ON public.accumulation_analysis_runs (universe_key, completed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_accumulation_case_snapshots_run_symbol ON public.accumulation_case_snapshots (run_id, symbol, as_of_date);
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'accumulation_case_snapshots'
+          AND column_name = 'is_valid'
+    ) THEN
+        ALTER TABLE public.accumulation_case_snapshots RENAME COLUMN is_valid TO valid;
+    END IF;
+END $$;
 
 -- Watchlist for Wyckoff Phase C "Dry Up" candidates from Chartink
 CREATE TABLE IF NOT EXISTS public.phase_c_watchlist (

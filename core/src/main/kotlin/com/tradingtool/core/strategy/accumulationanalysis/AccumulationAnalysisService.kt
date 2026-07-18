@@ -48,7 +48,7 @@ class AccumulationAnalysisService(private val store: AccumulationAnalysisStore, 
     suspend fun runs(): List<AccumulationAnalysisRun> = store.findRuns()
     suspend fun summary(runId: Long): AccumulationAnalysisSummary {
         val run = requireNotNull(store.findRun(runId)) { "Run not found." }
-        return AccumulationAnalysisSummary(run, store.evidenceRevision(run.universeKey)?.isAfter(run.evidenceRevision) == true, store.findLatestSnapshots(runId).sortedWith(compareBy<AccumulationCaseSnapshot> { !it.isValid }.thenBy { it.shape.ordinal }.thenByDescending { it.chainLengthSessions }))
+        return AccumulationAnalysisSummary(run, store.evidenceRevision(run.universeKey)?.isAfter(run.evidenceRevision) == true, store.findLatestSnapshots(runId).sortedWith(compareBy<AccumulationCaseSnapshot> { !it.valid }.thenBy { it.shape.ordinal }.thenByDescending { it.chainLengthSessions }))
     }
     suspend fun timeline(runId: Long, symbol: String): AccumulationAnalysisTimeline {
         val run = requireNotNull(store.findRun(runId)) { "Run not found." }

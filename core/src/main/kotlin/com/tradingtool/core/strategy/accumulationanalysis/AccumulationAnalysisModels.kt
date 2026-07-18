@@ -34,7 +34,7 @@ data class AccumulationCaseSnapshot(
     val hitCount: Int,
     val shape: AccumulationShape,
     val shapeDecision: AccumulationShapeDecision,
-    val isValid: Boolean,
+    val valid: Boolean,
     val firstPhaseDDate: LocalDate?,
     val firstBreakoutDate: LocalDate?,
     val sessionsToPhaseD: Int?,
