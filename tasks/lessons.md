@@ -66,3 +66,4 @@
 ## 2026-07-19
 
 - When extending JSONB-backed snapshots, treat absent, blank, or malformed legacy optional values as empty data at the read boundary; never let one old row fail an entire dashboard response.
+- Before changing trading classification logic, trace it to the governing HLD and source strategy document. Do not substitute a nearby experiment's screening conditions for the documented backend shape algorithm.

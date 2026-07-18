@@ -18,7 +18,7 @@ class JdbiAccumulationAnalysisStore(private val handler: AccumulationAnalysisJdb
     override suspend fun latestAccumulationDate(universeKey: String) = handler.read { it.latestAccumulationDate(universeKey) }
     override suspend fun evidenceRevision(universeKey: String) = handler.read { it.evidenceRevision(universeKey) }
     override suspend fun findEvidence(universeKey: String, toDate: LocalDate) = handler.read { it.findEvidence(universeKey, toDate) }
-    override suspend fun createRun(request: AccumulationAnalysisRunRequest, fromDate: LocalDate, toDate: LocalDate, revision: OffsetDateTime): AccumulationAnalysisRun = handler.transaction { read, write -> write.deleteRunScope(request.universeKey, request.months, fromDate, toDate); read.findRun(write.createRun(request.universeKey, request.months, fromDate, toDate, revision))!! }
+    override suspend fun createRun(request: AccumulationAnalysisRunRequest, fromDate: LocalDate, toDate: LocalDate, revision: OffsetDateTime, algorithmVersion: String): AccumulationAnalysisRun = handler.transaction { read, write -> write.deleteRunScope(request.universeKey, request.period, fromDate, toDate); read.findRun(write.createRun(request.universeKey, request.period, fromDate, toDate, revision, algorithmVersion))!! }
     override suspend fun replaceSnapshots(runId: Long, snapshots: List<AccumulationCaseSnapshot>) { handler.transaction { _, write -> write.deleteSnapshots(runId); if (snapshots.isNotEmpty()) write.insertSnapshots(snapshots) } }
     override suspend fun completeRun(runId: Long) { handler.write { it.completeRun(runId) } }
     override suspend fun failRun(runId: Long, message: String) { handler.write { it.failRun(runId, "{\"error\":\"analysis_failed\"}") } }
@@ -30,11 +30,10 @@ class JdbiAccumulationAnalysisStore(private val handler: AccumulationAnalysisJdb
 
 class AccumulationAnalysisService(private val store: AccumulationAnalysisStore, private val candleHandler: CandleJdbiHandler, private val membershipStore: ChartinkUniverseMembershipStore, private val engine: AccumulationShapeEngine = AccumulationShapeEngine()) {
     suspend fun run(request: AccumulationAnalysisRunRequest): AccumulationAnalysisRun {
-        require(request.months in setOf(1, 3, 6, 9)) { "months must be 1, 3, 6, or 9." }
         require(request.universeKey in UNIVERSES) { "Unsupported universe." }
         val toDate = requireNotNull(store.latestAccumulationDate(request.universeKey)) { "No Accumulation evidence uploaded for this universe." }
         val revision = requireNotNull(store.evidenceRevision(request.universeKey)) { "No Accumulation evidence uploaded for this universe." }
-        val run = store.createRun(request, toDate.minusMonths(request.months.toLong()), toDate, revision)
+        val run = store.createRun(request, request.period.fromDate(toDate), toDate, revision, engine.algorithmVersion)
         try {
             val evidence = store.findEvidence(request.universeKey, toDate)
             val candidates = evidence.filter { it.source == ChartinkEvidenceSource.ACCUMULATION && !it.eventDate.isBefore(run.fromDate) }.map { it.symbol }.distinct()
@@ -52,28 +51,30 @@ class AccumulationAnalysisService(private val store: AccumulationAnalysisStore, 
     suspend fun summary(runId: Long): AccumulationAnalysisSummary {
         val run = requireNotNull(store.findRun(runId)) { "Run not found." }
         val snapshots = store.findLatestSnapshots(runId).sortedWith(compareBy<AccumulationCaseSnapshot> { !it.valid }.thenBy { it.shape.ordinal }.thenByDescending { it.chainLengthSessions })
-        return AccumulationAnalysisSummary(run, store.evidenceRevision(run.universeKey)?.isAfter(run.evidenceRevision) == true, enrichSnapshots(snapshots, run))
+        return AccumulationAnalysisSummary(run, isStale(run), enrichSnapshots(withUnclassifiedShape(snapshots, run), run))
     }
     suspend fun timeline(runId: Long, symbol: String, chainStartDate: LocalDate?, chainEndDate: LocalDate?): AccumulationAnalysisTimeline {
         val run = requireNotNull(store.findRun(runId)) { "Run not found." }
-        return AccumulationAnalysisTimeline(run, store.evidenceRevision(run.universeKey)?.isAfter(run.evidenceRevision) == true, enrichSnapshots(store.findTimeline(runId, symbol, chainStartDate, chainEndDate), run))
+        return AccumulationAnalysisTimeline(run, isStale(run), enrichSnapshots(withUnclassifiedShape(store.findTimeline(runId, symbol, chainStartDate, chainEndDate), run), run))
     }
 
     private suspend fun buildSnapshots(symbol: String, events: List<AnalysisEvidenceEvent>, run: AccumulationAnalysisRun): List<AccumulationCaseSnapshot> {
         val earliest = events.minOfOrNull { it.eventDate } ?: return emptyList()
-        val candles = candleHandler.read { dao: CandleReadDao -> dao.getDailyCandlesBySymbol(symbol, earliest, run.toDate) }
+        val candles = candleHandler.read { dao: CandleReadDao -> dao.getDailyCandlesBySymbol(symbol, earliest.minusDays(SHAPE_HISTORY_CALENDAR_DAYS), run.toDate) }
         require(candles.isNotEmpty()) { "Missing Kite daily candles for $symbol." }
         val chains = engine.buildChains(events.filter { it.source == ChartinkEvidenceSource.ACCUMULATION }.map { it.eventDate }, candles)
         return chains.flatMap { chain ->
-            val start = chain.first(); val end = chain.last()
-            val shape = engine.classify(candles.filter { it.candleDate in start..end })
-            candles.filter { it.candleDate >= end && !it.candleDate.isAfter(run.toDate) }.map { candle ->
-                fun dates(source: ChartinkEvidenceSource) = events.filter { it.source == source && it.eventDate >= end && it.eventDate >= run.fromDate && it.eventDate <= candle.candleDate }.map { it.eventDate }
+            val validationDate = chain.last()
+            val shapeWindow = engine.windowEndingOn(candles, validationDate)
+            val baseStartDate = shapeWindow.firstOrNull()?.candleDate ?: validationDate
+            val classification = engine.classify(shapeWindow)
+            candles.filter { it.candleDate >= validationDate && !it.candleDate.isAfter(run.toDate) }.map { candle ->
+                fun dates(source: ChartinkEvidenceSource) = events.filter { it.source == source && it.eventDate >= validationDate && it.eventDate >= run.fromDate && it.eventDate <= candle.candleDate }.map { it.eventDate }
                 val confirmations = AccumulationConfirmationDates(dates(ChartinkEvidenceSource.PHASE_D), dates(ChartinkEvidenceSource.FRESH_BREAKOUT), dates(ChartinkEvidenceSource.FIFTY_TWO_WEEK_HIGH))
                 val phaseD = confirmations.phaseD.firstOrNull()
                 val breakout = confirmations.freshBreakout.firstOrNull()
-                val details = objectMapper.writeValueAsString(mapOf("hitDates" to chain, "phaseDDates" to confirmations.phaseD, "freshBreakoutDates" to confirmations.freshBreakout, "fiftyTwoWeekHighDates" to confirmations.fiftyTwoWeekHigh))
-                AccumulationCaseSnapshot(run.id, symbol, start, end, candle.candleDate, engine.tradingSessionsBetween(start, end, candles), chain.size, shape, engine.decision(shape), engine.decision(shape) == AccumulationShapeDecision.VALID, phaseD, breakout, phaseD?.let { engine.tradingSessionsBetween(end, it, candles) }, breakout?.let { engine.tradingSessionsBetween(end, it, candles) }, details, confirmations)
+                val details = objectMapper.writeValueAsString(mapOf("hitDates" to chain, "chainHitStartDate" to chain.first(), "chainHitEndDate" to validationDate, "shapeWindowStartDate" to baseStartDate, "shapeWindowSessions" to shapeWindow.size, "regression" to mapOf("curvature" to classification.curvature, "slope" to classification.slope), "phaseDDates" to confirmations.phaseD, "freshBreakoutDates" to confirmations.freshBreakout, "fiftyTwoWeekHighDates" to confirmations.fiftyTwoWeekHigh))
+                AccumulationCaseSnapshot(run.id, symbol, baseStartDate, validationDate, candle.candleDate, shapeWindow.size, chain.size, classification.shape, classification.decision, classification.decision == AccumulationShapeDecision.VALID, phaseD, breakout, phaseD?.let { engine.tradingSessionsBetween(validationDate, it, candles) }, breakout?.let { engine.tradingSessionsBetween(validationDate, it, candles) }, details, confirmations)
             }
         }
     }
@@ -92,7 +93,17 @@ class AccumulationAnalysisService(private val store: AccumulationAnalysisStore, 
             )
         }
     }
+
+    private fun withUnclassifiedShape(snapshots: List<AccumulationCaseSnapshot>, run: AccumulationAnalysisRun): List<AccumulationCaseSnapshot> =
+        if (run.algorithmVersion == engine.algorithmVersion) snapshots else snapshots.map { snapshot ->
+            snapshot.copy(shape = AccumulationShape.UNCLASSIFIED, shapeDecision = AccumulationShapeDecision.NEEDS_REVIEW, valid = false)
+        }
+
+    private suspend fun isStale(run: AccumulationAnalysisRun): Boolean =
+        run.algorithmVersion != engine.algorithmVersion || store.evidenceRevision(run.universeKey)?.isAfter(run.evidenceRevision) == true
+
     private companion object {
+        const val SHAPE_HISTORY_CALENDAR_DAYS = 180L
         val UNIVERSES = setOf("nifty_100", "nifty_midcap_150", "nifty_smallcap_250", "nifty_microcap_250")
         val objectMapper = jacksonObjectMapper().findAndRegisterModules()
     }

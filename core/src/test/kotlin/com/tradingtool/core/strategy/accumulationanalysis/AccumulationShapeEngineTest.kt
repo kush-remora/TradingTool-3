@@ -1,9 +1,9 @@
 package com.tradingtool.core.strategy.accumulationanalysis
 
 import com.tradingtool.core.candle.DailyCandle
-import java.time.LocalDate
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -20,27 +20,42 @@ class AccumulationShapeEngineTest {
     }
 
     @Test
-    fun `classifies flat cup downward drift and invalid structures`() {
-        assertEquals(AccumulationShape.FLAT, engine.classify(listOf(100.0, 102.0, 99.0, 101.0, 103.0).mapIndexed(::candle)))
-        assertEquals(AccumulationShape.CUP, engine.classify(listOf(100.0, 92.0, 85.0, 90.0, 98.0).mapIndexed(::candle)))
-        assertEquals(AccumulationShape.DOWNWARD_DRIFT, engine.classify(listOf(100.0, 97.0, 94.0, 90.0, 85.0).mapIndexed(::candle)))
-        assertEquals(AccumulationShape.INVALID, engine.classify(listOf(100.0, 115.0, 125.0, 112.0, 90.0).mapIndexed(::candle)))
-        assertEquals(AccumulationShape.UNCLASSIFIED, engine.classify(listOf(100.0, 90.0, 110.0, 95.0, 105.0, 115.0).mapIndexed(::candle)))
-        assertEquals(AccumulationShapeDecision.NEEDS_REVIEW, engine.decision(AccumulationShape.UNCLASSIFIED))
+    fun `uses the sixty sessions ending on the final chain hit`() {
+        val candles = (0..79).map { index -> candle(index, 100.0) }
+
+        val window = engine.windowEndingOn(candles, candles[70].candleDate)
+
+        assertEquals(60, window.size)
+        assertEquals(candles[11].candleDate, window.first().candleDate)
+        assertEquals(candles[70].candleDate, window.last().candleDate)
     }
 
     @Test
-    fun `BHEL reference accumulation window remains flat`() {
+    fun `classifies regression shapes without using hit span as the candle window`() {
+        assertEquals(AccumulationShape.FLAT, engine.classify(shapeCandles { 100.0 }).shape)
+        assertEquals(AccumulationShape.DOWNWARD_DRIFT, engine.classify(shapeCandles { index -> 100.0 - index * 0.12 }).shape)
+        assertEquals(AccumulationShape.UPWARD_DRIFT, engine.classify(shapeCandles { index -> 100.0 + index * 0.12 }).shape)
+        assertEquals(AccumulationShape.CUP, engine.classify(shapeCandles { index -> 100.0 + 12.0 * normalizedX(index) * normalizedX(index) }).shape)
+        assertEquals(AccumulationShape.INVALID, engine.classify(shapeCandles { index -> 100.0 - 12.0 * normalizedX(index) * normalizedX(index) }).shape)
+    }
+
+    @Test
+    fun `BHEL reference window ending on March thirtieth is a downward drift`() {
         val fixture = Path.of("..", ".claude", "requirements", "strategies", "52w-momentum", "bhel-daily-candle.json")
         val candles = Regex("\\\"candle_date\\\": \\\"([^\\\"]+)\\\"[\\s\\S]*?\\\"close\\\": \\\"([^\\\"]+)\\\"")
             .findAll(Files.readString(fixture))
             .mapIndexed { index, match -> candle(index, match.groupValues[2].toDouble()).copy(candleDate = LocalDate.parse(match.groupValues[1])) }
-            .filter { it.candleDate in LocalDate.parse("2026-02-13")..LocalDate.parse("2026-03-27") }
-            .sortedBy { it.candleDate }
+            .filter { it.candleDate <= LocalDate.parse("2026-03-30") }
+            .sortedBy(DailyCandle::candleDate)
             .toList()
+            .let { engine.windowEndingOn(it, LocalDate.parse("2026-03-30")) }
 
-        assertEquals(AccumulationShape.FLAT, engine.classify(candles))
+        assertEquals(AccumulationShape.DOWNWARD_DRIFT, engine.classify(candles).shape)
     }
 
     private fun candle(index: Int, close: Double) = DailyCandle(1L, "BHEL", LocalDate.of(2026, 1, 1).plusDays(index.toLong()), close, close, close, close, 100L)
+
+    private fun shapeCandles(close: (Int) -> Double): List<DailyCandle> = (0..59).map { index -> candle(index, close(index)) }
+
+    private fun normalizedX(index: Int): Double = -1.0 + (2.0 * index / 59)
 }

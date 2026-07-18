@@ -2538,8 +2538,9 @@ export interface ChartinkEvidenceUploadStatus {
   uploadedAt: string;
 }
 
-export interface AccumulationAnalysisRunRequest { universeKey: string; months: number; }
-export interface AccumulationAnalysisRun { id: number; universeKey: string; months: number; fromDate: string; toDate: string; status: string; completedAt: string | null; }
+export type AccumulationAnalysisPeriod = "ONE_DAY" | "ONE_WEEK" | "ONE_MONTH" | "THREE_MONTHS" | "SIX_MONTHS" | "NINE_MONTHS";
+export interface AccumulationAnalysisRunRequest { universeKey: string; period: AccumulationAnalysisPeriod; }
+export interface AccumulationAnalysisRun { id: number; universeKey: string; period: AccumulationAnalysisPeriod; fromDate: string; toDate: string; status: string; completedAt: string | null; }
 export interface AccumulationConfirmationDates { phaseD: string[]; freshBreakout: string[]; fiftyTwoWeekHigh: string[]; }
 export interface AccumulationEvidenceLane { fromDate: string; toDate: string; accumulation: string[]; phaseD: string[]; freshBreakout: string[]; fiftyTwoWeekHigh: string[]; }
 export interface AccumulationCaseSnapshot { symbol: string; chainStartDate: string; chainEndDate: string; asOfDate: string; chainLengthSessions: number; hitCount: number; shape: string; shapeDecision: string; valid: boolean; firstPhaseDDate: string | null; firstBreakoutDate: string | null; sessionsToPhaseD: number | null; sessionsToBreakout: number | null; confirmationDates: AccumulationConfirmationDates; curatedWatchlists: string[]; sixMonthEvidence: AccumulationEvidenceLane | null; }

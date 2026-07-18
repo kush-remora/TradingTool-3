@@ -1,6 +1,7 @@
 package com.tradingtool.core.strategy.accumulationanalysis.dao
 
 import com.tradingtool.core.strategy.accumulationanalysis.AccumulationAnalysisRun
+import com.tradingtool.core.strategy.accumulationanalysis.AccumulationAnalysisPeriod
 import com.tradingtool.core.strategy.accumulationanalysis.AccumulationCaseSnapshot
 import com.tradingtool.core.strategy.accumulationanalysis.AccumulationRunStatus
 import com.tradingtool.core.strategy.accumulationanalysis.AccumulationShape
@@ -48,12 +49,12 @@ interface AccumulationAnalysisReadDao {
 }
 
 interface AccumulationAnalysisWriteDao {
-    @SqlUpdate("DELETE FROM accumulation_analysis_runs WHERE universe_key = :universeKey AND months = :months AND from_date = :fromDate AND to_date = :toDate")
-    fun deleteRunScope(@Bind("universeKey") universeKey: String, @Bind("months") months: Int, @Bind("fromDate") fromDate: LocalDate, @Bind("toDate") toDate: LocalDate): Int
+    @SqlUpdate("DELETE FROM accumulation_analysis_runs WHERE universe_key = :universeKey AND period_key = :period AND from_date = :fromDate AND to_date = :toDate")
+    fun deleteRunScope(@Bind("universeKey") universeKey: String, @Bind("period") period: AccumulationAnalysisPeriod, @Bind("fromDate") fromDate: LocalDate, @Bind("toDate") toDate: LocalDate): Int
 
-    @SqlUpdate("INSERT INTO accumulation_analysis_runs (universe_key, months, from_date, to_date, evidence_revision, algorithm_version, status, details) VALUES (:universeKey, :months, :fromDate, :toDate, :revision, 'v1-bhel-calibrated', 'RUNNING', '{\"maxGapTradingSessions\":15,\"minimumHitCount\":1}'::jsonb)")
+    @SqlUpdate("INSERT INTO accumulation_analysis_runs (universe_key, period_key, from_date, to_date, evidence_revision, algorithm_version, status, details) VALUES (:universeKey, :period, :fromDate, :toDate, :revision, :algorithmVersion, 'RUNNING', '{\"maxGapTradingSessions\":15,\"minimumHitCount\":1,\"shapeWindowSessions\":60}'::jsonb)")
     @GetGeneratedKeys
-    fun createRun(@Bind("universeKey") universeKey: String, @Bind("months") months: Int, @Bind("fromDate") fromDate: LocalDate, @Bind("toDate") toDate: LocalDate, @Bind("revision") revision: OffsetDateTime): Long
+    fun createRun(@Bind("universeKey") universeKey: String, @Bind("period") period: AccumulationAnalysisPeriod, @Bind("fromDate") fromDate: LocalDate, @Bind("toDate") toDate: LocalDate, @Bind("revision") revision: OffsetDateTime, @Bind("algorithmVersion") algorithmVersion: String): Long
 
     @SqlUpdate("DELETE FROM accumulation_case_snapshots WHERE run_id = :runId")
     fun deleteSnapshots(@Bind("runId") runId: Long): Int
@@ -69,7 +70,7 @@ interface AccumulationAnalysisWriteDao {
 }
 
 class AccumulationAnalysisRunMapper : RowMapper<AccumulationAnalysisRun> {
-    override fun map(rs: ResultSet, ctx: StatementContext) = AccumulationAnalysisRun(rs.getLong("id"), rs.getString("universe_key"), rs.getInt("months"), rs.getDate("from_date").toLocalDate(), rs.getDate("to_date").toLocalDate(), rs.getObject("evidence_revision", OffsetDateTime::class.java), "v1-bhel-calibrated", AccumulationRunStatus.valueOf(rs.getString("status")), rs.getString("details"), rs.getObject("started_at", OffsetDateTime::class.java), rs.getObject("completed_at", OffsetDateTime::class.java))
+    override fun map(rs: ResultSet, ctx: StatementContext) = AccumulationAnalysisRun(rs.getLong("id"), rs.getString("universe_key"), AccumulationAnalysisPeriod.valueOf(rs.getString("period_key")), rs.getDate("from_date").toLocalDate(), rs.getDate("to_date").toLocalDate(), rs.getObject("evidence_revision", OffsetDateTime::class.java), rs.getString("algorithm_version"), AccumulationRunStatus.valueOf(rs.getString("status")), rs.getString("details"), rs.getObject("started_at", OffsetDateTime::class.java), rs.getObject("completed_at", OffsetDateTime::class.java))
 }
 class AccumulationCaseSnapshotMapper : RowMapper<AccumulationCaseSnapshot> {
     override fun map(rs: ResultSet, ctx: StatementContext): AccumulationCaseSnapshot {

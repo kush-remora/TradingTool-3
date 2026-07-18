@@ -1,48 +1,92 @@
 package com.tradingtool.core.strategy.accumulationanalysis
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.tradingtool.core.candle.DailyCandle
+import java.nio.file.Files
+import java.nio.file.Path
 import java.time.LocalDate
 
-class AccumulationShapeEngine {
+data class AccumulationShapeConfig(
+    val algorithmVersion: String,
+    val maxGapTradingSessions: Int,
+    val minimumHitCount: Int,
+    val shapeWindowSessions: Int,
+    val normalizedCurvatureThreshold: Double,
+    val normalizedFlatSlopeThreshold: Double,
+    val note: String,
+)
+
+data class AccumulationShapeClassification(
+    val shape: AccumulationShape,
+    val decision: AccumulationShapeDecision,
+    val curvature: Double?,
+    val slope: Double?,
+)
+
+class AccumulationShapeEngine(private val config: AccumulationShapeConfig = AccumulationShapeConfigLoader.load()) {
+    val algorithmVersion: String = config.algorithmVersion
+
     fun buildChains(hitDates: List<LocalDate>, candles: List<DailyCandle>): List<List<LocalDate>> {
         val sortedHits = hitDates.distinct().sorted()
         return sortedHits.fold(mutableListOf<MutableList<LocalDate>>()) { chains, date ->
             val active = chains.lastOrNull()
-            if (active == null || tradingSessionsBetween(active.last(), date, candles) > MAX_GAP_SESSIONS) chains += mutableListOf(date) else active += date
+            if (active == null || tradingSessionsBetween(active.last(), date, candles) > config.maxGapTradingSessions) chains += mutableListOf(date) else active += date
             chains
         }
     }
 
-    fun classify(candles: List<DailyCandle>): AccumulationShape {
-        if (candles.size < MIN_CANDLES) return AccumulationShape.UNCLASSIFIED
-        val first = candles.first().close
-        val last = candles.last().close
-        val minIndex = candles.indices.minBy { candles[it].close }
-        val maxIndex = candles.indices.maxBy { candles[it].close }
-        val changePct = (last - first) / first * 100.0
-        if (minIndex in candles.size / 3..(candles.size * 2 / 3) && candles[minIndex].close <= first * CUP_DIP_RATIO && last >= first * CUP_RECOVERY_RATIO) return AccumulationShape.CUP
-        if (kotlin.math.abs(changePct) <= FLAT_CHANGE_PCT) return AccumulationShape.FLAT
-        if (changePct < 0 && changePct >= -MAX_DOWNWARD_DRIFT_PCT && maxIndex < candles.size / 2) return AccumulationShape.DOWNWARD_DRIFT
-        if (changePct <= -MAX_DOWNWARD_DRIFT_PCT || (maxIndex in candles.size / 3..(candles.size * 2 / 3) && last <= first * 0.90)) return AccumulationShape.INVALID
-        return AccumulationShape.UNCLASSIFIED
-    }
+    fun windowEndingOn(candles: List<DailyCandle>, validationDate: LocalDate): List<DailyCandle> =
+        candles.filter { it.candleDate <= validationDate }.takeLast(config.shapeWindowSessions)
 
-    fun decision(shape: AccumulationShape): AccumulationShapeDecision = when (shape) {
-        AccumulationShape.FLAT, AccumulationShape.CUP, AccumulationShape.DOWNWARD_DRIFT -> AccumulationShapeDecision.VALID
-        AccumulationShape.UNCLASSIFIED -> AccumulationShapeDecision.NEEDS_REVIEW
-        AccumulationShape.INVALID -> AccumulationShapeDecision.INVALID
+    fun classify(candles: List<DailyCandle>): AccumulationShapeClassification {
+        if (candles.size < config.shapeWindowSessions) {
+            return AccumulationShapeClassification(AccumulationShape.UNCLASSIFIED, AccumulationShapeDecision.NEEDS_REVIEW, null, null)
+        }
+
+        val coefficients = quadraticRegression(candles.map(DailyCandle::close))
+        val shape = when {
+            coefficients.curvature <= -config.normalizedCurvatureThreshold -> AccumulationShape.INVALID
+            coefficients.curvature >= config.normalizedCurvatureThreshold -> AccumulationShape.CUP
+            kotlin.math.abs(coefficients.slope) <= config.normalizedFlatSlopeThreshold -> AccumulationShape.FLAT
+            coefficients.slope < 0 -> AccumulationShape.DOWNWARD_DRIFT
+            else -> AccumulationShape.UPWARD_DRIFT
+        }
+        val decision = if (shape == AccumulationShape.INVALID) AccumulationShapeDecision.INVALID else AccumulationShapeDecision.VALID
+        return AccumulationShapeClassification(shape, decision, coefficients.curvature, coefficients.slope)
     }
 
     fun tradingSessionsBetween(from: LocalDate, to: LocalDate, candles: List<DailyCandle>): Int =
         candles.count { it.candleDate > from && it.candleDate <= to }
 
-    companion object {
-        const val MAX_GAP_SESSIONS = 15
-        private const val MIN_CANDLES = 5
-        // Initial BHEL-calibrated boundaries; the version is persisted with every run.
-        private const val FLAT_CHANGE_PCT = 8.0
-        private const val CUP_RECOVERY_RATIO = 0.95
-        private const val CUP_DIP_RATIO = 0.95
-        private const val MAX_DOWNWARD_DRIFT_PCT = 20.0
+    private fun quadraticRegression(closes: List<Double>): QuadraticCoefficients {
+        val meanClose = closes.average()
+        val xValues = closes.indices.map { index -> -1.0 + (2.0 * index / (closes.size - 1)) }
+        val normalizedCloses = closes.map { close -> close / meanClose - 1.0 }
+        val sumX2 = xValues.sumOf { it * it }
+        val sumX4 = xValues.sumOf { it * it * it * it }
+        val sumY = normalizedCloses.sum()
+        val sumXY = xValues.zip(normalizedCloses).sumOf { (x, y) -> x * y }
+        val sumX2Y = xValues.zip(normalizedCloses).sumOf { (x, y) -> x * x * y }
+        val denominator = closes.size * sumX4 - sumX2 * sumX2
+        return QuadraticCoefficients(
+            curvature = (closes.size * sumX2Y - sumX2 * sumY) / denominator,
+            slope = sumXY / sumX2,
+        )
+    }
+
+    private data class QuadraticCoefficients(val curvature: Double, val slope: Double)
+}
+
+object AccumulationShapeConfigLoader {
+    private val mapper = jacksonObjectMapper().findAndRegisterModules()
+    private val paths = listOf(
+        Path.of("config", "accumulation_analysis_config.json"),
+        Path.of("..", "config", "accumulation_analysis_config.json"),
+    )
+
+    fun load(): AccumulationShapeConfig {
+        val path = paths.firstOrNull(Files::exists)
+            ?: error("Missing accumulation_analysis_config.json.")
+        return mapper.readValue(path.toFile(), AccumulationShapeConfig::class.java)
     }
 }

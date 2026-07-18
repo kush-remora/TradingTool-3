@@ -1,7 +1,9 @@
 {
-  "algorithmVersion": "v1-bhel-calibrated",
+  "algorithmVersion": "v4-quadratic-60-session",
   "maxGapTradingSessions": 15,
   "minimumHitCount": 1,
-  "shapePriority": ["FLAT", "CUP", "DOWNWARD_DRIFT"],
-  "note": "Initial boundaries are calibrated against the BHEL case and must be versioned when tuned."
+  "shapeWindowSessions": 60,
+  "normalizedCurvatureThreshold": 0.06,
+  "normalizedFlatSlopeThreshold": 0.02,
+  "note": "Quadratic regression uses 60 trading sessions ending on the final hit in each 15-session accumulation chain. Thresholds are normalized by the window mean close and calibrated so the BHEL reference window ending 2026-03-30 is a valid downward drift."
 }

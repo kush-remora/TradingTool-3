@@ -4,16 +4,34 @@ import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceSource
 import java.time.LocalDate
 import java.time.OffsetDateTime
 
-enum class AccumulationShape { FLAT, CUP, DOWNWARD_DRIFT, UNCLASSIFIED, INVALID }
+enum class AccumulationShape { FLAT, CUP, DOWNWARD_DRIFT, UPWARD_DRIFT, UNCLASSIFIED, INVALID }
 enum class AccumulationShapeDecision { VALID, NEEDS_REVIEW, INVALID }
 enum class AccumulationRunStatus { RUNNING, COMPLETED, FAILED }
+enum class AccumulationAnalysisPeriod {
+    ONE_DAY,
+    ONE_WEEK,
+    ONE_MONTH,
+    THREE_MONTHS,
+    SIX_MONTHS,
+    NINE_MONTHS,
+    ;
 
-data class AccumulationAnalysisRunRequest(val universeKey: String, val months: Int)
+    fun fromDate(toDate: LocalDate): LocalDate = when (this) {
+        ONE_DAY -> toDate
+        ONE_WEEK -> toDate.minusWeeks(1)
+        ONE_MONTH -> toDate.minusMonths(1)
+        THREE_MONTHS -> toDate.minusMonths(3)
+        SIX_MONTHS -> toDate.minusMonths(6)
+        NINE_MONTHS -> toDate.minusMonths(9)
+    }
+}
+
+data class AccumulationAnalysisRunRequest(val universeKey: String, val period: AccumulationAnalysisPeriod)
 
 data class AccumulationAnalysisRun(
     val id: Long,
     val universeKey: String,
-    val months: Int,
+    val period: AccumulationAnalysisPeriod,
     val fromDate: LocalDate,
     val toDate: LocalDate,
     val evidenceRevision: OffsetDateTime,
@@ -74,7 +92,7 @@ interface AccumulationAnalysisStore {
     suspend fun latestAccumulationDate(universeKey: String): LocalDate?
     suspend fun evidenceRevision(universeKey: String): OffsetDateTime?
     suspend fun findEvidence(universeKey: String, toDate: LocalDate): List<AnalysisEvidenceEvent>
-    suspend fun createRun(request: AccumulationAnalysisRunRequest, fromDate: LocalDate, toDate: LocalDate, revision: OffsetDateTime): AccumulationAnalysisRun
+    suspend fun createRun(request: AccumulationAnalysisRunRequest, fromDate: LocalDate, toDate: LocalDate, revision: OffsetDateTime, algorithmVersion: String): AccumulationAnalysisRun
     suspend fun replaceSnapshots(runId: Long, snapshots: List<AccumulationCaseSnapshot>)
     suspend fun completeRun(runId: Long)
     suspend fun failRun(runId: Long, message: String)
