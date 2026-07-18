@@ -21,3 +21,7 @@ The simplified v1 now has exactly seven fixed uploads: four cap-specific Accumul
 `chartink_scan_events` is the only new evidence table. The dashboard reads current active constituent memberships so curated watchlist names remain current without duplicating that information in events. It shows the latest selected-period date per source, supports 1/2/3/9-month views, and places curated-watchlist stocks first. Delivery shock and Groww Volume Shocker remain confirmation inputs for a later, explicitly agreed step.
 
 The upload cards now show the most recently stored filename and upload time for each fixed slot. The combined dashboard can also be narrowed to a single Nifty 100, Midcap 150, Smallcap 250, or Microcap 250 table; the all-universe view remains available for comparison.
+
+## Forward replay decision — 2026-07-18
+
+Forward Accumulation Analysis is a separate manual run flow. It replays daily states for a selected universe and 1/3/6/9-month preset, selecting any stock with an Accumulation hit in the period. Chains use a 15-trading-session maximum gap and require two hits. Flat, cup, and controlled downward drift are valid, in that priority order; invalid distribution-like structures are retained for inspection but not promoted. PostgreSQL persists run headers and daily snapshots, while JSONB holds evolving diagnostics. Redis is intentionally not used.

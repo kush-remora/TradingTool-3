@@ -48,6 +48,12 @@ import com.tradingtool.core.strategy.chartinkevidence.JdbiChartinkEvidenceStore
 import com.tradingtool.core.strategy.chartinkevidence.JdbiChartinkUniverseMembershipStore
 import com.tradingtool.core.strategy.chartinkevidence.dao.ChartinkEvidenceReadDao
 import com.tradingtool.core.strategy.chartinkevidence.dao.ChartinkEvidenceWriteDao
+import com.tradingtool.core.strategy.accumulationanalysis.AccumulationAnalysisJdbiHandler
+import com.tradingtool.core.strategy.accumulationanalysis.AccumulationAnalysisService
+import com.tradingtool.core.strategy.accumulationanalysis.AccumulationAnalysisStore
+import com.tradingtool.core.strategy.accumulationanalysis.JdbiAccumulationAnalysisStore
+import com.tradingtool.core.strategy.accumulationanalysis.dao.AccumulationAnalysisReadDao
+import com.tradingtool.core.strategy.accumulationanalysis.dao.AccumulationAnalysisWriteDao
 import com.tradingtool.core.telegram.TelegramApiClient
 import com.tradingtool.core.telegram.TelegramNotifier
 import com.tradingtool.core.telegram.TelegramSender
@@ -138,6 +144,15 @@ class ServiceModule(
         evidenceStore: ChartinkEvidenceStore,
         membershipStore: ChartinkUniverseMembershipStore,
     ): ChartinkEvidenceService = ChartinkEvidenceService(evidenceStore, membershipStore)
+
+    @Provides @Singleton
+    fun provideAccumulationAnalysisHandler(config: DatabaseConfig): AccumulationAnalysisJdbiHandler = handler<AccumulationAnalysisReadDao, AccumulationAnalysisWriteDao>(config)
+
+    @Provides @Singleton
+    fun provideAccumulationAnalysisStore(handler: AccumulationAnalysisJdbiHandler): AccumulationAnalysisStore = JdbiAccumulationAnalysisStore(handler)
+
+    @Provides @Singleton
+    fun provideAccumulationAnalysisService(store: AccumulationAnalysisStore, candleHandler: CandleJdbiHandler): AccumulationAnalysisService = AccumulationAnalysisService(store, candleHandler)
 
 
 

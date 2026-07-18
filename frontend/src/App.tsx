@@ -15,6 +15,7 @@ import { FiftyTwoWeekMomentumRule5Page } from "./pages/FiftyTwoWeekMomentumRule5
 import { CsvBacktestPage } from "./pages/CsvBacktestPage";
 import { BacktestReviewsPage } from "./pages/BacktestReviewsPage";
 import { ChartinkEvidencePage } from "./pages/ChartinkEvidencePage";
+import { ForwardAccumulationAnalysisPage } from "./pages/ForwardAccumulationAnalysisPage";
 
 type V1PageKey =
   | "trade"
@@ -28,7 +29,8 @@ type V1PageKey =
   | "52w-momentum-rule5"
   | "csv-backtest"
   | "backtest-reviews"
-  | "chartink-evidence";
+  | "chartink-evidence"
+  | "forward-accumulation";
 
 type PageKey = V1PageKey;
 
@@ -44,6 +46,7 @@ const menuItems: MenuProps["items"] = [
   { key: "wyckoff-phase1", label: "Wyckoff Phase-1", icon: <BarChartOutlined /> },
   { key: "phase-d", label: "Phase D Scanner", icon: <FundOutlined /> },
   { key: "chartink-evidence", label: "Chartink Evidence", icon: <FundOutlined /> },
+  { key: "forward-accumulation", label: "Forward Accumulation", icon: <BarChartOutlined /> },
   { key: "trade", label: "Trade Journal", icon: <BookOutlined /> },
 ];
 
@@ -60,6 +63,7 @@ const validPages: PageKey[] = [
   "csv-backtest",
   "backtest-reviews",
   "chartink-evidence",
+  "forward-accumulation",
 ];
 
 export default function App() {
@@ -157,6 +161,7 @@ export default function App() {
             {route === "csv-backtest" && <CsvBacktestPage />}
             {route === "backtest-reviews" && <BacktestReviewsPage />}
             {route === "chartink-evidence" && <ChartinkEvidencePage />}
+            {route === "forward-accumulation" && <ForwardAccumulationAnalysisPage />}
           </Layout.Content>
         </Layout>
       </Layout>

@@ -12,6 +12,8 @@ object DatabaseConstants {
         const val GROWW_VOLUME_SHOCKER_DAILY = "groww_volume_shocker_daily"
         const val PHASE_C_WATCHLIST = "phase_c_watchlist"
         const val CHARTINK_SCAN_EVENTS = "chartink_scan_events"
+        const val ACCUMULATION_ANALYSIS_RUNS = "accumulation_analysis_runs"
+        const val ACCUMULATION_CASE_SNAPSHOTS = "accumulation_case_snapshots"
     }
 
     object KiteTokenColumns {

@@ -15,6 +15,8 @@ import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1ScannerService
 import com.tradingtool.core.volumeshocker.groww.GrowwVolumeShockerDashboardService
 import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceService
 import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceUploadRequest
+import com.tradingtool.core.strategy.accumulationanalysis.AccumulationAnalysisRunRequest
+import com.tradingtool.core.strategy.accumulationanalysis.AccumulationAnalysisService
 import com.tradingtool.resources.common.badRequest
 import com.tradingtool.resources.common.endpoint
 import com.tradingtool.resources.common.notFound
@@ -45,6 +47,7 @@ class StrategyResource @Inject constructor(
     private val csvBacktestService: com.tradingtool.core.strategy.csvbacktest.CsvBacktestService,
     private val backtestTradeReviewService: com.tradingtool.core.strategy.csvbacktest.BacktestTradeReviewService,
     private val chartinkEvidenceService: ChartinkEvidenceService,
+    private val accumulationAnalysisService: AccumulationAnalysisService,
 ) {
     private val ioScope = resourceScope.ioScope
 
@@ -102,6 +105,30 @@ class StrategyResource @Inject constructor(
         } catch (error: IllegalArgumentException) {
             badRequest(error.message ?: "Invalid dashboard period.")
         }
+    }
+
+    @POST
+    @Path("/accumulation-analysis/runs")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runAccumulationAnalysis(request: AccumulationAnalysisRunRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        try { ok(accumulationAnalysisService.run(request ?: return@endpoint badRequest("Request body is required."))) }
+        catch (error: IllegalArgumentException) { badRequest(error.message ?: "Invalid accumulation analysis request.") }
+    }
+
+    @GET
+    @Path("/accumulation-analysis/runs")
+    fun getAccumulationAnalysisRuns(): CompletableFuture<Response> = ioScope.endpoint { ok(accumulationAnalysisService.runs()) }
+
+    @GET
+    @Path("/accumulation-analysis/runs/{runId}")
+    fun getAccumulationAnalysisSummary(@jakarta.ws.rs.PathParam("runId") runId: Long): CompletableFuture<Response> = ioScope.endpoint {
+        try { ok(accumulationAnalysisService.summary(runId)) } catch (error: IllegalArgumentException) { notFound(error.message ?: "Run not found.") }
+    }
+
+    @GET
+    @Path("/accumulation-analysis/runs/{runId}/symbols/{symbol}")
+    fun getAccumulationAnalysisTimeline(@jakarta.ws.rs.PathParam("runId") runId: Long, @jakarta.ws.rs.PathParam("symbol") symbol: String): CompletableFuture<Response> = ioScope.endpoint {
+        try { ok(accumulationAnalysisService.timeline(runId, symbol.uppercase())) } catch (error: IllegalArgumentException) { notFound(error.message ?: "Run not found.") }
     }
 
     @POST
