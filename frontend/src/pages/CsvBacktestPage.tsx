@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   Card, 
   Space, 
@@ -15,7 +15,8 @@ import {
   Tag,
   Drawer,
   Select,
-  Input
+  Input,
+  Switch
 } from "antd";
 import { UploadOutlined, EditOutlined } from "@ant-design/icons";
 import type { UploadProps, UploadFile } from "antd/es/upload/interface";
@@ -74,15 +75,31 @@ const filterCsv = (rawCsv: string, selectedMonths: string[], selectedMarketCaps:
   return filteredLines.join('\n');
 };
 
+const combineCsvFiles = async (files: UploadFile[]): Promise<string> => {
+  const contents = await Promise.all(
+    files.map(async (file) => file.originFileObj?.text() ?? ""),
+  );
+
+  return contents.reduce<string>((combinedCsv, content) => {
+    const lines = content.split(/\r?\n/).filter((line) => line.trim());
+    if (!lines.length) return combinedCsv;
+    if (!combinedCsv) return lines.join("\n");
+    return `${combinedCsv}\n${lines.slice(1).join("\n")}`;
+  }, "");
+};
+
 export function CsvBacktestPage() {
   const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const uploadSequence = useRef(0);
   const [csvContent, setCsvContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<CsvBacktestResponse | null>(null);
+  const [maximumV2RunPct, setMaximumV2RunPct] = useState<number | null>(null);
   
   const [form] = Form.useForm();
   const [type, setType] = useState<"FIXED" | "TRAILING">("FIXED");
+  const [entryStrategy, setEntryStrategy] = useState<"NEXT_DAY_OPEN" | "TWO_GREEN_CANDLES" | "RETEST" | "CONFIRMED_RETEST">("NEXT_DAY_OPEN");
 
   // Filter State
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
@@ -138,28 +155,23 @@ export function CsvBacktestPage() {
   }, [csvContent]);
 
   const handleUpload: UploadProps["onChange"] = (info) => {
-    let newFileList = [...info.fileList];
-    newFileList = newFileList.slice(-1);
+    const newFileList = [...info.fileList];
+    const sequence = uploadSequence.current + 1;
+    uploadSequence.current = sequence;
     setFileList(newFileList);
 
-    if (newFileList.length > 0 && newFileList[0].originFileObj) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setCsvContent(e.target?.result as string);
+    void combineCsvFiles(newFileList)
+      .then((combinedCsv) => {
+        if (sequence !== uploadSequence.current) return;
+        setCsvContent(combinedCsv || null);
         form.setFieldsValue({ filterMonths: [], filterMarketCaps: [] });
-      };
-      reader.onerror = () => {
-        message.error("Failed to read file");
-      };
-      reader.readAsText(newFileList[0].originFileObj);
-    } else {
-      setCsvContent(null);
-    }
+      })
+      .catch(() => message.error("Failed to read selected CSV files"));
   };
 
   const uploadProps: UploadProps = {
     onChange: handleUpload,
-    multiple: false,
+    multiple: true,
     fileList,
     beforeUpload: () => false, // Prevent auto upload
     accept: ".csv",
@@ -174,6 +186,7 @@ export function CsvBacktestPage() {
     setLoading(true);
     setError(null);
     setResponse(null);
+    setMaximumV2RunPct(null);
 
     try {
       const filteredCsv = filterCsv(csvContent, values.filterMonths || [], values.filterMarketCaps || []);
@@ -181,8 +194,12 @@ export function CsvBacktestPage() {
       const requestPayload: CsvBacktestApiRequest = {
         csvContent: filteredCsv,
         type: values.type,
-        targetPct: values.type === "FIXED" ? values.targetPct : null,
+        targetPct: values.targetPct,
         stopLossPct: values.stopLossPct,
+        entryStrategy: values.entryStrategy,
+        retestWindowDays: values.retestWindowDays,
+        retestTolerancePct: values.retestTolerancePct,
+        applyV2Validation: values.applyV2Validation,
       };
 
       const res = await fetch("/api/strategy/csv-backtest/run", {
@@ -274,8 +291,18 @@ export function CsvBacktestPage() {
     { title: "Market Cap", dataIndex: "marketCapName", key: "marketCapName", sorter: (a: any, b: any) => a.marketCapName.localeCompare(b.marketCapName) },
     { title: "Sector", dataIndex: "sector", key: "sector", sorter: (a: any, b: any) => a.sector.localeCompare(b.sector) },
     { title: "Signal Date", dataIndex: "signalDate", key: "signalDate", sorter: (a: any, b: any) => a.signalDate.localeCompare(b.signalDate) },
+    { title: "Entry Rule", dataIndex: "entryStrategy", key: "entryStrategy" },
+    { title: "Breakout Level", dataIndex: "breakoutLevel", key: "breakoutLevel", render: (val: number | null) => val ? `₹${formatNumber(val)}` : "-" },
     { title: "Entry Date", dataIndex: "entryDate", key: "entryDate", render: (val: string | null) => val || "-" },
     { title: "Entry Price", dataIndex: "entryPrice", key: "entryPrice", render: (val: number | null) => val ? `₹${formatNumber(val)}` : "-" },
+    { title: "5D Low", dataIndex: "firstFiveDaysLowestPrice", key: "firstFiveDaysLowestPrice", render: (val: number | null) => val ? `₹${formatNumber(val)}` : "-" },
+    { title: "5D Drop ₹", dataIndex: "firstFiveDaysDropAmount", key: "firstFiveDaysDropAmount", render: (val: number | null) => val === null ? "-" : `₹${formatNumber(val)}` },
+    { title: "5D Drop %", dataIndex: "firstFiveDaysDropPct", key: "firstFiveDaysDropPct", render: (val: number | null) => val === null ? "-" : `${val.toFixed(2)}%` },
+    { title: "3D Red Candles", dataIndex: "firstThreeDaysRedCandleCount", key: "firstThreeDaysRedCandleCount", render: (val: number | null) => val ?? "-" },
+    { title: "V2 Vol Spike", dataIndex: "v2MaxPreBreakoutVolumeRatio", key: "v2MaxPreBreakoutVolumeRatio", render: (val: number | null) => val === null ? "-" : `${val.toFixed(2)}×` },
+    { title: "V2 Failed Tests", dataIndex: "v2FailedResistanceAttempts", key: "v2FailedResistanceAttempts", render: (val: number | null) => val ?? "-" },
+    { title: "V2 Base ₹", dataIndex: "v2RecentRunBasePrice", key: "v2RecentRunBasePrice", render: (val: number | null) => val === null ? "-" : `₹${formatNumber(val)}` },
+    { title: "V2 Run %", dataIndex: "v2MoveFromRecentBasePct", key: "v2MoveFromRecentBasePct", render: (val: number | null) => val === null ? "-" : `${val.toFixed(2)}%` },
     { title: "Exit Date", dataIndex: "exitDate", key: "exitDate", render: (val: string | null, record: any) => record.isOpen ? <Tag color="blue">Open</Tag> : (val || "-") },
     { title: "Exit Price", dataIndex: "exitPrice", key: "exitPrice", render: (val: number | null) => val ? `₹${formatNumber(val)}` : "-" },
     { 
@@ -308,6 +335,7 @@ export function CsvBacktestPage() {
     { title: "Loss", dataIndex: "lossTrades", key: "lossTrades", render: (val: number) => <Text type="danger">{val}</Text> },
     { title: "Win Rate", key: "winRate", render: (_: any, record: any) => `${((record.winTrades / record.totalTrades) * 100).toFixed(1)}%` },
     { title: "Avg Holding", dataIndex: "avgHoldingPeriod", key: "avgHoldingPeriod", render: (val: number) => `${val.toFixed(1)} days` },
+    { title: "Avg 5D Drop %", dataIndex: "avgFirstFiveDaysDropPct", key: "avgFirstFiveDaysDropPct", render: (val: number) => `${val.toFixed(2)}%` },
     { 
       title: "Avg P&L %", 
       dataIndex: "avgProfitPct", 
@@ -315,6 +343,12 @@ export function CsvBacktestPage() {
       render: (val: number) => <Text type={val >= 0 ? "success" : "danger"}>{val > 0 ? "+" : ""}{val.toFixed(2)}%</Text>
     },
   ];
+
+  const displayedTrades = response?.trades.filter((trade) =>
+    maximumV2RunPct === null ||
+      (trade.v2MoveFromRecentBasePct !== null && trade.v2MoveFromRecentBasePct <= maximumV2RunPct),
+  ) ?? [];
+  const hasV2TradeMetrics = response?.trades.some((trade) => trade.v2MoveFromRecentBasePct !== null) ?? false;
 
   const getOptions = () => {
     if (!reviewReasons) return [];
@@ -339,18 +373,26 @@ export function CsvBacktestPage() {
             form={form} 
             layout="vertical" 
             onFinish={onFinish}
-            initialValues={{ type: "FIXED", targetPct: 10, stopLossPct: 5 }}
+            initialValues={{
+              type: "FIXED",
+              targetPct: 20,
+              stopLossPct: 10,
+              entryStrategy: "NEXT_DAY_OPEN",
+              retestWindowDays: 5,
+              retestTolerancePct: 1,
+              applyV2Validation: false,
+            }}
           >
             <Space direction="vertical" size={16} style={{ width: "100%" }}>
               <Text type="secondary">
-                Upload a CSV containing <Text code>date, symbol, marketcapname, sector</Text>. 
+                Upload one or more CSV files containing <Text code>date, symbol, marketcapname, sector</Text>.
                 We will simulate entering trades at the <b>open</b> of the next trading day. 
-                Gaps are processed properly (gap downs below SL trigger an exit at the gap open price).
+                The entry day's low/high is evaluated, and stop loss takes priority if both stop and target are hit.
               </Text>
               
               <Form.Item label="Upload CSV File" required>
                 <Upload {...uploadProps}>
-                  <Button icon={<UploadOutlined />}>Select CSV File</Button>
+                  <Button icon={<UploadOutlined />}>Select CSV Files</Button>
                 </Upload>
               </Form.Item>
 
@@ -379,21 +421,48 @@ export function CsvBacktestPage() {
               <Form.Item label="Strategy Type" name="type">
                 <Radio.Group onChange={(e) => setType(e.target.value)}>
                   <Radio.Button value="FIXED">Fixed Target & SL</Radio.Button>
-                  <Radio.Button value="TRAILING">Trailing SL (High Close)</Radio.Button>
+                  <Radio.Button value="TRAILING">Target + Trailing SL</Radio.Button>
                 </Radio.Group>
               </Form.Item>
 
               <Space size="large">
-                {type === "FIXED" && (
-                  <Form.Item label="Target %" name="targetPct" rules={[{ required: true }]}>
-                    <InputNumber min={0.1} max={1000} step={0.5} addonAfter="%" />
-                  </Form.Item>
-                )}
+                <Form.Item label="Target %" name="targetPct" rules={[{ required: true }]}>
+                  <InputNumber min={0.1} max={1000} step={0.5} addonAfter="%" />
+                </Form.Item>
                 
-                <Form.Item label="Stop Loss %" name="stopLossPct" rules={[{ required: true }]}>
+                <Form.Item label={type === "TRAILING" ? "Trailing Stop Loss %" : "Stop Loss %"} name="stopLossPct" rules={[{ required: true }]}>
                   <InputNumber min={0.1} max={100} step={0.5} addonAfter="%" />
                 </Form.Item>
               </Space>
+
+              <Form.Item label="Entry Rule" name="entryStrategy">
+                <Radio.Group onChange={(e) => setEntryStrategy(e.target.value)}>
+                  <Radio.Button value="NEXT_DAY_OPEN">Next-Day Open</Radio.Button>
+                  <Radio.Button value="TWO_GREEN_CANDLES">2 Green Candles</Radio.Button>
+                  <Radio.Button value="RETEST">Breakout Retest</Radio.Button>
+                  <Radio.Button value="CONFIRMED_RETEST">Confirmed Retest</Radio.Button>
+                </Radio.Group>
+              </Form.Item>
+
+              <Form.Item
+                label="Apply V2 breakout validation"
+                name="applyV2Validation"
+                valuePropName="checked"
+                extra="Filters signals using the 100-day fresh breakout, 2× pre-breakout volume spike, 6% extension guard, and recent-base rules."
+              >
+                <Switch />
+              </Form.Item>
+
+              {(entryStrategy === "RETEST" || entryStrategy === "CONFIRMED_RETEST") && (
+                <Space size="large">
+                  <Form.Item label="Retest Window (trading days)" name="retestWindowDays" rules={[{ required: true }]}>
+                    <InputNumber min={1} max={20} step={1} />
+                  </Form.Item>
+                  <Form.Item label="Retest Zone Above Breakout %" name="retestTolerancePct" rules={[{ required: true }]}>
+                    <InputNumber min={0} max={10} step={0.25} addonAfter="%" />
+                  </Form.Item>
+                </Space>
+              )}
 
               <Form.Item>
                 <Button type="primary" htmlType="submit" loading={loading} disabled={!csvContent}>
@@ -408,6 +477,25 @@ export function CsvBacktestPage() {
 
         {response && (
           <Card>
+            <Space size="large" wrap>
+              <Text type="secondary">
+                Signals: {response.inputSignalCount} · Passed validation: {response.validatedSignalCount}
+              </Text>
+              <Space size={8}>
+                <Text>Maximum V2 Run %</Text>
+                <InputNumber
+                  aria-label="Maximum V2 Run percentage"
+                  value={maximumV2RunPct}
+                  min={0}
+                  max={1_000}
+                  addonAfter="%"
+                  placeholder="No limit"
+                  disabled={!hasV2TradeMetrics}
+                  onChange={setMaximumV2RunPct}
+                />
+                <Text type="secondary">Showing {displayedTrades.length} of {response.trades.length} trades</Text>
+              </Space>
+            </Space>
             <Tabs defaultActiveKey="1">
               <Tabs.TabPane tab="Monthly Summary" key="1">
                 <Table 
@@ -420,7 +508,7 @@ export function CsvBacktestPage() {
               </Tabs.TabPane>
               <Tabs.TabPane tab="Trade Details" key="2">
                 <Table 
-                  dataSource={response.trades} 
+                  dataSource={displayedTrades}
                   columns={tradesColumns} 
                   rowKey={(row) => `${row.symbol}-${row.signalDate}`} 
                   pagination={{ pageSize: 100 }}

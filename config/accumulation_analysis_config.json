@@ -1,14 +1,21 @@
 {
-  "algorithmVersion": "v7-three-chunk-shapes",
+  "algorithmVersion": "v9-base-rhythm",
   "maxGapTradingSessions": 15,
   "minimumHitCount": 1,
   "shapeWindowSessions": 60,
   "normalizedCurvatureThreshold": 0.06,
-  "normalizedFlatSlopeThreshold": 0.02,
   "normalizedTurningSlopeThreshold": 0.02,
   "shapeChunkSessions": 20,
   "shapeChunkCount": 3,
-  "goldenFlatMaxAbsCenterSlopePerTenSessions": 0.35,
-  "goldenFlatMaxAbsCurvature": 0.02,
-  "note": "Every Accumulation hit uses its preceding 60 sessions as three consecutive 20-session chunks. Each chunk is classified independently; the latest chunk is the current shape, and the saved path preserves the preceding two chunks. A Golden Flat requires both a near-zero center slope and near-zero curvature in that latest 20-session chunk. Thresholds are normalized by the window mean close and calibrated so the BHEL reference window ending 2026-03-30 is a valid downward drift."
+  "baseRhythmBlockSessions": 10,
+  "baseRhythmFlatChangePercent": 3.0,
+  "baseRhythmStateChangePercent": 20.0,
+  "outlierMinimumDeviationPercent": 4.0,
+  "flatMaxAbsSlopePerTenSessions": 2.5,
+  "flatMaxTypicalDeviationPercent": 2.5,
+  "flatMaxDeviationPercent": 4.0,
+  "goldenFlatMaxAbsSlopePerTenSessions": 1.75,
+  "goldenFlatMaxTypicalDeviationPercent": 1.8,
+  "goldenFlatMaxDeviationPercent": 3.8,
+  "note": "Every Accumulation hit uses its preceding 60 sessions as three consecutive 20-session chunks. Each chunk first fits a straight line to closes, excluding at most one close that deviates by 4% or more. Flat and Golden Flat require a low line slope plus tight remaining deviations. Golden thresholds are calibrated from BHEL's 20 sessions ending 2026-03-30 after excluding the 2026-03-04 shock. Quadratic regression is used only when the chunk is not Flat, to identify a Cup, directional drift, or inverted-U distribution."
 }

@@ -62,8 +62,10 @@ data class AccumulationCaseSnapshot(
     val curatedWatchlists: List<String> = emptyList(),
     val sixMonthEvidence: AccumulationEvidenceLane? = null,
     val shapeMetrics: AccumulationShapeMetrics? = null,
+    val lineFit: AccumulationLineFitMetrics? = null,
     val goldenFlatNode: AccumulationGoldenFlatNode? = null,
     val shapeChunks: List<AccumulationShapeChunk> = emptyList(),
+    val baseRhythm: AccumulationBaseRhythm? = null,
 )
 
 data class AccumulationShapeMetrics(
@@ -74,11 +76,20 @@ data class AccumulationShapeMetrics(
     val vertexPosition: Double?,
 )
 
+data class AccumulationLineFitMetrics(
+    val slopePerTenSessions: Double,
+    val typicalDeviationPercent: Double,
+    val maximumDeviationPercent: Double,
+    val ignoredOutlierDate: LocalDate?,
+    val ignoredOutlierDeviationPercent: Double?,
+)
+
 data class AccumulationGoldenFlatNode(
     val windowSessions: Int,
     val startDate: LocalDate,
     val endDate: LocalDate,
     val metrics: AccumulationShapeMetrics,
+    val lineFit: AccumulationLineFitMetrics? = null,
 )
 
 data class AccumulationShapeChunk(
@@ -88,6 +99,28 @@ data class AccumulationShapeChunk(
     val shape: AccumulationShape,
     val metrics: AccumulationShapeMetrics,
     val goldenFlat: Boolean,
+    val lineFit: AccumulationLineFitMetrics? = null,
+)
+
+enum class AccumulationBaseRhythmDirection { FALLING, FLAT, RISING }
+enum class AccumulationBaseRhythmState { CONTRACTING, STEADY, EXPANDING }
+
+data class AccumulationBaseRhythm(
+    val startDate: LocalDate,
+    val endDate: LocalDate,
+    val blocks: List<AccumulationBaseRhythmBlock>,
+)
+
+data class AccumulationBaseRhythmBlock(
+    val position: Int,
+    val startDate: LocalDate,
+    val endDate: LocalDate,
+    val direction: AccumulationBaseRhythmDirection,
+    val rangeState: AccumulationBaseRhythmState,
+    val volumeState: AccumulationBaseRhythmState,
+    val closeChangePercent: Double,
+    val rangePercent: Double,
+    val averageVolume: Double,
 )
 
 data class AccumulationConfirmationDates(

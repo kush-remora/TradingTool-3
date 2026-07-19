@@ -48,6 +48,7 @@ function snapshot(symbol: string, chainEndDate: string): AccumulationCaseSnapsho
     curatedWatchlists: [],
     sixMonthEvidence: null,
     shapeMetrics: null,
+    lineFit: null,
     goldenFlatNode: null,
     shapeChunks: [],
   };

@@ -25,8 +25,12 @@ class CsvBacktestService(
     suspend fun runBacktest(
         csvContent: String,
         type: String,
-        targetPct: Double?,
-        stopLossPct: Double
+        targetPct: Double,
+        stopLossPct: Double,
+        entryStrategy: String,
+        retestWindowDays: Int,
+        retestTolerancePct: Double,
+        applyV2Validation: Boolean,
     ): CsvBacktestResponse = withContext(Dispatchers.IO) {
         
         // Parse CSV
@@ -48,7 +52,7 @@ class CsvBacktestService(
 
         if (symbolHeader == null || dateHeader == null) {
             log.error("CSV must contain 'symbol' and 'date' columns.")
-            return@withContext CsvBacktestResponse(emptyList(), emptyList())
+            return@withContext CsvBacktestResponse(emptyList(), emptyList(), inputSignalCount = 0, validatedSignalCount = 0)
         }
 
         data class CsvSignal(
@@ -82,12 +86,13 @@ class CsvBacktestService(
         }
 
         if (signals.isEmpty()) {
-            return@withContext CsvBacktestResponse(emptyList(), emptyList())
+            return@withContext CsvBacktestResponse(emptyList(), emptyList(), inputSignalCount = 0, validatedSignalCount = 0)
         }
 
         val uniqueSymbols = signals.map { it.symbol }.distinct()
-        val minDate = signals.minOf { it.date }
+        val minDate = signals.minOf { it.date }.minusDays(if (applyV2Validation) 450 else 90)
         val today = LocalDate.now()
+        val resolvedEntryStrategy = CsvBacktestEntryStrategy.from(entryStrategy)
 
         // Sync candles for all symbols from the earliest signal date to today
         candleDataService.syncDailyRange(
@@ -98,16 +103,30 @@ class CsvBacktestService(
         )
 
         val trades = mutableListOf<CsvBacktestTradeResult>()
+        var validatedSignalCount = 0
 
         for (signal in signals) {
             val candles = candleHandler.read { dao ->
-                dao.getDailyCandlesBySymbol(signal.symbol, signal.date, today)
+                dao.getDailyCandlesBySymbol(signal.symbol, signal.date.minusDays(if (applyV2Validation) 450 else 90), today)
             }.distinctBy { it.candleDate }.sortedBy { it.candleDate }
 
-            // Find entry candle (first trading day AFTER signal date)
-            val entryCandle = candles.firstOrNull { it.candleDate.isAfter(signal.date) }
+            val validation = if (applyV2Validation) {
+                CsvBacktestV2Validator.validate(candles, signal.date)
+            } else {
+                null
+            }
+            if (applyV2Validation && validation == null) continue
+            if (applyV2Validation) validatedSignalCount++
+
+            val entry = CsvBacktestEntryEvaluator.findEntry(
+                candles = candles,
+                signalDate = signal.date,
+                strategy = resolvedEntryStrategy,
+                retestWindowDays = retestWindowDays,
+                retestTolerancePct = retestTolerancePct,
+            )
             
-            if (entryCandle == null) {
+            if (entry == null) {
                 trades.add(
                     CsvBacktestTradeResult(
                         symbol = signal.symbol,
@@ -115,8 +134,18 @@ class CsvBacktestService(
                         marketCapName = signal.marketCapName,
                         sector = signal.sector,
                         signalDate = signal.date.format(dateFormatter),
+                        entryStrategy = resolvedEntryStrategy.name,
+                        breakoutLevel = null,
                         entryDate = null,
                         entryPrice = null,
+                        firstFiveDaysLowestPrice = null,
+                        firstFiveDaysDropAmount = null,
+                        firstFiveDaysDropPct = null,
+                        firstThreeDaysRedCandleCount = null,
+                        v2MaxPreBreakoutVolumeRatio = validation?.maxPreBreakoutVolumeRatio,
+                        v2FailedResistanceAttempts = validation?.failedResistanceAttempts,
+                        v2RecentRunBasePrice = validation?.recentRunBasePrice,
+                        v2MoveFromRecentBasePct = validation?.moveFromRecentBasePct,
                         exitDate = null,
                         exitPrice = null,
                         profitLossPct = null,
@@ -128,64 +157,35 @@ class CsvBacktestService(
                 continue
             }
 
-            val entryPrice = entryCandle.open
-            var highestClose = entryCandle.close
-            
-            // Initial SL
-            var currentSlPrice = entryPrice * (1.0 - stopLossPct / 100.0)
-            val fixedTargetPrice = if (targetPct != null) entryPrice * (1.0 + targetPct / 100.0) else null
-
-            var exitDate: LocalDate? = null
-            var exitPrice: Double? = null
-            var slHit = false
-
-            // Iterate over remaining candles to find exit
-            val postEntryCandles = candles.filter { it.candleDate.isAfter(entryCandle.candleDate) }
-            
-            for (daily in postEntryCandles) {
-                // Update Trailing SL if applicable
-                if (type == "TRAILING") {
-                    if (daily.close > highestClose) {
-                        highestClose = daily.close
-                        val newSl = highestClose * (1.0 - stopLossPct / 100.0)
-                        if (newSl > currentSlPrice) {
-                            currentSlPrice = newSl
-                        }
-                    }
-                }
-
-                // Check Gap Down SL Hit
-                if (daily.open <= currentSlPrice) {
-                    exitDate = daily.candleDate
-                    exitPrice = daily.open
-                    slHit = true
-                    break
-                }
-
-                // Check Gap Up Target Hit (Fixed Mode Only)
-                if (type == "FIXED" && fixedTargetPrice != null && daily.open >= fixedTargetPrice) {
-                    exitDate = daily.candleDate
-                    exitPrice = daily.open
-                    slHit = false
-                    break
-                }
-
-                // Check Intraday SL Hit
-                if (daily.low <= currentSlPrice) {
-                    exitDate = daily.candleDate
-                    exitPrice = currentSlPrice
-                    slHit = true
-                    break
-                }
-
-                // Check Intraday Target Hit (Fixed Mode Only)
-                if (type == "FIXED" && fixedTargetPrice != null && daily.high >= fixedTargetPrice) {
-                    exitDate = daily.candleDate
-                    exitPrice = fixedTargetPrice
-                    slHit = false
-                    break
-                }
+            val entryCandle = entry.candle
+            val entryPrice = entry.price
+            val initialStopLossPrice = entryPrice * (1.0 - stopLossPct / 100.0)
+            val targetPrice = entryPrice * (1.0 + targetPct / 100.0)
+            val tradeCandles = candles.filter { it.candleDate >= entryCandle.candleDate }
+            val exit = if (type == "TRAILING") {
+                CsvBacktestExitEvaluator.findTrailingExit(
+                    candles = tradeCandles,
+                    initialStopLossPrice = initialStopLossPrice,
+                    targetPrice = targetPrice,
+                    trailingStopLossPct = stopLossPct,
+                )
+            } else {
+                CsvBacktestExitEvaluator.findFixedExit(
+                    candles = tradeCandles,
+                    stopLossPrice = initialStopLossPrice,
+                    targetPrice = targetPrice,
+                )
             }
+
+            val exitDate = exit?.candle?.candleDate
+            val exitPrice = exit?.price
+            val slHit = exit?.slHit ?: false
+            val postEntryCandles = candles.filter { it.candleDate.isAfter(entryCandle.candleDate) }
+            val earlyDip = CsvBacktestEarlyDipCalculator.calculate(entryPrice, tradeCandles)
+            val firstThreeDaysRedCandleCount = CsvBacktestCandleColorCalculator.countRedCandles(
+                candles = candles,
+                entryDate = entryCandle.candleDate,
+            )
 
             val profitLossPct = if (exitPrice != null) {
                 ((exitPrice - entryPrice) / entryPrice) * 100.0
@@ -209,8 +209,18 @@ class CsvBacktestService(
                     marketCapName = signal.marketCapName,
                     sector = signal.sector,
                     signalDate = signal.date.format(dateFormatter),
+                    entryStrategy = resolvedEntryStrategy.name,
+                    breakoutLevel = entry.breakoutLevel,
                     entryDate = entryCandle.candleDate.format(dateFormatter),
                     entryPrice = entryPrice,
+                    firstFiveDaysLowestPrice = earlyDip?.lowestPrice,
+                    firstFiveDaysDropAmount = earlyDip?.dropAmount,
+                    firstFiveDaysDropPct = earlyDip?.dropPct,
+                    firstThreeDaysRedCandleCount = firstThreeDaysRedCandleCount,
+                    v2MaxPreBreakoutVolumeRatio = validation?.maxPreBreakoutVolumeRatio,
+                    v2FailedResistanceAttempts = validation?.failedResistanceAttempts,
+                    v2RecentRunBasePrice = validation?.recentRunBasePrice,
+                    v2MoveFromRecentBasePct = validation?.moveFromRecentBasePct,
                     exitDate = exitDate?.format(dateFormatter),
                     exitPrice = exitPrice,
                     profitLossPct = profitLossPct,
@@ -239,7 +249,8 @@ class CsvBacktestService(
                     winTrades = if (isWin) 1 else 0,
                     lossTrades = if (isLoss) 1 else 0,
                     avgHoldingPeriod = trade.daysHeld.toDouble(),
-                    avgProfitPct = trade.profitLossPct ?: 0.0
+                    avgProfitPct = trade.profitLossPct ?: 0.0,
+                    avgFirstFiveDaysDropPct = trade.firstFiveDaysDropPct ?: 0.0,
                 )
             } else {
                 val newTotal = existing.totalTrades + 1
@@ -248,13 +259,22 @@ class CsvBacktestService(
                     winTrades = existing.winTrades + if (isWin) 1 else 0,
                     lossTrades = existing.lossTrades + if (isLoss) 1 else 0,
                     avgHoldingPeriod = ((existing.avgHoldingPeriod * existing.totalTrades) + trade.daysHeld) / newTotal,
-                    avgProfitPct = ((existing.avgProfitPct * existing.totalTrades) + (trade.profitLossPct ?: 0.0)) / newTotal
+                    avgProfitPct = ((existing.avgProfitPct * existing.totalTrades) + (trade.profitLossPct ?: 0.0)) / newTotal,
+                    avgFirstFiveDaysDropPct = (
+                        (existing.avgFirstFiveDaysDropPct * existing.totalTrades) +
+                            (trade.firstFiveDaysDropPct ?: 0.0)
+                        ) / newTotal,
                 )
             }
         }
 
         val summaries = summaryMap.values.sortedByDescending { it.month }
 
-        return@withContext CsvBacktestResponse(trades, summaries)
+        return@withContext CsvBacktestResponse(
+            trades = trades,
+            summaries = summaries,
+            inputSignalCount = signals.size,
+            validatedSignalCount = if (applyV2Validation) validatedSignalCount else signals.size,
+        )
     }
 }

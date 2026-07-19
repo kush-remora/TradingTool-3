@@ -9,6 +9,7 @@ import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceSource
 import com.tradingtool.core.strategy.chartinkevidence.ChartinkUniverseMembershipStore
 import com.tradingtool.core.strategy.chartinkevidence.IndexMembership
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
 import java.time.LocalDate
 import java.time.OffsetDateTime
 
@@ -74,8 +75,9 @@ class AccumulationAnalysisService(private val store: AccumulationAnalysisStore, 
                 val confirmations = AccumulationConfirmationDates(dates(ChartinkEvidenceSource.PHASE_D), dates(ChartinkEvidenceSource.FRESH_BREAKOUT), dates(ChartinkEvidenceSource.FIFTY_TWO_WEEK_HIGH))
                 val phaseD = confirmations.phaseD.firstOrNull()
                 val breakout = confirmations.freshBreakout.firstOrNull()
-                val details = objectMapper.writeValueAsString(mapOf("hitDates" to chain, "chainHitStartDate" to chain.first(), "chainHitEndDate" to validationDate, "shapeWindowStartDate" to baseStartDate, "shapeWindowSessions" to shapeWindow.size, "regression" to classification.metrics, "latestShapeChunks" to shapeAnalysis.chunks, "shapeHitAnalyses" to shapeAnalysis.hitAnalyses, "goldenFlatNode" to shapeAnalysis.goldenFlatNode, "phaseDDates" to confirmations.phaseD, "freshBreakoutDates" to confirmations.freshBreakout, "fiftyTwoWeekHighDates" to confirmations.fiftyTwoWeekHigh))
-                AccumulationCaseSnapshot(run.id, symbol, baseStartDate, validationDate, candle.candleDate, shapeWindow.size, chain.size, classification.shape, classification.decision, classification.decision == AccumulationShapeDecision.VALID, phaseD, breakout, phaseD?.let { engine.tradingSessionsBetween(validationDate, it, candles) }, breakout?.let { engine.tradingSessionsBetween(validationDate, it, candles) }, details, confirmations, shapeMetrics = classification.metrics, goldenFlatNode = shapeAnalysis.goldenFlatNode, shapeChunks = shapeAnalysis.chunks)
+                val baseRhythm = engine.analyzeBaseRhythm(candles, candle.candleDate)
+                val details = objectMapper.writeValueAsString(mapOf("hitDates" to chain, "chainHitStartDate" to chain.first(), "chainHitEndDate" to validationDate, "shapeWindowStartDate" to baseStartDate, "shapeWindowSessions" to shapeWindow.size, "regression" to classification.metrics, "lineFit" to classification.lineFit, "latestShapeChunks" to shapeAnalysis.chunks, "shapeHitAnalyses" to shapeAnalysis.hitAnalyses, "goldenFlatNode" to shapeAnalysis.goldenFlatNode, "baseRhythm" to baseRhythm, "phaseDDates" to confirmations.phaseD, "freshBreakoutDates" to confirmations.freshBreakout, "fiftyTwoWeekHighDates" to confirmations.fiftyTwoWeekHigh))
+                AccumulationCaseSnapshot(run.id, symbol, baseStartDate, validationDate, candle.candleDate, shapeWindow.size, chain.size, classification.shape, classification.decision, classification.decision == AccumulationShapeDecision.VALID, phaseD, breakout, phaseD?.let { engine.tradingSessionsBetween(validationDate, it, candles) }, breakout?.let { engine.tradingSessionsBetween(validationDate, it, candles) }, details, confirmations, shapeMetrics = classification.metrics, lineFit = classification.lineFit, goldenFlatNode = shapeAnalysis.goldenFlatNode, shapeChunks = shapeAnalysis.chunks, baseRhythm = baseRhythm)
             }
         }
     }
@@ -97,7 +99,7 @@ class AccumulationAnalysisService(private val store: AccumulationAnalysisStore, 
 
     private fun withUnclassifiedShape(snapshots: List<AccumulationCaseSnapshot>, run: AccumulationAnalysisRun): List<AccumulationCaseSnapshot> =
         if (run.algorithmVersion == engine.algorithmVersion) snapshots else snapshots.map { snapshot ->
-            snapshot.copy(shape = AccumulationShape.UNCLASSIFIED, shapeDecision = AccumulationShapeDecision.NEEDS_REVIEW, valid = false, shapeMetrics = null, goldenFlatNode = null, shapeChunks = emptyList())
+            snapshot.copy(shape = AccumulationShape.UNCLASSIFIED, shapeDecision = AccumulationShapeDecision.NEEDS_REVIEW, valid = false, shapeMetrics = null, lineFit = null, goldenFlatNode = null, shapeChunks = emptyList())
         }
 
     private suspend fun isStale(run: AccumulationAnalysisRun): Boolean =
@@ -106,6 +108,8 @@ class AccumulationAnalysisService(private val store: AccumulationAnalysisStore, 
     private companion object {
         const val SHAPE_HISTORY_CALENDAR_DAYS = 180L
         val UNIVERSES = setOf("nifty_100", "nifty_midcap_150", "nifty_smallcap_250", "nifty_microcap_250")
-        val objectMapper = jacksonObjectMapper().findAndRegisterModules()
+        val objectMapper = jacksonObjectMapper()
+            .findAndRegisterModules()
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
     }
 }

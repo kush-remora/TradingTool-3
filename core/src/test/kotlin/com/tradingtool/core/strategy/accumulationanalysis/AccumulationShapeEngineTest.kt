@@ -6,6 +6,7 @@ import java.nio.file.Path
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 
 class AccumulationShapeEngineTest {
     private val engine = AccumulationShapeEngine()
@@ -33,8 +34,8 @@ class AccumulationShapeEngineTest {
     @Test
     fun `classifies regression shapes without using hit span as the candle window`() {
         assertEquals(AccumulationShape.FLAT, engine.classify(shapeCandles { 100.0 }).shape)
-        assertEquals(AccumulationShape.DOWNWARD_DRIFT, engine.classify(shapeCandles { index -> 100.0 - index * 0.12 }).shape)
-        assertEquals(AccumulationShape.UPWARD_DRIFT, engine.classify(shapeCandles { index -> 100.0 + index * 0.12 }).shape)
+        assertEquals(AccumulationShape.DOWNWARD_DRIFT, engine.classify(shapeCandles { index -> 100.0 - index * 0.4 }).shape)
+        assertEquals(AccumulationShape.UPWARD_DRIFT, engine.classify(shapeCandles { index -> 100.0 + index * 0.4 }).shape)
         assertEquals(AccumulationShape.CUP, engine.classify(shapeCandles { index -> 100.0 + 12.0 * normalizedX(index) * normalizedX(index) }).shape)
         assertEquals(AccumulationShape.INVALID, engine.classify(shapeCandles { index -> 100.0 - 12.0 * normalizedX(index) * normalizedX(index) }).shape)
     }
@@ -48,7 +49,7 @@ class AccumulationShapeEngineTest {
 
     @Test
     fun `reports slope metrics in percentage per ten sessions`() {
-        val metrics = requireNotNull(engine.classify(shapeCandles { index -> 100.0 + index * 0.12 }).metrics)
+        val metrics = requireNotNull(engine.classify(shapeCandles { index -> 100.0 + index * 0.4 }).metrics)
 
         assertEquals(true, metrics.centerSlopePerTenSessions > 0)
         assertEquals(true, metrics.startSlopePerTenSessions > 0)
@@ -71,7 +72,7 @@ class AccumulationShapeEngineTest {
     }
 
     @Test
-    fun `BHEL reference window ending on March thirtieth is a downward drift`() {
+    fun `BHEL reference chunk ending on March thirtieth is a Golden Flat with one ignored shock`() {
         val fixture = Path.of("..", ".claude", "requirements", "strategies", "52w-momentum", "bhel-daily-candle.json")
         val candles = Regex("\\\"candle_date\\\": \\\"([^\\\"]+)\\\"[\\s\\S]*?\\\"close\\\": \\\"([^\\\"]+)\\\"")
             .findAll(Files.readString(fixture))
@@ -81,10 +82,92 @@ class AccumulationShapeEngineTest {
             .toList()
             .let { engine.windowEndingOn(it, LocalDate.parse("2026-03-30")) }
 
-        assertEquals(AccumulationShape.DOWNWARD_DRIFT, engine.classify(candles).shape)
+        val analysis = engine.analyzeChain(candles, listOf(LocalDate.parse("2026-03-30")))
+
+        assertEquals(AccumulationShape.FLAT_GOLDEN, analysis.classification.shape)
+        assertEquals(LocalDate.parse("2026-03-04"), analysis.classification.lineFit?.ignoredOutlierDate)
+    }
+
+    @Test
+    fun `keeps a tight chunk Flat Golden after ignoring one shock`() {
+        val candles = (0..79).map { index ->
+            val close = when (index) {
+                65 -> 110.0
+                else -> 100.0
+            }
+            candle(index, close)
+        }
+
+        val analysis = engine.analyzeChain(candles, listOf(candles.last().candleDate))
+
+        assertEquals(AccumulationShape.FLAT_GOLDEN, analysis.classification.shape)
+        assertEquals(candles[65].candleDate, analysis.classification.lineFit?.ignoredOutlierDate)
+    }
+
+    @Test
+    fun `does not use candles after the Accumulation hit`() {
+        val candles = (0..99).map { index ->
+            val close = if (index > 79) 150.0 else 100.0
+            candle(index, close)
+        }
+
+        val analysis = engine.analyzeChain(candles, listOf(candles[79].candleDate))
+
+        assertEquals(AccumulationShape.FLAT_GOLDEN, analysis.classification.shape)
+    }
+
+    @Test
+    fun `does not call a chunk Flat after two shocks`() {
+        val candles = (0..79).map { index ->
+            val close = when (index) {
+                65 -> 110.0
+                72 -> 90.0
+                else -> 100.0
+            }
+            candle(index, close)
+        }
+
+        val analysis = engine.analyzeChain(candles, listOf(candles.last().candleDate))
+
+        assertNotEquals(AccumulationShape.FLAT, analysis.classification.shape)
+        assertNotEquals(AccumulationShape.FLAT_GOLDEN, analysis.classification.shape)
+    }
+
+    @Test
+    fun `describes the preceding sixty sessions as six forward safe ten session blocks`() {
+        val candles = (0..99).map { index -> rhythmCandle(index) }
+
+        val rhythm = requireNotNull(engine.analyzeBaseRhythm(candles, candles[79].candleDate))
+
+        assertEquals(candles[20].candleDate, rhythm.startDate)
+        assertEquals(candles[79].candleDate, rhythm.endDate)
+        assertEquals(6, rhythm.blocks.size)
+        assertEquals(
+            listOf(
+                AccumulationBaseRhythmDirection.FLAT,
+                AccumulationBaseRhythmDirection.FALLING,
+                AccumulationBaseRhythmDirection.RISING,
+                AccumulationBaseRhythmDirection.FLAT,
+                AccumulationBaseRhythmDirection.FALLING,
+                AccumulationBaseRhythmDirection.RISING,
+            ),
+            rhythm.blocks.map(AccumulationBaseRhythmBlock::direction),
+        )
     }
 
     private fun candle(index: Int, close: Double) = DailyCandle(1L, "BHEL", LocalDate.of(2026, 1, 1).plusDays(index.toLong()), close, close, close, close, 100L)
+
+    private fun rhythmCandle(index: Int): DailyCandle {
+        val blockPosition = index / 10
+        val offset = index % 10
+        val close = when (blockPosition) {
+            2, 5 -> 100.0
+            3, 6 -> 100.0 - (offset * 0.6)
+            4, 7 -> 95.0 + (offset * 0.7)
+            else -> 400.0
+        }
+        return DailyCandle(1L, "BHEL", LocalDate.of(2026, 1, 1).plusDays(index.toLong()), close, close * 1.01, close * 0.99, close, (blockPosition + 1L) * 100L)
+    }
 
     private fun shapeCandles(close: (Int) -> Double): List<DailyCandle> = (0..59).map { index -> candle(index, close(index)) }
 

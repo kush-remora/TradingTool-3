@@ -33,6 +33,11 @@ function base(row: AccumulationCaseSnapshot): string {
   return `${row.chainStartDate} → ${row.chainEndDate}`;
 }
 
+function shapeSlope(row: AccumulationCaseSnapshot): number {
+  const strictFlat = row.shape === "FLAT" || row.shape === "FLAT_GOLDEN";
+  return strictFlat ? row.lineFit?.slopePerTenSessions ?? 0 : row.shapeMetrics?.centerSlopePerTenSessions ?? 0;
+}
+
 function days(row: AccumulationCaseSnapshot): string {
   return `${row.sessionsToPhaseD ?? "-"} / ${row.sessionsToBreakout ?? "-"}`;
 }
@@ -119,8 +124,8 @@ export function ForwardAccumulationAnalysisPage({ onOpenTimeline }: ForwardAccum
     { title: "Base", key: "base", sorter: (left, right) => base(left).localeCompare(base(right)), filters: filters(rows.map(base)), filterSearch: true, onFilter: (value, row) => base(row) === value, render: (_, row) => base(row) },
     { title: "Sessions", dataIndex: "chainLengthSessions", key: "length", sorter: (left, right) => left.chainLengthSessions - right.chainLengthSessions, filters: filters(rows.map((row) => row.chainLengthSessions)), onFilter: (value, row) => row.chainLengthSessions.toString() === value },
     { title: "Hits", dataIndex: "hitCount", key: "hits", sorter: (left, right) => left.hitCount - right.hitCount, filters: filters(rows.map((row) => row.hitCount)), onFilter: (value, row) => row.hitCount.toString() === value },
-    { title: "Shape", dataIndex: "shape", key: "shape", sorter: (left, right) => left.shape.localeCompare(right.shape), filters: filters(rows.map((row) => row.shape)), onFilter: (value, row) => row.shape === value, render: (shape, row) => <div><AccumulationShapeLabel shape={shape} goldenFlatNode={row.goldenFlatNode} /><AccumulationShapePath chunks={row.shapeChunks} /></div> },
-    { title: "Latest 20D metric", key: "metric", sorter: (left, right) => (left.shapeMetrics?.centerSlopePerTenSessions ?? 0) - (right.shapeMetrics?.centerSlopePerTenSessions ?? 0), render: (_, row) => <AccumulationShapeMetric metrics={row.shapeMetrics} /> },
+    { title: "Shape", dataIndex: "shape", key: "shape", sorter: (left, right) => left.shape.localeCompare(right.shape), filters: filters(rows.map((row) => row.shape)), onFilter: (value, row) => row.shape === value, render: (shape, row) => <div><AccumulationShapeLabel shape={shape} goldenFlatNode={row.goldenFlatNode} lineFit={row.lineFit} /><AccumulationShapePath chunks={row.shapeChunks} /></div> },
+    { title: "Latest 20D fit", key: "metric", sorter: (left, right) => shapeSlope(left) - shapeSlope(right), render: (_, row) => <AccumulationShapeMetric shape={row.shape} metrics={row.shapeMetrics} lineFit={row.lineFit} /> },
     { title: "Decision", dataIndex: "shapeDecision", key: "decision", sorter: (left, right) => left.shapeDecision.localeCompare(right.shapeDecision), filters: filters(rows.map((row) => row.shapeDecision)), onFilter: (value, row) => row.shapeDecision === value },
     {
       title: "Phase D", key: "phase", defaultSortOrder: "descend", sorter: (left, right) => compareConfirmationRows(left, right, phaseDDate, keepStockRowsTogether),

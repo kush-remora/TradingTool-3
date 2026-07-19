@@ -10,7 +10,7 @@ describe("AccumulationShapePath", () => {
       chunk(3, "UPWARD_DRIFT"),
     ]} />);
 
-    expect(screen.getByText("flat → flat → rising")).toBeInTheDocument();
+    expect(screen.getByText("20D flat → 20D flat → 20D rising")).toBeInTheDocument();
   });
 });
 
@@ -22,5 +22,6 @@ function chunk(position: number, shape: string) {
     shape,
     goldenFlat: false,
     metrics: { curvature: 0.001, centerSlopePerTenSessions: 0.1, startSlopePerTenSessions: 0.08, endSlopePerTenSessions: 0.12, vertexPosition: null },
+    lineFit: null,
   };
 }

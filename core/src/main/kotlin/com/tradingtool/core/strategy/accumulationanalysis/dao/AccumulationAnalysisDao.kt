@@ -7,8 +7,13 @@ import com.tradingtool.core.strategy.accumulationanalysis.AccumulationRunStatus
 import com.tradingtool.core.strategy.accumulationanalysis.AccumulationShape
 import com.tradingtool.core.strategy.accumulationanalysis.AccumulationShapeDecision
 import com.tradingtool.core.strategy.accumulationanalysis.AccumulationShapeMetrics
+import com.tradingtool.core.strategy.accumulationanalysis.AccumulationLineFitMetrics
 import com.tradingtool.core.strategy.accumulationanalysis.AccumulationGoldenFlatNode
 import com.tradingtool.core.strategy.accumulationanalysis.AccumulationShapeChunk
+import com.tradingtool.core.strategy.accumulationanalysis.AccumulationBaseRhythm
+import com.tradingtool.core.strategy.accumulationanalysis.AccumulationBaseRhythmBlock
+import com.tradingtool.core.strategy.accumulationanalysis.AccumulationBaseRhythmDirection
+import com.tradingtool.core.strategy.accumulationanalysis.AccumulationBaseRhythmState
 import com.tradingtool.core.strategy.accumulationanalysis.AnalysisEvidenceEvent
 import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceSource
 import org.jdbi.v3.core.mapper.RowMapper
@@ -78,17 +83,13 @@ class AccumulationAnalysisRunMapper : RowMapper<AccumulationAnalysisRun> {
 class AccumulationCaseSnapshotMapper : RowMapper<AccumulationCaseSnapshot> {
     override fun map(rs: ResultSet, ctx: StatementContext): AccumulationCaseSnapshot {
         val details = rs.getString("details")
-        return AccumulationCaseSnapshot(rs.getLong("run_id"), rs.getString("symbol"), rs.getDate("chain_start_date").toLocalDate(), rs.getDate("chain_end_date").toLocalDate(), rs.getDate("as_of_date").toLocalDate(), rs.getInt("chain_length_sessions"), rs.getInt("hit_count"), AccumulationShape.valueOf(rs.getString("shape")), AccumulationShapeDecision.valueOf(rs.getString("shape_decision")), rs.getBoolean("valid"), rs.getDate("first_phase_d_date")?.toLocalDate(), rs.getDate("first_breakout_date")?.toLocalDate(), rs.getObject("sessions_to_phase_d") as Int?, rs.getObject("sessions_to_breakout") as Int?, details, confirmationDatesFrom(details), shapeMetrics = shapeMetricsFrom(details), goldenFlatNode = goldenFlatNodeFrom(details), shapeChunks = shapeChunksFrom(details))
+        return AccumulationCaseSnapshot(rs.getLong("run_id"), rs.getString("symbol"), rs.getDate("chain_start_date").toLocalDate(), rs.getDate("chain_end_date").toLocalDate(), rs.getDate("as_of_date").toLocalDate(), rs.getInt("chain_length_sessions"), rs.getInt("hit_count"), AccumulationShape.valueOf(rs.getString("shape")), AccumulationShapeDecision.valueOf(rs.getString("shape_decision")), rs.getBoolean("valid"), rs.getDate("first_phase_d_date")?.toLocalDate(), rs.getDate("first_breakout_date")?.toLocalDate(), rs.getObject("sessions_to_phase_d") as Int?, rs.getObject("sessions_to_breakout") as Int?, details, confirmationDatesFrom(details), shapeMetrics = shapeMetricsFrom(details), lineFit = lineFitFrom(details), goldenFlatNode = goldenFlatNodeFrom(details), shapeChunks = shapeChunksFrom(details), baseRhythm = baseRhythmFrom(details))
     }
 }
 
 internal fun confirmationDatesFrom(details: String): com.tradingtool.core.strategy.accumulationanalysis.AccumulationConfirmationDates {
     val node = objectMapper.readTree(details)
-    fun dates(key: String) = node.path(key).mapNotNull { value ->
-        value.asText().trim().takeIf(String::isNotEmpty)?.let { date ->
-            runCatching { LocalDate.parse(date) }.getOrNull()
-        }
-    }
+    fun dates(key: String) = node.path(key).mapNotNull(::localDateFromNode)
     return com.tradingtool.core.strategy.accumulationanalysis.AccumulationConfirmationDates(
         phaseD = dates("phaseDDates"),
         freshBreakout = dates("freshBreakoutDates"),
@@ -100,25 +101,48 @@ internal fun shapeMetricsFrom(details: String): AccumulationShapeMetrics? {
     return shapeMetricsFromNode(objectMapper.readTree(details).path("regression"))
 }
 
+internal fun lineFitFrom(details: String): AccumulationLineFitMetrics? =
+    lineFitFromNode(objectMapper.readTree(details).path("lineFit"))
+
 internal fun goldenFlatNodeFrom(details: String): AccumulationGoldenFlatNode? {
     val node = objectMapper.readTree(details).path("goldenFlatNode")
     if (!node.isObject) return null
     val sessions = node.path("windowSessions").takeIf { it.isInt }?.asInt() ?: return null
-    val startDate = node.path("startDate").asText().let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return null
-    val endDate = node.path("endDate").asText().let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return null
+    val startDate = localDateFromNode(node.path("startDate")) ?: return null
+    val endDate = localDateFromNode(node.path("endDate")) ?: return null
     val metrics = shapeMetricsFromNode(node.path("metrics")) ?: return null
-    return AccumulationGoldenFlatNode(sessions, startDate, endDate, metrics)
+    return AccumulationGoldenFlatNode(sessions, startDate, endDate, metrics, lineFitFromNode(node.path("lineFit")))
 }
 
 internal fun shapeChunksFrom(details: String): List<AccumulationShapeChunk> =
     objectMapper.readTree(details).path("latestShapeChunks").mapNotNull { node ->
         val position = node.path("position").takeIf { it.isInt }?.asInt() ?: return@mapNotNull null
-        val startDate = node.path("startDate").asText().let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return@mapNotNull null
-        val endDate = node.path("endDate").asText().let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return@mapNotNull null
+        val startDate = localDateFromNode(node.path("startDate")) ?: return@mapNotNull null
+        val endDate = localDateFromNode(node.path("endDate")) ?: return@mapNotNull null
         val shape = node.path("shape").asText().let { runCatching { AccumulationShape.valueOf(it) }.getOrNull() } ?: return@mapNotNull null
         val metrics = shapeMetricsFromNode(node.path("metrics")) ?: return@mapNotNull null
-        AccumulationShapeChunk(position, startDate, endDate, shape, metrics, node.path("goldenFlat").asBoolean(false))
+        AccumulationShapeChunk(position, startDate, endDate, shape, metrics, node.path("goldenFlat").asBoolean(false), lineFitFromNode(node.path("lineFit")))
     }
+
+internal fun baseRhythmFrom(details: String): AccumulationBaseRhythm? {
+    val node = objectMapper.readTree(details).path("baseRhythm")
+    val startDate = localDateFromNode(node.path("startDate")) ?: return null
+    val endDate = localDateFromNode(node.path("endDate")) ?: return null
+    val blocks = node.path("blocks").mapNotNull { block ->
+        val position = block.path("position").takeIf { it.isInt }?.asInt() ?: return@mapNotNull null
+        val blockStartDate = localDateFromNode(block.path("startDate")) ?: return@mapNotNull null
+        val blockEndDate = localDateFromNode(block.path("endDate")) ?: return@mapNotNull null
+        val direction = block.path("direction").asText().let { value -> runCatching { AccumulationBaseRhythmDirection.valueOf(value) }.getOrNull() } ?: return@mapNotNull null
+        val rangeState = block.path("rangeState").asText().let { value -> runCatching { AccumulationBaseRhythmState.valueOf(value) }.getOrNull() } ?: return@mapNotNull null
+        val volumeState = block.path("volumeState").asText().let { value -> runCatching { AccumulationBaseRhythmState.valueOf(value) }.getOrNull() } ?: return@mapNotNull null
+        fun number(name: String) = block.path(name).takeIf { it.isNumber }?.asDouble()
+        val closeChangePercent = number("closeChangePercent") ?: return@mapNotNull null
+        val rangePercent = number("rangePercent") ?: return@mapNotNull null
+        val averageVolume = number("averageVolume") ?: return@mapNotNull null
+        AccumulationBaseRhythmBlock(position, blockStartDate, blockEndDate, direction, rangeState, volumeState, closeChangePercent, rangePercent, averageVolume)
+    }
+    return AccumulationBaseRhythm(startDate, endDate, blocks)
+}
 
 private fun shapeMetricsFromNode(node: com.fasterxml.jackson.databind.JsonNode): AccumulationShapeMetrics? {
     if (!node.isObject) return null
@@ -128,6 +152,22 @@ private fun shapeMetricsFromNode(node: com.fasterxml.jackson.databind.JsonNode):
     val startSlope = number("startSlopePerTenSessions") ?: return null
     val endSlope = number("endSlopePerTenSessions") ?: return null
     return AccumulationShapeMetrics(curvature, centerSlope, startSlope, endSlope, number("vertexPosition"))
+}
+
+private fun lineFitFromNode(node: com.fasterxml.jackson.databind.JsonNode): AccumulationLineFitMetrics? {
+    if (!node.isObject) return null
+    fun number(name: String): Double? = node.path(name).takeIf { it.isNumber }?.asDouble()
+    val slope = number("slopePerTenSessions") ?: return null
+    val typicalDeviation = number("typicalDeviationPercent") ?: return null
+    val maximumDeviation = number("maximumDeviationPercent") ?: return null
+    val ignoredDate = localDateFromNode(node.path("ignoredOutlierDate"))
+    return AccumulationLineFitMetrics(slope, typicalDeviation, maximumDeviation, ignoredDate, number("ignoredOutlierDeviationPercent"))
+}
+
+private fun localDateFromNode(node: com.fasterxml.jackson.databind.JsonNode): LocalDate? = when {
+    node.isTextual -> node.asText().trim().takeIf(String::isNotEmpty)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+    node.isArray && node.size() == 3 && node.all { it.isInt } -> runCatching { LocalDate.of(node[0].asInt(), node[1].asInt(), node[2].asInt()) }.getOrNull()
+    else -> null
 }
 
 private val objectMapper = jacksonObjectMapper().findAndRegisterModules()

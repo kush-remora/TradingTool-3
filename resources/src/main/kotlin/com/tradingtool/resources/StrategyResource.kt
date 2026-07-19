@@ -286,11 +286,28 @@ class StrategyResource @Inject constructor(
         request: com.tradingtool.core.strategy.csvbacktest.CsvBacktestApiRequest?
     ): CompletableFuture<Response> = ioScope.endpoint {
         val body = request ?: return@endpoint badRequest("Request body is required.")
+        val targetPct = body.targetPct ?: return@endpoint badRequest("Target percentage is required.")
+        if (body.type !in setOf("FIXED", "TRAILING")) {
+            return@endpoint badRequest("Strategy type must be FIXED or TRAILING.")
+        }
+        if (targetPct <= 0.0 || body.stopLossPct <= 0.0) {
+            return@endpoint badRequest("Target and stop-loss percentages must be positive.")
+        }
+        if (body.retestWindowDays !in 1..20 || body.retestTolerancePct !in 0.0..10.0) {
+            return@endpoint badRequest("Retest window must be 1-20 days and tolerance must be 0-10%.")
+        }
+        if (com.tradingtool.core.strategy.csvbacktest.CsvBacktestEntryStrategy.entries.none { it.name == body.entryStrategy }) {
+            return@endpoint badRequest("Entry strategy is invalid.")
+        }
         val response = csvBacktestService.runBacktest(
             csvContent = body.csvContent,
             type = body.type,
-            targetPct = body.targetPct,
-            stopLossPct = body.stopLossPct
+            targetPct = targetPct,
+            stopLossPct = body.stopLossPct,
+            entryStrategy = body.entryStrategy,
+            retestWindowDays = body.retestWindowDays,
+            retestTolerancePct = body.retestTolerancePct,
+            applyV2Validation = body.applyV2Validation,
         )
         ok(response)
     }

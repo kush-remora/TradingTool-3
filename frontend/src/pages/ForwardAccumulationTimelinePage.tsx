@@ -8,6 +8,7 @@ import { AccumulationEvidenceDates, AccumulationEvidenceLaneView } from "../comp
 import { AccumulationShapeMetric } from "../components/AccumulationShapeMetric";
 import { AccumulationShapeLabel } from "../components/AccumulationShapeLabel";
 import { AccumulationShapePath } from "../components/AccumulationShapePath";
+import { AccumulationBaseRhythm } from "../components/AccumulationBaseRhythm";
 
 interface ForwardAccumulationTimelinePageProps {
   runId: number;
@@ -17,14 +18,20 @@ interface ForwardAccumulationTimelinePageProps {
   onBack: () => void;
 }
 
+function shapeSlope(row: AccumulationCaseSnapshot): number {
+  const strictFlat = row.shape === "FLAT" || row.shape === "FLAT_GOLDEN";
+  return strictFlat ? row.lineFit?.slopePerTenSessions ?? 0 : row.shapeMetrics?.centerSlopePerTenSessions ?? 0;
+}
+
 const columns: ColumnsType<AccumulationCaseSnapshot> = [
   { title: "As of", dataIndex: "asOfDate", sorter: (left, right) => left.asOfDate.localeCompare(right.asOfDate) },
   { title: "Base start", dataIndex: "chainStartDate", sorter: (left, right) => left.chainStartDate.localeCompare(right.chainStartDate) },
   { title: "Base end", dataIndex: "chainEndDate", sorter: (left, right) => left.chainEndDate.localeCompare(right.chainEndDate) },
   { title: "Sessions", dataIndex: "chainLengthSessions", sorter: (left, right) => left.chainLengthSessions - right.chainLengthSessions },
   { title: "Hits", dataIndex: "hitCount", sorter: (left, right) => left.hitCount - right.hitCount },
-  { title: "Shape", dataIndex: "shape", sorter: (left, right) => left.shape.localeCompare(right.shape), render: (shape, row) => <div><AccumulationShapeLabel shape={shape} goldenFlatNode={row.goldenFlatNode} /><AccumulationShapePath chunks={row.shapeChunks} /></div> },
-  { title: "Latest 20D metric", key: "metric", sorter: (left, right) => (left.shapeMetrics?.centerSlopePerTenSessions ?? 0) - (right.shapeMetrics?.centerSlopePerTenSessions ?? 0), render: (_, row) => <AccumulationShapeMetric metrics={row.shapeMetrics} /> },
+  { title: "Shape", dataIndex: "shape", sorter: (left, right) => left.shape.localeCompare(right.shape), render: (shape, row) => <div><AccumulationShapeLabel shape={shape} goldenFlatNode={row.goldenFlatNode} lineFit={row.lineFit} /><AccumulationShapePath chunks={row.shapeChunks} /></div> },
+  { title: "Latest 20D fit", key: "metric", sorter: (left, right) => shapeSlope(left) - shapeSlope(right), render: (_, row) => <AccumulationShapeMetric shape={row.shape} metrics={row.shapeMetrics} lineFit={row.lineFit} /> },
+  { title: "Base rhythm", key: "baseRhythm", render: (_, row) => <AccumulationBaseRhythm rhythm={row.baseRhythm} /> },
   { title: "Decision", dataIndex: "shapeDecision", sorter: (left, right) => left.shapeDecision.localeCompare(right.shapeDecision) },
   { title: "Phase D", key: "phaseD", render: (_, row) => <DateTags dates={row.confirmationDates.phaseD} /> },
   { title: "Fresh breakout", key: "breakout", render: (_, row) => <DateTags dates={row.confirmationDates.freshBreakout} /> },
@@ -52,7 +59,7 @@ export function ForwardAccumulationTimelinePage({ runId, symbol, chainStartDate,
       {timelineLoading && <Spin />}
       {!timelineLoading && !timeline && <Empty description="No timeline snapshots found" />}
       {!timelineLoading && timeline?.rows.length === 0 && <Empty description="No timeline snapshots found" />}
-      {!timelineLoading && timeline && timeline.rows.length > 0 && <Table rowKey={(row) => `${row.chainStartDate}-${row.chainEndDate}-${row.asOfDate}`} columns={columns} dataSource={timeline.rows} pagination={false} scroll={{ x: 1350 }} />}
+      {!timelineLoading && timeline && timeline.rows.length > 0 && <Table rowKey={(row) => `${row.chainStartDate}-${row.chainEndDate}-${row.asOfDate}`} columns={columns} dataSource={timeline.rows} pagination={false} scroll={{ x: 1570 }} />}
     </Card>
   </Space></div>;
 }

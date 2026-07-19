@@ -5,6 +5,8 @@ import com.tradingtool.core.candle.DailyCandle
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.LocalDate
+import kotlin.math.abs
+import kotlin.math.sqrt
 
 data class AccumulationShapeConfig(
     val algorithmVersion: String,
@@ -12,12 +14,19 @@ data class AccumulationShapeConfig(
     val minimumHitCount: Int,
     val shapeWindowSessions: Int,
     val normalizedCurvatureThreshold: Double,
-    val normalizedFlatSlopeThreshold: Double,
     val normalizedTurningSlopeThreshold: Double,
     val shapeChunkSessions: Int,
     val shapeChunkCount: Int,
-    val goldenFlatMaxAbsCenterSlopePerTenSessions: Double,
-    val goldenFlatMaxAbsCurvature: Double,
+    val baseRhythmBlockSessions: Int,
+    val baseRhythmFlatChangePercent: Double,
+    val baseRhythmStateChangePercent: Double,
+    val outlierMinimumDeviationPercent: Double,
+    val flatMaxAbsSlopePerTenSessions: Double,
+    val flatMaxTypicalDeviationPercent: Double,
+    val flatMaxDeviationPercent: Double,
+    val goldenFlatMaxAbsSlopePerTenSessions: Double,
+    val goldenFlatMaxTypicalDeviationPercent: Double,
+    val goldenFlatMaxDeviationPercent: Double,
     val note: String,
 )
 
@@ -25,6 +34,7 @@ data class AccumulationShapeClassification(
     val shape: AccumulationShape,
     val decision: AccumulationShapeDecision,
     val metrics: AccumulationShapeMetrics?,
+    val lineFit: AccumulationLineFitMetrics? = null,
 )
 
 data class AccumulationHitShapeAnalysis(
@@ -48,10 +58,21 @@ private data class ChunkClassification(
     val classification: AccumulationShapeClassification,
 )
 
+private data class LineSample(val index: Int, val candle: DailyCandle)
+private data class LineResidual(val sample: LineSample, val deviationPercent: Double)
+private data class StraightLineFit(
+    val meanClose: Double,
+    val slope: Double,
+    val residuals: List<LineResidual>,
+)
+
 class AccumulationShapeEngine(private val config: AccumulationShapeConfig = AccumulationShapeConfigLoader.load()) {
     init {
         require(config.shapeWindowSessions == config.shapeChunkSessions * config.shapeChunkCount) {
             "Shape window must equal the configured chunk count multiplied by chunk size."
+        }
+        require(config.shapeWindowSessions % config.baseRhythmBlockSessions == 0) {
+            "Shape window must split evenly into Base Rhythm blocks."
         }
     }
 
@@ -76,6 +97,36 @@ class AccumulationShapeEngine(private val config: AccumulationShapeConfig = Accu
         return AccumulationChainShapeAnalysis(latest.classification, latest.chunks, latest.goldenFlatNode, hitAnalyses)
     }
 
+    fun analyzeBaseRhythm(candles: List<DailyCandle>, asOfDate: LocalDate): AccumulationBaseRhythm? {
+        val window = windowEndingOn(candles, asOfDate)
+        val blockSessions = config.baseRhythmBlockSessions
+        if (window.size < config.shapeWindowSessions || window.size % blockSessions != 0) return null
+
+        var previousRangePercent: Double? = null
+        var previousAverageVolume: Double? = null
+        val blocks = window.chunked(blockSessions).mapIndexed { index, block ->
+            val startClose = block.first().close
+            val closeChangePercent = ((block.last().close - startClose) / startClose) * 100.0
+            val rangePercent = ((block.maxOf(DailyCandle::high) - block.minOf(DailyCandle::low)) / startClose) * 100.0
+            val averageVolume = block.map(DailyCandle::volume).average()
+            val rhythmBlock = AccumulationBaseRhythmBlock(
+                position = index + 1,
+                startDate = block.first().candleDate,
+                endDate = block.last().candleDate,
+                direction = directionFor(closeChangePercent),
+                rangeState = stateFor(rangePercent, previousRangePercent),
+                volumeState = stateFor(averageVolume, previousAverageVolume),
+                closeChangePercent = closeChangePercent,
+                rangePercent = rangePercent,
+                averageVolume = averageVolume,
+            )
+            previousRangePercent = rangePercent
+            previousAverageVolume = averageVolume
+            rhythmBlock
+        }
+        return AccumulationBaseRhythm(window.first().candleDate, window.last().candleDate, blocks)
+    }
+
     fun classify(candles: List<DailyCandle>): AccumulationShapeClassification {
         return classifyWindow(candles, config.shapeWindowSessions)
     }
@@ -87,11 +138,16 @@ class AccumulationShapeEngine(private val config: AccumulationShapeConfig = Accu
         if (chunks.size != config.shapeChunkCount || chunks.any { it.size != config.shapeChunkSessions }) return null
         val classifiedChunks = chunks.mapIndexed { index, chunk -> classifyChunk(index + 1, chunk) }
         val latestChunk = requireNotNull(classifiedChunks.lastOrNull())
-        val latestMetrics = requireNotNull(latestChunk.classification.metrics)
-        val goldenFlat = isGoldenFlat(latestMetrics)
-        val goldenFlatNode = if (goldenFlat) AccumulationGoldenFlatNode(config.shapeChunkSessions, latestChunk.startDate, latestChunk.endDate, latestMetrics) else null
-        val classification = goldenFlatNode?.let { AccumulationShapeClassification(AccumulationShape.FLAT_GOLDEN, AccumulationShapeDecision.VALID, it.metrics) }
-            ?: latestChunk.classification
+        val goldenFlatNode = latestChunk.classification.takeIf { it.shape == AccumulationShape.FLAT_GOLDEN }?.let {
+            AccumulationGoldenFlatNode(
+                config.shapeChunkSessions,
+                latestChunk.startDate,
+                latestChunk.endDate,
+                requireNotNull(it.metrics),
+                it.lineFit,
+            )
+        }
+        val classification = latestChunk.classification
         return AccumulationHitShapeAnalysis(hitDate, classifiedChunks.map { chunk ->
             AccumulationShapeChunk(
                 position = chunk.position,
@@ -99,27 +155,35 @@ class AccumulationShapeEngine(private val config: AccumulationShapeConfig = Accu
                 endDate = chunk.endDate,
                 shape = chunk.classification.shape,
                 metrics = requireNotNull(chunk.classification.metrics),
-                goldenFlat = chunk == latestChunk && goldenFlat,
+                goldenFlat = chunk.classification.shape == AccumulationShape.FLAT_GOLDEN,
+                lineFit = chunk.classification.lineFit,
             )
         }, classification, goldenFlatNode)
     }
 
     private fun classifyChunk(position: Int, chunk: List<DailyCandle>): ChunkClassification {
-        val classification = classifyWindow(chunk, config.shapeChunkSessions)
+        val classification = classifyWindow(chunk, config.shapeChunkSessions, goldenFlatEligible = true)
         return ChunkClassification(position, chunk.first().candleDate, chunk.last().candleDate, classification)
     }
 
-    private fun isGoldenFlat(metrics: AccumulationShapeMetrics): Boolean =
-        kotlin.math.abs(metrics.centerSlopePerTenSessions) <= config.goldenFlatMaxAbsCenterSlopePerTenSessions &&
-            kotlin.math.abs(metrics.curvature) <= config.goldenFlatMaxAbsCurvature
-
-    private fun classifyWindow(candles: List<DailyCandle>, requiredSessions: Int): AccumulationShapeClassification {
+    private fun classifyWindow(
+        candles: List<DailyCandle>,
+        requiredSessions: Int,
+        goldenFlatEligible: Boolean = false,
+    ): AccumulationShapeClassification {
         if (candles.size < requiredSessions) {
             return AccumulationShapeClassification(AccumulationShape.UNCLASSIFIED, AccumulationShapeDecision.NEEDS_REVIEW, null)
         }
 
+        val lineFit = lineFit(candles)
         val coefficients = quadraticRegression(candles.map(DailyCandle::close))
         val metrics = coefficients.metrics(candles.size)
+        if (goldenFlatEligible && matchesGoldenFlat(lineFit)) {
+            return AccumulationShapeClassification(AccumulationShape.FLAT_GOLDEN, AccumulationShapeDecision.VALID, metrics, lineFit)
+        }
+        if (matchesFlat(lineFit)) {
+            return AccumulationShapeClassification(AccumulationShape.FLAT, AccumulationShapeDecision.VALID, metrics, lineFit)
+        }
         val turningSlopeThreshold = turningThresholdPerTenSessions(candles.size)
         val hasTurningPointInsideWindow = metrics.vertexPosition?.let { it in -1.0..1.0 } == true
         val isCup = coefficients.curvature >= config.normalizedCurvatureThreshold &&
@@ -133,12 +197,68 @@ class AccumulationShapeEngine(private val config: AccumulationShapeConfig = Accu
         val shape = when {
             isInvertedU -> AccumulationShape.INVALID
             isCup -> AccumulationShape.CUP
-            kotlin.math.abs(coefficients.slope) <= config.normalizedFlatSlopeThreshold -> AccumulationShape.FLAT
             coefficients.slope < 0 -> AccumulationShape.DOWNWARD_DRIFT
             else -> AccumulationShape.UPWARD_DRIFT
         }
         val decision = if (shape == AccumulationShape.INVALID) AccumulationShapeDecision.INVALID else AccumulationShapeDecision.VALID
-        return AccumulationShapeClassification(shape, decision, metrics)
+        return AccumulationShapeClassification(shape, decision, metrics, lineFit)
+    }
+
+    private fun matchesFlat(lineFit: AccumulationLineFitMetrics): Boolean =
+        abs(lineFit.slopePerTenSessions) <= config.flatMaxAbsSlopePerTenSessions &&
+            lineFit.typicalDeviationPercent <= config.flatMaxTypicalDeviationPercent &&
+            lineFit.maximumDeviationPercent < config.outlierMinimumDeviationPercent &&
+            lineFit.maximumDeviationPercent <= config.flatMaxDeviationPercent
+
+    private fun matchesGoldenFlat(lineFit: AccumulationLineFitMetrics): Boolean =
+        abs(lineFit.slopePerTenSessions) <= config.goldenFlatMaxAbsSlopePerTenSessions &&
+            lineFit.typicalDeviationPercent <= config.goldenFlatMaxTypicalDeviationPercent &&
+            lineFit.maximumDeviationPercent < config.outlierMinimumDeviationPercent &&
+            lineFit.maximumDeviationPercent <= config.goldenFlatMaxDeviationPercent
+
+    private fun directionFor(closeChangePercent: Double): AccumulationBaseRhythmDirection = when {
+        closeChangePercent <= -config.baseRhythmFlatChangePercent -> AccumulationBaseRhythmDirection.FALLING
+        closeChangePercent >= config.baseRhythmFlatChangePercent -> AccumulationBaseRhythmDirection.RISING
+        else -> AccumulationBaseRhythmDirection.FLAT
+    }
+
+    private fun stateFor(value: Double, previousValue: Double?): AccumulationBaseRhythmState {
+        if (previousValue == null || previousValue == 0.0) return AccumulationBaseRhythmState.STEADY
+        val changePercent = ((value - previousValue) / previousValue) * 100.0
+        return when {
+            changePercent <= -config.baseRhythmStateChangePercent -> AccumulationBaseRhythmState.CONTRACTING
+            changePercent >= config.baseRhythmStateChangePercent -> AccumulationBaseRhythmState.EXPANDING
+            else -> AccumulationBaseRhythmState.STEADY
+        }
+    }
+
+    private fun lineFit(candles: List<DailyCandle>): AccumulationLineFitMetrics {
+        val samples = candles.mapIndexed { index, candle -> LineSample(index, candle) }
+        val initialFit = fitStraightLine(samples)
+        val largestDeviation = initialFit.residuals.maxBy { abs(it.deviationPercent) }
+        val ignoredOutlier = largestDeviation.takeIf { abs(it.deviationPercent) >= config.outlierMinimumDeviationPercent }
+        val finalFit = if (ignoredOutlier == null) initialFit else fitStraightLine(samples.filterNot { it == ignoredOutlier.sample })
+        val deviations = finalFit.residuals.map { abs(it.deviationPercent) }
+
+        return AccumulationLineFitMetrics(
+            slopePerTenSessions = finalFit.slope / finalFit.meanClose * 1_000.0,
+            typicalDeviationPercent = sqrt(deviations.sumOf { it * it } / deviations.size),
+            maximumDeviationPercent = deviations.max(),
+            ignoredOutlierDate = ignoredOutlier?.sample?.candle?.candleDate,
+            ignoredOutlierDeviationPercent = ignoredOutlier?.deviationPercent?.let(::abs),
+        )
+    }
+
+    private fun fitStraightLine(samples: List<LineSample>): StraightLineFit {
+        val meanIndex = samples.map(LineSample::index).average()
+        val meanClose = samples.map { it.candle.close }.average()
+        val slope = samples.sumOf { (it.index - meanIndex) * (it.candle.close - meanClose) } /
+            samples.sumOf { (it.index - meanIndex) * (it.index - meanIndex) }
+        val intercept = meanClose - slope * meanIndex
+        val residuals = samples.map { sample ->
+            LineResidual(sample, (sample.candle.close - (intercept + slope * sample.index)) / meanClose * 100.0)
+        }
+        return StraightLineFit(meanClose, slope, residuals)
     }
 
     fun tradingSessionsBetween(from: LocalDate, to: LocalDate, candles: List<DailyCandle>): Int =

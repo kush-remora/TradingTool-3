@@ -2405,8 +2405,12 @@ export interface TrailingStopBacktestApiRequest {
 export interface CsvBacktestApiRequest {
   csvContent: string;
   type: string;
-  targetPct: number | null;
+  targetPct: number;
   stopLossPct: number;
+  entryStrategy: string;
+  retestWindowDays: number;
+  retestTolerancePct: number;
+  applyV2Validation: boolean;
 }
 
 export interface CsvBacktestTradeResult {
@@ -2415,8 +2419,18 @@ export interface CsvBacktestTradeResult {
   marketCapName: string;
   sector: string;
   signalDate: string;
+  entryStrategy: string;
+  breakoutLevel: number | null;
   entryDate: string | null;
   entryPrice: number | null;
+  firstFiveDaysLowestPrice: number | null;
+  firstFiveDaysDropAmount: number | null;
+  firstFiveDaysDropPct: number | null;
+  firstThreeDaysRedCandleCount: number | null;
+  v2MaxPreBreakoutVolumeRatio: number | null;
+  v2FailedResistanceAttempts: number | null;
+  v2RecentRunBasePrice: number | null;
+  v2MoveFromRecentBasePct: number | null;
   exitDate: string | null;
   exitPrice: number | null;
   profitLossPct: number | null;
@@ -2432,11 +2446,14 @@ export interface CsvBacktestSummary {
   lossTrades: number;
   avgHoldingPeriod: number;
   avgProfitPct: number;
+  avgFirstFiveDaysDropPct: number;
 }
 
 export interface CsvBacktestResponse {
   trades: CsvBacktestTradeResult[];
   summaries: CsvBacktestSummary[];
+  inputSignalCount: number;
+  validatedSignalCount: number;
 }
 
 // ==================== CSV Backtest Trade Reviews ====================
@@ -2544,8 +2561,13 @@ export interface AccumulationAnalysisRun { id: number; universeKey: string; peri
 export interface AccumulationConfirmationDates { phaseD: string[]; freshBreakout: string[]; fiftyTwoWeekHigh: string[]; }
 export interface AccumulationEvidenceLane { fromDate: string; toDate: string; accumulation: string[]; phaseD: string[]; freshBreakout: string[]; fiftyTwoWeekHigh: string[]; }
 export interface AccumulationShapeMetrics { curvature: number; centerSlopePerTenSessions: number; startSlopePerTenSessions: number; endSlopePerTenSessions: number; vertexPosition: number | null; }
-export interface AccumulationGoldenFlatNode { windowSessions: number; startDate: string; endDate: string; metrics: AccumulationShapeMetrics; }
-export interface AccumulationShapeChunk { position: number; startDate: string; endDate: string; shape: string; metrics: AccumulationShapeMetrics; goldenFlat: boolean; }
-export interface AccumulationCaseSnapshot { symbol: string; chainStartDate: string; chainEndDate: string; asOfDate: string; chainLengthSessions: number; hitCount: number; shape: string; shapeDecision: string; valid: boolean; firstPhaseDDate: string | null; firstBreakoutDate: string | null; sessionsToPhaseD: number | null; sessionsToBreakout: number | null; confirmationDates: AccumulationConfirmationDates; curatedWatchlists: string[]; sixMonthEvidence: AccumulationEvidenceLane | null; shapeMetrics: AccumulationShapeMetrics | null; goldenFlatNode: AccumulationGoldenFlatNode | null; shapeChunks: AccumulationShapeChunk[]; }
+export interface AccumulationLineFitMetrics { slopePerTenSessions: number; typicalDeviationPercent: number; maximumDeviationPercent: number; ignoredOutlierDate: string | null; ignoredOutlierDeviationPercent: number | null; }
+export interface AccumulationGoldenFlatNode { windowSessions: number; startDate: string; endDate: string; metrics: AccumulationShapeMetrics; lineFit: AccumulationLineFitMetrics | null; }
+export interface AccumulationShapeChunk { position: number; startDate: string; endDate: string; shape: string; metrics: AccumulationShapeMetrics; goldenFlat: boolean; lineFit: AccumulationLineFitMetrics | null; }
+export type AccumulationBaseRhythmDirection = "FALLING" | "FLAT" | "RISING";
+export type AccumulationBaseRhythmState = "CONTRACTING" | "STEADY" | "EXPANDING";
+export interface AccumulationBaseRhythmBlock { position: number; startDate: string; endDate: string; direction: AccumulationBaseRhythmDirection; rangeState: AccumulationBaseRhythmState; volumeState: AccumulationBaseRhythmState; closeChangePercent: number; rangePercent: number; averageVolume: number; }
+export interface AccumulationBaseRhythm { startDate: string; endDate: string; blocks: AccumulationBaseRhythmBlock[]; }
+export interface AccumulationCaseSnapshot { symbol: string; chainStartDate: string; chainEndDate: string; asOfDate: string; chainLengthSessions: number; hitCount: number; shape: string; shapeDecision: string; valid: boolean; firstPhaseDDate: string | null; firstBreakoutDate: string | null; sessionsToPhaseD: number | null; sessionsToBreakout: number | null; confirmationDates: AccumulationConfirmationDates; curatedWatchlists: string[]; sixMonthEvidence: AccumulationEvidenceLane | null; shapeMetrics: AccumulationShapeMetrics | null; lineFit: AccumulationLineFitMetrics | null; goldenFlatNode: AccumulationGoldenFlatNode | null; shapeChunks: AccumulationShapeChunk[]; baseRhythm: AccumulationBaseRhythm | null; }
 export interface AccumulationAnalysisSummary { run: AccumulationAnalysisRun; isStale: boolean; rows: AccumulationCaseSnapshot[]; }
 export interface AccumulationAnalysisTimeline { run: AccumulationAnalysisRun; isStale: boolean; rows: AccumulationCaseSnapshot[]; }
