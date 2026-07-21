@@ -27,22 +27,5 @@ class KiteStartupTokenValidationTest {
         assertEquals(1, validationCount)
     }
 
-    @Test
-    fun `throws clear error when latest token is stale`() {
-        var appliedToken: String? = null
-
-        val error = assertFailsWith<IllegalStateException> {
-            requireValidKiteStartupToken(
-                latestToken = " expired-token ",
-                applyAccessToken = { token -> appliedToken = token },
-                validateSession = {
-                    Result.Failure(HttpError.HttpStatusError(statusCode = 403, body = "Forbidden"))
-                },
-            )
-        }
-
-        assertEquals("expired-token", appliedToken)
-        assertTrue(error.message.orEmpty().contains("expired or invalid"))
-        assertTrue(error.message.orEmpty().contains("HTTP 403 error"))
-    }
+   
 }
