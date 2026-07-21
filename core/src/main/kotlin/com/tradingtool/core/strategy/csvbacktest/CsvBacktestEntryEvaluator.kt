@@ -32,6 +32,7 @@ object CsvBacktestEntryEvaluator {
         strategy: CsvBacktestEntryStrategy,
         retestWindowDays: Int,
         retestTolerancePct: Double,
+        maxCloseToCloseGainPct: Double = 6.0,
     ): CsvBacktestEntry? {
         if (retestWindowDays <= 0 || retestTolerancePct < 0.0) return null
 
@@ -42,7 +43,7 @@ object CsvBacktestEntryEvaluator {
             }
         }
         if (strategy == CsvBacktestEntryStrategy.TWO_GREEN_CANDLES) {
-            return findTwoGreenCandleEntry(candles, signalDate)
+            return findTwoGreenCandleEntry(candles, signalDate, maxCloseToCloseGainPct)
         }
 
         val breakoutLevel = candles
@@ -70,18 +71,42 @@ object CsvBacktestEntryEvaluator {
         return CsvBacktestEntry(entryCandle, entryCandle.open, breakoutLevel)
     }
 
-    private fun findTwoGreenCandleEntry(candles: List<DailyCandle>, signalDate: LocalDate): CsvBacktestEntry? {
+    private fun findTwoGreenCandleEntry(
+        candles: List<DailyCandle>,
+        signalDate: LocalDate,
+        maxCloseToCloseGainPct: Double,
+    ): CsvBacktestEntry? {
         val signalIndex = candles.indexOfFirst { it.candleDate == signalDate }
-        if (signalIndex <= 0 || !isGreenCandle(candles, signalIndex)) return null
+        if (signalIndex <= 0 || !isGreenCandle(candles, signalIndex, maxCloseToCloseGainPct)) return null
 
         val lastSecondGreenIndex = minOf(candles.lastIndex, signalIndex + SECOND_GREEN_CANDLE_WINDOW_SESSIONS)
-        val secondGreenIndex = (signalIndex + 1..lastSecondGreenIndex)
-            .firstOrNull { index -> isGreenCandle(candles, index) }
-            ?: return null
+        val secondGreenIndex = findSecondGreenCandleIndex(
+            candles = candles,
+            firstIndex = signalIndex + 1,
+            lastIndex = lastSecondGreenIndex,
+            maxCloseToCloseGainPct = maxCloseToCloseGainPct,
+        ) ?: return null
         val entryCandle = candles.getOrNull(secondGreenIndex + 1) ?: return null
         return CsvBacktestEntry(entryCandle, entryCandle.open, breakoutLevel = null)
     }
 
-    private fun isGreenCandle(candles: List<DailyCandle>, index: Int): Boolean =
-        candles[index].close > candles[index - 1].close
+    private fun findSecondGreenCandleIndex(
+        candles: List<DailyCandle>,
+        firstIndex: Int,
+        lastIndex: Int,
+        maxCloseToCloseGainPct: Double,
+    ): Int? {
+        for (index in firstIndex..lastIndex) {
+            if (candles[index].close <= candles[index - 1].close) continue
+            if (!isGreenCandle(candles, index, maxCloseToCloseGainPct)) return null
+            return index
+        }
+        return null
+    }
+
+    private fun isGreenCandle(candles: List<DailyCandle>, index: Int, maxCloseToCloseGainPct: Double): Boolean {
+        val previousClose = candles[index - 1].close
+        return candles[index].close > previousClose &&
+            candles[index].close <= previousClose * (1.0 + maxCloseToCloseGainPct / 100.0)
+    }
 }

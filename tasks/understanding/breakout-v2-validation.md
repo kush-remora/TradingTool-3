@@ -47,4 +47,6 @@ Add a selectable entry strategy alongside next-day open and retest entries. The 
 
 Delivered: the existing entry-rule selector now includes `2 Green Candles`. It rejects a non-green breakout, waits for the next green close for at most 20 sessions, then enters at the following open. The trade table includes `3D Red Candles`, counting the buy candle and its next two sessions. Focused Kotlin tests, backend compilation, and the frontend production build passed.
 
+The maximum close-to-close gain is configurable from the same form and defaults to 6%. It is applied to the V2 breakout candle and to both required green candles. This rejects a case such as GMDCLTD, where the second green candle rose 20% from the prior close.
+
 Validation passed: focused CSV-backtest Kotlin tests, `mvn -q -pl resources -am -DskipTests compile`, and `npm --prefix frontend run build`. The code-review pass found no critical or high-confidence issues.

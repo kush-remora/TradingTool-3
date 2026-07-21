@@ -87,6 +87,28 @@ class CsvBacktestEntryEvaluatorTest {
         assertEquals(103.0, entry?.price)
     }
 
+    @Test
+    fun `two green candles rejects an overextended confirmation candle`() {
+        val signalDate = LocalDate.of(2026, 1, 20)
+        val entry = CsvBacktestEntryEvaluator.findEntry(
+            candles = listOf(
+                candle(date = signalDate.minusDays(1), high = 100.0, low = 95.0, close = 100.0),
+                candle(date = signalDate, high = 105.0, low = 99.0, close = 101.0),
+                candle(date = signalDate.plusDays(1), high = 110.0, low = 100.0, close = 108.0),
+                candle(date = signalDate.plusDays(2), open = 107.0, high = 109.0, low = 101.0, close = 104.0),
+                candle(date = signalDate.plusDays(3), open = 105.0, high = 107.0, low = 103.0, close = 106.0),
+                candle(date = signalDate.plusDays(4), open = 106.0, high = 108.0, low = 104.0, close = 107.0),
+            ),
+            signalDate = signalDate,
+            strategy = CsvBacktestEntryStrategy.TWO_GREEN_CANDLES,
+            retestWindowDays = 5,
+            retestTolerancePct = 1.0,
+            maxCloseToCloseGainPct = 6.0,
+        )
+
+        assertNull(entry)
+    }
+
     private fun candle(
         date: LocalDate,
         open: Double = 100.0,

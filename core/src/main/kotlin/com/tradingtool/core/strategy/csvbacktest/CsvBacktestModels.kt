@@ -9,6 +9,7 @@ data class CsvBacktestApiRequest(
     val retestWindowDays: Int = 5,
     val retestTolerancePct: Double = 1.0,
     val applyV2Validation: Boolean = false,
+    val maxCloseToCloseGainPct: Double = 6.0,
 )
 
 data class CsvBacktestTradeResult(

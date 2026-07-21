@@ -200,6 +200,7 @@ export function CsvBacktestPage() {
         retestWindowDays: values.retestWindowDays,
         retestTolerancePct: values.retestTolerancePct,
         applyV2Validation: values.applyV2Validation,
+        maxCloseToCloseGainPct: values.maxCloseToCloseGainPct,
       };
 
       const res = await fetch("/api/strategy/csv-backtest/run", {
@@ -381,6 +382,7 @@ export function CsvBacktestPage() {
               retestWindowDays: 5,
               retestTolerancePct: 1,
               applyV2Validation: false,
+              maxCloseToCloseGainPct: 6,
             }}
           >
             <Space direction="vertical" size={16} style={{ width: "100%" }}>
@@ -451,6 +453,14 @@ export function CsvBacktestPage() {
                 extra="Filters signals using the 100-day fresh breakout, 2× pre-breakout volume spike, 6% extension guard, and recent-base rules."
               >
                 <Switch />
+              </Form.Item>
+
+              <Form.Item
+                label="Maximum close-to-close gain %"
+                name="maxCloseToCloseGainPct"
+                extra="Rejects an overextended V2 breakout or either required green candle."
+              >
+                <InputNumber min={0} max={100} step={0.5} addonAfter="%" />
               </Form.Item>
 
               {(entryStrategy === "RETEST" || entryStrategy === "CONFIRMED_RETEST") && (

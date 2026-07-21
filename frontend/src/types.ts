@@ -2411,6 +2411,7 @@ export interface CsvBacktestApiRequest {
   retestWindowDays: number;
   retestTolerancePct: number;
   applyV2Validation: boolean;
+  maxCloseToCloseGainPct: number;
 }
 
 export interface CsvBacktestTradeResult {

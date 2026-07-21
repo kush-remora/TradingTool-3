@@ -31,6 +31,7 @@ class CsvBacktestService(
         retestWindowDays: Int,
         retestTolerancePct: Double,
         applyV2Validation: Boolean,
+        maxCloseToCloseGainPct: Double,
     ): CsvBacktestResponse = withContext(Dispatchers.IO) {
         
         // Parse CSV
@@ -111,7 +112,7 @@ class CsvBacktestService(
             }.distinctBy { it.candleDate }.sortedBy { it.candleDate }
 
             val validation = if (applyV2Validation) {
-                CsvBacktestV2Validator.validate(candles, signal.date)
+                CsvBacktestV2Validator.validate(candles, signal.date, maxCloseToCloseGainPct)
             } else {
                 null
             }
@@ -124,6 +125,7 @@ class CsvBacktestService(
                 strategy = resolvedEntryStrategy,
                 retestWindowDays = retestWindowDays,
                 retestTolerancePct = retestTolerancePct,
+                maxCloseToCloseGainPct = maxCloseToCloseGainPct,
             )
             
             if (entry == null) {

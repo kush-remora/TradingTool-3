@@ -296,6 +296,9 @@ class StrategyResource @Inject constructor(
         if (body.retestWindowDays !in 1..20 || body.retestTolerancePct !in 0.0..10.0) {
             return@endpoint badRequest("Retest window must be 1-20 days and tolerance must be 0-10%.")
         }
+        if (body.maxCloseToCloseGainPct !in 0.0..100.0) {
+            return@endpoint badRequest("Maximum close-to-close gain must be between 0% and 100%.")
+        }
         if (com.tradingtool.core.strategy.csvbacktest.CsvBacktestEntryStrategy.entries.none { it.name == body.entryStrategy }) {
             return@endpoint badRequest("Entry strategy is invalid.")
         }
@@ -308,6 +311,7 @@ class StrategyResource @Inject constructor(
             retestWindowDays = body.retestWindowDays,
             retestTolerancePct = body.retestTolerancePct,
             applyV2Validation = body.applyV2Validation,
+            maxCloseToCloseGainPct = body.maxCloseToCloseGainPct,
         )
         ok(response)
     }

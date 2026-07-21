@@ -17,12 +17,15 @@ object CsvBacktestV2Validator {
     private const val PRE_BREAKOUT_VOLUME_SESSIONS = 20
     private const val PRE_BREAKOUT_VOLUME_BASELINE_SESSIONS = 20
     private const val MIN_VOLUME_RATIO = 2.0
-    private const val MAX_CLOSE_TO_CLOSE_GAIN = 0.06
     private const val RESISTANCE_TOUCH_RATIO = 0.97
     private const val RECENT_RUN_SESSIONS = 30
     private const val RECENT_RUN_BASE_SESSIONS = 6
 
-    fun validate(candles: List<DailyCandle>, signalDate: LocalDate): CsvBacktestV2Validation? {
+    fun validate(
+        candles: List<DailyCandle>,
+        signalDate: LocalDate,
+        maxCloseToCloseGainPct: Double = 6.0,
+    ): CsvBacktestV2Validation? {
         val signalIndex = candles.indexOfFirst { it.candleDate == signalDate }
         if (signalIndex < BREAKOUT_LOOKBACK_SESSIONS) return null
 
@@ -30,7 +33,7 @@ object CsvBacktestV2Validator {
         val priorCandles = candles.subList(signalIndex - BREAKOUT_LOOKBACK_SESSIONS, signalIndex)
         val breakoutLevel = priorCandles.maxOf { it.high }
         if (signalCandle.high <= breakoutLevel) return null
-        if (signalCandle.close > candles[signalIndex - 1].close * (1.0 + MAX_CLOSE_TO_CLOSE_GAIN)) return null
+        if (signalCandle.close > candles[signalIndex - 1].close * (1.0 + maxCloseToCloseGainPct / 100.0)) return null
         if (!isFreshBreakout(candles, signalIndex)) return null
 
         val maxVolumeRatio = maxPreBreakoutVolumeRatio(candles, signalIndex) ?: return null
