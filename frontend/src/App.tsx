@@ -10,6 +10,7 @@ import type { MenuProps } from "antd";
 import { useState } from "react";
 
 import { VolumeShockerDashboardPage } from "./pages/VolumeShockerDashboardPage";
+import { AbsoluteDeliveryBacktestPage } from "./pages/AbsoluteDeliveryBacktestPage";
 import { DeliveryBreakoutScannerPage } from "./pages/DeliveryBreakoutScannerPage";
 import { HotSmaPage } from "./pages/HotSmaPage";
 import { WyckoffPhase1Page } from "./pages/WyckoffPhase1Page";
@@ -32,6 +33,7 @@ type V1PageKey =
   | "trade"
   | "wyckoff-phase1"
   | "volume-shocker"
+  | "absolute-delivery"
   | "delivery-breakout"
   | "hot-sma"
   | "phase-d"
@@ -60,6 +62,11 @@ type Route = PageKey | ForwardAccumulationTimelineRoute;
 
 const menuItems: MenuProps["items"] = [
   { key: "volume-shocker", label: "Volume Shocker", icon: <FundOutlined /> },
+  {
+    key: "absolute-delivery",
+    label: "Absolute Delivery Backtest",
+    icon: <FundOutlined />,
+  },
   {
     key: "delivery-breakout",
     label: "Delivery Breakout",
@@ -129,6 +136,7 @@ const validPages: PageKey[] = [
   "trade",
   "wyckoff-phase1",
   "volume-shocker",
+  "absolute-delivery",
   "delivery-breakout",
   "hot-sma",
   "phase-d",
@@ -289,6 +297,7 @@ export default function App() {
             {route === "trade" && <TradePage />}
             {route === "wyckoff-phase1" && <WyckoffPhase1Page />}
             {route === "volume-shocker" && <VolumeShockerDashboardPage />}
+            {route === "absolute-delivery" && <AbsoluteDeliveryBacktestPage />}
             {route === "delivery-breakout" && <DeliveryBreakoutScannerPage />}
             {route === "hot-sma" && <HotSmaPage />}
             {route === "phase-d" && <PhaseDScannerPage />}

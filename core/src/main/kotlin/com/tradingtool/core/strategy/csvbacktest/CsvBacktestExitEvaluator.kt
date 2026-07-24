@@ -9,12 +9,16 @@ data class CsvBacktestExit(
 )
 
 object CsvBacktestExitEvaluator {
+    private const val MAXIMUM_HOLDING_DAYS = 40L
 
     fun findFixedExit(
         candles: List<DailyCandle>,
         stopLossPrice: Double,
         targetPrice: Double,
     ): CsvBacktestExit? {
+        val maximumHoldingDate = candles.firstOrNull()?.candleDate?.plusDays(MAXIMUM_HOLDING_DAYS)
+            ?: return null
+
         for (candle in candles) {
             if (candle.open <= stopLossPrice) {
                 return CsvBacktestExit(candle, candle.open, slHit = true)
@@ -28,6 +32,9 @@ object CsvBacktestExitEvaluator {
             if (candle.high >= targetPrice) {
                 return CsvBacktestExit(candle, targetPrice, slHit = false)
             }
+            if (!candle.candleDate.isBefore(maximumHoldingDate)) {
+                return CsvBacktestExit(candle, candle.close, slHit = false)
+            }
         }
         return null
     }
@@ -38,6 +45,8 @@ object CsvBacktestExitEvaluator {
         targetPrice: Double,
         trailingStopLossPct: Double,
     ): CsvBacktestExit? {
+        val maximumHoldingDate = candles.firstOrNull()?.candleDate?.plusDays(MAXIMUM_HOLDING_DAYS)
+            ?: return null
         var highestClose = Double.NEGATIVE_INFINITY
         var currentStopLossPrice = initialStopLossPrice
 
@@ -53,6 +62,9 @@ object CsvBacktestExitEvaluator {
             }
             if (candle.high >= targetPrice) {
                 return CsvBacktestExit(candle, targetPrice, slHit = false)
+            }
+            if (!candle.candleDate.isBefore(maximumHoldingDate)) {
+                return CsvBacktestExit(candle, candle.close, slHit = false)
             }
 
             highestClose = maxOf(highestClose, candle.close)

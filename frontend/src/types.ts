@@ -1876,6 +1876,53 @@ export interface DeliveryBreakoutDashboardResponse {
   rows: DeliveryBreakoutDashboardRow[];
 }
 
+// ==================== Absolute Delivery Backtest ====================
+
+export interface AbsoluteDeliveryCriteria {
+  minimumTradedQuantityInclusive: number;
+  minimumDeliveryQuantityExclusive: number;
+  minimumDeliveryPercentageExclusive: number;
+}
+
+export interface AbsoluteDeliveryBacktestSummary {
+  universeKey: string;
+  fromDate: string;
+  toDate: string;
+  watchlistSymbolCount: number;
+  tradingDateCount: number;
+  expectedRowCount: number;
+  evaluatedRowCount: number;
+  missingRowCount: number;
+  matchedRowCount: number;
+}
+
+export type AbsoluteDeliveryDataStatus =
+  | "AVAILABLE"
+  | "MISSING_FROM_SOURCE"
+  | "INCOMPLETE"
+  | "NO_RECORD";
+
+export interface AbsoluteDeliveryBacktestRow {
+  symbol: string;
+  companyName: string;
+  tradingDate: string;
+  tradedQuantity: number | null;
+  deliveryQuantity: number | null;
+  deliveryPercentage: number | null;
+  tradedQuantityPassed: boolean;
+  deliveryQuantityPassed: boolean;
+  deliveryPercentagePassed: boolean;
+  matched: boolean;
+  dataStatus: AbsoluteDeliveryDataStatus;
+}
+
+export interface AbsoluteDeliveryBacktestResponse {
+  criteria: AbsoluteDeliveryCriteria;
+  summary: AbsoluteDeliveryBacktestSummary;
+  matchedRows: AbsoluteDeliveryBacktestRow[];
+  allRows: AbsoluteDeliveryBacktestRow[];
+}
+
 // ==================== Bollinger Squeeze ====================
 
 export interface BollingerSqueezeScanResult {
@@ -2568,6 +2615,9 @@ export interface CsvBacktestTradeResult {
   signalDate: string;
   entryStrategy: string;
   breakoutLevel: number | null;
+  breakoutDayMovePct: number | null;
+  breakoutDayDeliveryPct: number | null;
+  priorFiveDaysMaxDeliveryPct: number | null;
   entryDate: string | null;
   entryPrice: number | null;
   firstFiveDaysLowestPrice: number | null;

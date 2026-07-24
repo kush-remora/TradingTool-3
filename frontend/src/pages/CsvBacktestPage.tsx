@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef, type Key } from "react";
+import { useState, useEffect, useMemo, useRef, type Key } from "react";
 import { 
   Card, 
-  Checkbox,
   Space, 
   Upload, 
   Button, 
@@ -20,10 +19,12 @@ import {
   Switch
 } from "antd";
 import { UploadOutlined, EditOutlined } from "@ant-design/icons";
+import type { TableProps } from "antd";
 import type { UploadProps, UploadFile } from "antd/es/upload/interface";
 import { 
   CsvBacktestApiRequest, 
   CsvBacktestResponse,
+  CsvBacktestTradeResult,
   BacktestTradeReviewApiRequest,
   ReviewReasonsResponse,
   ReviewReason
@@ -89,6 +90,70 @@ const combineCsvFiles = async (files: UploadFile[]): Promise<string> => {
   }, "");
 };
 
+export const buildSectorFilterOptions = (trades: CsvBacktestTradeResult[]) =>
+  Array.from(new Set(trades.map((trade) => trade.sector).filter(Boolean)))
+    .sort()
+    .map((sector) => ({ text: sector, value: sector }));
+
+export const matchesSectorFilter = (
+  value: boolean | Key,
+  trade: CsvBacktestTradeResult,
+): boolean => typeof value === "string" && trade.sector === value;
+
+export const matchesMaximumV2RunPct = (
+  trade: CsvBacktestTradeResult,
+  maximumV2RunPct: number | null,
+): boolean =>
+  maximumV2RunPct === null ||
+  (
+    trade.v2MoveFromRecentBasePct !== null &&
+    trade.v2MoveFromRecentBasePct <= maximumV2RunPct
+  );
+
+export const matchesSelectedSectors = (
+  trade: CsvBacktestTradeResult,
+  selectedSectors: string[],
+): boolean => selectedSectors.length === 0 || selectedSectors.includes(trade.sector);
+
+export interface SlOutcomeSummary {
+  total: number;
+  slYes: number;
+  slNo: number;
+  successRatePct: number;
+}
+
+export const calculateSlOutcomeSummary = (
+  trades: CsvBacktestTradeResult[],
+): SlOutcomeSummary => {
+  const slYes = trades.filter((trade) => trade.slHit).length;
+  const slNo = trades.length - slYes;
+
+  return {
+    total: trades.length,
+    slYes,
+    slNo,
+    successRatePct: trades.length === 0 ? 0 : (slNo / trades.length) * 100,
+  };
+};
+
+interface CsvBacktestTableRow extends CsvBacktestTradeResult {
+  tableRowId: string;
+}
+
+export const buildCsvBacktestTableRows = (
+  trades: CsvBacktestTradeResult[],
+): CsvBacktestTableRow[] => {
+  const seenTradeIds = new Set<string>();
+
+  return trades.flatMap((trade) => {
+    const tableRowId = `${trade.symbol}-${trade.signalDate}`;
+    if (seenTradeIds.has(tableRowId)) return [];
+
+    seenTradeIds.add(tableRowId);
+    return [{ ...trade, tableRowId }];
+  });
+};
+
 export function CsvBacktestPage() {
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const uploadSequence = useRef(0);
@@ -97,7 +162,7 @@ export function CsvBacktestPage() {
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<CsvBacktestResponse | null>(null);
   const [maximumV2RunPct, setMaximumV2RunPct] = useState<number | null>(null);
-  const [selectedSectors, setSelectedSectors] = useState<string[] | null>(null);
+  const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
   
   const [form] = Form.useForm();
   const [type, setType] = useState<"FIXED" | "TRAILING">("FIXED");
@@ -189,7 +254,7 @@ export function CsvBacktestPage() {
     setError(null);
     setResponse(null);
     setMaximumV2RunPct(null);
-    setSelectedSectors(null);
+    setSelectedSectors([]);
 
     try {
       const filteredCsv = filterCsv(csvContent, values.filterMonths || [], values.filterMarketCaps || []);
@@ -277,6 +342,15 @@ export function CsvBacktestPage() {
     }
   };
 
+  const tradeRows = useMemo(
+    () => buildCsvBacktestTableRows(response?.trades ?? []),
+    [response],
+  );
+  const sectorFilterOptions = useMemo(
+    () => buildSectorFilterOptions(tradeRows),
+    [tradeRows],
+  );
+
   const tradesColumns = [
     { title: "Sr.", key: "index", width: 50, render: (_: any, __: any, index: number) => index + 1 },
     { 
@@ -298,37 +372,37 @@ export function CsvBacktestPage() {
       dataIndex: "sector",
       key: "sector",
       sorter: (a: any, b: any) => a.sector.localeCompare(b.sector),
-      filteredValue: selectedSectors,
-      filterDropdown: ({ selectedKeys, setSelectedKeys, confirm, clearFilters }: any) => {
-        const sectors = Array.from(new Set(response?.trades.map((trade) => trade.sector).filter(Boolean) ?? [])).sort();
-        const allSelected = selectedKeys.length === sectors.length;
-        return (
-          <div style={{ padding: 8, width: 260 }}>
-            <Checkbox
-              checked={allSelected}
-              indeterminate={selectedKeys.length > 0 && !allSelected}
-              onChange={(event) => setSelectedKeys(event.target.checked ? sectors : [])}
-            >
-              Select all sectors
-            </Checkbox>
-            <Checkbox.Group
-              options={sectors.map((sector) => ({ label: sector, value: sector }))}
-              value={selectedKeys}
-              onChange={(values) => setSelectedKeys(values)}
-              style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 240, margin: "12px 0", overflowY: "auto" }}
-            />
-            <Space>
-              <Button size="small" type="primary" onClick={() => confirm()}>Apply</Button>
-              <Button size="small" onClick={() => { clearFilters?.(); confirm(); }}>Reset</Button>
-            </Space>
-          </div>
-        );
-      },
-      onFilter: (value: boolean | Key, record: any) => record.sector === value,
+      filters: sectorFilterOptions,
+      filterMode: "tree" as const,
+      filterSearch: true,
+      onFilter: matchesSectorFilter,
     },
+    {
+      title: "P&L %",
+      dataIndex: "profitLossPct",
+      key: "profitLossPct",
+      sorter: (a: any, b: any) => (a.profitLossPct || 0) - (b.profitLossPct || 0),
+      render: (val: number | null) => {
+        if (val === null) return "-";
+        return <Text type={val >= 0 ? "success" : "danger"}>{val > 0 ? "+" : ""}{val.toFixed(2)}%</Text>;
+      }
+    },
+    { title: "Days Held", dataIndex: "daysHeld", key: "daysHeld", sorter: (a: any, b: any) => a.daysHeld - b.daysHeld },
+    { title: "SL", dataIndex: "slHit", key: "slHit", render: (val: boolean) => val ? <Tag color="red">Yes</Tag> : <Tag color="green">No</Tag> },
     { title: "Signal Date", dataIndex: "signalDate", key: "signalDate", sorter: (a: any, b: any) => a.signalDate.localeCompare(b.signalDate) },
     { title: "Entry Rule", dataIndex: "entryStrategy", key: "entryStrategy" },
     { title: "Breakout Level", dataIndex: "breakoutLevel", key: "breakoutLevel", render: (val: number | null) => val ? `₹${formatNumber(val)}` : "-" },
+    {
+      title: "Breakout Day Move %",
+      dataIndex: "breakoutDayMovePct",
+      key: "breakoutDayMovePct",
+      sorter: (a: any, b: any) => (a.breakoutDayMovePct ?? 0) - (b.breakoutDayMovePct ?? 0),
+      render: (val: number | null) => val === null
+        ? "-"
+        : <Text type={val >= 0 ? "success" : "danger"}>{val > 0 ? "+" : ""}{val.toFixed(2)}%</Text>,
+    },
+    { title: "Breakout Delivery %", dataIndex: "breakoutDayDeliveryPct", key: "breakoutDayDeliveryPct", render: (val: number | null) => val === null ? "-" : `${val.toFixed(2)}%` },
+    { title: "T−5 Max Delivery %", dataIndex: "priorFiveDaysMaxDeliveryPct", key: "priorFiveDaysMaxDeliveryPct", render: (val: number | null) => val === null ? "-" : `${val.toFixed(2)}%` },
     { title: "Entry Date", dataIndex: "entryDate", key: "entryDate", render: (val: string | null) => val || "-" },
     { title: "Entry Price", dataIndex: "entryPrice", key: "entryPrice", render: (val: number | null) => val ? `₹${formatNumber(val)}` : "-" },
     { title: "5D Low", dataIndex: "firstFiveDaysLowestPrice", key: "firstFiveDaysLowestPrice", render: (val: number | null) => val ? `₹${formatNumber(val)}` : "-" },
@@ -341,18 +415,6 @@ export function CsvBacktestPage() {
     { title: "V2 Run %", dataIndex: "v2MoveFromRecentBasePct", key: "v2MoveFromRecentBasePct", render: (val: number | null) => val === null ? "-" : `${val.toFixed(2)}%` },
     { title: "Exit Date", dataIndex: "exitDate", key: "exitDate", render: (val: string | null, record: any) => record.isOpen ? <Tag color="blue">Open</Tag> : (val || "-") },
     { title: "Exit Price", dataIndex: "exitPrice", key: "exitPrice", render: (val: number | null) => val ? `₹${formatNumber(val)}` : "-" },
-    { 
-      title: "P&L %", 
-      dataIndex: "profitLossPct", 
-      key: "profitLossPct", 
-      sorter: (a: any, b: any) => (a.profitLossPct || 0) - (b.profitLossPct || 0),
-      render: (val: number | null) => {
-        if (val === null) return "-";
-        return <Text type={val >= 0 ? "success" : "danger"}>{val > 0 ? "+" : ""}{val.toFixed(2)}%</Text>;
-      }
-    },
-    { title: "Days Held", dataIndex: "daysHeld", key: "daysHeld", sorter: (a: any, b: any) => a.daysHeld - b.daysHeld },
-    { title: "SL Hit", dataIndex: "slHit", key: "slHit", render: (val: boolean) => val ? <Tag color="red">Yes</Tag> : <Tag color="green">No</Tag> },
     {
       title: "Action",
       key: "action",
@@ -380,12 +442,26 @@ export function CsvBacktestPage() {
     },
   ];
 
-  const displayedTrades = response?.trades.filter((trade) =>
-    (maximumV2RunPct === null ||
-      (trade.v2MoveFromRecentBasePct !== null && trade.v2MoveFromRecentBasePct <= maximumV2RunPct)) &&
-      (selectedSectors === null || selectedSectors.includes(trade.sector)),
-  ) ?? [];
-  const hasV2TradeMetrics = response?.trades.some((trade) => trade.v2MoveFromRecentBasePct !== null) ?? false;
+  const displayedTrades = useMemo(
+    () => tradeRows.filter((trade) => matchesMaximumV2RunPct(trade, maximumV2RunPct)),
+    [maximumV2RunPct, tradeRows],
+  );
+  const filteredTrades = useMemo(
+    () => displayedTrades.filter((trade) => matchesSelectedSectors(trade, selectedSectors)),
+    [displayedTrades, selectedSectors],
+  );
+  const slOutcomeSummary = useMemo(
+    () => calculateSlOutcomeSummary(filteredTrades),
+    [filteredTrades],
+  );
+  const hasV2TradeMetrics = tradeRows.some((trade) => trade.v2MoveFromRecentBasePct !== null);
+  const handleTradesTableChange: TableProps<CsvBacktestTableRow>["onChange"] = (
+    _pagination,
+    filters,
+  ) => {
+    const sectorValues = filters.sector;
+    setSelectedSectors(Array.isArray(sectorValues) ? sectorValues.map(String) : []);
+  };
 
   const getOptions = () => {
     if (!reviewReasons) return [];
@@ -539,8 +615,16 @@ export function CsvBacktestPage() {
                   disabled={!hasV2TradeMetrics}
                   onChange={setMaximumV2RunPct}
                 />
-                <Text type="secondary">Showing {displayedTrades.length} of {response.trades.length} trades</Text>
+                <Text type="secondary">Showing {slOutcomeSummary.total} of {tradeRows.length} trades</Text>
               </Space>
+            </Space>
+            <Space size={16} wrap style={{ marginTop: 8 }}>
+              <Text strong>Filtered total: {slOutcomeSummary.total}</Text>
+              <Text type="danger">SL Yes: {slOutcomeSummary.slYes}</Text>
+              <Text type="success">SL No: {slOutcomeSummary.slNo}</Text>
+              <Text strong type="success">
+                Success rate: {slOutcomeSummary.successRatePct.toFixed(1)}%
+              </Text>
             </Space>
             <Tabs defaultActiveKey="1">
               <Tabs.TabPane tab="Monthly Summary" key="1">
@@ -556,11 +640,8 @@ export function CsvBacktestPage() {
                 <Table 
                   dataSource={displayedTrades}
                   columns={tradesColumns} 
-                  rowKey={(row) => `${row.symbol}-${row.signalDate}`} 
-                  onChange={(_pagination, filters) => {
-                    const sectors = filters.sector;
-                    setSelectedSectors(Array.isArray(sectors) ? sectors.map(String) : null);
-                  }}
+                  rowKey="tableRowId"
+                  onChange={handleTradesTableChange}
                   pagination={{ pageSize: 100 }}
                   size="small"
                   scroll={{ x: 'max-content' }}

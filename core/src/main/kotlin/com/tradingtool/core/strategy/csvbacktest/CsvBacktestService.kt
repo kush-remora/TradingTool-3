@@ -3,6 +3,7 @@ package com.tradingtool.core.strategy.csvbacktest
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.database.CandleJdbiHandler
+import com.tradingtool.core.database.StockDeliveryJdbiHandler
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.screener.CandleDataService
@@ -17,12 +18,23 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.time.temporal.ChronoUnit
 
+internal data class CsvBacktestSignal(
+    val symbol: String,
+    val date: LocalDate,
+    val marketCapName: String,
+    val sector: String,
+)
+
+internal fun deduplicateCsvBacktestSignals(signals: List<CsvBacktestSignal>): List<CsvBacktestSignal> =
+    signals.distinctBy { signal -> signal.symbol to signal.date }
+
 class CsvBacktestService(
     private val candleCacheService: CandleCacheService,
     private val candleHandler: CandleJdbiHandler,
     private val candleDataService: CandleDataService,
     private val kiteClient: KiteConnectClient,
     private val instrumentCache: InstrumentCache,
+    private val stockDeliveryHandler: StockDeliveryJdbiHandler,
 ) {
     private val log = LoggerFactory.getLogger(CsvBacktestService::class.java)
 
@@ -60,14 +72,7 @@ class CsvBacktestService(
             return@withContext CsvBacktestResponse(emptyList(), emptyList(), inputSignalCount = 0, validatedSignalCount = 0)
         }
 
-        data class CsvSignal(
-            val symbol: String,
-            val date: LocalDate,
-            val marketCapName: String,
-            val sector: String
-        )
-
-        val signals = mutableListOf<CsvSignal>()
+        val signals = mutableListOf<CsvBacktestSignal>()
         val dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
 
         for (row in parser) {
@@ -83,19 +88,25 @@ class CsvBacktestService(
                     } catch (e: DateTimeParseException) {
                         LocalDate.now()
                     }
-                    signals.add(CsvSignal(symbol, date, marketCap ?: "Unknown", sector ?: "Unknown"))
+                    signals.add(CsvBacktestSignal(symbol, date, marketCap ?: "Unknown", sector ?: "Unknown"))
                 }
             } catch (e: Exception) {
                 log.warn("Failed to parse row: {}", row, e)
             }
         }
 
-        if (signals.isEmpty()) {
+        val uniqueSignals = deduplicateCsvBacktestSignals(signals)
+        val duplicateSignalCount = signals.size - uniqueSignals.size
+        if (duplicateSignalCount > 0) {
+            log.info("Ignored {} duplicate CSV backtest signals.", duplicateSignalCount)
+        }
+
+        if (uniqueSignals.isEmpty()) {
             return@withContext CsvBacktestResponse(emptyList(), emptyList(), inputSignalCount = 0, validatedSignalCount = 0)
         }
 
-        val uniqueSymbols = signals.map { it.symbol }.distinct()
-        val minDate = signals.minOf { it.date }.minusDays(if (applyV2Validation) 450 else 90)
+        val uniqueSymbols = uniqueSignals.map { it.symbol }.distinct()
+        val minDate = uniqueSignals.minOf { it.date }.minusDays(if (applyV2Validation) 450 else 90)
         val today = LocalDate.now()
         val resolvedEntryStrategy = CsvBacktestEntryStrategy.from(entryStrategy)
 
@@ -103,11 +114,24 @@ class CsvBacktestService(
         for (symbol in uniqueSymbols) {
             candlesBySymbol[symbol] = loadCandles(symbol, minDate, today)
         }
+        val instrumentTokens = candlesBySymbol.values
+            .flatMap { candles -> candles.map(DailyCandle::instrumentToken) }
+            .distinct()
+        val deliveryPctByToken = if (instrumentTokens.isEmpty()) {
+            emptyMap()
+        } else {
+            stockDeliveryHandler.read { dao ->
+                dao.findByInstrumentTokensBetweenDates(instrumentTokens, minDate, today)
+            }.groupBy { delivery -> delivery.instrumentToken }
+                .mapValues { (_, deliveries) ->
+                    deliveries.associate { delivery -> delivery.tradingDate to delivery.delivPer }
+                }
+        }
 
         val trades = mutableListOf<CsvBacktestTradeResult>()
         var validatedSignalCount = 0
 
-        for (signal in signals) {
+        for (signal in uniqueSignals) {
             val signalStartDate = signal.date.minusDays(if (applyV2Validation) 450 else 90)
             val candles = candlesBySymbol[signal.symbol].orEmpty()
                 .filter { candle -> !candle.candleDate.isBefore(signalStartDate) }
@@ -121,6 +145,21 @@ class CsvBacktestService(
             }
             if (applyV2Validation && validation == null) continue
             if (applyV2Validation) validatedSignalCount++
+
+            val breakoutDayMovePct = candles
+                .firstOrNull { candle -> candle.candleDate == signal.date }
+                ?.takeIf { candle -> candle.open > 0.0 }
+                ?.let { candle -> ((candle.close - candle.open) / candle.open) * 100.0 }
+            val deliveryMetrics = calculateCsvBacktestDeliveryMetrics(
+                signalDate = signal.date,
+                priorTradingDates = candles
+                    .filter { candle -> candle.candleDate.isBefore(signal.date) }
+                    .map(DailyCandle::candleDate),
+                deliveryPctByDate = candles.firstOrNull()
+                    ?.instrumentToken
+                    ?.let { token -> deliveryPctByToken[token] }
+                    .orEmpty(),
+            )
 
             val entry = CsvBacktestEntryEvaluator.findEntry(
                 candles = candles,
@@ -141,6 +180,9 @@ class CsvBacktestService(
                         signalDate = signal.date.format(dateFormatter),
                         entryStrategy = resolvedEntryStrategy.name,
                         breakoutLevel = null,
+                        breakoutDayMovePct = breakoutDayMovePct,
+                        breakoutDayDeliveryPct = deliveryMetrics.breakoutDayDeliveryPct,
+                        priorFiveDaysMaxDeliveryPct = deliveryMetrics.priorFiveDaysMaxDeliveryPct,
                         entryDate = null,
                         entryPrice = null,
                         firstFiveDaysLowestPrice = null,
@@ -216,6 +258,9 @@ class CsvBacktestService(
                     signalDate = signal.date.format(dateFormatter),
                     entryStrategy = resolvedEntryStrategy.name,
                     breakoutLevel = entry.breakoutLevel,
+                    breakoutDayMovePct = breakoutDayMovePct,
+                    breakoutDayDeliveryPct = deliveryMetrics.breakoutDayDeliveryPct,
+                    priorFiveDaysMaxDeliveryPct = deliveryMetrics.priorFiveDaysMaxDeliveryPct,
                     entryDate = entryCandle.candleDate.format(dateFormatter),
                     entryPrice = entryPrice,
                     firstFiveDaysLowestPrice = earlyDip?.lowestPrice,
@@ -278,8 +323,8 @@ class CsvBacktestService(
         return@withContext CsvBacktestResponse(
             trades = trades,
             summaries = summaries,
-            inputSignalCount = signals.size,
-            validatedSignalCount = if (applyV2Validation) validatedSignalCount else signals.size,
+            inputSignalCount = uniqueSignals.size,
+            validatedSignalCount = if (applyV2Validation) validatedSignalCount else uniqueSignals.size,
         )
     }
 

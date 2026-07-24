@@ -80,6 +80,16 @@ interface StockDeliveryReadDao {
         @BindList("instrumentTokens") instrumentTokens: List<Long>,
     ): List<StockDeliveryDaily>
 
+    @SqlQuery(
+        "SELECT DISTINCT ${Cols.TRADING_DATE} FROM ${Tables.STOCK_DELIVERY_DAILY} " +
+            "WHERE ${Cols.TRADING_DATE} BETWEEN :fromDate AND :toDate " +
+            "ORDER BY ${Cols.TRADING_DATE}"
+    )
+    fun findTradingDatesBetween(
+        @Bind("fromDate") fromDate: LocalDate,
+        @Bind("toDate") toDate: LocalDate,
+    ): List<LocalDate>
+
     @SqlQuery("SELECT MAX(${Cols.TRADING_DATE}) FROM ${Tables.STOCK_DELIVERY_DAILY}")
     fun getLatestTradingDate(): LocalDate?
 }

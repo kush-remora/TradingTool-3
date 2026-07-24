@@ -326,6 +326,7 @@ class ServiceModule(
         candleDataService: CandleDataService,
         kiteClient: KiteConnectClient,
         instrumentCache: InstrumentCache,
+        stockDeliveryHandler: StockDeliveryJdbiHandler,
     ): com.tradingtool.core.strategy.csvbacktest.CsvBacktestService =
         com.tradingtool.core.strategy.csvbacktest.CsvBacktestService(
             candleCacheService = candleCacheService,
@@ -333,6 +334,7 @@ class ServiceModule(
             candleDataService = candleDataService,
             kiteClient = kiteClient,
             instrumentCache = instrumentCache,
+            stockDeliveryHandler = stockDeliveryHandler,
         )
 
     @Provides @Singleton

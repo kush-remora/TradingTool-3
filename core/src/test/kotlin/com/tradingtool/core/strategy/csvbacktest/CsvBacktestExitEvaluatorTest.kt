@@ -78,6 +78,43 @@ class CsvBacktestExitEvaluatorTest {
         assertEquals(null, exit)
     }
 
+    @Test
+    fun `fixed strategy closes at the close on the fortieth calendar day when still open`() {
+        val entryDate = LocalDate.of(2026, 1, 5)
+        val exit = CsvBacktestExitEvaluator.findFixedExit(
+            candles = listOf(
+                candle(date = entryDate, high = 101.0, low = 99.0),
+                candle(date = entryDate.plusDays(40), high = 103.0, low = 98.0, close = 102.0),
+            ),
+            stopLossPrice = 95.0,
+            targetPrice = 105.0,
+        )
+
+        assertNotNull(exit)
+        assertEquals(entryDate.plusDays(40), exit?.candle?.candleDate)
+        assertEquals(102.0, exit?.price)
+        assertFalse(exit?.slHit ?: true)
+    }
+
+    @Test
+    fun `trailing strategy closes at the close on the fortieth calendar day when still open`() {
+        val entryDate = LocalDate.of(2026, 1, 5)
+        val exit = CsvBacktestExitEvaluator.findTrailingExit(
+            candles = listOf(
+                candle(date = entryDate, high = 101.0, low = 99.0),
+                candle(date = entryDate.plusDays(40), high = 103.0, low = 98.0, close = 102.0),
+            ),
+            initialStopLossPrice = 95.0,
+            targetPrice = 105.0,
+            trailingStopLossPct = 10.0,
+        )
+
+        assertNotNull(exit)
+        assertEquals(entryDate.plusDays(40), exit?.candle?.candleDate)
+        assertEquals(102.0, exit?.price)
+        assertFalse(exit?.slHit ?: true)
+    }
+
     private fun candle(
         date: LocalDate = LocalDate.of(2026, 1, 5),
         open: Double = 100.0,

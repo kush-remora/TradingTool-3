@@ -2,6 +2,7 @@ package com.tradingtool.resources
 
 import com.google.inject.Inject
 import com.tradingtool.core.di.ResourceScope
+import com.tradingtool.core.strategy.absolutedelivery.AbsoluteDeliveryBacktestService
 import com.tradingtool.core.strategy.fiftytwohigh.ChartinkFiftyTwoWeekHighReportService
 import com.tradingtool.core.strategy.hotsma.HotSmaRunConfig
 import com.tradingtool.core.strategy.hotsma.HotSmaRunRequest
@@ -44,6 +45,7 @@ import java.util.concurrent.CompletableFuture
 class StrategyResource @Inject constructor(
     resourceScope: ResourceScope,
     private val hotSmaScannerService: HotSmaScannerService,
+    private val absoluteDeliveryBacktestService: AbsoluteDeliveryBacktestService,
     private val deliveryBreakoutScannerService: DeliveryBreakoutScannerService,
     private val wyckoffPhase1ScannerService: WyckoffPhase1ScannerService,
     private val wyckoffPhase1ConfigService: WyckoffPhase1ConfigService,
@@ -66,6 +68,16 @@ class StrategyResource @Inject constructor(
     @Path("/hot-sma/universes")
     fun getHotSmaUniverseOptions(): CompletableFuture<Response> = ioScope.endpoint {
         ok(hotSmaScannerService.listUniverseOptions())
+    }
+
+    @GET
+    @Path("/absolute-delivery/backtest")
+    fun getAbsoluteDeliveryBacktest(): CompletableFuture<Response> = ioScope.endpoint {
+        try {
+            ok(absoluteDeliveryBacktestService.runBacktest())
+        } catch (error: IllegalStateException) {
+            notFound(error.message ?: "No stock delivery data available.")
+        }
     }
 
     @GET

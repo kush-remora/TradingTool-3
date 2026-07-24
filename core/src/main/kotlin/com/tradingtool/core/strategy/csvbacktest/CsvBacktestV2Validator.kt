@@ -18,7 +18,7 @@ object CsvBacktestV2Validator {
     private const val PRE_BREAKOUT_VOLUME_BASELINE_SESSIONS = 20
     private const val MIN_VOLUME_RATIO = 2.0
     private const val RESISTANCE_TOUCH_RATIO = 0.97
-    private const val RECENT_RUN_SESSIONS = 30
+    private const val RECENT_RUN_SESSIONS = 50
     private const val RECENT_RUN_BASE_SESSIONS = 6
 
     fun validate(

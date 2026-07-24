@@ -50,6 +50,23 @@ class CsvBacktestV2ValidatorTest {
         assertNull(CsvBacktestV2Validator.validate(candles, candles.last().candleDate))
     }
 
+    @Test
+    fun `uses the lowest price from the previous fifty sessions for the V2 run base`() {
+        val candles = validCandles().toMutableList()
+        val lowIndex = candles.lastIndex - 40
+
+        for (index in lowIndex - 5..lowIndex) {
+            candles[index] = candles[index].copy(close = 85.0)
+        }
+        candles[lowIndex] = candles[lowIndex].copy(low = 80.0)
+
+        val result = CsvBacktestV2Validator.validate(candles, candles.last().candleDate)
+
+        assertNotNull(result)
+        assertEquals(85.0, result?.recentRunBasePrice)
+        assertEquals(17.647, result?.moveFromRecentBasePct ?: 0.0, 0.001)
+    }
+
     private fun validCandles(): List<DailyCandle> {
         val firstDate = LocalDate.of(2025, 1, 1)
         return (0..220).map { index ->
