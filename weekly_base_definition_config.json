@@ -1,0 +1,6 @@
+{
+  "smaWindowTradingDays": 200,
+  "minimumSmaDistancePct": -10.0,
+  "maximumSmaDistancePct": 10.0,
+  "maximumZoneWidthPct": 2.0
+}

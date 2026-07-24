@@ -157,6 +157,45 @@ export interface WeeklyBaseDefinitionReport {
   rows: WeeklyBaseDefinitionRow[];
 }
 
+export interface WeeklyBaseGroupBacktestRequest {
+  indexKeys: string[];
+}
+export interface WeeklyBaseGroupBacktestTrade {
+  entryDate: string;
+  entryPrice: number;
+  targetPrice: number;
+  exitDate: string | null;
+  outcome: string;
+  holdingTradingDays: number | null;
+}
+export interface WeeklyBaseGroupBacktestRow {
+  indexKey: string;
+  symbol: string;
+  companyName: string;
+  validBaseCount: number;
+  filledTradeCount: number;
+  targetHitCount: number;
+  openTradeCount: number;
+  latestZoneFloor: number | null;
+  latestZoneCeiling: number | null;
+  latestSmaDistancePct: number | null;
+  trades: WeeklyBaseGroupBacktestTrade[];
+}
+export interface WeeklyBaseGroupBacktestGroupSummary {
+  indexKey: string;
+  totalStocks: number;
+  stocksWithValidBase: number;
+  filledTradeCount: number;
+  targetHitCount: number;
+  openTradeCount: number;
+}
+export interface WeeklyBaseGroupBacktestReport {
+  testedFromDate: string;
+  testedToDate: string;
+  groups: WeeklyBaseGroupBacktestGroupSummary[];
+  rows: WeeklyBaseGroupBacktestRow[];
+}
+
 // ==================== Trades ====================
 
 export interface GttTarget {
@@ -434,8 +473,6 @@ export interface ChartinkFiftyTwoWeekHighBacktestReport {
   trades: ChartinkFiftyTwoWeekHighTradeRow[];
 }
 
-
-
 // ==================== Watchlist Dashboard ====================
 
 export interface WatchlistRow {
@@ -677,7 +714,15 @@ export interface WeeklyCycleSuccessRow {
 
 export interface WeeklyCycleSuccessResponse {
   runAt: string;
-  universe: "ALL" | "MIDCAP_250" | "SMALLCAP_250" | "BOTH" | "NIFTY_50" | "WATCHLIST" | "NIFTY_150" | string;
+  universe:
+    | "ALL"
+    | "MIDCAP_250"
+    | "SMALLCAP_250"
+    | "BOTH"
+    | "NIFTY_50"
+    | "WATCHLIST"
+    | "NIFTY_150"
+    | string;
   weeksRequested: number;
   weeksEvaluated: number;
   highLowThresholdPct: number;
@@ -1402,7 +1447,8 @@ export interface S4RankedCandidate {
   recent3dVolumeScore: number;
   persistenceScore: number;
   priceScore: number;
-  classification: "FRESH_SPIKE" | "BUILDUP_BREAKOUT" | "EXTENDED_SPIKE" | string;
+  classification:
+    "FRESH_SPIKE" | "BUILDUP_BREAKOUT" | "EXTENDED_SPIKE" | string;
   score: number;
 }
 
@@ -1545,15 +1591,21 @@ export interface VolumeSpikeBacktestResponse {
 export interface DeliveryThresholdBacktestConfig {
   thresholds: Record<string, number>;
   profitPct: number;
-  roc20ByIndex?: Record<string, {
-    accumulationMinPct: number;
-    accumulationMaxPct: number;
-    distributionMinPct: number;
-  }>;
-  sma200ByIndex?: Record<string, {
-    accumulationMaxDistancePct: number;
-    distributionMinDistancePct: number;
-  }>;
+  roc20ByIndex?: Record<
+    string,
+    {
+      accumulationMinPct: number;
+      accumulationMaxPct: number;
+      distributionMinPct: number;
+    }
+  >;
+  sma200ByIndex?: Record<
+    string,
+    {
+      accumulationMaxDistancePct: number;
+      distributionMinDistancePct: number;
+    }
+  >;
   fromDate?: string;
   toDate?: string;
 }
@@ -1569,15 +1621,21 @@ export interface DeliveryThresholdBacktestConfigSnapshot {
   symbols: string[];
   thresholds: Record<string, number>;
   profitPct: number;
-  roc20ByIndex: Record<string, {
-    accumulationMinPct: number;
-    accumulationMaxPct: number;
-    distributionMinPct: number;
-  }>;
-  sma200ByIndex: Record<string, {
-    accumulationMaxDistancePct: number;
-    distributionMinDistancePct: number;
-  }>;
+  roc20ByIndex: Record<
+    string,
+    {
+      accumulationMinPct: number;
+      accumulationMaxPct: number;
+      distributionMinPct: number;
+    }
+  >;
+  sma200ByIndex: Record<
+    string,
+    {
+      accumulationMaxDistancePct: number;
+      distributionMinDistancePct: number;
+    }
+  >;
   fromDate: string;
   toDate: string;
 }
@@ -2413,39 +2471,39 @@ export interface IntradayShockBacktestResponse {
 }
 
 export interface TrailingStopTradeRow {
-    symbol: string;
-    marketCapName: string;
-    sector: string;
-    signalDate: string;
-    entryDate: string;
-    exitDate: string;
-    entryPrice: number;
-    exitPrice: number;
-    shares: number;
-    investedAmount: number;
-    profitLoss: number;
-    profitLossPct: number;
-    holdingTradingDays: number;
-    outcome: string;
+  symbol: string;
+  marketCapName: string;
+  sector: string;
+  signalDate: string;
+  entryDate: string;
+  exitDate: string;
+  entryPrice: number;
+  exitPrice: number;
+  shares: number;
+  investedAmount: number;
+  profitLoss: number;
+  profitLossPct: number;
+  holdingTradingDays: number;
+  outcome: string;
 }
 
 export interface TrailingStopAggregateResult {
-    marketCapName: string;
-    sector: string;
-    totalTrades: number;
-    profitableTrades: number;
-    totalInvested: number;
-    totalProfitLoss: number;
-    averageReturnPct: number | null;
+  marketCapName: string;
+  sector: string;
+  totalTrades: number;
+  profitableTrades: number;
+  totalInvested: number;
+  totalProfitLoss: number;
+  averageReturnPct: number | null;
 }
 
 export interface TrailingStopBacktestReport {
-    generatedAt: string;
-    inputFile: string;
-    priceDataToDate: string;
-    totalSignals: number;
-    trades: TrailingStopTradeRow[];
-    aggregations: TrailingStopAggregateResult[];
+  generatedAt: string;
+  inputFile: string;
+  priceDataToDate: string;
+  totalSignals: number;
+  trades: TrailingStopTradeRow[];
+  aggregations: TrailingStopAggregateResult[];
 }
 
 export interface Rule5ApiRequest {
@@ -2483,9 +2541,9 @@ export interface Rule5ApiResponse {
 }
 
 export interface TrailingStopBacktestApiRequest {
-    csvContent: string;
-    priceDataToDate?: string;
-    allocationPerTrade?: number;
+  csvContent: string;
+  priceDataToDate?: string;
+  allocationPerTrade?: number;
 }
 
 // ==================== CSV Backtest ====================
@@ -2644,19 +2702,118 @@ export interface ChartinkEvidenceUploadStatus {
   uploadedAt: string;
 }
 
-export type AccumulationAnalysisPeriod = "ONE_DAY" | "ONE_WEEK" | "ONE_MONTH" | "THREE_MONTHS" | "SIX_MONTHS" | "NINE_MONTHS";
-export interface AccumulationAnalysisRunRequest { universeKey: string; period: AccumulationAnalysisPeriod; }
-export interface AccumulationAnalysisRun { id: number; universeKey: string; period: AccumulationAnalysisPeriod; fromDate: string; toDate: string; status: string; completedAt: string | null; }
-export interface AccumulationConfirmationDates { phaseD: string[]; freshBreakout: string[]; fiftyTwoWeekHigh: string[]; }
-export interface AccumulationEvidenceLane { fromDate: string; toDate: string; accumulation: string[]; phaseD: string[]; freshBreakout: string[]; fiftyTwoWeekHigh: string[]; }
-export interface AccumulationShapeMetrics { curvature: number; centerSlopePerTenSessions: number; startSlopePerTenSessions: number; endSlopePerTenSessions: number; vertexPosition: number | null; }
-export interface AccumulationLineFitMetrics { slopePerTenSessions: number; typicalDeviationPercent: number; maximumDeviationPercent: number; ignoredOutlierDate: string | null; ignoredOutlierDeviationPercent: number | null; }
-export interface AccumulationGoldenFlatNode { windowSessions: number; startDate: string; endDate: string; metrics: AccumulationShapeMetrics; lineFit: AccumulationLineFitMetrics | null; }
-export interface AccumulationShapeChunk { position: number; startDate: string; endDate: string; shape: string; metrics: AccumulationShapeMetrics; goldenFlat: boolean; lineFit: AccumulationLineFitMetrics | null; }
+export type AccumulationAnalysisPeriod =
+  | "ONE_DAY"
+  | "ONE_WEEK"
+  | "ONE_MONTH"
+  | "THREE_MONTHS"
+  | "SIX_MONTHS"
+  | "NINE_MONTHS";
+export interface AccumulationAnalysisRunRequest {
+  universeKey: string;
+  period: AccumulationAnalysisPeriod;
+}
+export interface AccumulationAnalysisRun {
+  id: number;
+  universeKey: string;
+  period: AccumulationAnalysisPeriod;
+  fromDate: string;
+  toDate: string;
+  status: string;
+  completedAt: string | null;
+}
+export interface AccumulationConfirmationDates {
+  phaseD: string[];
+  freshBreakout: string[];
+  fiftyTwoWeekHigh: string[];
+}
+export interface AccumulationEvidenceLane {
+  fromDate: string;
+  toDate: string;
+  accumulation: string[];
+  phaseD: string[];
+  freshBreakout: string[];
+  fiftyTwoWeekHigh: string[];
+}
+export interface AccumulationShapeMetrics {
+  curvature: number;
+  centerSlopePerTenSessions: number;
+  startSlopePerTenSessions: number;
+  endSlopePerTenSessions: number;
+  vertexPosition: number | null;
+}
+export interface AccumulationLineFitMetrics {
+  slopePerTenSessions: number;
+  typicalDeviationPercent: number;
+  maximumDeviationPercent: number;
+  ignoredOutlierDate: string | null;
+  ignoredOutlierDeviationPercent: number | null;
+}
+export interface AccumulationGoldenFlatNode {
+  windowSessions: number;
+  startDate: string;
+  endDate: string;
+  metrics: AccumulationShapeMetrics;
+  lineFit: AccumulationLineFitMetrics | null;
+}
+export interface AccumulationShapeChunk {
+  position: number;
+  startDate: string;
+  endDate: string;
+  shape: string;
+  metrics: AccumulationShapeMetrics;
+  goldenFlat: boolean;
+  lineFit: AccumulationLineFitMetrics | null;
+}
 export type AccumulationBaseRhythmDirection = "FALLING" | "FLAT" | "RISING";
-export type AccumulationBaseRhythmState = "CONTRACTING" | "STEADY" | "EXPANDING";
-export interface AccumulationBaseRhythmBlock { position: number; startDate: string; endDate: string; direction: AccumulationBaseRhythmDirection; rangeState: AccumulationBaseRhythmState; volumeState: AccumulationBaseRhythmState; closeChangePercent: number; rangePercent: number; averageVolume: number; }
-export interface AccumulationBaseRhythm { startDate: string; endDate: string; blocks: AccumulationBaseRhythmBlock[]; }
-export interface AccumulationCaseSnapshot { symbol: string; chainStartDate: string; chainEndDate: string; asOfDate: string; chainLengthSessions: number; hitCount: number; shape: string; shapeDecision: string; valid: boolean; firstPhaseDDate: string | null; firstBreakoutDate: string | null; sessionsToPhaseD: number | null; sessionsToBreakout: number | null; confirmationDates: AccumulationConfirmationDates; curatedWatchlists: string[]; sixMonthEvidence: AccumulationEvidenceLane | null; shapeMetrics: AccumulationShapeMetrics | null; lineFit: AccumulationLineFitMetrics | null; goldenFlatNode: AccumulationGoldenFlatNode | null; shapeChunks: AccumulationShapeChunk[]; baseRhythm: AccumulationBaseRhythm | null; }
-export interface AccumulationAnalysisSummary { run: AccumulationAnalysisRun; isStale: boolean; rows: AccumulationCaseSnapshot[]; }
-export interface AccumulationAnalysisTimeline { run: AccumulationAnalysisRun; isStale: boolean; rows: AccumulationCaseSnapshot[]; }
+export type AccumulationBaseRhythmState =
+  "CONTRACTING" | "STEADY" | "EXPANDING";
+export interface AccumulationBaseRhythmBlock {
+  position: number;
+  startDate: string;
+  endDate: string;
+  direction: AccumulationBaseRhythmDirection;
+  rangeState: AccumulationBaseRhythmState;
+  volumeState: AccumulationBaseRhythmState;
+  closeChangePercent: number;
+  rangePercent: number;
+  averageVolume: number;
+}
+export interface AccumulationBaseRhythm {
+  startDate: string;
+  endDate: string;
+  blocks: AccumulationBaseRhythmBlock[];
+}
+export interface AccumulationCaseSnapshot {
+  symbol: string;
+  chainStartDate: string;
+  chainEndDate: string;
+  asOfDate: string;
+  chainLengthSessions: number;
+  hitCount: number;
+  shape: string;
+  shapeDecision: string;
+  valid: boolean;
+  firstPhaseDDate: string | null;
+  firstBreakoutDate: string | null;
+  sessionsToPhaseD: number | null;
+  sessionsToBreakout: number | null;
+  confirmationDates: AccumulationConfirmationDates;
+  curatedWatchlists: string[];
+  sixMonthEvidence: AccumulationEvidenceLane | null;
+  shapeMetrics: AccumulationShapeMetrics | null;
+  lineFit: AccumulationLineFitMetrics | null;
+  goldenFlatNode: AccumulationGoldenFlatNode | null;
+  shapeChunks: AccumulationShapeChunk[];
+  baseRhythm: AccumulationBaseRhythm | null;
+}
+export interface AccumulationAnalysisSummary {
+  run: AccumulationAnalysisRun;
+  isStale: boolean;
+  rows: AccumulationCaseSnapshot[];
+}
+export interface AccumulationAnalysisTimeline {
+  run: AccumulationAnalysisRun;
+  isStale: boolean;
+  rows: AccumulationCaseSnapshot[];
+}

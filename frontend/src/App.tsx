@@ -1,4 +1,10 @@
-import { BarChartOutlined, BookOutlined, FundOutlined, HeatMapOutlined, LineChartOutlined } from "@ant-design/icons";
+import {
+  BarChartOutlined,
+  BookOutlined,
+  FundOutlined,
+  HeatMapOutlined,
+  LineChartOutlined,
+} from "@ant-design/icons";
 import { ConfigProvider, Layout, Menu } from "antd";
 import type { MenuProps } from "antd";
 import { useState } from "react";
@@ -19,6 +25,7 @@ import { ForwardAccumulationAnalysisPage } from "./pages/ForwardAccumulationAnal
 import { ForwardAccumulationTimelinePage } from "./pages/ForwardAccumulationTimelinePage";
 import { WeeklyFloorReboundPage } from "./pages/WeeklyFloorReboundPage";
 import { WeeklyBaseDefinitionPage } from "./pages/WeeklyBaseDefinitionPage";
+import { WeeklyBaseGroupBacktestPage } from "./pages/WeeklyBaseGroupBacktestPage";
 import type { AccumulationCaseSnapshot } from "./types";
 
 type V1PageKey =
@@ -36,7 +43,8 @@ type V1PageKey =
   | "chartink-evidence"
   | "forward-accumulation"
   | "weekly-floor-rebound"
-  | "weekly-base-definition";
+  | "weekly-base-definition"
+  | "weekly-base-group-backtest";
 
 type PageKey = V1PageKey;
 
@@ -52,19 +60,68 @@ type Route = PageKey | ForwardAccumulationTimelineRoute;
 
 const menuItems: MenuProps["items"] = [
   { key: "volume-shocker", label: "Volume Shocker", icon: <FundOutlined /> },
-  { key: "delivery-breakout", label: "Delivery Breakout", icon: <FundOutlined /> },
+  {
+    key: "delivery-breakout",
+    label: "Delivery Breakout",
+    icon: <FundOutlined />,
+  },
   { key: "hot-sma", label: "SMA Buy Zone", icon: <HeatMapOutlined /> },
-  { key: "chartink-52w", label: "Chartink 52W Backtest", icon: <LineChartOutlined /> },
-  { key: "trailing-stop", label: "Trailing Stop Backtest", icon: <LineChartOutlined /> },
-  { key: "weekly-floor-rebound", label: "Weekly Floor Rebound", icon: <LineChartOutlined /> },
-  { key: "weekly-base-definition", label: "Weekly Base Definition", icon: <LineChartOutlined /> },
-  { key: "52w-momentum-rule5", label: "52W Momentum Rule 5", icon: <LineChartOutlined /> },
-  { key: "csv-backtest", label: "CSV Backtest Tool", icon: <LineChartOutlined /> },
-  { key: "backtest-reviews", label: "Saved Backtest Reviews", icon: <BookOutlined /> },
-  { key: "wyckoff-phase1", label: "Wyckoff Phase-1", icon: <BarChartOutlined /> },
+  {
+    key: "chartink-52w",
+    label: "Chartink 52W Backtest",
+    icon: <LineChartOutlined />,
+  },
+  {
+    key: "trailing-stop",
+    label: "Trailing Stop Backtest",
+    icon: <LineChartOutlined />,
+  },
+  {
+    key: "weekly-floor-rebound",
+    label: "Weekly Floor Rebound",
+    icon: <LineChartOutlined />,
+  },
+  {
+    key: "weekly-base-definition",
+    label: "Weekly Base Definition",
+    icon: <LineChartOutlined />,
+  },
+  {
+    key: "weekly-base-group-backtest",
+    label: "Base Rebound Group Backtest",
+    icon: <LineChartOutlined />,
+  },
+  {
+    key: "52w-momentum-rule5",
+    label: "52W Momentum Rule 5",
+    icon: <LineChartOutlined />,
+  },
+  {
+    key: "csv-backtest",
+    label: "CSV Backtest Tool",
+    icon: <LineChartOutlined />,
+  },
+  {
+    key: "backtest-reviews",
+    label: "Saved Backtest Reviews",
+    icon: <BookOutlined />,
+  },
+  {
+    key: "wyckoff-phase1",
+    label: "Wyckoff Phase-1",
+    icon: <BarChartOutlined />,
+  },
   { key: "phase-d", label: "Phase D Scanner", icon: <FundOutlined /> },
-  { key: "chartink-evidence", label: "Chartink Evidence", icon: <FundOutlined /> },
-  { key: "forward-accumulation", label: "Forward Accumulation", icon: <BarChartOutlined /> },
+  {
+    key: "chartink-evidence",
+    label: "Chartink Evidence",
+    icon: <FundOutlined />,
+  },
+  {
+    key: "forward-accumulation",
+    label: "Forward Accumulation",
+    icon: <BarChartOutlined />,
+  },
   { key: "trade", label: "Trade Journal", icon: <BookOutlined /> },
 ];
 
@@ -79,6 +136,7 @@ const validPages: PageKey[] = [
   "trailing-stop",
   "weekly-floor-rebound",
   "weekly-base-definition",
+  "weekly-base-group-backtest",
   "52w-momentum-rule5",
   "csv-backtest",
   "backtest-reviews",
@@ -90,18 +148,32 @@ export default function App() {
   const getInitialRoute = (): Route => {
     const path = window.location.pathname;
     const baseUrl = import.meta.env.BASE_URL;
-    const internalPath = path.startsWith(baseUrl) ? path.slice(baseUrl.length) : path;
+    const internalPath = path.startsWith(baseUrl)
+      ? path.slice(baseUrl.length)
+      : path;
 
     const cleanPath = internalPath.replace(/^\//, "").replace(/\/+$/, "");
-    const timelineMatch = cleanPath.match(/^(?:console|console-v1|console-v2)\/forward-accumulation\/timeline\/(\d+)\/([^/]+)$/);
+    const timelineMatch = cleanPath.match(
+      /^(?:console|console-v1|console-v2)\/forward-accumulation\/timeline\/(\d+)\/([^/]+)$/,
+    );
     if (timelineMatch) {
       const runId = Number(timelineMatch[1]);
       if (Number.isInteger(runId) && runId > 0) {
         const params = new URLSearchParams(window.location.search);
-        return { page: "forward-accumulation-timeline", runId, symbol: decodeURIComponent(timelineMatch[2]), chainStartDate: params.get("chainStart"), chainEndDate: params.get("chainEnd") };
+        return {
+          page: "forward-accumulation-timeline",
+          runId,
+          symbol: decodeURIComponent(timelineMatch[2]),
+          chainStartDate: params.get("chainStart"),
+          chainEndDate: params.get("chainEnd"),
+        };
       }
     }
-    if (cleanPath === "" || cleanPath === "console-v1" || cleanPath === "console") {
+    if (
+      cleanPath === "" ||
+      cleanPath === "console-v1" ||
+      cleanPath === "console"
+    ) {
       return "wyckoff-phase1";
     }
 
@@ -145,22 +217,50 @@ export default function App() {
   };
 
   const openTimeline = (runId: number, row: AccumulationCaseSnapshot) => {
-    const params = new URLSearchParams({ chainStart: row.chainStartDate, chainEnd: row.chainEndDate });
-    window.open(`${import.meta.env.BASE_URL}console/forward-accumulation/timeline/${runId}/${encodeURIComponent(row.symbol)}?${params}`, "_blank", "noopener,noreferrer");
+    const params = new URLSearchParams({
+      chainStart: row.chainStartDate,
+      chainEnd: row.chainEndDate,
+    });
+    window.open(
+      `${import.meta.env.BASE_URL}console/forward-accumulation/timeline/${runId}/${encodeURIComponent(row.symbol)}?${params}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
   };
 
   const closeTimeline = () => {
     setRoute("forward-accumulation");
-    window.history.pushState({}, "", `${import.meta.env.BASE_URL}console/forward-accumulation`);
+    window.history.pushState(
+      {},
+      "",
+      `${import.meta.env.BASE_URL}console/forward-accumulation`,
+    );
   };
 
-  const selectedKeys = [typeof route === "string" ? route : "forward-accumulation"];
+  const selectedKeys = [
+    typeof route === "string" ? route : "forward-accumulation",
+  ];
 
   return (
     <ConfigProvider>
       <Layout style={{ minHeight: "100vh" }}>
-        <Layout.Header style={{ display: "flex", alignItems: "center", padding: "0 20px", background: "#fff", borderBottom: "1px solid #f0f0f0" }}>
-          <div style={{ color: "#000", fontSize: "1.2rem", fontWeight: "bold", marginRight: "40px" }}>
+        <Layout.Header
+          style={{
+            display: "flex",
+            alignItems: "center",
+            padding: "0 20px",
+            background: "#fff",
+            borderBottom: "1px solid #f0f0f0",
+          }}
+        >
+          <div
+            style={{
+              color: "#000",
+              fontSize: "1.2rem",
+              fontWeight: "bold",
+              marginRight: "40px",
+            }}
+          >
             TradingTool
           </div>
         </Layout.Header>
@@ -186,23 +286,37 @@ export default function App() {
             />
           </Layout.Sider>
           <Layout.Content>
-
             {route === "trade" && <TradePage />}
             {route === "wyckoff-phase1" && <WyckoffPhase1Page />}
             {route === "volume-shocker" && <VolumeShockerDashboardPage />}
             {route === "delivery-breakout" && <DeliveryBreakoutScannerPage />}
             {route === "hot-sma" && <HotSmaPage />}
-            { route === "phase-d" && <PhaseDScannerPage /> }
+            {route === "phase-d" && <PhaseDScannerPage />}
             {route === "chartink-52w" && <ChartinkFiftyTwoWeekHighPage />}
             {route === "trailing-stop" && <TrailingStopBacktestPage />}
             {route === "weekly-floor-rebound" && <WeeklyFloorReboundPage />}
             {route === "weekly-base-definition" && <WeeklyBaseDefinitionPage />}
-            {route === "52w-momentum-rule5" && <FiftyTwoWeekMomentumRule5Page />}
+            {route === "weekly-base-group-backtest" && (
+              <WeeklyBaseGroupBacktestPage />
+            )}
+            {route === "52w-momentum-rule5" && (
+              <FiftyTwoWeekMomentumRule5Page />
+            )}
             {route === "csv-backtest" && <CsvBacktestPage />}
             {route === "backtest-reviews" && <BacktestReviewsPage />}
             {route === "chartink-evidence" && <ChartinkEvidencePage />}
-            {route === "forward-accumulation" && <ForwardAccumulationAnalysisPage onOpenTimeline={openTimeline} />}
-            {typeof route !== "string" && <ForwardAccumulationTimelinePage runId={route.runId} symbol={route.symbol} chainStartDate={route.chainStartDate} chainEndDate={route.chainEndDate} onBack={closeTimeline} />}
+            {route === "forward-accumulation" && (
+              <ForwardAccumulationAnalysisPage onOpenTimeline={openTimeline} />
+            )}
+            {typeof route !== "string" && (
+              <ForwardAccumulationTimelinePage
+                runId={route.runId}
+                symbol={route.symbol}
+                chainStartDate={route.chainStartDate}
+                chainEndDate={route.chainEndDate}
+                onBack={closeTimeline}
+              />
+            )}
           </Layout.Content>
         </Layout>
       </Layout>

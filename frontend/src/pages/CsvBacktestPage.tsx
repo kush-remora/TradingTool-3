@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type Key } from "react";
 import { 
   Card, 
+  Checkbox,
   Space, 
   Upload, 
   Button, 
@@ -96,6 +97,7 @@ export function CsvBacktestPage() {
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<CsvBacktestResponse | null>(null);
   const [maximumV2RunPct, setMaximumV2RunPct] = useState<number | null>(null);
+  const [selectedSectors, setSelectedSectors] = useState<string[] | null>(null);
   
   const [form] = Form.useForm();
   const [type, setType] = useState<"FIXED" | "TRAILING">("FIXED");
@@ -187,6 +189,7 @@ export function CsvBacktestPage() {
     setError(null);
     setResponse(null);
     setMaximumV2RunPct(null);
+    setSelectedSectors(null);
 
     try {
       const filteredCsv = filterCsv(csvContent, values.filterMonths || [], values.filterMarketCaps || []);
@@ -290,7 +293,39 @@ export function CsvBacktestPage() {
       sorter: (a: any, b: any) => a.symbol.localeCompare(b.symbol) 
     },
     { title: "Market Cap", dataIndex: "marketCapName", key: "marketCapName", sorter: (a: any, b: any) => a.marketCapName.localeCompare(b.marketCapName) },
-    { title: "Sector", dataIndex: "sector", key: "sector", sorter: (a: any, b: any) => a.sector.localeCompare(b.sector) },
+    {
+      title: "Sector",
+      dataIndex: "sector",
+      key: "sector",
+      sorter: (a: any, b: any) => a.sector.localeCompare(b.sector),
+      filteredValue: selectedSectors,
+      filterDropdown: ({ selectedKeys, setSelectedKeys, confirm, clearFilters }: any) => {
+        const sectors = Array.from(new Set(response?.trades.map((trade) => trade.sector).filter(Boolean) ?? [])).sort();
+        const allSelected = selectedKeys.length === sectors.length;
+        return (
+          <div style={{ padding: 8, width: 260 }}>
+            <Checkbox
+              checked={allSelected}
+              indeterminate={selectedKeys.length > 0 && !allSelected}
+              onChange={(event) => setSelectedKeys(event.target.checked ? sectors : [])}
+            >
+              Select all sectors
+            </Checkbox>
+            <Checkbox.Group
+              options={sectors.map((sector) => ({ label: sector, value: sector }))}
+              value={selectedKeys}
+              onChange={(values) => setSelectedKeys(values)}
+              style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 240, margin: "12px 0", overflowY: "auto" }}
+            />
+            <Space>
+              <Button size="small" type="primary" onClick={() => confirm()}>Apply</Button>
+              <Button size="small" onClick={() => { clearFilters?.(); confirm(); }}>Reset</Button>
+            </Space>
+          </div>
+        );
+      },
+      onFilter: (value: boolean | Key, record: any) => record.sector === value,
+    },
     { title: "Signal Date", dataIndex: "signalDate", key: "signalDate", sorter: (a: any, b: any) => a.signalDate.localeCompare(b.signalDate) },
     { title: "Entry Rule", dataIndex: "entryStrategy", key: "entryStrategy" },
     { title: "Breakout Level", dataIndex: "breakoutLevel", key: "breakoutLevel", render: (val: number | null) => val ? `₹${formatNumber(val)}` : "-" },
@@ -346,8 +381,9 @@ export function CsvBacktestPage() {
   ];
 
   const displayedTrades = response?.trades.filter((trade) =>
-    maximumV2RunPct === null ||
-      (trade.v2MoveFromRecentBasePct !== null && trade.v2MoveFromRecentBasePct <= maximumV2RunPct),
+    (maximumV2RunPct === null ||
+      (trade.v2MoveFromRecentBasePct !== null && trade.v2MoveFromRecentBasePct <= maximumV2RunPct)) &&
+      (selectedSectors === null || selectedSectors.includes(trade.sector)),
   ) ?? [];
   const hasV2TradeMetrics = response?.trades.some((trade) => trade.v2MoveFromRecentBasePct !== null) ?? false;
 
@@ -521,6 +557,10 @@ export function CsvBacktestPage() {
                   dataSource={displayedTrades}
                   columns={tradesColumns} 
                   rowKey={(row) => `${row.symbol}-${row.signalDate}`} 
+                  onChange={(_pagination, filters) => {
+                    const sectors = filters.sector;
+                    setSelectedSectors(Array.isArray(sectors) ? sectors.map(String) : null);
+                  }}
                   pagination={{ pageSize: 100 }}
                   size="small"
                   scroll={{ x: 'max-content' }}

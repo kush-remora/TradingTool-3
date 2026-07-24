@@ -1,7 +1,9 @@
 package com.tradingtool.core.strategy.csvbacktest
 
 import com.tradingtool.core.candle.DailyCandle
+import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.database.CandleJdbiHandler
+import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.screener.CandleDataService
 import kotlinx.coroutines.Dispatchers
@@ -16,9 +18,11 @@ import java.time.format.DateTimeParseException
 import java.time.temporal.ChronoUnit
 
 class CsvBacktestService(
+    private val candleCacheService: CandleCacheService,
     private val candleHandler: CandleJdbiHandler,
     private val candleDataService: CandleDataService,
-    private val kiteClient: KiteConnectClient
+    private val kiteClient: KiteConnectClient,
+    private val instrumentCache: InstrumentCache,
 ) {
     private val log = LoggerFactory.getLogger(CsvBacktestService::class.java)
 
@@ -95,21 +99,20 @@ class CsvBacktestService(
         val today = LocalDate.now()
         val resolvedEntryStrategy = CsvBacktestEntryStrategy.from(entryStrategy)
 
-        // Sync candles for all symbols from the earliest signal date to today
-        candleDataService.syncDailyRange(
-            symbols = uniqueSymbols,
-            fromDate = minDate,
-            toDate = today,
-            kiteClient = kiteClient
-        )
+        val candlesBySymbol = mutableMapOf<String, List<DailyCandle>>()
+        for (symbol in uniqueSymbols) {
+            candlesBySymbol[symbol] = loadCandles(symbol, minDate, today)
+        }
 
         val trades = mutableListOf<CsvBacktestTradeResult>()
         var validatedSignalCount = 0
 
         for (signal in signals) {
-            val candles = candleHandler.read { dao ->
-                dao.getDailyCandlesBySymbol(signal.symbol, signal.date.minusDays(if (applyV2Validation) 450 else 90), today)
-            }.distinctBy { it.candleDate }.sortedBy { it.candleDate }
+            val signalStartDate = signal.date.minusDays(if (applyV2Validation) 450 else 90)
+            val candles = candlesBySymbol[signal.symbol].orEmpty()
+                .filter { candle -> !candle.candleDate.isBefore(signalStartDate) }
+                .distinctBy(DailyCandle::candleDate)
+                .sortedBy(DailyCandle::candleDate)
 
             val validation = if (applyV2Validation) {
                 CsvBacktestV2Validator.validate(candles, signal.date, maxCloseToCloseGainPct)
@@ -278,5 +281,30 @@ class CsvBacktestService(
             inputSignalCount = signals.size,
             validatedSignalCount = if (applyV2Validation) validatedSignalCount else signals.size,
         )
+    }
+
+    private suspend fun loadCandles(symbol: String, fromDate: LocalDate, toDate: LocalDate): List<DailyCandle> {
+        val instrumentToken = instrumentCache.token("NSE", symbol)
+        var candles = if (instrumentToken == null) {
+            candleHandler.read { dao -> dao.getDailyCandlesBySymbol(symbol, fromDate, toDate) }
+        } else {
+            candleCacheService.getDailyCandles(instrumentToken, symbol, fromDate, toDate)
+        }.sortedBy(DailyCandle::candleDate)
+        val rangeStartsTooLate = candles.firstOrNull()?.candleDate?.isAfter(fromDate.plusDays(MAX_INITIAL_GAP_DAYS)) == true
+        val latestGapDays = candles.lastOrNull()?.candleDate?.let { date -> ChronoUnit.DAYS.between(date, toDate) } ?: Long.MAX_VALUE
+        if (candles.isEmpty() || rangeStartsTooLate || latestGapDays > MAX_ALLOWED_LATEST_GAP_DAYS) {
+            candleDataService.syncDailyRange(listOf(symbol), fromDate, toDate, kiteClient)
+            candleCacheService.invalidateDailyCandles(symbol)
+            candles = instrumentCache.token("NSE", symbol)?.let { token ->
+                candleCacheService.getDailyCandles(token, symbol, fromDate, toDate)
+            } ?: candleHandler.read { dao -> dao.getDailyCandlesBySymbol(symbol, fromDate, toDate) }
+            candles = candles.sortedBy(DailyCandle::candleDate)
+        }
+        return candles
+    }
+
+    private companion object {
+        const val MAX_INITIAL_GAP_DAYS = 7L
+        const val MAX_ALLOWED_LATEST_GAP_DAYS = 3L
     }
 }

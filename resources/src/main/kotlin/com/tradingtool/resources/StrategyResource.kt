@@ -23,6 +23,8 @@ import com.tradingtool.core.strategy.weeklyfloor.WeeklyFloorReboundService
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionRequest
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionRunConfig
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionService
+import com.tradingtool.core.strategy.weeklybase.WeeklyBaseGroupBacktestRequest
+import com.tradingtool.core.strategy.weeklybase.WeeklyBaseGroupBacktestService
 import com.tradingtool.resources.common.badRequest
 import com.tradingtool.resources.common.endpoint
 import com.tradingtool.resources.common.notFound
@@ -56,6 +58,7 @@ class StrategyResource @Inject constructor(
     private val accumulationAnalysisService: AccumulationAnalysisService,
     private val weeklyFloorReboundService: WeeklyFloorReboundService,
     private val weeklyBaseDefinitionService: WeeklyBaseDefinitionService,
+    private val weeklyBaseGroupBacktestService: WeeklyBaseGroupBacktestService,
 ) {
     private val ioScope = resourceScope.ioScope
 
@@ -322,6 +325,20 @@ class StrategyResource @Inject constructor(
             ok(weeklyBaseDefinitionService.run(WeeklyBaseDefinitionRunConfig(body.symbol, LocalDate.now())))
         } catch (error: IllegalArgumentException) {
             badRequest(error.message ?: "Invalid weekly base definition request.")
+        }
+    }
+
+    @POST
+    @Path("/weekly-base-group-backtest/run")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runWeeklyBaseGroupBacktest(
+        request: WeeklyBaseGroupBacktestRequest?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        try {
+            ok(weeklyBaseGroupBacktestService.run(body))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid weekly base group backtest request.")
         }
     }
 
