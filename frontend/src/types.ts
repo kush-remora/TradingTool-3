@@ -69,6 +69,52 @@ export interface InstrumentSearchResult {
   instrument_type: string;
 }
 
+// ==================== Weekly Floor Rebound Backtest ====================
+
+export interface WeeklyFloorReboundRequest {
+  symbol: string;
+}
+
+export interface WeeklyFloorReboundRow {
+  setupDate: string;
+  outcome: string;
+  eligibilityReason: string | null;
+  baseFloor: number | null;
+  entryDate: string | null;
+  entryPrice: number | null;
+  stopPrice: number | null;
+  targetPrice: number | null;
+  exitDate: string | null;
+  exitPrice: number | null;
+  returnPct: number | null;
+  gapEntry: boolean;
+  gapStop: boolean;
+  exitWasAmbiguous: boolean;
+}
+
+export interface WeeklyFloorReboundSummary {
+  reviewedWeeks: number;
+  eligibleSetups: number;
+  filledTrades: number;
+  noEntryCount: number;
+  targetHitCount: number;
+  stopLossCount: number;
+  fridayExitCount: number;
+  winRatePct: number | null;
+  averageReturnPct: number | null;
+  expectancyPct: number | null;
+  profitFactor: number | null;
+  maxDrawdownPct: number | null;
+}
+
+export interface WeeklyFloorReboundReport {
+  symbol: string;
+  testedFromDate: string;
+  testedToDate: string;
+  summary: WeeklyFloorReboundSummary;
+  trades: WeeklyFloorReboundRow[];
+}
+
 // ==================== Trades ====================
 
 export interface GttTarget {

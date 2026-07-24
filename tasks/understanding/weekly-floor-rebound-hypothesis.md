@@ -59,3 +59,9 @@ If the price-only hypothesis is positive, add evidence in this order:
 ## Decision and Next Step
 
 Use this as a narrow falsifiable test rather than assuming 5% is repeatable. The next task is to select one stock and its historical period, then build a daily-OHLC backtest with the above execution rules. NETWEB is a sensible first candidate because an existing Monday-bounce research thread already covers it, but it should be used only if Kush confirms it is the intended stock.
+
+## Implementation Outcome — 2026-07-24
+
+V1 is implemented as a reusable Kotlin backtest engine, an on-demand API at `POST /api/strategy/weekly-floor-rebound/backtest`, and a frontend page named **Weekly Floor Rebound**. NETWEB is the UI default, but the existing Kite instrument search permits selection of any NSE equity. The engine evaluates the most recent 200 completed trading sessions and reads older candles only for the 252-session context filter.
+
+The implementation reports every completed week, including ineligible and no-entry weeks, rather than presenting only trades. It excludes an unfinished current week, uses a conservative stop-first decision when daily OHLC reaches both stop and target, and exits a valid unresolved trade at the final trading close of that week. Gross-return-only reporting remains intentional for V1.

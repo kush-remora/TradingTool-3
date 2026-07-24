@@ -301,15 +301,22 @@ class AccumulationShapeEngine(private val config: AccumulationShapeConfig = Accu
 }
 
 object AccumulationShapeConfigLoader {
+    private const val RESOURCE_NAME = "accumulation_analysis_config.json"
     private val mapper = jacksonObjectMapper().findAndRegisterModules()
     private val paths = listOf(
-        Path.of("config", "accumulation_analysis_config.json"),
-        Path.of("..", "config", "accumulation_analysis_config.json"),
+        Path.of("config", RESOURCE_NAME),
+        Path.of("..", "config", RESOURCE_NAME),
     )
 
-    fun load(): AccumulationShapeConfig {
-        val path = paths.firstOrNull(Files::exists)
-            ?: error("Missing accumulation_analysis_config.json.")
-        return mapper.readValue(path.toFile(), AccumulationShapeConfig::class.java)
+    fun load(filePaths: List<Path> = paths): AccumulationShapeConfig {
+        val path = filePaths.firstOrNull(Files::exists)
+        if (path != null) {
+            return mapper.readValue(path.toFile(), AccumulationShapeConfig::class.java)
+        }
+
+        val resource = requireNotNull(AccumulationShapeConfigLoader::class.java.classLoader.getResourceAsStream(RESOURCE_NAME)) {
+            "Missing $RESOURCE_NAME from both the local config directory and the application classpath."
+        }
+        return resource.use { mapper.readValue(it, AccumulationShapeConfig::class.java) }
     }
 }

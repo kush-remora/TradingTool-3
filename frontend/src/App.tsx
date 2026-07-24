@@ -17,6 +17,7 @@ import { BacktestReviewsPage } from "./pages/BacktestReviewsPage";
 import { ChartinkEvidencePage } from "./pages/ChartinkEvidencePage";
 import { ForwardAccumulationAnalysisPage } from "./pages/ForwardAccumulationAnalysisPage";
 import { ForwardAccumulationTimelinePage } from "./pages/ForwardAccumulationTimelinePage";
+import { WeeklyFloorReboundPage } from "./pages/WeeklyFloorReboundPage";
 import type { AccumulationCaseSnapshot } from "./types";
 
 type V1PageKey =
@@ -32,7 +33,8 @@ type V1PageKey =
   | "csv-backtest"
   | "backtest-reviews"
   | "chartink-evidence"
-  | "forward-accumulation";
+  | "forward-accumulation"
+  | "weekly-floor-rebound";
 
 type PageKey = V1PageKey;
 
@@ -52,6 +54,7 @@ const menuItems: MenuProps["items"] = [
   { key: "hot-sma", label: "SMA Buy Zone", icon: <HeatMapOutlined /> },
   { key: "chartink-52w", label: "Chartink 52W Backtest", icon: <LineChartOutlined /> },
   { key: "trailing-stop", label: "Trailing Stop Backtest", icon: <LineChartOutlined /> },
+  { key: "weekly-floor-rebound", label: "Weekly Floor Rebound", icon: <LineChartOutlined /> },
   { key: "52w-momentum-rule5", label: "52W Momentum Rule 5", icon: <LineChartOutlined /> },
   { key: "csv-backtest", label: "CSV Backtest Tool", icon: <LineChartOutlined /> },
   { key: "backtest-reviews", label: "Saved Backtest Reviews", icon: <BookOutlined /> },
@@ -71,6 +74,7 @@ const validPages: PageKey[] = [
   "phase-d",
   "chartink-52w",
   "trailing-stop",
+  "weekly-floor-rebound",
   "52w-momentum-rule5",
   "csv-backtest",
   "backtest-reviews",
@@ -187,6 +191,7 @@ export default function App() {
             { route === "phase-d" && <PhaseDScannerPage /> }
             {route === "chartink-52w" && <ChartinkFiftyTwoWeekHighPage />}
             {route === "trailing-stop" && <TrailingStopBacktestPage />}
+            {route === "weekly-floor-rebound" && <WeeklyFloorReboundPage />}
             {route === "52w-momentum-rule5" && <FiftyTwoWeekMomentumRule5Page />}
             {route === "csv-backtest" && <CsvBacktestPage />}
             {route === "backtest-reviews" && <BacktestReviewsPage />}

@@ -17,6 +17,9 @@ import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceService
 import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceUploadRequest
 import com.tradingtool.core.strategy.accumulationanalysis.AccumulationAnalysisRunRequest
 import com.tradingtool.core.strategy.accumulationanalysis.AccumulationAnalysisService
+import com.tradingtool.core.strategy.weeklyfloor.WeeklyFloorReboundRequest
+import com.tradingtool.core.strategy.weeklyfloor.WeeklyFloorReboundRunConfig
+import com.tradingtool.core.strategy.weeklyfloor.WeeklyFloorReboundService
 import com.tradingtool.resources.common.badRequest
 import com.tradingtool.resources.common.endpoint
 import com.tradingtool.resources.common.notFound
@@ -48,6 +51,7 @@ class StrategyResource @Inject constructor(
     private val backtestTradeReviewService: com.tradingtool.core.strategy.csvbacktest.BacktestTradeReviewService,
     private val chartinkEvidenceService: ChartinkEvidenceService,
     private val accumulationAnalysisService: AccumulationAnalysisService,
+    private val weeklyFloorReboundService: WeeklyFloorReboundService,
 ) {
     private val ioScope = resourceScope.ioScope
 
@@ -277,6 +281,27 @@ class StrategyResource @Inject constructor(
         val body = request ?: return@endpoint badRequest("Request body is required.")
         val report = fiftyTwoWeekMomentumRule5Service.runRule5Analysis(body.csvContent)
         ok(report)
+    }
+
+    @POST
+    @Path("/weekly-floor-rebound/backtest")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runWeeklyFloorReboundBacktest(
+        request: WeeklyFloorReboundRequest?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        try {
+            ok(
+                weeklyFloorReboundService.run(
+                    WeeklyFloorReboundRunConfig(
+                        symbol = body.symbol,
+                        toDate = LocalDate.now(),
+                    ),
+                ),
+            )
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid weekly floor rebound request.")
+        }
     }
 
     @POST
