@@ -20,12 +20,24 @@ vi.mock("../components/InstrumentSearch", () => ({
 }));
 
 describe("WeeklyFloorReboundPage", () => {
-  it("runs NETWEB by default", () => {
+  function completeManualZone(): void {
+    fireEvent.change(screen.getByPlaceholderText("Support floor"), { target: { value: "3015" } });
+    fireEvent.change(screen.getByPlaceholderText("Support ceiling"), { target: { value: "3080" } });
+    fireEvent.change(screen.getByPlaceholderText("Active from (YYYY-MM-DD)"), { target: { value: "2025-10-10" } });
+  }
+
+  it("runs NETWEB by default with the manual zone", () => {
     render(<WeeklyFloorReboundPage />);
+    completeManualZone();
 
     fireEvent.click(screen.getByRole("button", { name: /run netweb backtest/i }));
 
-    expect(runMock).toHaveBeenCalledWith({ symbol: "NETWEB" });
+    expect(runMock).toHaveBeenCalledWith({
+      symbol: "NETWEB",
+      supportFloor: 3015,
+      supportCeiling: 3080,
+      activeFrom: "2025-10-10",
+    });
   });
 
   it("runs the symbol selected from the instrument search", () => {
@@ -33,8 +45,9 @@ describe("WeeklyFloorReboundPage", () => {
     render(<WeeklyFloorReboundPage />);
 
     fireEvent.click(screen.getByRole("button", { name: /select instrument/i }));
+    completeManualZone();
     fireEvent.click(screen.getByRole("button", { name: /run infy backtest/i }));
 
-    expect(runMock).toHaveBeenCalledWith({ symbol: "INFY" });
+    expect(runMock).toHaveBeenCalledWith(expect.objectContaining({ symbol: "INFY" }));
   });
 });

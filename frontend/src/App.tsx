@@ -18,6 +18,7 @@ import { ChartinkEvidencePage } from "./pages/ChartinkEvidencePage";
 import { ForwardAccumulationAnalysisPage } from "./pages/ForwardAccumulationAnalysisPage";
 import { ForwardAccumulationTimelinePage } from "./pages/ForwardAccumulationTimelinePage";
 import { WeeklyFloorReboundPage } from "./pages/WeeklyFloorReboundPage";
+import { WeeklyBaseDefinitionPage } from "./pages/WeeklyBaseDefinitionPage";
 import type { AccumulationCaseSnapshot } from "./types";
 
 type V1PageKey =
@@ -34,7 +35,8 @@ type V1PageKey =
   | "backtest-reviews"
   | "chartink-evidence"
   | "forward-accumulation"
-  | "weekly-floor-rebound";
+  | "weekly-floor-rebound"
+  | "weekly-base-definition";
 
 type PageKey = V1PageKey;
 
@@ -55,6 +57,7 @@ const menuItems: MenuProps["items"] = [
   { key: "chartink-52w", label: "Chartink 52W Backtest", icon: <LineChartOutlined /> },
   { key: "trailing-stop", label: "Trailing Stop Backtest", icon: <LineChartOutlined /> },
   { key: "weekly-floor-rebound", label: "Weekly Floor Rebound", icon: <LineChartOutlined /> },
+  { key: "weekly-base-definition", label: "Weekly Base Definition", icon: <LineChartOutlined /> },
   { key: "52w-momentum-rule5", label: "52W Momentum Rule 5", icon: <LineChartOutlined /> },
   { key: "csv-backtest", label: "CSV Backtest Tool", icon: <LineChartOutlined /> },
   { key: "backtest-reviews", label: "Saved Backtest Reviews", icon: <BookOutlined /> },
@@ -75,6 +78,7 @@ const validPages: PageKey[] = [
   "chartink-52w",
   "trailing-stop",
   "weekly-floor-rebound",
+  "weekly-base-definition",
   "52w-momentum-rule5",
   "csv-backtest",
   "backtest-reviews",
@@ -192,6 +196,7 @@ export default function App() {
             {route === "chartink-52w" && <ChartinkFiftyTwoWeekHighPage />}
             {route === "trailing-stop" && <TrailingStopBacktestPage />}
             {route === "weekly-floor-rebound" && <WeeklyFloorReboundPage />}
+            {route === "weekly-base-definition" && <WeeklyBaseDefinitionPage />}
             {route === "52w-momentum-rule5" && <FiftyTwoWeekMomentumRule5Page />}
             {route === "csv-backtest" && <CsvBacktestPage />}
             {route === "backtest-reviews" && <BacktestReviewsPage />}

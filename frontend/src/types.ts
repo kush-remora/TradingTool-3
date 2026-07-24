@@ -73,38 +73,37 @@ export interface InstrumentSearchResult {
 
 export interface WeeklyFloorReboundRequest {
   symbol: string;
+  supportFloor: number;
+  supportCeiling: number;
+  activeFrom: string;
 }
 
 export interface WeeklyFloorReboundRow {
-  setupDate: string;
+  zoneId: number;
+  zoneCreatedDate: string;
+  zoneFloor: number;
+  zoneCeiling: number;
   outcome: string;
-  eligibilityReason: string | null;
-  baseFloor: number | null;
+  testDate: string | null;
+  testLow: number | null;
   entryDate: string | null;
   entryPrice: number | null;
   stopPrice: number | null;
   targetPrice: number | null;
   exitDate: string | null;
   exitPrice: number | null;
+  holdingTradingDays: number | null;
   returnPct: number | null;
-  gapEntry: boolean;
   gapStop: boolean;
   exitWasAmbiguous: boolean;
 }
 
 export interface WeeklyFloorReboundSummary {
-  reviewedWeeks: number;
-  eligibleSetups: number;
+  zonesCreated: number;
   filledTrades: number;
-  noEntryCount: number;
   targetHitCount: number;
   stopLossCount: number;
   fridayExitCount: number;
-  winRatePct: number | null;
-  averageReturnPct: number | null;
-  expectancyPct: number | null;
-  profitFactor: number | null;
-  maxDrawdownPct: number | null;
 }
 
 export interface WeeklyFloorReboundReport {
@@ -113,6 +112,49 @@ export interface WeeklyFloorReboundReport {
   testedToDate: string;
   summary: WeeklyFloorReboundSummary;
   trades: WeeklyFloorReboundRow[];
+  dailyData: WeeklyFloorReboundDailyRow[];
+}
+
+export interface WeeklyFloorReboundDailyRow {
+  date: string;
+  low: number;
+  high: number;
+  baseFloor: number | null;
+  baseCeiling: number | null;
+  baseWidthPct: number | null;
+  reboundTrigger: number | null;
+  targetPrice: number | null;
+  decision: string;
+}
+
+export interface WeeklyBaseDefinitionRequest {
+  symbol: string;
+}
+
+export interface WeeklyBaseDefinitionRow {
+  evaluationDate: string;
+  firstWeekStartDate: string;
+  firstWeekLow: number;
+  secondWeekStartDate: string;
+  secondWeekLow: number;
+  thirdWeekStartDate: string;
+  thirdWeekLow: number;
+  zoneFloor: number;
+  zoneCeiling: number;
+  zoneWidthPct: number;
+  sma200: number;
+  distanceFromSma200Pct: number;
+  isWithinSma200Range: boolean;
+  isValid: boolean;
+  validityReason: string;
+}
+
+export interface WeeklyBaseDefinitionReport {
+  symbol: string;
+  testedFromDate: string;
+  testedToDate: string;
+  validBaseCount: number;
+  rows: WeeklyBaseDefinitionRow[];
 }
 
 // ==================== Trades ====================

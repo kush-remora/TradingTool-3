@@ -65,3 +65,18 @@ Use this as a narrow falsifiable test rather than assuming 5% is repeatable. The
 V1 is implemented as a reusable Kotlin backtest engine, an on-demand API at `POST /api/strategy/weekly-floor-rebound/backtest`, and a frontend page named **Weekly Floor Rebound**. NETWEB is the UI default, but the existing Kite instrument search permits selection of any NSE equity. The engine evaluates the most recent 200 completed trading sessions and reads older candles only for the 252-session context filter.
 
 The implementation reports every completed week, including ineligible and no-entry weeks, rather than presenting only trades. It excludes an unfinished current week, uses a conservative stop-first decision when daily OHLC reaches both stop and target, and exits a valid unresolved trade at the final trading close of that week. Gross-return-only reporting remains intentional for V1.
+
+## Zone-Ledger Override
+
+The rolling weekly-floor rule is superseded by a frozen support-zone ledger. A qualifying three-week base creates one zone with a fixed floor and ceiling; overlapping later bases reinforce that same zone instead of moving it. A materially separate base becomes a second zone. Each zone is actionable for eight weeks, then remains historical context.
+
+When price later enters a watching zone, the test low is recorded. Entry is only on a 1% rebound from that actual low; it does not need to clear the zone ceiling. A low below the zone floor invalidates that zone. This replaces the prior immediate Monday-entry logic.
+
+## Daily-Replay Override
+
+The zone ledger is superseded by the simpler daily replay. For every trading day, use the preceding 15 trading sessions as three consecutive five-session blocks. Their three block lows define the base; it is valid only when the difference between the highest and lowest block low is at most 2%. If today's low lies inside that range, its 1% rebound trigger is evaluated on that same day. A filled trade holds until its fixed +5% target, or remains open at the end of available data. There is no Monday bias and no Friday exit.
+
+The daily replay uses an explicit optimistic sequencing assumption: a qualifying candle reaches its low before its high. Therefore, when the day's high reaches `low × 1.01`, entry occurs on that same day at the exact trigger; if its high also reaches the +5% target, the target is treated as hit that same day.
+## Current implementation: manual frozen zone
+
+The latest agreed experiment does not auto-create support zones. The user supplies one fixed floor, ceiling, and activation date. The engine evaluates every following daily candle. When its low is within the zone, it places a same-day entry at `low × 1.01`; the target is `entry × 1.05`. Daily OHLC is treated as low before high. There is no stop loss or Friday exit; an unclosed trade remains open. The audit must show every post-activation day and its decision.

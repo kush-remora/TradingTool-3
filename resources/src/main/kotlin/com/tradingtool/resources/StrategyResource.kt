@@ -20,6 +20,9 @@ import com.tradingtool.core.strategy.accumulationanalysis.AccumulationAnalysisSe
 import com.tradingtool.core.strategy.weeklyfloor.WeeklyFloorReboundRequest
 import com.tradingtool.core.strategy.weeklyfloor.WeeklyFloorReboundRunConfig
 import com.tradingtool.core.strategy.weeklyfloor.WeeklyFloorReboundService
+import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionRequest
+import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionRunConfig
+import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionService
 import com.tradingtool.resources.common.badRequest
 import com.tradingtool.resources.common.endpoint
 import com.tradingtool.resources.common.notFound
@@ -52,6 +55,7 @@ class StrategyResource @Inject constructor(
     private val chartinkEvidenceService: ChartinkEvidenceService,
     private val accumulationAnalysisService: AccumulationAnalysisService,
     private val weeklyFloorReboundService: WeeklyFloorReboundService,
+    private val weeklyBaseDefinitionService: WeeklyBaseDefinitionService,
 ) {
     private val ioScope = resourceScope.ioScope
 
@@ -296,11 +300,28 @@ class StrategyResource @Inject constructor(
                     WeeklyFloorReboundRunConfig(
                         symbol = body.symbol,
                         toDate = LocalDate.now(),
+                        supportFloor = body.supportFloor ?: return@endpoint badRequest("supportFloor is required."),
+                        supportCeiling = body.supportCeiling ?: return@endpoint badRequest("supportCeiling is required."),
+                        activeFrom = body.activeFrom?.let(LocalDate::parse) ?: return@endpoint badRequest("activeFrom is required."),
                     ),
                 ),
             )
         } catch (error: IllegalArgumentException) {
             badRequest(error.message ?: "Invalid weekly floor rebound request.")
+        }
+    }
+
+    @POST
+    @Path("/weekly-base-definition/run")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runWeeklyBaseDefinition(
+        request: WeeklyBaseDefinitionRequest?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        try {
+            ok(weeklyBaseDefinitionService.run(WeeklyBaseDefinitionRunConfig(body.symbol, LocalDate.now())))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid weekly base definition request.")
         }
     }
 

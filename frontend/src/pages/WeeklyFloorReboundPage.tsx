@@ -1,10 +1,10 @@
-import { Alert, Button, Card, Col, Row, Space, Spin, Statistic, Table, Typography } from "antd";
+import { Alert, Button, Card, Col, Input, InputNumber, Row, Space, Spin, Statistic, Table, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useMemo, useState } from "react";
 import { InstrumentSearch } from "../components/InstrumentSearch";
 import { useInstrumentSearch } from "../hooks/useInstrumentSearch";
 import { useWeeklyFloorReboundBacktest } from "../hooks/useWeeklyFloorReboundBacktest";
-import type { InstrumentSearchResult, WeeklyFloorReboundRow } from "../types";
+import type { InstrumentSearchResult, WeeklyFloorReboundDailyRow, WeeklyFloorReboundRow } from "../types";
 
 const { Text, Title } = Typography;
 
@@ -24,6 +24,9 @@ function outcomeColor(outcome: string): string {
 
 export function WeeklyFloorReboundPage() {
   const [selectedInstrument, setSelectedInstrument] = useState<InstrumentSearchResult | null>(null);
+  const [supportFloor, setSupportFloor] = useState<number | null>(null);
+  const [supportCeiling, setSupportCeiling] = useState<number | null>(null);
+  const [activeFrom, setActiveFrom] = useState("");
   const { allInstruments, loading: instrumentsLoading, error: instrumentsError } = useInstrumentSearch();
   const { data, loading, error, run } = useWeeklyFloorReboundBacktest();
   const symbol = selectedInstrument?.trading_symbol ?? "NETWEB";
@@ -33,15 +36,26 @@ export function WeeklyFloorReboundPage() {
   );
 
   const columns: ColumnsType<WeeklyFloorReboundRow> = [
-    { title: "Setup", dataIndex: "setupDate", key: "setupDate" },
+    { title: "Zone", dataIndex: "zoneId", key: "zoneId" },
+    { title: "Active from", dataIndex: "zoneCreatedDate", key: "zoneCreatedDate" },
     { title: "Outcome", dataIndex: "outcome", key: "outcome", render: (outcome: string) => <Text style={{ color: outcomeColor(outcome) }}>{outcome}</Text> },
-    { title: "Reason", dataIndex: "eligibilityReason", key: "eligibilityReason", render: (value: string | null) => value ?? "-" },
-    { title: "Floor", dataIndex: "baseFloor", key: "baseFloor", render: (value: number | null) => formatNumber(value) },
+    { title: "Support zone", key: "zone", render: (_, row) => `₹${formatNumber(row.zoneFloor)} – ₹${formatNumber(row.zoneCeiling)}` },
+    { title: "Test", key: "test", render: (_, row) => row.testDate == null ? "-" : `${row.testDate} @ ₹${formatNumber(row.testLow)}` },
     { title: "Entry", key: "entry", render: (_, row) => row.entryDate == null ? "-" : `${row.entryDate} @ ₹${formatNumber(row.entryPrice)}` },
-    { title: "Stop / Target", key: "risk", render: (_, row) => row.stopPrice == null ? "-" : `₹${formatNumber(row.stopPrice)} / ₹${formatNumber(row.targetPrice)}` },
+    { title: "Target", dataIndex: "targetPrice", key: "targetPrice", render: formatNumber },
     { title: "Exit", key: "exit", render: (_, row) => row.exitDate == null ? "-" : `${row.exitDate} @ ₹${formatNumber(row.exitPrice)}` },
+    { title: "Hold (trading days)", dataIndex: "holdingTradingDays", key: "holdingTradingDays", render: (value: number | null) => value ?? "Open" },
     { title: "Return", dataIndex: "returnPct", key: "returnPct", render: (value: number | null) => <Text style={{ color: value != null && value < 0 ? "#cf1322" : "#389e0d" }}>{formatPercent(value)}</Text> },
-    { title: "Flags", key: "flags", render: (_, row) => [row.gapEntry && "Gap entry", row.gapStop && "Gap stop", row.exitWasAmbiguous && "Ambiguous"].filter(Boolean).join(", ") || "-" },
+    { title: "Flags", key: "flags", render: (_, row) => [row.gapStop && "Gap stop", row.exitWasAmbiguous && "Ambiguous"].filter(Boolean).join(", ") || "-" },
+  ];
+  const dailyColumns: ColumnsType<WeeklyFloorReboundDailyRow> = [
+    { title: "Date", dataIndex: "date", key: "date" },
+    { title: "Low", dataIndex: "low", key: "low", render: formatNumber },
+    { title: "High", dataIndex: "high", key: "high", render: formatNumber },
+    { title: "Manual zone", key: "base", render: (_, row) => row.baseFloor == null ? "-" : `₹${formatNumber(row.baseFloor)} – ₹${formatNumber(row.baseCeiling)} (${formatPercent(row.baseWidthPct)})` },
+    { title: "1% rebound", dataIndex: "reboundTrigger", key: "reboundTrigger", render: formatNumber },
+    { title: "5% target", dataIndex: "targetPrice", key: "targetPrice", render: formatNumber },
+    { title: "Decision", dataIndex: "decision", key: "decision" },
   ];
 
   return (
@@ -50,12 +64,17 @@ export function WeeklyFloorReboundPage() {
         <Card>
           <Space direction="vertical" size={12} style={{ width: "100%" }}>
             <Title level={3} style={{ margin: 0 }}>Weekly Floor Rebound Backtest</Title>
-            <Text type="secondary">Tests the latest 200 trading sessions. Default: NETWEB. Gross returns only; this is a price-structure experiment, not an accumulation verdict.</Text>
+            <Text type="secondary">You define one frozen support zone. The backtest only executes same-day 1% rebound trades with a 5% target.</Text>
             <div style={{ maxWidth: 420 }}>
               {instrumentsLoading ? <Spin size="small" /> : <InstrumentSearch instruments={nseEquities} value={selectedInstrument} onSelect={setSelectedInstrument} placeholder="NETWEB (default) or search an NSE equity" />}
               {instrumentsError && <Text type="danger">{instrumentsError}</Text>}
             </div>
-            <Button type="primary" onClick={() => void run({ symbol })} loading={loading}>Run {symbol} Backtest</Button>
+            <Space wrap>
+              <InputNumber placeholder="Support floor" value={supportFloor} onChange={setSupportFloor} min={0.01} />
+              <InputNumber placeholder="Support ceiling" value={supportCeiling} onChange={setSupportCeiling} min={0.01} />
+              <Input placeholder="Active from (YYYY-MM-DD)" value={activeFrom} onChange={(event) => setActiveFrom(event.target.value)} />
+            </Space>
+            <Button type="primary" onClick={() => supportFloor != null && supportCeiling != null && void run({ symbol, supportFloor, supportCeiling, activeFrom })} loading={loading} disabled={supportFloor == null || supportCeiling == null || activeFrom === ""}>Run {symbol} Backtest</Button>
           </Space>
         </Card>
 
@@ -64,19 +83,16 @@ export function WeeklyFloorReboundPage() {
         {data && <>
           <Card title={`${data.symbol}: ${data.testedFromDate} to ${data.testedToDate}`}>
             <Row gutter={[12, 12]}>
-              <Metric title="Reviewed weeks" value={data.summary.reviewedWeeks} />
-              <Metric title="Eligible / filled" value={`${data.summary.eligibleSetups} / ${data.summary.filledTrades}`} />
-              <Metric title="Targets / stops" value={`${data.summary.targetHitCount} / ${data.summary.stopLossCount}`} />
-              <Metric title="Friday exits" value={data.summary.fridayExitCount} />
-              <Metric title="Win rate" value={data.summary.winRatePct} suffix="%" />
-              <Metric title="Average return" value={data.summary.averageReturnPct} suffix="%" />
-              <Metric title="Expectancy" value={data.summary.expectancyPct} suffix="%" />
-              <Metric title="Profit factor" value={data.summary.profitFactor} />
-              <Metric title="Max drawdown" value={data.summary.maxDrawdownPct} suffix="%" />
+              <Metric title="Trade signals" value={data.summary.zonesCreated} />
+              <Metric title="Filled trades" value={data.summary.filledTrades} />
+              <Metric title="5% targets hit" value={data.summary.targetHitCount} />
             </Row>
           </Card>
           <Card title="Weekly audit trail">
-            <Table rowKey={(row) => row.setupDate} columns={columns} dataSource={data.trades} pagination={{ pageSize: 20 }} scroll={{ x: true }} size="small" />
+            <Table rowKey={(row) => row.zoneId} columns={columns} dataSource={data.trades} pagination={{ pageSize: 20 }} scroll={{ x: true }} size="small" />
+          </Card>
+          <Card title="Daily validation data">
+            <Table rowKey={(row) => row.date} columns={dailyColumns} dataSource={data.dailyData} pagination={{ pageSize: 30 }} scroll={{ x: true }} size="small" />
           </Card>
         </>}
       </Space>

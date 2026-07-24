@@ -1,4 +1,4 @@
-package com.tradingtool.core.strategy.weeklyfloor
+package com.tradingtool.core.strategy.weeklybase
 
 import com.google.inject.Inject
 import com.google.inject.Singleton
@@ -11,23 +11,21 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 @Singleton
-class WeeklyFloorReboundService @Inject constructor(
+class WeeklyBaseDefinitionService @Inject constructor(
     private val candleCacheService: CandleCacheService,
     private val candleDataService: CandleDataService,
     private val instrumentCache: InstrumentCache,
     private val kiteClient: KiteConnectClient,
-    private val engine: WeeklyFloorReboundEngine,
+    private val engine: WeeklyBaseDefinitionEngine,
+    private val configService: WeeklyBaseDefinitionConfigService,
 ) {
-    suspend fun run(config: WeeklyFloorReboundRunConfig): WeeklyFloorReboundReport {
+    suspend fun run(config: WeeklyBaseDefinitionRunConfig): WeeklyBaseDefinitionReport {
         val symbol = config.symbol.trim().uppercase()
         require(symbol.isNotBlank()) { "symbol is required." }
-        require(config.supportFloor > 0) { "supportFloor must be greater than zero." }
-        require(config.supportCeiling >= config.supportFloor) { "supportCeiling must be at least supportFloor." }
         val instrument = instrumentCache.find("NSE", symbol)
             ?.takeIf { candidate -> candidate.instrument_type == "EQ" }
             ?: throw IllegalArgumentException("Unknown NSE equity symbol: $symbol")
-        val candles = loadCandles(symbol, instrument.instrument_token, config.toDate)
-        return engine.run(symbol, candles, config.supportFloor, config.supportCeiling, config.activeFrom)
+        return engine.run(symbol, loadCandles(symbol, instrument.instrument_token, config.toDate), configService.loadConfig())
     }
 
     private suspend fun loadCandles(symbol: String, instrumentToken: Long, toDate: LocalDate): List<DailyCandle> {
@@ -44,8 +42,8 @@ class WeeklyFloorReboundService @Inject constructor(
         return candles
     }
 
-    companion object {
-        private const val HISTORY_CALENDAR_DAYS = 800L
-        private const val MAX_ALLOWED_LATEST_GAP_DAYS = 3L
+    private companion object {
+        const val HISTORY_CALENDAR_DAYS = 800L
+        const val MAX_ALLOWED_LATEST_GAP_DAYS = 3L
     }
 }

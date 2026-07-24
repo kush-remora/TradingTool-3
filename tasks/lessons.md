@@ -67,3 +67,8 @@
 
 - When extending JSONB-backed snapshots, treat absent, blank, or malformed legacy optional values as empty data at the read boundary; never let one old row fail an entire dashboard response.
 - Before changing trading classification logic, trace it to the governing HLD and source strategy document. Do not substitute a nearby experiment's screening conditions for the documented backend shape algorithm.
+
+## 2026-07-24
+
+- When a user separates base discovery from trade execution, implement and label them as independent workflows. Do not carry entry, target, stop, or manual-zone assumptions into the base-definition calculation.
+- For a three-week base, use exactly one low from each completed week; never substitute a rolling daily-low range or include the evaluation week in its own support calculation.
