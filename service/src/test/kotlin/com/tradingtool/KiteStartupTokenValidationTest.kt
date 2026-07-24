@@ -27,5 +27,5 @@ class KiteStartupTokenValidationTest {
         assertEquals(1, validationCount)
     }
 
-   
+
 }
