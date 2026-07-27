@@ -7,6 +7,7 @@ import org.jdbi.v3.core.mapper.RowMapper
 import org.jdbi.v3.core.statement.StatementContext
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper
 import org.jdbi.v3.sqlobject.customizer.Bind
+import org.jdbi.v3.sqlobject.customizer.BindList
 import org.jdbi.v3.sqlobject.statement.SqlQuery
 import java.sql.ResultSet
 import java.time.LocalDate
@@ -26,6 +27,20 @@ interface CandleReadDao {
     )
     fun getDailyCandles(
         @Bind("token") token: Long,
+        @Bind("from") from: LocalDate,
+        @Bind("to") to: LocalDate,
+    ): List<DailyCandle>
+
+    @SqlQuery(
+        """
+        SELECT * FROM public.${Tables.DAILY_CANDLES}
+        WHERE instrument_token IN (<tokens>)
+          AND candle_date BETWEEN :from AND :to
+        ORDER BY instrument_token, candle_date
+        """
+    )
+    fun getDailyCandlesByTokens(
+        @BindList("tokens") tokens: List<Long>,
         @Bind("from") from: LocalDate,
         @Bind("to") to: LocalDate,
     ): List<DailyCandle>

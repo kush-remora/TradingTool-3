@@ -43,10 +43,13 @@ class CsvBacktestService(
         type: String,
         targetPct: Double,
         stopLossPct: Double,
+        initialStopLossSessions: Int,
+        trailingStopLossPct: Double,
         entryStrategy: String,
         retestWindowDays: Int,
         retestTolerancePct: Double,
         applyV2Validation: Boolean,
+        breakoutLookbackSessions: Int,
         maxCloseToCloseGainPct: Double,
     ): CsvBacktestResponse = withContext(Dispatchers.IO) {
         
@@ -106,7 +109,11 @@ class CsvBacktestService(
         }
 
         val uniqueSymbols = uniqueSignals.map { it.symbol }.distinct()
-        val minDate = uniqueSignals.minOf { it.date }.minusDays(if (applyV2Validation) 450 else 90)
+        val historyCalendarDays = maxOf(
+            MIN_BREAKOUT_HISTORY_CALENDAR_DAYS,
+            breakoutLookbackSessions.toLong() * BREAKOUT_HISTORY_CALENDAR_DAYS_PER_SESSION,
+        )
+        val minDate = uniqueSignals.minOf { it.date }.minusDays(historyCalendarDays)
         val today = LocalDate.now()
         val resolvedEntryStrategy = CsvBacktestEntryStrategy.from(entryStrategy)
 
@@ -132,19 +139,33 @@ class CsvBacktestService(
         var validatedSignalCount = 0
 
         for (signal in uniqueSignals) {
-            val signalStartDate = signal.date.minusDays(if (applyV2Validation) 450 else 90)
+            val signalStartDate = signal.date.minusDays(historyCalendarDays)
             val candles = candlesBySymbol[signal.symbol].orEmpty()
                 .filter { candle -> !candle.candleDate.isBefore(signalStartDate) }
                 .distinctBy(DailyCandle::candleDate)
                 .sortedBy(DailyCandle::candleDate)
 
+            val freshBreakoutLevel = CsvBacktestV2Validator.freshBreakoutLevel(
+                candles = candles,
+                signalDate = signal.date,
+                breakoutLookbackSessions = breakoutLookbackSessions,
+            ) ?: continue
+            val breakoutSpan = CsvBacktestBreakoutSpanCalculator.calculate(
+                candles = candles,
+                signalDate = signal.date,
+            )
             val validation = if (applyV2Validation) {
-                CsvBacktestV2Validator.validate(candles, signal.date, maxCloseToCloseGainPct)
+                CsvBacktestV2Validator.validate(
+                    candles = candles,
+                    signalDate = signal.date,
+                    maxCloseToCloseGainPct = maxCloseToCloseGainPct,
+                    breakoutLookbackSessions = breakoutLookbackSessions,
+                )
             } else {
                 null
             }
             if (applyV2Validation && validation == null) continue
-            if (applyV2Validation) validatedSignalCount++
+            validatedSignalCount++
 
             val breakoutDayMovePct = candles
                 .firstOrNull { candle -> candle.candleDate == signal.date }
@@ -179,7 +200,9 @@ class CsvBacktestService(
                         sector = signal.sector,
                         signalDate = signal.date.format(dateFormatter),
                         entryStrategy = resolvedEntryStrategy.name,
-                        breakoutLevel = null,
+                        breakoutLevel = freshBreakoutLevel,
+                        breakoutSpanSessions = breakoutSpan?.sessions,
+                        breakoutSpanIsLowerBound = breakoutSpan?.isLowerBound ?: false,
                         breakoutDayMovePct = breakoutDayMovePct,
                         breakoutDayDeliveryPct = deliveryMetrics.breakoutDayDeliveryPct,
                         priorFiveDaysMaxDeliveryPct = deliveryMetrics.priorFiveDaysMaxDeliveryPct,
@@ -214,7 +237,8 @@ class CsvBacktestService(
                     candles = tradeCandles,
                     initialStopLossPrice = initialStopLossPrice,
                     targetPrice = targetPrice,
-                    trailingStopLossPct = stopLossPct,
+                    initialStopLossSessions = initialStopLossSessions,
+                    trailingStopLossPct = trailingStopLossPct,
                 )
             } else {
                 CsvBacktestExitEvaluator.findFixedExit(
@@ -257,7 +281,9 @@ class CsvBacktestService(
                     sector = signal.sector,
                     signalDate = signal.date.format(dateFormatter),
                     entryStrategy = resolvedEntryStrategy.name,
-                    breakoutLevel = entry.breakoutLevel,
+                    breakoutLevel = entry.breakoutLevel ?: freshBreakoutLevel,
+                    breakoutSpanSessions = breakoutSpan?.sessions,
+                    breakoutSpanIsLowerBound = breakoutSpan?.isLowerBound ?: false,
                     breakoutDayMovePct = breakoutDayMovePct,
                     breakoutDayDeliveryPct = deliveryMetrics.breakoutDayDeliveryPct,
                     priorFiveDaysMaxDeliveryPct = deliveryMetrics.priorFiveDaysMaxDeliveryPct,
@@ -324,7 +350,7 @@ class CsvBacktestService(
             trades = trades,
             summaries = summaries,
             inputSignalCount = uniqueSignals.size,
-            validatedSignalCount = if (applyV2Validation) validatedSignalCount else uniqueSignals.size,
+            validatedSignalCount = validatedSignalCount,
         )
     }
 
@@ -349,6 +375,8 @@ class CsvBacktestService(
     }
 
     private companion object {
+        const val MIN_BREAKOUT_HISTORY_CALENDAR_DAYS = 800L
+        const val BREAKOUT_HISTORY_CALENDAR_DAYS_PER_SESSION = 3L
         const val MAX_INITIAL_GAP_DAYS = 7L
         const val MAX_ALLOWED_LATEST_GAP_DAYS = 3L
     }

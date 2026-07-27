@@ -1878,10 +1878,18 @@ export interface DeliveryBreakoutDashboardResponse {
 
 // ==================== Absolute Delivery Backtest ====================
 
+export interface AbsoluteDeliveryGroupingOption {
+  value: string;
+  count: number;
+}
+
 export interface AbsoluteDeliveryCriteria {
   minimumTradedQuantityInclusive: number;
   minimumDeliveryQuantityExclusive: number;
   minimumDeliveryPercentageExclusive: number;
+  shortSmaPeriod: number;
+  longSmaPeriod: number;
+  shortSmaSlopeLookbackSessions: number;
 }
 
 export interface AbsoluteDeliveryBacktestSummary {
@@ -1902,6 +1910,11 @@ export type AbsoluteDeliveryDataStatus =
   | "INCOMPLETE"
   | "NO_RECORD";
 
+export type AbsoluteDeliveryTrendDataStatus =
+  | "AVAILABLE"
+  | "NO_CANDLE"
+  | "INSUFFICIENT_HISTORY";
+
 export interface AbsoluteDeliveryBacktestRow {
   symbol: string;
   companyName: string;
@@ -1912,6 +1925,15 @@ export interface AbsoluteDeliveryBacktestRow {
   tradedQuantityPassed: boolean;
   deliveryQuantityPassed: boolean;
   deliveryPercentagePassed: boolean;
+  closePrice: number | null;
+  sma50: number | null;
+  sma200: number | null;
+  sma50TwentySessionsAgo: number | null;
+  priceAboveSma50Passed: boolean;
+  sma50AboveSma200Passed: boolean;
+  sma50RisingPassed: boolean;
+  uptrendMatched: boolean;
+  trendDataStatus: AbsoluteDeliveryTrendDataStatus;
   matched: boolean;
   dataStatus: AbsoluteDeliveryDataStatus;
 }
@@ -2600,10 +2622,13 @@ export interface CsvBacktestApiRequest {
   type: string;
   targetPct: number;
   stopLossPct: number;
+  initialStopLossSessions: number;
+  trailingStopLossPct: number;
   entryStrategy: string;
   retestWindowDays: number;
   retestTolerancePct: number;
   applyV2Validation: boolean;
+  breakoutLookbackSessions: number;
   maxCloseToCloseGainPct: number;
 }
 
@@ -2615,6 +2640,8 @@ export interface CsvBacktestTradeResult {
   signalDate: string;
   entryStrategy: string;
   breakoutLevel: number | null;
+  breakoutSpanSessions: number | null;
+  breakoutSpanIsLowerBound: boolean;
   breakoutDayMovePct: number | null;
   breakoutDayDeliveryPct: number | null;
   priorFiveDaysMaxDeliveryPct: number | null;

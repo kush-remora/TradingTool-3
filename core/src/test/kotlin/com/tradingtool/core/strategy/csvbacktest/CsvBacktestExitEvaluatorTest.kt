@@ -58,6 +58,7 @@ class CsvBacktestExitEvaluatorTest {
             ),
             initialStopLossPrice = 90.0,
             targetPrice = 120.0,
+            initialStopLossSessions = 5,
             trailingStopLossPct = 10.0,
         )
 
@@ -72,10 +73,33 @@ class CsvBacktestExitEvaluatorTest {
             candles = listOf(candle(close = 120.0, high = 125.0, low = 95.0)),
             initialStopLossPrice = 90.0,
             targetPrice = 150.0,
+            initialStopLossSessions = 1,
             trailingStopLossPct = 10.0,
         )
 
         assertEquals(null, exit)
+    }
+
+    @Test
+    fun `trailing stop activates after the configured initial sessions`() {
+        val entryDate = LocalDate.of(2026, 1, 5)
+        val exit = CsvBacktestExitEvaluator.findTrailingExit(
+            candles = listOf(
+                candle(date = entryDate, open = 100.0, high = 111.0, low = 99.0, close = 110.0),
+                candle(date = entryDate.plusDays(1), open = 105.0, high = 106.0, low = 100.0, close = 102.0),
+                candle(date = entryDate.plusDays(2), open = 101.0, high = 103.0, low = 99.0, close = 100.0),
+                candle(date = entryDate.plusDays(3), open = 103.0, high = 104.0, low = 100.0, close = 101.0),
+            ),
+            initialStopLossPrice = 90.0,
+            targetPrice = 150.0,
+            initialStopLossSessions = 3,
+            trailingStopLossPct = 5.0,
+        )
+
+        assertNotNull(exit)
+        assertEquals(entryDate.plusDays(3), exit?.candle?.candleDate)
+        assertEquals(103.0, exit?.price)
+        assertTrue(exit?.slHit ?: false)
     }
 
     @Test
@@ -106,6 +130,7 @@ class CsvBacktestExitEvaluatorTest {
             ),
             initialStopLossPrice = 95.0,
             targetPrice = 105.0,
+            initialStopLossSessions = 5,
             trailingStopLossPct = 10.0,
         )
 

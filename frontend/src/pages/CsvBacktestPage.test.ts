@@ -4,6 +4,7 @@ import {
   buildCsvBacktestTableRows,
   buildSectorFilterOptions,
   calculateSlOutcomeSummary,
+  formatBreakoutSpan,
   matchesMaximumV2RunPct,
   matchesSelectedSectors,
   matchesSectorFilter,
@@ -20,6 +21,8 @@ const buildTrade = (
   signalDate: "2026-07-01",
   entryStrategy: "NEXT_DAY_OPEN",
   breakoutLevel: 1500,
+  breakoutSpanSessions: 120,
+  breakoutSpanIsLowerBound: false,
   breakoutDayMovePct: 2.15,
   breakoutDayDeliveryPct: 54.2,
   priorFiveDaysMaxDeliveryPct: 63.8,
@@ -43,6 +46,12 @@ const buildTrade = (
 });
 
 describe("CSV backtest sector filter", () => {
+  it("formats exact and lower-bound breakout spans", () => {
+    expect(formatBreakoutSpan(120, false)).toBe("120 days");
+    expect(formatBreakoutSpan(500, true)).toBe("500+ days");
+    expect(formatBreakoutSpan(null, false)).toBe("-");
+  });
+
   it("builds distinct sorted options from the displayed sector values", () => {
     const trades = [
       buildTrade("Pharma"),

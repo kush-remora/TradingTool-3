@@ -75,5 +75,33 @@ Validation: focused entry/exit evaluator tests (8) passed; the Resources compile
 
 Every entered trade now records the lowest daily low from the entry session through the next four trading sessions, plus the rupee and percentage difference from the entry price. Monthly summaries include the average of that percentage. The metric intentionally continues through all five sessions even if the simulated target or stop exits earlier, so it measures post-signal price behaviour rather than only an open trade's path.
 
+## Configurable V2 Breakout Lookback (2026-07-25)
+
+Implemented one per-run form setting with a bounded 20-250 session range and 100 retained as the default. The configured value controls both the prior-high breakout level and the matching fresh-breakout suppression window, while the backend loads enough preceding candles for the selected window. No separate persistence or global configuration was introduced. Focused Kotlin tests, backend compilation, frontend tests, and the production frontend build passed.
+
+Window semantics: a configured value of 60 follows Chartink's `1 day ago Max(60, Daily Close)` exactly. The signal high is compared with 60 completed prior closes, while freshness inspects the preceding 59 signal sessions.
+
+Root-cause correction: fresh-breakout validation must not depend on the optional V2 switch. Every CSV signal is now required to pass the configured fresh-breakout rule. The switch controls only the additional volume-spike, extension, and recent-base filters. The accepted range is 10-250 sessions, and the result exposes the validated breakout level even for next-day-open entries.
+
+Breakout-source correction: the configured rule follows the Chartink expression `Daily High > 1 day ago Max(N, Daily Close)`. For a 60-session setting, the signal high is compared with the maximum close of the 60 completed prior sessions. Freshness then rejects the signal when any of the preceding 59 sessions satisfied that same high-versus-prior-closes rule. Prior candle highs are not the resistance baseline.
+
+## Maximum Breakout Span (2026-07-25)
+
+The configured breakout lookback remains the eligibility rule, but every accepted signal should also report how far its signal-day high clears historical closes. Calculate the largest prior-session count before encountering a close greater than or equal to the signal high, scanning up to 500 completed trading sessions. Display the exact count when a blocking close is found and `N+ days` when the signal clears all available/capped history. This is diagnostic only and must not alter entry or V2 filtering.
+
+Implemented as **Breakout Span** in Trade Details. The API returns the numeric session count plus an explicit lower-bound flag, allowing exact values such as `120 days` and capped/available-history values such as `500+ days`. The standard data request now loads 800 calendar days to support a 500-session scan for established stocks.
+
+Validation completed with 26 focused Kotlin tests, 7 focused frontend tests, dependent backend compilation, the production frontend build, and a packaged-service request. The live AADHARHFC 08-Apr-2026 case passed the configured 10-session rule and independently reported an exact 12-session breakout span.
+
+## Initial Stop Before Trailing Stop (2026-07-25)
+
+For **Target + Trailing SL**, separate the risk controls into an initial fixed stop and a later trailing stop. The target remains active from the entry session onward. For the configured number of initial trading sessions, including the entry session, use only the entry-price-based initial stop. After those sessions have completed, activate the configured trailing percentage using completed candle closes; a three-session setting therefore activates the trail on the fourth trading session. Fixed Target & SL behavior remains unchanged.
+
+Expose three explicit trailing-mode values in the UI: **Initial Stop Loss %** (default 10%), **Initial Stop Sessions** (default 5), and **Trailing Stop %** (default 5%). Preserve the existing `stopLossPct` API field as the initial stop for backward compatibility, and add bounded request fields for the session count and trailing percentage.
+
+Implemented with the target active in both phases and conservative stop-before-target ordering retained. Tests confirm a three-session initial phase cannot apply the trail during sessions 1-3 and first applies it on session 4. Focused Kotlin/frontend tests, backend compilation and packaging, the frontend production build, and required review gates passed.
+
+The packaged endpoint also accepted the intended 30% target / 10% initial stop / 3 sessions / 5% trail configuration and rejected a zero-session request with HTTP 400. The running local service was restarted with the packaged implementation.
+
 ## Complexity Estimate
 Medium-High. Involves a new UI page, new backend endpoints, a state machine for the backtest engine (handling gaps, conservative exits, trailing logic), and integrating the CSV parser.

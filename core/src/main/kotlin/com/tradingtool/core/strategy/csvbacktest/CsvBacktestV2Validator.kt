@@ -12,8 +12,6 @@ data class CsvBacktestV2Validation(
 )
 
 object CsvBacktestV2Validator {
-    private const val BREAKOUT_LOOKBACK_SESSIONS = 100
-    private const val FRESH_BREAKOUT_LOOKBACK_SESSIONS = 99
     private const val PRE_BREAKOUT_VOLUME_SESSIONS = 20
     private const val PRE_BREAKOUT_VOLUME_BASELINE_SESSIONS = 20
     private const val MIN_VOLUME_RATIO = 2.0
@@ -25,16 +23,18 @@ object CsvBacktestV2Validator {
         candles: List<DailyCandle>,
         signalDate: LocalDate,
         maxCloseToCloseGainPct: Double = 6.0,
+        breakoutLookbackSessions: Int = 100,
     ): CsvBacktestV2Validation? {
+        val breakoutLevel = freshBreakoutLevel(
+            candles = candles,
+            signalDate = signalDate,
+            breakoutLookbackSessions = breakoutLookbackSessions,
+        ) ?: return null
         val signalIndex = candles.indexOfFirst { it.candleDate == signalDate }
-        if (signalIndex < BREAKOUT_LOOKBACK_SESSIONS) return null
 
         val signalCandle = candles[signalIndex]
-        val priorCandles = candles.subList(signalIndex - BREAKOUT_LOOKBACK_SESSIONS, signalIndex)
-        val breakoutLevel = priorCandles.maxOf { it.high }
-        if (signalCandle.high <= breakoutLevel) return null
+        val priorCandles = candles.subList(signalIndex - breakoutLookbackSessions, signalIndex)
         if (signalCandle.close > candles[signalIndex - 1].close * (1.0 + maxCloseToCloseGainPct / 100.0)) return null
-        if (!isFreshBreakout(candles, signalIndex)) return null
 
         val maxVolumeRatio = maxPreBreakoutVolumeRatio(candles, signalIndex) ?: return null
         if (maxVolumeRatio < MIN_VOLUME_RATIO) return null
@@ -49,10 +49,35 @@ object CsvBacktestV2Validator {
         )
     }
 
-    private fun isFreshBreakout(candles: List<DailyCandle>, signalIndex: Int): Boolean {
-        val firstPriorSignalIndex = maxOf(BREAKOUT_LOOKBACK_SESSIONS, signalIndex - FRESH_BREAKOUT_LOOKBACK_SESSIONS)
+    fun freshBreakoutLevel(
+        candles: List<DailyCandle>,
+        signalDate: LocalDate,
+        breakoutLookbackSessions: Int,
+    ): Double? {
+        val signalIndex = candles.indexOfFirst { it.candleDate == signalDate }
+        if (signalIndex < breakoutLookbackSessions) return null
+
+        val breakoutLevel = candles
+            .subList(signalIndex - breakoutLookbackSessions, signalIndex)
+            .maxOf { it.close }
+        if (candles[signalIndex].high <= breakoutLevel) return null
+        if (!isFreshBreakout(candles, signalIndex, breakoutLookbackSessions)) return null
+        return breakoutLevel
+    }
+
+    private fun isFreshBreakout(
+        candles: List<DailyCandle>,
+        signalIndex: Int,
+        breakoutLookbackSessions: Int,
+    ): Boolean {
+        val freshBreakoutLookbackSessions = breakoutLookbackSessions - 1
+        val firstPriorSignalIndex = maxOf(
+            breakoutLookbackSessions,
+            signalIndex - freshBreakoutLookbackSessions,
+        )
         return (firstPriorSignalIndex until signalIndex).none { index ->
-            candles[index].high > candles.subList(index - BREAKOUT_LOOKBACK_SESSIONS, index).maxOf { it.high }
+            candles[index].high >
+                candles.subList(index - breakoutLookbackSessions, index).maxOf { it.close }
         }
     }
 

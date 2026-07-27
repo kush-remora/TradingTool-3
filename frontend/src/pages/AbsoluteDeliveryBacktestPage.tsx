@@ -1,10 +1,11 @@
-import { useEffect, useMemo } from "react";
-import { Alert, Button, Card, Empty, Space, Spin, Table, Tabs, Tag, Typography } from "antd";
+import { useEffect, useMemo, useState } from "react";
+import { Alert, Button, Card, Empty, Select, Space, Spin, Table, Tabs, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useAbsoluteDeliveryBacktest } from "../hooks/useAbsoluteDeliveryBacktest";
 import type {
   AbsoluteDeliveryBacktestRow,
   AbsoluteDeliveryDataStatus,
+  AbsoluteDeliveryTrendDataStatus,
 } from "../types";
 
 function formatInteger(value: number | null | undefined): string {
@@ -13,6 +14,10 @@ function formatInteger(value: number | null | undefined): string {
 
 function formatPercentage(value: number | null | undefined): string {
   return value == null ? "-" : `${value.toFixed(2)}%`;
+}
+
+function formatPrice(value: number | null | undefined): string {
+  return value == null ? "-" : value.toFixed(2);
 }
 
 function renderPass(passed: boolean): React.ReactNode {
@@ -31,12 +36,45 @@ function renderDataStatus(status: AbsoluteDeliveryDataStatus): React.ReactNode {
   return <Tag color="orange">{labels[status]}</Tag>;
 }
 
+function renderTrendDataStatus(status: AbsoluteDeliveryTrendDataStatus): React.ReactNode {
+  if (status === "AVAILABLE") {
+    return <Tag>Available</Tag>;
+  }
+  return (
+    <Tag color="orange">
+      {status === "NO_CANDLE" ? "No candle" : "Insufficient history"}
+    </Tag>
+  );
+}
+
 export function AbsoluteDeliveryBacktestPage() {
-  const { data, loading, error, loadBacktest } = useAbsoluteDeliveryBacktest();
+  const [selectedGrouping, setSelectedGrouping] = useState("groww_HIGH_QUALITY");
+  const {
+    data,
+    groupings,
+    loading,
+    loadingGroupings,
+    error,
+    groupingError,
+    loadGroupings,
+    loadBacktest,
+  } = useAbsoluteDeliveryBacktest();
 
   useEffect(() => {
-    void loadBacktest().catch(() => undefined);
-  }, [loadBacktest]);
+    void loadGroupings().catch(() => undefined);
+  }, [loadGroupings]);
+
+  useEffect(() => {
+    void loadBacktest(selectedGrouping).catch(() => undefined);
+  }, [loadBacktest, selectedGrouping]);
+
+  const groupingOptions = useMemo(
+    () => groupings.map((grouping) => ({
+      value: grouping.value,
+      label: `${grouping.value} (${grouping.count})`,
+    })),
+    [groupings],
+  );
 
   const symbolFilters = useMemo(
     () => Array.from(new Set(data?.allRows.map((row) => row.symbol) ?? []))
@@ -93,6 +131,34 @@ export function AbsoluteDeliveryBacktestPage() {
         sorter: (left, right) => (left.deliveryPercentage ?? -1) - (right.deliveryPercentage ?? -1),
         render: formatPercentage,
       },
+      {
+        title: "Close",
+        dataIndex: "closePrice",
+        key: "closePrice",
+        align: "right",
+        render: formatPrice,
+      },
+      {
+        title: "SMA50",
+        dataIndex: "sma50",
+        key: "sma50",
+        align: "right",
+        render: formatPrice,
+      },
+      {
+        title: "SMA200",
+        dataIndex: "sma200",
+        key: "sma200",
+        align: "right",
+        render: formatPrice,
+      },
+      {
+        title: "SMA50 (-20)",
+        dataIndex: "sma50TwentySessionsAgo",
+        key: "sma50TwentySessionsAgo",
+        align: "right",
+        render: formatPrice,
+      },
     ],
     [symbolFilters],
   );
@@ -122,6 +188,42 @@ export function AbsoluteDeliveryBacktestPage() {
         render: renderPass,
       },
       {
+        title: "Price > 50",
+        dataIndex: "priceAboveSma50Passed",
+        key: "priceAboveSma50Passed",
+        align: "center",
+        render: renderPass,
+      },
+      {
+        title: "50 > 200",
+        dataIndex: "sma50AboveSma200Passed",
+        key: "sma50AboveSma200Passed",
+        align: "center",
+        render: renderPass,
+      },
+      {
+        title: "50 Rising",
+        dataIndex: "sma50RisingPassed",
+        key: "sma50RisingPassed",
+        align: "center",
+        render: renderPass,
+      },
+      {
+        title: "Trend",
+        dataIndex: "uptrendMatched",
+        key: "uptrendMatched",
+        align: "center",
+        render: (matched: boolean) => (
+          <Tag color={matched ? "green" : "default"}>{matched ? "Uptrend" : "Not uptrend"}</Tag>
+        ),
+      },
+      {
+        title: "Trend Data",
+        dataIndex: "trendDataStatus",
+        key: "trendDataStatus",
+        render: renderTrendDataStatus,
+      },
+      {
         title: "Result",
         dataIndex: "matched",
         key: "matched",
@@ -146,7 +248,7 @@ export function AbsoluteDeliveryBacktestPage() {
       columns={baseColumns}
       dataSource={data.matchedRows}
       pagination={{ pageSize: 50, showSizeChanger: true }}
-      scroll={{ x: 900 }}
+      scroll={{ x: 1250 }}
       size="small"
     />
   ) : (
@@ -159,11 +261,11 @@ export function AbsoluteDeliveryBacktestPage() {
       columns={auditColumns}
       dataSource={data.allRows}
       pagination={{ pageSize: 100, showSizeChanger: true }}
-      scroll={{ x: 1400 }}
+      scroll={{ x: 2200 }}
       size="small"
     />
   ) : (
-    <Empty description="No institutional-watchlist delivery rows are available." />
+    <Empty description="No delivery rows are available for the selected grouping." />
   );
 
   return (
@@ -172,16 +274,37 @@ export function AbsoluteDeliveryBacktestPage() {
         size="small"
         title="Absolute Delivery Backtest"
         extra={
-          <Button size="small" loading={loading} onClick={() => void loadBacktest().catch(() => undefined)}>
+          <Button
+            size="small"
+            loading={loading}
+            onClick={() => void loadBacktest(selectedGrouping).catch(() => undefined)}
+          >
             Reload
           </Button>
         }
       >
         <Space orientation="vertical" size={12} style={{ width: "100%" }}>
           <Typography.Text type="secondary">
-            Six-month event audit of the institutional watchlist. This is evidence for review, not a buy signal.
+            Six-month event audit of the selected institutional grouping. This is evidence for review, not a buy signal.
           </Typography.Text>
 
+          <Space size={8} wrap>
+            <Typography.Text style={{ fontSize: 12 }}>Grouping</Typography.Text>
+            <Select
+              aria-label="Institutional grouping"
+              size="small"
+              showSearch
+              optionFilterProp="label"
+              style={{ minWidth: 280 }}
+              value={selectedGrouping}
+              options={groupingOptions}
+              loading={loadingGroupings}
+              disabled={loading}
+              onChange={setSelectedGrouping}
+            />
+          </Space>
+
+          {groupingError && <Alert type="error" showIcon message={groupingError} />}
           {error && <Alert type="error" showIcon message={error} />}
           {loading && !data && <div style={{ padding: 40, textAlign: "center" }}><Spin /></div>}
 
@@ -189,7 +312,7 @@ export function AbsoluteDeliveryBacktestPage() {
             <>
               <Space wrap size={[6, 6]}>
                 <Tag color="blue">{data.summary.fromDate} to {data.summary.toDate}</Tag>
-                <Tag>Watchlist {formatInteger(data.summary.watchlistSymbolCount)}</Tag>
+                <Tag>Symbols {formatInteger(data.summary.watchlistSymbolCount)}</Tag>
                 <Tag>Trading days {formatInteger(data.summary.tradingDateCount)}</Tag>
                 <Tag>Rows {formatInteger(data.summary.expectedRowCount)}</Tag>
                 <Tag>Evaluated {formatInteger(data.summary.evaluatedRowCount)}</Tag>
@@ -202,7 +325,11 @@ export function AbsoluteDeliveryBacktestPage() {
               <Typography.Text style={{ fontSize: 12 }}>
                 Formula: traded quantity ≥ {formatInteger(data.criteria.minimumTradedQuantityInclusive)},
                 {" "}delivery quantity &gt; {formatInteger(data.criteria.minimumDeliveryQuantityExclusive)},
-                {" "}delivery percentage &gt; {formatPercentage(data.criteria.minimumDeliveryPercentageExclusive)}.
+                {" "}delivery percentage &gt; {formatPercentage(data.criteria.minimumDeliveryPercentageExclusive)};
+                {" "}close &gt; SMA{data.criteria.shortSmaPeriod},
+                {" "}SMA{data.criteria.shortSmaPeriod} &gt; SMA{data.criteria.longSmaPeriod},
+                {" "}and SMA{data.criteria.shortSmaPeriod} rising over
+                {" "}{data.criteria.shortSmaSlopeLookbackSessions} sessions.
               </Typography.Text>
 
               <Tabs
@@ -215,7 +342,7 @@ export function AbsoluteDeliveryBacktestPage() {
                   },
                   {
                     key: "all",
-                    label: `Entire Watchlist (${data.summary.expectedRowCount})`,
+                    label: `Entire Grouping (${data.summary.expectedRowCount})`,
                     children: fullTable,
                   },
                 ]}

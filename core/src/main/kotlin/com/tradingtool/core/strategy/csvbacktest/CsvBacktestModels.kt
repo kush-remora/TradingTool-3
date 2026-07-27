@@ -5,10 +5,13 @@ data class CsvBacktestApiRequest(
     val type: String,
     val targetPct: Double?,
     val stopLossPct: Double,
+    val initialStopLossSessions: Int = 5,
+    val trailingStopLossPct: Double = 5.0,
     val entryStrategy: String = "NEXT_DAY_OPEN",
     val retestWindowDays: Int = 5,
     val retestTolerancePct: Double = 1.0,
     val applyV2Validation: Boolean = false,
+    val breakoutLookbackSessions: Int = 100,
     val maxCloseToCloseGainPct: Double = 6.0,
 )
 
@@ -20,6 +23,8 @@ data class CsvBacktestTradeResult(
     val signalDate: String,
     val entryStrategy: String,
     val breakoutLevel: Double?,
+    val breakoutSpanSessions: Int?,
+    val breakoutSpanIsLowerBound: Boolean,
     val breakoutDayMovePct: Double?,
     val breakoutDayDeliveryPct: Double?,
     val priorFiveDaysMaxDeliveryPct: Double?,

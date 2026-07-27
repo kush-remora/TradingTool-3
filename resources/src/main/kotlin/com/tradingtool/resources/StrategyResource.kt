@@ -35,6 +35,7 @@ import jakarta.ws.rs.GET
 import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
+import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import java.time.LocalDate
@@ -71,10 +72,20 @@ class StrategyResource @Inject constructor(
     }
 
     @GET
+    @Path("/absolute-delivery/groupings")
+    fun getAbsoluteDeliveryGroupings(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(absoluteDeliveryBacktestService.listGroupingOptions())
+    }
+
+    @GET
     @Path("/absolute-delivery/backtest")
-    fun getAbsoluteDeliveryBacktest(): CompletableFuture<Response> = ioScope.endpoint {
+    fun getAbsoluteDeliveryBacktest(
+        @QueryParam("grouping") grouping: String?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
         try {
-            ok(absoluteDeliveryBacktestService.runBacktest())
+            ok(absoluteDeliveryBacktestService.runBacktest(grouping))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid institutional grouping.")
         } catch (error: IllegalStateException) {
             notFound(error.message ?: "No stock delivery data available.")
         }
@@ -368,11 +379,22 @@ class StrategyResource @Inject constructor(
         if (targetPct <= 0.0 || body.stopLossPct <= 0.0) {
             return@endpoint badRequest("Target and stop-loss percentages must be positive.")
         }
+        if (
+            body.type == "TRAILING" &&
+            (body.trailingStopLossPct !in 0.1..100.0 || body.initialStopLossSessions !in 1..20)
+        ) {
+            return@endpoint badRequest(
+                "Trailing stop must be between 0.1% and 100%, and initial stop sessions must be between 1 and 20."
+            )
+        }
         if (body.retestWindowDays !in 1..20 || body.retestTolerancePct !in 0.0..10.0) {
             return@endpoint badRequest("Retest window must be 1-20 days and tolerance must be 0-10%.")
         }
         if (body.maxCloseToCloseGainPct !in 0.0..100.0) {
             return@endpoint badRequest("Maximum close-to-close gain must be between 0% and 100%.")
+        }
+        if (body.breakoutLookbackSessions !in 10..250) {
+            return@endpoint badRequest("Breakout lookback must be between 10 and 250 trading sessions.")
         }
         if (com.tradingtool.core.strategy.csvbacktest.CsvBacktestEntryStrategy.entries.none { it.name == body.entryStrategy }) {
             return@endpoint badRequest("Entry strategy is invalid.")
@@ -382,10 +404,13 @@ class StrategyResource @Inject constructor(
             type = body.type,
             targetPct = targetPct,
             stopLossPct = body.stopLossPct,
+            initialStopLossSessions = body.initialStopLossSessions,
+            trailingStopLossPct = body.trailingStopLossPct,
             entryStrategy = body.entryStrategy,
             retestWindowDays = body.retestWindowDays,
             retestTolerancePct = body.retestTolerancePct,
             applyV2Validation = body.applyV2Validation,
+            breakoutLookbackSessions = body.breakoutLookbackSessions,
             maxCloseToCloseGainPct = body.maxCloseToCloseGainPct,
         )
         ok(response)

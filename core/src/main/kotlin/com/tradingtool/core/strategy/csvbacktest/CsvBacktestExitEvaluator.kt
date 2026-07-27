@@ -43,6 +43,7 @@ object CsvBacktestExitEvaluator {
         candles: List<DailyCandle>,
         initialStopLossPrice: Double,
         targetPrice: Double,
+        initialStopLossSessions: Int,
         trailingStopLossPct: Double,
     ): CsvBacktestExit? {
         val maximumHoldingDate = candles.firstOrNull()?.candleDate?.plusDays(MAXIMUM_HOLDING_DAYS)
@@ -50,7 +51,7 @@ object CsvBacktestExitEvaluator {
         var highestClose = Double.NEGATIVE_INFINITY
         var currentStopLossPrice = initialStopLossPrice
 
-        for (candle in candles) {
+        for ((sessionIndex, candle) in candles.withIndex()) {
             if (candle.open <= currentStopLossPrice) {
                 return CsvBacktestExit(candle, candle.open, slHit = true)
             }
@@ -68,8 +69,11 @@ object CsvBacktestExitEvaluator {
             }
 
             highestClose = maxOf(highestClose, candle.close)
-            val nextStopLossPrice = highestClose * (1.0 - trailingStopLossPct / 100.0)
-            currentStopLossPrice = maxOf(currentStopLossPrice, nextStopLossPrice)
+            val completedSessions = sessionIndex + 1
+            if (completedSessions >= initialStopLossSessions) {
+                val nextStopLossPrice = highestClose * (1.0 - trailingStopLossPct / 100.0)
+                currentStopLossPrice = maxOf(currentStopLossPrice, nextStopLossPrice)
+            }
         }
         return null
     }

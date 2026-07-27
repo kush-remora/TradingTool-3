@@ -11,6 +11,10 @@ internal object AbsoluteDeliveryBacktestAnalyzer {
         }
         val members = input.members.distinctBy { member -> member.symbol }
         val tradingDates = input.tradingDates.distinct()
+        val trendContexts = buildAbsoluteDeliveryTrendContexts(
+            candles = input.candles,
+            criteria = input.criteria,
+        )
         val allRows = tradingDates
             .flatMap { tradingDate ->
                 members.map { member ->
@@ -18,6 +22,7 @@ internal object AbsoluteDeliveryBacktestAnalyzer {
                         member = member,
                         tradingDate = tradingDate,
                         delivery = deliveriesByTokenAndDate[member.instrumentToken to tradingDate],
+                        trendContext = trendContexts[member.instrumentToken],
                         criteria = input.criteria,
                     )
                 }
@@ -43,8 +48,14 @@ internal object AbsoluteDeliveryBacktestAnalyzer {
                 watchlistSymbolCount = members.size,
                 tradingDateCount = tradingDates.size,
                 expectedRowCount = allRows.size,
-                evaluatedRowCount = allRows.count { row -> row.dataStatus == AbsoluteDeliveryDataStatus.AVAILABLE },
-                missingRowCount = allRows.count { row -> row.dataStatus != AbsoluteDeliveryDataStatus.AVAILABLE },
+                evaluatedRowCount = allRows.count { row ->
+                    row.dataStatus == AbsoluteDeliveryDataStatus.AVAILABLE &&
+                        row.trendDataStatus == AbsoluteDeliveryTrendDataStatus.AVAILABLE
+                },
+                missingRowCount = allRows.count { row ->
+                    row.dataStatus != AbsoluteDeliveryDataStatus.AVAILABLE ||
+                        row.trendDataStatus != AbsoluteDeliveryTrendDataStatus.AVAILABLE
+                },
                 matchedRowCount = matchedRows.size,
             ),
             matchedRows = matchedRows,
@@ -56,6 +67,7 @@ internal object AbsoluteDeliveryBacktestAnalyzer {
         member: AbsoluteDeliveryWatchlistMember,
         tradingDate: java.time.LocalDate,
         delivery: StockDeliveryDaily?,
+        trendContext: AbsoluteDeliveryTrendContext?,
         criteria: AbsoluteDeliveryCriteria,
     ): AbsoluteDeliveryBacktestRow {
         val dataStatus = resolveDataStatus(delivery)
@@ -72,6 +84,11 @@ internal object AbsoluteDeliveryBacktestAnalyzer {
         val deliveryPercentagePassed = isAvailable &&
             deliveryPercentage != null &&
             deliveryPercentage > criteria.minimumDeliveryPercentageExclusive
+        val trend = evaluateAbsoluteDeliveryTrend(
+            context = trendContext,
+            tradingDate = tradingDate,
+            criteria = criteria,
+        )
 
         return AbsoluteDeliveryBacktestRow(
             symbol = member.symbol,
@@ -83,7 +100,19 @@ internal object AbsoluteDeliveryBacktestAnalyzer {
             tradedQuantityPassed = tradedQuantityPassed,
             deliveryQuantityPassed = deliveryQuantityPassed,
             deliveryPercentagePassed = deliveryPercentagePassed,
-            matched = tradedQuantityPassed && deliveryQuantityPassed && deliveryPercentagePassed,
+            closePrice = trend.closePrice,
+            sma50 = trend.sma50,
+            sma200 = trend.sma200,
+            sma50TwentySessionsAgo = trend.sma50TwentySessionsAgo,
+            priceAboveSma50Passed = trend.priceAboveSma50Passed,
+            sma50AboveSma200Passed = trend.sma50AboveSma200Passed,
+            sma50RisingPassed = trend.sma50RisingPassed,
+            uptrendMatched = trend.matched,
+            trendDataStatus = trend.dataStatus,
+            matched = tradedQuantityPassed &&
+                deliveryQuantityPassed &&
+                deliveryPercentagePassed &&
+                trend.matched,
             dataStatus = dataStatus,
         )
     }

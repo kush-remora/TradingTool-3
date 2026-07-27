@@ -38,6 +38,14 @@ const formatNumber = (num: number | null | undefined, decimals = 2) => {
   return num.toFixed(decimals);
 };
 
+export const formatBreakoutSpan = (
+  sessions: number | null,
+  isLowerBound: boolean,
+): string => {
+  if (sessions === null) return "-";
+  return `${sessions}${isLowerBound ? "+" : ""} days`;
+};
+
 const filterCsv = (rawCsv: string, selectedMonths: string[], selectedMarketCaps: string[]) => {
   if ((!selectedMonths || !selectedMonths.length) && (!selectedMarketCaps || !selectedMarketCaps.length)) return rawCsv;
   
@@ -264,10 +272,13 @@ export function CsvBacktestPage() {
         type: values.type,
         targetPct: values.targetPct,
         stopLossPct: values.stopLossPct,
+        initialStopLossSessions: values.initialStopLossSessions,
+        trailingStopLossPct: values.trailingStopLossPct,
         entryStrategy: values.entryStrategy,
         retestWindowDays: values.retestWindowDays,
         retestTolerancePct: values.retestTolerancePct,
         applyV2Validation: values.applyV2Validation,
+        breakoutLookbackSessions: values.breakoutLookbackSessions,
         maxCloseToCloseGainPct: values.maxCloseToCloseGainPct,
       };
 
@@ -393,6 +404,15 @@ export function CsvBacktestPage() {
     { title: "Entry Rule", dataIndex: "entryStrategy", key: "entryStrategy" },
     { title: "Breakout Level", dataIndex: "breakoutLevel", key: "breakoutLevel", render: (val: number | null) => val ? `₹${formatNumber(val)}` : "-" },
     {
+      title: "Breakout Span",
+      dataIndex: "breakoutSpanSessions",
+      key: "breakoutSpanSessions",
+      sorter: (a: CsvBacktestTradeResult, b: CsvBacktestTradeResult) =>
+        (a.breakoutSpanSessions ?? 0) - (b.breakoutSpanSessions ?? 0),
+      render: (val: number | null, record: CsvBacktestTradeResult) =>
+        formatBreakoutSpan(val, record.breakoutSpanIsLowerBound),
+    },
+    {
       title: "Breakout Day Move %",
       dataIndex: "breakoutDayMovePct",
       key: "breakoutDayMovePct",
@@ -490,10 +510,13 @@ export function CsvBacktestPage() {
               type: "FIXED",
               targetPct: 20,
               stopLossPct: 10,
+              initialStopLossSessions: 5,
+              trailingStopLossPct: 5,
               entryStrategy: "NEXT_DAY_OPEN",
               retestWindowDays: 5,
               retestTolerancePct: 1,
               applyV2Validation: false,
+              breakoutLookbackSessions: 100,
               maxCloseToCloseGainPct: 6,
             }}
           >
@@ -539,14 +562,31 @@ export function CsvBacktestPage() {
                 </Radio.Group>
               </Form.Item>
 
-              <Space size="large">
+              <Space size={12} wrap align="start">
                 <Form.Item label="Target %" name="targetPct" rules={[{ required: true }]}>
-                  <InputNumber min={0.1} max={1000} step={0.5} addonAfter="%" />
+                  <InputNumber size="small" min={0.1} max={1000} step={0.5} addonAfter="%" />
                 </Form.Item>
                 
-                <Form.Item label={type === "TRAILING" ? "Trailing Stop Loss %" : "Stop Loss %"} name="stopLossPct" rules={[{ required: true }]}>
-                  <InputNumber min={0.1} max={100} step={0.5} addonAfter="%" />
+                <Form.Item label={type === "TRAILING" ? "Initial Stop Loss %" : "Stop Loss %"} name="stopLossPct" rules={[{ required: true }]}>
+                  <InputNumber size="small" min={0.1} max={100} step={0.5} addonAfter="%" />
                 </Form.Item>
+
+                {type === "TRAILING" && (
+                  <>
+                    <Form.Item
+                      label="Initial Stop Sessions"
+                      name="initialStopLossSessions"
+                      extra="Includes the entry session. A value of 3 activates trailing on session 4."
+                      rules={[{ required: true }]}
+                    >
+                      <InputNumber size="small" min={1} max={20} step={1} />
+                    </Form.Item>
+
+                    <Form.Item label="Trailing Stop %" name="trailingStopLossPct" rules={[{ required: true }]}>
+                      <InputNumber size="small" min={0.1} max={100} step={0.5} addonAfter="%" />
+                    </Form.Item>
+                  </>
+                )}
               </Space>
 
               <Form.Item label="Entry Rule" name="entryStrategy">
@@ -559,12 +599,21 @@ export function CsvBacktestPage() {
               </Form.Item>
 
               <Form.Item
-                label="Apply V2 breakout validation"
+                label="Apply additional V2 filters"
                 name="applyV2Validation"
                 valuePropName="checked"
-                extra="Filters signals using the 100-day fresh breakout, 2× pre-breakout volume spike, 6% extension guard, and recent-base rules."
+                extra="Fresh-breakout validation always runs. This adds the 2× volume spike, extension guard, and recent-base rules."
               >
                 <Switch />
+              </Form.Item>
+
+              <Form.Item
+                label="Breakout lookback (trading sessions)"
+                name="breakoutLookbackSessions"
+                extra="For 60 sessions, today's high must exceed the maximum close of the prior 60 sessions; none of the prior 59 sessions may satisfy the same rule. Default: 100."
+                rules={[{ required: true }]}
+              >
+                <InputNumber min={10} max={250} step={5} />
               </Form.Item>
 
               <Form.Item
