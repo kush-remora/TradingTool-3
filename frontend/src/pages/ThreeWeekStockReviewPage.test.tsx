@@ -33,6 +33,10 @@ vi.mock("../components/LiveMarketWidget", () => ({
   LiveMarketWidget: ({ symbol, mode }: { symbol: string; mode: string }) => <div>Live market: {symbol} ({mode})</div>,
 }));
 
+vi.mock("../components/FloatingInstrumentNotes", () => ({
+  FloatingInstrumentNotes: ({ instrumentToken }: { instrumentToken: number | null }) => <div>Notes: {instrumentToken ?? "none"}</div>,
+}));
+
 describe("ThreeWeekStockReviewPage", () => {
   afterEach(() => {
     window.history.replaceState({}, "", "/");
@@ -127,8 +131,7 @@ describe("ThreeWeekStockReviewPage", () => {
 
     expect(screen.getByTestId("delivery-history-table")).toBeInTheDocument();
     expect(screen.getByText("56.25%")).toBeInTheDocument();
-    expect(screen.getByText("12,50,000")).toBeInTheDocument();
-    expect(screen.getByText("22,22,222")).toBeInTheDocument();
+    expect(screen.getByText("12.50 L / 22.22 L")).toBeInTheDocument();
   });
 
   it("selects the NSE equity variant when the URL uses its base symbol", async () => {
@@ -146,9 +149,10 @@ describe("ThreeWeekStockReviewPage", () => {
 
     expect(screen.getByTestId("floating-change-calculator")).toHaveStyle({
       position: "fixed",
-      right: "24px",
-      bottom: "24px",
+      right: "20px",
+      bottom: "20px",
     });
+    expect(screen.queryByText("BUY / SELL CALCULATOR")).not.toBeInTheDocument();
   });
 
   it("calculates the third buy, sell, or percentage value from the other two", () => {

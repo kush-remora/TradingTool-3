@@ -1,13 +1,13 @@
-import { Alert, Button, Card, Empty, Input, Space, Spin, Table, Typography } from "antd";
+import { Alert, Button, Card, Empty, Space, Spin, Table, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { InstrumentSearch } from "../components/InstrumentSearch";
 import { LiveMarketWidget } from "../components/LiveMarketWidget";
 import { BuySellChangeCalculator } from "../components/BuySellChangeCalculator";
+import { FloatingInstrumentNotes } from "../components/FloatingInstrumentNotes";
 import { useInstrumentSearch } from "../hooks/useInstrumentSearch";
 import { useStockDetail } from "../hooks/useStockDetail";
-import type { DeliveryDayDetail, InstrumentSearchResult, StockNote } from "../types";
-import { deleteJson, getJson, postJson } from "../utils/api";
+import type { DeliveryDayDetail, InstrumentSearchResult } from "../types";
 import {
   buildWeeklyPriceSummaries,
   type WeeklyPriceSummary,
@@ -16,7 +16,6 @@ import {
 } from "../utils/threeWeekStockReview";
 
 const { Text, Title } = Typography;
-const { TextArea } = Input;
 const COMPACT_HISTORY_DAYS = 30;
 const THREE_MONTH_HISTORY_DAYS = 70;
 const WEEKS_TO_DISPLAY = 4;
@@ -25,6 +24,7 @@ const THREE_MONTH_WEEKS_TO_DISPLAY = 14;
 interface DailyPriceRow extends WeeklyPriceTimelineDay {
   key: string;
   day: string;
+  deliveryPct: number | null;
 }
 
 function formatDay(date: string): string {
@@ -37,12 +37,20 @@ function formatPrice(value: number): string {
   return `₹${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function formatQuantity(value: number | null): string {
-  return value == null ? "—" : value.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+function formatCompactQuantity(value: number | null): string {
+  if (value == null) return "—";
+  if (value >= 10_000_000) return `${(value / 10_000_000).toFixed(2)} Cr`;
+  if (value >= 100_000) return `${(value / 100_000).toFixed(2)} L`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)} K`;
+  return value.toLocaleString("en-IN");
 }
 
 function formatDeliveryPercentage(value: number | null): string {
   return value == null ? "—" : `${value.toFixed(2)}%`;
+}
+
+function formatDistance(currentPrice: number, referencePrice: number | null): string {
+  return referencePrice == null || referencePrice === 0 ? "—" : `${(((currentPrice - referencePrice) / referencePrice) * 100).toFixed(1)}%`;
 }
 
 function formatDateWithDay(date: string): string {
@@ -74,9 +82,6 @@ function getWeeklyExtremeStyle(row: DailyPriceRow): { backgroundColor: string } 
 export function ThreeWeekStockReviewPage() {
   const [selectedInstrument, setSelectedInstrument] = useState<InstrumentSearchResult | null>(null);
   const [showThreeMonths, setShowThreeMonths] = useState(false);
-  const [notes, setNotes] = useState<StockNote[]>([]);
-  const [noteText, setNoteText] = useState("");
-  const [notesError, setNotesError] = useState<string | null>(null);
   const { allInstruments, loading: instrumentsLoading, error: instrumentsError } = useInstrumentSearch();
   const historyDays = showThreeMonths ? THREE_MONTH_HISTORY_DAYS : COMPACT_HISTORY_DAYS;
   const weeksToDisplay = showThreeMonths ? THREE_MONTH_WEEKS_TO_DISPLAY : WEEKS_TO_DISPLAY;
@@ -93,26 +98,27 @@ export function ThreeWeekStockReviewPage() {
     if (instrument) setSelectedInstrument(instrument);
   }, [nseEquities, selectedInstrument]);
   useEffect(() => {
-    const token = selectedInstrument?.instrument_token;
-    if (!token) { setNotes([]); return; }
-    void getJson<StockNote[]>(`/api/stocks/notes/${token}`, { useCache: false })
-      .then(setNotes)
-      .catch((requestError: unknown) => setNotesError(requestError instanceof Error ? requestError.message : "Failed to load notes"));
-  }, [selectedInstrument?.instrument_token]);
-  const addNote = async (): Promise<void> => {
-    if (!selectedInstrument || !noteText.trim()) return;
-    try {
-      const note = await postJson<StockNote>("/api/stocks/notes", { instrumentToken: selectedInstrument.instrument_token, notes: noteText });
-      setNotes((currentNotes) => [note, ...currentNotes]);
-      setNoteText("");
-    } catch (requestError) { setNotesError(requestError instanceof Error ? requestError.message : "Failed to save note"); }
+    const syncFromUrl = (): void => setSelectedInstrument(null);
+    window.addEventListener("popstate", syncFromUrl);
+    return () => window.removeEventListener("popstate", syncFromUrl);
+  }, []);
+  const selectInstrument = (instrument: InstrumentSearchResult | null): void => {
+    setSelectedInstrument(instrument);
+    const url = new URL(window.location.href);
+    if (instrument) url.searchParams.set("symbol", instrument.trading_symbol);
+    else url.searchParams.delete("symbol");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}`);
   };
-  const removeNote = async (id: number): Promise<void> => {
-    try { await deleteJson(`/api/stocks/notes/${id}`); setNotes((currentNotes) => currentNotes.filter((note) => note.id !== id)); }
-    catch (requestError) { setNotesError(requestError instanceof Error ? requestError.message : "Failed to delete note"); }
-  };
+  const deliveryByDate = useMemo(
+    () => new Map(data?.delivery_days?.map((delivery) => [delivery.date, delivery.delivery_percentage]) ?? []),
+    [data?.delivery_days],
+  );
+  const volumeByDate = useMemo(
+    () => new Map(data?.days.map((day) => [day.date, day.volume]) ?? []),
+    [data?.days],
+  );
   const weeklySummaries = useMemo(
-    () => buildWeeklyPriceSummaries(data?.days ?? [], WEEKS_TO_DISPLAY),
+    () => [...buildWeeklyPriceSummaries(data?.days ?? [], WEEKS_TO_DISPLAY)].reverse(),
     [data?.days],
   );
   const weeklyTimelines = useMemo(
@@ -122,32 +128,39 @@ export function ThreeWeekStockReviewPage() {
   const dailyRows = useMemo<DailyPriceRow[]>(() => weeklyTimelines
     .flatMap((timeline) => timeline.days)
     .sort((left, right) => right.date.localeCompare(left.date))
-    .map((day) => ({ ...day, key: day.date, day: formatDay(day.date) })), [weeklyTimelines]);
+    .map((day) => ({ ...day, key: day.date, day: formatDay(day.date), deliveryPct: deliveryByDate.get(day.date) ?? null })), [deliveryByDate, weeklyTimelines]);
 
   const dailyColumns: ColumnsType<DailyPriceRow> = [
-    { title: "Date", dataIndex: "date", key: "date", width: 110 },
-    { title: "Day", dataIndex: "day", key: "day", width: 75 },
-    { title: "Open", dataIndex: "open", key: "open", render: formatPrice },
-    { title: "Low", dataIndex: "low", key: "low", render: formatPrice },
-    { title: "Close", dataIndex: "close", key: "close", render: formatPrice },
-    { title: "High", dataIndex: "high", key: "high", render: formatPrice },
-    { title: "Daily %", dataIndex: "dailyMovePct", key: "dailyMovePct", render: formatPercent },
-    { title: "Week %", dataIndex: "accumulatedWeeklyPct", key: "accumulatedWeeklyPct", render: formatPercent },
+    { title: "Date", dataIndex: "date", key: "date", width: 92 },
+    { title: "Day", dataIndex: "day", key: "day", width: 48 },
+    { title: "Open", dataIndex: "open", key: "open", width: 90, render: formatPrice },
+    { title: "Low", dataIndex: "low", key: "low", width: 90, render: formatPrice },
+    { title: "Close", dataIndex: "close", key: "close", width: 90, render: formatPrice },
+    { title: "High", dataIndex: "high", key: "high", width: 90, render: formatPrice },
+    { title: "Vol", dataIndex: "volume", key: "volume", width: 72, render: formatCompactQuantity },
+    { title: "Del %", dataIndex: "deliveryPct", key: "deliveryPct", width: 65, render: formatDeliveryPercentage },
+    { title: "Daily %", dataIndex: "dailyMovePct", key: "dailyMovePct", width: 70, render: formatPercent },
+    { title: "Week %", dataIndex: "accumulatedWeeklyPct", key: "accumulatedWeeklyPct", width: 70, render: formatPercent },
   ];
 
   const weeklyColumns: ColumnsType<WeeklyPriceSummary> = [
-    { title: "Week", dataIndex: "weekLabel", key: "weekLabel" },
-    { title: "Weekly low", key: "low", render: (_, row) => formatPrice(row.low) },
-    { title: "Low date / day", key: "lowDate", render: (_, row) => formatDateWithDay(row.lowDate) },
-    { title: "Weekly high", key: "high", render: (_, row) => formatPrice(row.high) },
-    { title: "High date / day", key: "highDate", render: (_, row) => formatDateWithDay(row.highDate) },
-    { title: "Range", key: "rangePct", render: (_, row) => `${row.rangePct.toFixed(2)}%` },
+    { title: "Week", dataIndex: "weekLabel", key: "weekLabel", width: 125 },
+    { title: "Low", key: "low", width: 85, render: (_, row) => formatPrice(row.low) },
+    { title: "Low day · Del / Vol", key: "lowDate", width: 180, render: (_, row) => <>{formatDateWithDay(row.lowDate)} · {formatDeliveryPercentage(deliveryByDate.get(row.lowDate) ?? null)} / {formatCompactQuantity(volumeByDate.get(row.lowDate) ?? null)}</> },
+    { title: "High", key: "high", width: 85, render: (_, row) => formatPrice(row.high) },
+    { title: "High day · Del / Vol", key: "highDate", width: 180, render: (_, row) => <>{formatDateWithDay(row.highDate)} · {formatDeliveryPercentage(deliveryByDate.get(row.highDate) ?? null)} / {formatCompactQuantity(volumeByDate.get(row.highDate) ?? null)}</> },
+    { title: "Range", key: "rangePct", width: 65, render: (_, row) => `${row.rangePct.toFixed(2)}%` },
   ];
   const deliveryColumns: ColumnsType<DeliveryDayDetail> = [
-    { title: "Date", dataIndex: "date", key: "date", width: 94 },
-    { title: "Delivery %", dataIndex: "delivery_percentage", key: "delivery_percentage", align: "right", render: formatDeliveryPercentage },
-    { title: "Delivered qty", dataIndex: "delivered_quantity", key: "delivered_quantity", align: "right", render: formatQuantity },
-    { title: "Traded qty", dataIndex: "traded_quantity", key: "traded_quantity", align: "right", render: formatQuantity },
+    { title: "Date", dataIndex: "date", key: "date", width: 72, render: (date: string) => date.slice(5) },
+    { title: "D%", dataIndex: "delivery_percentage", key: "delivery_percentage", width: 48, align: "right", render: formatDeliveryPercentage },
+    {
+      title: "Dlv / Trd",
+      key: "quantities",
+      width: 108,
+      align: "right",
+      render: (_, row) => `${formatCompactQuantity(row.delivered_quantity)} / ${formatCompactQuantity(row.traded_quantity)}`,
+    },
   ];
 
   return (
@@ -158,7 +171,7 @@ export function ThreeWeekStockReviewPage() {
             <Title level={3} style={{ margin: 0 }}>Three-Week Stock Review + Current Week</Title>
             <Text type="secondary">Review the previous three completed weeks and the latest/current week of daily OHLC data.</Text>
             <div style={{ maxWidth: 420 }}>
-              {instrumentsLoading ? <Spin size="small" /> : <InstrumentSearch instruments={nseEquities} value={selectedInstrument} onSelect={setSelectedInstrument} placeholder="Search any NSE stock" />}
+              {instrumentsLoading ? <Spin size="small" /> : <InstrumentSearch instruments={nseEquities} value={selectedInstrument} onSelect={selectInstrument} placeholder="Search any NSE stock" />}
               {instrumentsError && <Text type="danger">{instrumentsError}</Text>}
             </div>
           </Space>
@@ -166,38 +179,49 @@ export function ThreeWeekStockReviewPage() {
 
         {selectedInstrument && (
           <Card size="small">
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
-              <Space orientation="vertical" size={2} style={{ minWidth: 180 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
+              <Space orientation="vertical" size={2} style={{ minWidth: 240 }}>
                 <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>LIVE MARKET</Text>
                 <LiveMarketWidget symbol={`NSE:${selectedInstrument.trading_symbol}`} mode="wide" />
               </Space>
-              <div style={{ flex: "1 1 460px", minWidth: 0 }}>
-                <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>LAST 5 DELIVERY SESSIONS</Text>
+              <div style={{ flex: "0 1 250px", minWidth: 220 }}>
+                <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>DELIVERY · 5D</Text>
                 {data ? (
                   <Table
                     data-testid="delivery-history-table"
                     columns={deliveryColumns}
-                    dataSource={data.delivery_days}
+                    dataSource={data.delivery_days.slice(0, 5)}
                     rowKey="date"
                     pagination={false}
                     size="small"
                     locale={{ emptyText: "No delivery data available." }}
-                    style={{ marginTop: 4 }}
+                    style={{ marginTop: 4, fontSize: 10 }}
                   />
                 ) : <Text type="secondary" style={{ display: "block", marginTop: 8, fontSize: 12 }}>Loading delivery data…</Text>}
+              </div>
+              <div style={{ flex: "0 1 280px", minWidth: 250 }}>
+                <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>FUNDAMENTALS</Text>
+                {data?.fundamentals && <Table
+                  size="small"
+                  pagination={false}
+                  showHeader={false}
+                  style={{ marginTop: 4, fontSize: 12 }}
+                  columns={[
+                    { dataIndex: "label", key: "label", width: 92 },
+                    { dataIndex: "value", key: "value", width: 88, align: "right" },
+                    { dataIndex: "position", key: "position", width: 86, align: "right" },
+                  ]}
+                  dataSource={[
+                    { key: "low", label: "52W low", value: data.fundamentals.fiftyTwoWeekLow == null ? "—" : formatPrice(data.fundamentals.fiftyTwoWeekLow), position: data.fundamentals.fiftyTwoWeekLow == null ? "—" : `+${formatDistance(data.fundamentals.currentPrice, data.fundamentals.fiftyTwoWeekLow)}` },
+                    { key: "high", label: "52W high", value: formatPrice(data.fundamentals.fiftyTwoWeekHigh ?? 0), position: formatDistance(data.fundamentals.currentPrice, data.fundamentals.fiftyTwoWeekHigh) },
+                    { key: "volume", label: "Avg vol 20D", value: formatCompactQuantity(data.avg_volume_20d), position: "" },
+                    { key: "sma", label: "Fair · 200 DMA", value: data.fundamentals.sma200 == null ? "—" : formatPrice(data.fundamentals.sma200), position: "" },
+                  ]}
+                />}
               </div>
             </div>
           </Card>
         )}
-        {selectedInstrument && <Card size="small" title="Notes">
-          <Space orientation="vertical" size={8} style={{ width: "100%" }}>
-            <TextArea aria-label="New note" value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="Add a research note" autoSize={{ minRows: 2, maxRows: 4 }} />
-            <Button size="small" type="primary" onClick={() => void addNote()} disabled={!noteText.trim()}>Add note</Button>
-            {notesError && <Text type="danger">{notesError}</Text>}
-            {notes.map((note) => <Card key={note.id} size="small"><Space direction="vertical" size={2}><Text>{note.notes}</Text><Text type="secondary" style={{ fontSize: 11 }}>{new Date(note.createdAt).toLocaleString("en-IN")}</Text><Button size="small" danger type="link" onClick={() => void removeNote(note.id)}>Delete</Button></Space></Card>)}
-          </Space>
-        </Card>}
-
         {error && <Alert type="error" message={error} showIcon />}
         {!selectedInstrument && <Empty description="Select a stock to start the three-week review." />}
         {loading && <Spin />}
@@ -214,13 +238,9 @@ export function ThreeWeekStockReviewPage() {
           <Alert type="info" showIcon message="Use the raw price structure first." description="Compare weekly highs, lows, and range yourself; confirm any accumulation idea with volume and delivery evidence." />
         </>}
       </Space>
-      <div data-testid="floating-change-calculator" style={{ position: "fixed", right: 24, bottom: 24, zIndex: 1000, maxWidth: "calc(100vw - 32px)" }}>
-        <Card size="small">
-          <Space orientation="vertical" size={4}>
-            <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>BUY / SELL CALCULATOR</Text>
-            <BuySellChangeCalculator />
-          </Space>
-        </Card>
+      <FloatingInstrumentNotes instrumentToken={selectedInstrument?.instrument_token ?? null} />
+      <div data-testid="floating-change-calculator" style={{ position: "fixed", right: 20, bottom: 20, zIndex: 1000, maxWidth: "calc(100vw - 32px)", background: "#fff", border: "1px solid #f0f0f0", borderRadius: 8, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)", padding: 6 }}>
+        <BuySellChangeCalculator />
       </div>
     </div>
   );

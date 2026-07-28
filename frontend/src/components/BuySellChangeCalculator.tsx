@@ -50,10 +50,10 @@ export function BuySellChangeCalculator() {
   };
 
   return (
-    <Space wrap size={8} aria-label="Buy sell percentage calculator">
-      <InputNumber aria-label="Buy price" size="small" min={0.01} precision={2} placeholder="Buy" prefix="₹" value={buyPrice} onChange={updateBuyPrice} style={{ width: 118 }} />
-      <InputNumber aria-label="Sell price" size="small" min={0.01} precision={2} placeholder="Sell" prefix="₹" value={sellPrice} onChange={updateSellPrice} style={{ width: 118 }} />
-      <InputNumber aria-label="Percentage change" size="small" precision={2} placeholder="Change %" value={changePercent} onChange={updateChangePercent} style={{ width: 118 }} />
+    <Space wrap size={4} aria-label="Buy sell percentage calculator">
+      <InputNumber aria-label="Buy price" size="small" min={0.01} precision={2} placeholder="Buy" prefix="₹" value={buyPrice} onChange={updateBuyPrice} style={{ width: 82 }} />
+      <InputNumber aria-label="Sell price" size="small" min={0.01} precision={2} placeholder="Sell" prefix="₹" value={sellPrice} onChange={updateSellPrice} style={{ width: 82 }} />
+      <InputNumber aria-label="Percentage change" size="small" precision={2} placeholder="Change %" value={changePercent} onChange={updateChangePercent} style={{ width: 82 }} />
     </Space>
   );
 }

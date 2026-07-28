@@ -31,11 +31,19 @@ data class PivotLevels(
     val s3: Double,
 )
 
+data class StockFundamentals(
+    val currentPrice: Double,
+    val fiftyTwoWeekLow: Double?,
+    val fiftyTwoWeekHigh: Double?,
+    val sma200: Double?,
+)
+
 data class StockDetailResponse(
     val symbol: String,
     val exchange: String,
     @get:JsonProperty("avg_volume_20d") val avgVolume20d: Double?,
     @get:JsonProperty("pivot_levels") val pivotLevels: PivotLevels?,
+    val fundamentals: StockFundamentals,
     val days: List<DayDetail>,
     @get:JsonProperty("delivery_days") val deliveryDays: List<DeliveryDayDetail>,
 )

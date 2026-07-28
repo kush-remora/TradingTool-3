@@ -82,6 +82,7 @@ class ServiceModule(
         bind(DeliveryReconciliationService::class.java).`in`(Singleton::class.java)
         bind(TradeService::class.java).`in`(Singleton::class.java)
         bind(TradeReadinessService::class.java).`in`(Singleton::class.java)
+        bind(com.tradingtool.core.candle.DailyCandleRefreshJob::class.java).`in`(Singleton::class.java)
         bind(com.tradingtool.core.note.NoteService::class.java).`in`(Singleton::class.java)
         bind(HttpRequestExecutor::class.java).to(JdkHttpRequestExecutor::class.java).`in`(Singleton::class.java)
 

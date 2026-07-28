@@ -53,7 +53,7 @@ class StockResource @Inject constructor(
     private val noteService: com.tradingtool.core.note.NoteService,
 ) {
     private companion object {
-        const val DELIVERY_HISTORY_DAYS = 5
+        const val DELIVERY_HISTORY_DAYS = 75
     }
 
     private val ioScope = resourceScope.ioScope
@@ -197,7 +197,7 @@ class StockResource @Inject constructor(
             ?: return@endpoint notFound("Unknown NSE symbol: $normalizedSymbol")
 
         refreshDailyCandlesIfStale(normalizedSymbol, token)
-        val recentCandles = candleDb.read { it.getRecentDailyCandles(token, requestedDays + 21) }
+        val recentCandles = candleDb.read { it.getRecentDailyCandles(token, maxOf(requestedDays + 21, 252)) }
             .sortedBy { candle -> candle.candleDate }
             .toMutableList()
         loadLatestLiveCandle(normalizedSymbol, token)
@@ -244,6 +244,13 @@ class StockResource @Inject constructor(
             ?.takeIf { average -> average.isFinite() && average > 0.0 }
             ?.let(::roundTo2)
         val pivotLevels = buildPivotLevels(recentCandles.last())
+        val last252 = recentCandles.takeLast(252)
+        val fundamentals = com.tradingtool.core.model.stock.StockFundamentals(
+            currentPrice = recentCandles.last().close,
+            fiftyTwoWeekLow = last252.minOfOrNull { it.low },
+            fiftyTwoWeekHigh = last252.maxOfOrNull { it.high },
+            sma200 = recentCandles.takeLast(200).takeIf { it.size == 200 }?.map { it.close }?.average()?.let(::roundTo2),
+        )
         val deliveryDays = deliveryDb.read { dao ->
             dao.findRecentByInstrumentToken(
                 instrumentToken = token,
@@ -265,6 +272,7 @@ class StockResource @Inject constructor(
                 exchange = "NSE",
                 avgVolume20d = latestPrior20,
                 pivotLevels = pivotLevels,
+                fundamentals = fundamentals,
                 days = detailDays,
                 deliveryDays = deliveryDays,
             )

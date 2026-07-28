@@ -4,6 +4,7 @@ import com.google.inject.Inject
 import com.google.inject.Singleton
 import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
+import com.tradingtool.core.database.StockDeliveryJdbiHandler
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
 import com.tradingtool.core.model.screener.UniverseOption
 import com.tradingtool.core.model.screener.UniverseOptionsResponse
@@ -19,6 +20,7 @@ import java.time.LocalDate
 class WeeklyPriceWatchlistScannerService @Inject constructor(
     private val indexConstituentHandler: IndexConstituentJdbiHandler,
     private val candleCacheService: CandleCacheService,
+    private val deliveryHandler: StockDeliveryJdbiHandler,
 ) {
     suspend fun listWatchlists(): UniverseOptionsResponse {
         val options = indexConstituentHandler.read { dao -> dao.listUniqueIndices() }
@@ -51,6 +53,8 @@ class WeeklyPriceWatchlistScannerService @Inject constructor(
     }
 
     private suspend fun buildRow(member: IndexConstituentUpsertRow, toDate: LocalDate): WeeklyPriceWatchlistRow {
+        val deliveryByDate = deliveryHandler.read { dao -> dao.findRecentByInstrumentToken(member.instrumentToken, toDate.plusDays(1), HISTORY_CALENDAR_DAYS.toInt()) }
+            .associate { delivery -> delivery.tradingDate.toString() to delivery.delivPer }
         val days = candleCacheService.getDailyCandles(
             token = member.instrumentToken,
             symbol = member.symbol,
@@ -65,6 +69,7 @@ class WeeklyPriceWatchlistScannerService @Inject constructor(
                     low = candle.low,
                     close = candle.close,
                     volume = candle.volume,
+                    deliveryPercentage = deliveryByDate[candle.candleDate.toString()],
                 )
             }
         return WeeklyPriceWatchlistRow(member.symbol, member.companyName, days)

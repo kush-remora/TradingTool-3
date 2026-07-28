@@ -281,8 +281,16 @@ export interface StockDetailResponse {
   exchange: string;
   avg_volume_20d: number | null;
   pivot_levels: PivotLevels | null;
+  fundamentals: StockFundamentals;
   days: DayDetail[];
   delivery_days: DeliveryDayDetail[];
+}
+
+export interface StockFundamentals {
+  currentPrice: number;
+  fiftyTwoWeekLow: number | null;
+  fiftyTwoWeekHigh: number | null;
+  sma200: number | null;
 }
 
 export interface StockQuoteSnapshot {
@@ -2009,6 +2017,7 @@ export interface WeeklyPriceWatchlistDay {
   low: number;
   close: number;
   volume: number;
+  deliveryPercentage: number | null;
 }
 
 export interface WeeklyPriceWatchlistRow {

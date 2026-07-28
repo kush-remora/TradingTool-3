@@ -29,3 +29,17 @@ Add a compact table beside the selected stock's existing wide live-market widget
 The existing stock-detail endpoint will include these rows using the already-bound delivery read DAO. This keeps the screen to one request and one explicit response contract, avoids a second UI loading path, and treats unavailable delivery values as missing rather than fabricated. Verification will cover the frontend table, Kotlin compilation, the focused frontend suite, and the production frontend build.
 
 Implemented as described: `delivery_days` returns the latest five stored NSE delivery records for the selected instrument and the page renders them beside the live-market widget. Focused frontend tests (10), the resources reactor compile, and the production frontend build passed on 2026-07-28.
+
+## Density refinement — 2026-07-28
+
+The review surface should keep attention on live price and price structure. The calculator stays fixed but loses its title and uses narrower input fields. Notes leave the main content flow for a small floating note button beside the calculator; its popover retains writing, saving, reading, and deleting notes without consuming screen height.
+
+Delivery context remains visible beside Live Market but becomes a narrow five-row table with `Date`, `D%`, and one compact `Delivered / Traded` quantity column. It must use materially less width than the wide live-market block and preserve the existing API/data behaviour.
+
+Implemented: the calculator is title-free and narrow; notes are accessible only through an adjacent floating button and popover; and delivery uses the requested three-column compact layout. Focused tests (11) and the frontend production build passed on 2026-07-28.
+
+## Note database mapper fix — 2026-07-28
+
+The note query fails because JDBI's constructor mapper cannot reliably match Kotlin constructor parameters to PostgreSQL result-set labels. Replace it with the project-standard explicit row mapper, read the database's native snake_case columns directly, and validate the mapping with a focused test. This leaves the note API and schema unchanged.
+
+Implemented with `NoteMapper` for both note list and insert-returning results. `NoteMapperTest` and the resources reactor compile passed on 2026-07-28.

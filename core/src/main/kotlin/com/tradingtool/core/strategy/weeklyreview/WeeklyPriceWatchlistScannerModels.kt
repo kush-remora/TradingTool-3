@@ -18,4 +18,5 @@ data class WeeklyPriceWatchlistDay(
     val low: Double,
     val close: Double,
     val volume: Long,
+    val deliveryPercentage: Double?,
 )

@@ -148,6 +148,7 @@ class DropwizardApplication : Application<DropwizardConfig>() {
         // Populate instrument cache at startup (now guaranteed to have auth).
         val instrumentCache = injector.getInstance(com.tradingtool.core.kite.InstrumentCache::class.java)
         val kiteTickerService = injector.getInstance(KiteTickerService::class.java)
+        injector.getInstance(com.tradingtool.core.candle.DailyCandleRefreshJob::class.java).start()
         // Task 1: when the cron-job refreshes the daily Kite token, restart the ticker.
         kiteClient.setTokenRefreshCallback { newToken ->
             kiteTickerService.restart(newToken)
