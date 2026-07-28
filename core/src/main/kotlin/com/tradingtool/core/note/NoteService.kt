@@ -1,5 +1,6 @@
 package com.tradingtool.core.note
 
+import com.google.inject.Inject
 import com.tradingtool.core.database.JdbiHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -24,7 +25,7 @@ interface NoteWriteDao {
     fun delete(@Bind("id") id: Long): Int
 }
 
-class NoteService(private val notes: JdbiHandler<NoteReadDao, NoteWriteDao>) {
+class NoteService @Inject constructor(private val notes: JdbiHandler<NoteReadDao, NoteWriteDao>) {
     suspend fun list(instrumentToken: Long): List<Note> = withContext(Dispatchers.IO) { notes.read { it.findByInstrumentToken(instrumentToken) } }
     suspend fun create(request: CreateNoteRequest): Note = withContext(Dispatchers.IO) { notes.write { it.create(request) } }
     suspend fun delete(id: Long): Boolean = withContext(Dispatchers.IO) { notes.write { it.delete(id) > 0 } }
