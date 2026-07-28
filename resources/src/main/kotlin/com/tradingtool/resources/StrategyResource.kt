@@ -26,6 +26,7 @@ import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionRunConfig
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionService
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseGroupBacktestRequest
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseGroupBacktestService
+import com.tradingtool.core.strategy.weeklyreview.WeeklyPriceWatchlistScannerService
 import com.tradingtool.resources.common.badRequest
 import com.tradingtool.resources.common.endpoint
 import com.tradingtool.resources.common.notFound
@@ -62,6 +63,7 @@ class StrategyResource @Inject constructor(
     private val weeklyFloorReboundService: WeeklyFloorReboundService,
     private val weeklyBaseDefinitionService: WeeklyBaseDefinitionService,
     private val weeklyBaseGroupBacktestService: WeeklyBaseGroupBacktestService,
+    private val weeklyPriceWatchlistScannerService: WeeklyPriceWatchlistScannerService,
 ) {
     private val ioScope = resourceScope.ioScope
 
@@ -183,6 +185,22 @@ class StrategyResource @Inject constructor(
     @Path("/wyckoff/phase1/universes")
     fun getWyckoffPhase1UniverseOptions(): CompletableFuture<Response> = ioScope.endpoint {
         ok(wyckoffPhase1ScannerService.listUniverseOptions())
+    }
+
+    @GET
+    @Path("/weekly-price-review/watchlists")
+    fun getWeeklyPriceReviewWatchlists(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(weeklyPriceWatchlistScannerService.listWatchlists())
+    }
+
+    @GET
+    @Path("/weekly-price-review/scan")
+    fun getWeeklyPriceReviewScan(@QueryParam("watchlist") watchlist: String?): CompletableFuture<Response> = ioScope.endpoint {
+        try {
+            ok(weeklyPriceWatchlistScannerService.scan(watchlist.orEmpty()))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid watchlist.")
+        }
     }
 
     @GET

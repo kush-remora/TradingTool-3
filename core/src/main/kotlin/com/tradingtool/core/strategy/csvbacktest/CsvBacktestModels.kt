@@ -28,6 +28,7 @@ data class CsvBacktestTradeResult(
     val breakoutDayMovePct: Double?,
     val breakoutDayDeliveryPct: Double?,
     val priorFiveDaysMaxDeliveryPct: Double?,
+    val priorFiveDaysDelivery: List<CsvBacktestPriorDeliveryDay>,
     val entryDate: String?,
     val entryPrice: Double?,
     val firstFiveDaysLowestPrice: Double?,
@@ -44,6 +45,11 @@ data class CsvBacktestTradeResult(
     val daysHeld: Int,
     val slHit: Boolean,
     val isOpen: Boolean
+)
+
+data class CsvBacktestPriorDeliveryDay(
+    val date: String,
+    val deliveryPct: Double?,
 )
 
 data class CsvBacktestSummary(

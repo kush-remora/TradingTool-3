@@ -26,6 +26,13 @@ const buildTrade = (
   breakoutDayMovePct: 2.15,
   breakoutDayDeliveryPct: 54.2,
   priorFiveDaysMaxDeliveryPct: 63.8,
+  priorFiveDaysDelivery: [
+    { date: "24-06-2026", deliveryPct: 51.2 },
+    { date: "25-06-2026", deliveryPct: 58.4 },
+    { date: "26-06-2026", deliveryPct: 63.8 },
+    { date: "29-06-2026", deliveryPct: 49.1 },
+    { date: "30-06-2026", deliveryPct: 56.7 },
+  ],
   entryDate: "2026-07-02",
   entryPrice: 1510,
   firstFiveDaysLowestPrice: 1490,

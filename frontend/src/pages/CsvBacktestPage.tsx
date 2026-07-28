@@ -16,7 +16,8 @@ import {
   Drawer,
   Select,
   Input,
-  Switch
+  Switch,
+  Tooltip
 } from "antd";
 import { UploadOutlined, EditOutlined } from "@ant-design/icons";
 import type { TableProps } from "antd";
@@ -422,7 +423,31 @@ export function CsvBacktestPage() {
         : <Text type={val >= 0 ? "success" : "danger"}>{val > 0 ? "+" : ""}{val.toFixed(2)}%</Text>,
     },
     { title: "Breakout Delivery %", dataIndex: "breakoutDayDeliveryPct", key: "breakoutDayDeliveryPct", render: (val: number | null) => val === null ? "-" : `${val.toFixed(2)}%` },
-    { title: "T−5 Max Delivery %", dataIndex: "priorFiveDaysMaxDeliveryPct", key: "priorFiveDaysMaxDeliveryPct", render: (val: number | null) => val === null ? "-" : `${val.toFixed(2)}%` },
+    {
+      title: "T−5 Max Delivery %",
+      dataIndex: "priorFiveDaysMaxDeliveryPct",
+      key: "priorFiveDaysMaxDeliveryPct",
+      sorter: (a: CsvBacktestTradeResult, b: CsvBacktestTradeResult) =>
+        (a.priorFiveDaysMaxDeliveryPct ?? 0) - (b.priorFiveDaysMaxDeliveryPct ?? 0),
+      render: (val: number | null, record: CsvBacktestTradeResult) => {
+        if (val === null) return "-";
+        return (
+          <Tooltip
+            title={
+              <div>
+                {record.priorFiveDaysDelivery.map((day) => (
+                  <div key={day.date}>
+                    {day.date}: {day.deliveryPct === null ? "-" : `${day.deliveryPct.toFixed(2)}%`}
+                  </div>
+                ))}
+              </div>
+            }
+          >
+            <span>{val.toFixed(2)}%</span>
+          </Tooltip>
+        );
+      },
+    },
     { title: "Entry Date", dataIndex: "entryDate", key: "entryDate", render: (val: string | null) => val || "-" },
     { title: "Entry Price", dataIndex: "entryPrice", key: "entryPrice", render: (val: number | null) => val ? `₹${formatNumber(val)}` : "-" },
     { title: "5D Low", dataIndex: "firstFiveDaysLowestPrice", key: "firstFiveDaysLowestPrice", render: (val: number | null) => val ? `₹${formatNumber(val)}` : "-" },

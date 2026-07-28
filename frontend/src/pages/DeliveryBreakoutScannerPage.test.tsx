@@ -33,21 +33,17 @@ describe("DeliveryBreakoutScannerPage", () => {
             symbol: "INFY",
             trade_date: "2026-06-23",
             close: 1540.5,
+            prev_close: 1492.74,
+            fifty_two_week_high: 1600,
+            fifty_two_week_low: 1200,
             close_pct_change: 3.2,
             volume: 250000,
             delivery_quantity: 140000,
             delivery_percentage: 56.0,
-            prior_10d_max_volume: 100000,
-            prior_10d_max_delivery_quantity: 80000,
-            volume_ratio_vs_10d_max: 2.5,
-            delivery_ratio_vs_10d_max: 1.75,
-            has_quiet_clue: true,
-            quiet_clue_day: "2026-06-22",
-            is_confirmed_breakout_today: true,
-            sma200: 1510.0,
-            distance_from_sma200_pct: 2.02,
-            is_near_200_sma: false,
-            label: "CONFIRMED_BREAKOUT_WITH_CLUE",
+            prev_volume: 100000,
+            prev_delivery_quantity: 80000,
+            volume_ratio: 2.5,
+            delivery_ratio: 1.75,
           },
         ],
       },
@@ -61,8 +57,10 @@ describe("DeliveryBreakoutScannerPage", () => {
 
     expect(screen.getByText("Delivery Breakout Validation")).toBeInTheDocument();
     expect(screen.getByText("INFY")).toBeInTheDocument();
-    expect(screen.getByText("CONFIRMED_BREAKOUT_WITH_CLUE")).toBeInTheDocument();
-    expect(screen.getByText("Breakouts 1")).toBeInTheDocument();
+    expect(screen.getByText("High: -3.72%")).toBeInTheDocument();
+    expect(screen.getByText("Low: +28.38%")).toBeInTheDocument();
+    expect(screen.getByText("2.50x")).toBeInTheDocument();
+    expect(screen.getByText("1.75x")).toBeInTheDocument();
   });
 
   it("shows empty state when no rows match", () => {

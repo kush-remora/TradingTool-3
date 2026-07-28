@@ -30,6 +30,20 @@ function formatPercent(value: number | null | undefined): string {
   return `${formatNumber(value, 2)}%`;
 }
 
+function calculateDistancePercent(price: number | null | undefined, referencePrice: number | null): number | null {
+  if (price == null || referencePrice == null || referencePrice === 0) {
+    return null;
+  }
+  return ((price - referencePrice) / referencePrice) * 100;
+}
+
+function formatSignedPercent(value: number | null): string {
+  if (value == null) {
+    return "-";
+  }
+  return `${value > 0 ? "+" : ""}${formatPercent(value)}`;
+}
+
 function formatRatio(value: number | null | undefined): string {
   if (value == null) {
     return "-";
@@ -123,6 +137,22 @@ export function DeliveryBreakoutScannerPage() {
           sorter: (left, right) =>
             (resolveMarketChangePercent(left.symbol, quotesBySymbol[left.symbol.toUpperCase()], left.close_pct_change) ?? Number.NEGATIVE_INFINITY) -
             (resolveMarketChangePercent(right.symbol, quotesBySymbol[right.symbol.toUpperCase()], right.close_pct_change) ?? Number.NEGATIVE_INFINITY),
+        },
+        {
+          title: "52W Distance",
+          key: "fiftyTwoWeekDistance",
+          render: (_value: unknown, record: DeliveryBreakoutDashboardRow) => {
+            const currentPrice = quotesBySymbol[record.symbol.toUpperCase()]?.ltp ?? record.close;
+            const distanceFromHigh = calculateDistancePercent(currentPrice, record.fifty_two_week_high);
+            const distanceFromLow = calculateDistancePercent(currentPrice, record.fifty_two_week_low);
+            return <div style={{ fontSize: 12 }}>
+              <div>High: {formatSignedPercent(distanceFromHigh)}</div>
+              <div>Low: {formatSignedPercent(distanceFromLow)}</div>
+            </div>;
+          },
+          sorter: (left, right) =>
+            (calculateDistancePercent(left.close, left.fifty_two_week_high) ?? Number.NEGATIVE_INFINITY) -
+            (calculateDistancePercent(right.close, right.fifty_two_week_high) ?? Number.NEGATIVE_INFINITY),
         },
         {
           title: "Volume Shock",

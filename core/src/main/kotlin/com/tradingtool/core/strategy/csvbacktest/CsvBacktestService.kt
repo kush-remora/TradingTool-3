@@ -181,6 +181,12 @@ class CsvBacktestService(
                     ?.let { token -> deliveryPctByToken[token] }
                     .orEmpty(),
             )
+            val priorFiveDaysDelivery = deliveryMetrics.priorFiveDaysDelivery.map { delivery ->
+                CsvBacktestPriorDeliveryDay(
+                    date = delivery.date.format(dateFormatter),
+                    deliveryPct = delivery.deliveryPct,
+                )
+            }
 
             val entry = CsvBacktestEntryEvaluator.findEntry(
                 candles = candles,
@@ -206,6 +212,7 @@ class CsvBacktestService(
                         breakoutDayMovePct = breakoutDayMovePct,
                         breakoutDayDeliveryPct = deliveryMetrics.breakoutDayDeliveryPct,
                         priorFiveDaysMaxDeliveryPct = deliveryMetrics.priorFiveDaysMaxDeliveryPct,
+                        priorFiveDaysDelivery = priorFiveDaysDelivery,
                         entryDate = null,
                         entryPrice = null,
                         firstFiveDaysLowestPrice = null,
@@ -287,6 +294,7 @@ class CsvBacktestService(
                     breakoutDayMovePct = breakoutDayMovePct,
                     breakoutDayDeliveryPct = deliveryMetrics.breakoutDayDeliveryPct,
                     priorFiveDaysMaxDeliveryPct = deliveryMetrics.priorFiveDaysMaxDeliveryPct,
+                    priorFiveDaysDelivery = priorFiveDaysDelivery,
                     entryDate = entryCandle.candleDate.format(dateFormatter),
                     entryPrice = entryPrice,
                     firstFiveDaysLowestPrice = earlyDip?.lowestPrice,

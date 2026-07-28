@@ -31,5 +31,15 @@ class CsvBacktestDeliveryMetricsTest {
 
         assertEquals(62.0, metrics.breakoutDayDeliveryPct)
         assertEquals(73.0, metrics.priorFiveDaysMaxDeliveryPct)
+        assertEquals(
+            listOf(
+                CsvBacktestPriorDeliveryMetric(LocalDate.of(2026, 7, 3), 48.0),
+                CsvBacktestPriorDeliveryMetric(LocalDate.of(2026, 7, 6), 65.0),
+                CsvBacktestPriorDeliveryMetric(LocalDate.of(2026, 7, 7), 73.0),
+                CsvBacktestPriorDeliveryMetric(LocalDate.of(2026, 7, 8), 59.0),
+                CsvBacktestPriorDeliveryMetric(LocalDate.of(2026, 7, 9), 68.0),
+            ),
+            metrics.priorFiveDaysDelivery,
+        )
     }
 }

@@ -93,6 +93,8 @@ class DeliveryBreakoutScannerService @Inject constructor(
             val close = candles.getOrNull(candleIndex)?.close?.roundTo2()
             val prevClose = if (candleIndex > 0) candles[candleIndex - 1].close.roundTo2() else null
             val closePctChange = DeliveryBreakoutAnalyzer.calculatePctChange(candles, tradeDate)
+            val fiftyTwoWeekHigh = candles.maxOfOrNull { candle -> candle.high }?.roundTo2()
+            val fiftyTwoWeekLow = candles.minOfOrNull { candle -> candle.low }?.roundTo2()
 
             DeliveryBreakoutDashboardRow(
                 symbol = candidate.symbol,
@@ -100,6 +102,8 @@ class DeliveryBreakoutScannerService @Inject constructor(
                 close = close,
                 prev_close = prevClose,
                 close_pct_change = closePctChange,
+                fifty_two_week_high = fiftyTwoWeekHigh,
+                fifty_two_week_low = fiftyTwoWeekLow,
                 volume = candidate.volume,
                 delivery_quantity = candidate.deliveryQuantity,
                 delivery_percentage = candidate.deliveryPercentage,
@@ -167,8 +171,16 @@ class DeliveryBreakoutScannerService @Inject constructor(
             to = toDate,
         ).sortedBy { candle -> candle.candleDate }
 
+        val earliestCandleDate = candles.firstOrNull()?.candleDate
         val latestCandleDate = candles.lastOrNull()?.candleDate
-        if (candles.isEmpty() || latestCandleDate == null || latestCandleDate.isBefore(toDate)) {
+        val latestAcceptableFirstCandleDate = fromDate.plusDays(MAX_TRADING_CALENDAR_GAP_DAYS)
+        if (
+            candles.isEmpty() ||
+            earliestCandleDate == null ||
+            latestCandleDate == null ||
+            earliestCandleDate.isAfter(latestAcceptableFirstCandleDate) ||
+            latestCandleDate.isBefore(toDate)
+        ) {
             runCatching {
                 candleDataService.syncDailyRange(
                     symbols = listOf(candidate.symbol),
@@ -201,7 +213,8 @@ class DeliveryBreakoutScannerService @Inject constructor(
 
     private companion object {
         private const val DELIVERY_HISTORY_CALENDAR_DAYS = 15L
-        private const val CANDLE_HISTORY_CALENDAR_DAYS = 10L
+        private const val CANDLE_HISTORY_CALENDAR_DAYS = 370L
+        private const val MAX_TRADING_CALENDAR_GAP_DAYS = 7L
         private const val MAX_PARALLEL_SYMBOL_LOADS = 16
     }
 }

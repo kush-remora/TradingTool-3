@@ -259,6 +259,13 @@ export interface DayDetail {
   vol_ratio: number | null;
 }
 
+export interface DeliveryDayDetail {
+  date: string;
+  delivery_percentage: number | null;
+  delivered_quantity: number | null;
+  traded_quantity: number | null;
+}
+
 export interface PivotLevels {
   pivot: number;
   r1: number;
@@ -275,6 +282,7 @@ export interface StockDetailResponse {
   avg_volume_20d: number | null;
   pivot_levels: PivotLevels | null;
   days: DayDetail[];
+  delivery_days: DeliveryDayDetail[];
 }
 
 export interface StockQuoteSnapshot {
@@ -1855,6 +1863,8 @@ export interface DeliveryBreakoutDashboardRow {
   close: number | null;
   prev_close: number | null;
   close_pct_change: number | null;
+  fifty_two_week_high: number | null;
+  fifty_two_week_low: number | null;
   volume: number;
   delivery_quantity: number;
   delivery_percentage: number | null;
@@ -1990,6 +2000,26 @@ export interface UniverseOption {
 
 export interface UniverseOptionsResponse {
   options: UniverseOption[];
+}
+
+export interface WeeklyPriceWatchlistDay {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface WeeklyPriceWatchlistRow {
+  symbol: string;
+  companyName: string;
+  days: WeeklyPriceWatchlistDay[];
+}
+
+export interface WeeklyPriceWatchlistScannerResponse {
+  watchlistKey: string;
+  rows: WeeklyPriceWatchlistRow[];
 }
 
 export interface FiftyTwoWeekHighBacktestConfig {
@@ -2645,6 +2675,7 @@ export interface CsvBacktestTradeResult {
   breakoutDayMovePct: number | null;
   breakoutDayDeliveryPct: number | null;
   priorFiveDaysMaxDeliveryPct: number | null;
+  priorFiveDaysDelivery: CsvBacktestPriorDeliveryDay[];
   entryDate: string | null;
   entryPrice: number | null;
   firstFiveDaysLowestPrice: number | null;
@@ -2661,6 +2692,11 @@ export interface CsvBacktestTradeResult {
   daysHeld: number;
   slHit: boolean;
   isOpen: boolean;
+}
+
+export interface CsvBacktestPriorDeliveryDay {
+  date: string;
+  deliveryPct: number | null;
 }
 
 export interface CsvBacktestSummary {
@@ -2721,6 +2757,14 @@ export interface BacktestTradeReviewApiRequest {
 
 export interface BacktestTradeReviewApiResponse {
   reviews: BacktestTradeReview[];
+}
+
+export interface StockNote {
+  id: number;
+  instrumentToken: number;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ReviewReason {

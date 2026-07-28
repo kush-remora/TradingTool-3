@@ -27,6 +27,8 @@ import { ForwardAccumulationTimelinePage } from "./pages/ForwardAccumulationTime
 import { WeeklyFloorReboundPage } from "./pages/WeeklyFloorReboundPage";
 import { WeeklyBaseDefinitionPage } from "./pages/WeeklyBaseDefinitionPage";
 import { WeeklyBaseGroupBacktestPage } from "./pages/WeeklyBaseGroupBacktestPage";
+import { ThreeWeekStockReviewPage } from "./pages/ThreeWeekStockReviewPage";
+import { WeeklyPriceWatchlistScannerPage } from "./pages/WeeklyPriceWatchlistScannerPage";
 import type { AccumulationCaseSnapshot } from "./types";
 
 type V1PageKey =
@@ -46,7 +48,9 @@ type V1PageKey =
   | "forward-accumulation"
   | "weekly-floor-rebound"
   | "weekly-base-definition"
-  | "weekly-base-group-backtest";
+  | "weekly-base-group-backtest"
+  | "three-week-stock-review"
+  | "weekly-price-watchlist-scanner";
 
 type PageKey = V1PageKey;
 
@@ -99,6 +103,16 @@ const menuItems: MenuProps["items"] = [
     icon: <LineChartOutlined />,
   },
   {
+    key: "three-week-stock-review",
+    label: "Three-Week Stock Review",
+    icon: <LineChartOutlined />,
+  },
+  {
+    key: "weekly-price-watchlist-scanner",
+    label: "Weekly Price Scanner",
+    icon: <LineChartOutlined />,
+  },
+  {
     key: "52w-momentum-rule5",
     label: "52W Momentum Rule 5",
     icon: <LineChartOutlined />,
@@ -145,6 +159,8 @@ const validPages: PageKey[] = [
   "weekly-floor-rebound",
   "weekly-base-definition",
   "weekly-base-group-backtest",
+  "three-week-stock-review",
+  "weekly-price-watchlist-scanner",
   "52w-momentum-rule5",
   "csv-backtest",
   "backtest-reviews",
@@ -245,6 +261,14 @@ export default function App() {
     );
   };
 
+  const openStockReview = (symbol: string) => {
+    window.open(
+      `${import.meta.env.BASE_URL}console/three-week-stock-review?symbol=${encodeURIComponent(symbol)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
+
   const selectedKeys = [
     typeof route === "string" ? route : "forward-accumulation",
   ];
@@ -307,6 +331,10 @@ export default function App() {
             {route === "weekly-base-definition" && <WeeklyBaseDefinitionPage />}
             {route === "weekly-base-group-backtest" && (
               <WeeklyBaseGroupBacktestPage />
+            )}
+            {route === "three-week-stock-review" && <ThreeWeekStockReviewPage />}
+            {route === "weekly-price-watchlist-scanner" && (
+              <WeeklyPriceWatchlistScannerPage onOpenStockReview={openStockReview} />
             )}
             {route === "52w-momentum-rule5" && (
               <FiftyTwoWeekMomentumRule5Page />

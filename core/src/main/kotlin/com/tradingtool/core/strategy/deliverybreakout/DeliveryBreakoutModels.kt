@@ -20,6 +20,8 @@ data class DeliveryBreakoutDashboardRow(
     val close: Double?,
     val prev_close: Double?,
     val close_pct_change: Double?,
+    val fifty_two_week_high: Double?,
+    val fifty_two_week_low: Double?,
     val volume: Long,
     val delivery_quantity: Long,
     val delivery_percentage: Double?,

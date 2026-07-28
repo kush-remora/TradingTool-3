@@ -4,6 +4,7 @@ import com.google.inject.Inject
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.model.stock.DayDetail
+import com.tradingtool.core.model.stock.DeliveryDayDetail
 import com.tradingtool.core.model.stock.InstrumentSearchResult
 import com.tradingtool.core.model.stock.PivotLevels
 import com.tradingtool.core.model.stock.StockDetailResponse
@@ -13,6 +14,9 @@ import com.tradingtool.resources.common.endpoint
 import com.tradingtool.resources.common.notFound
 import com.tradingtool.resources.common.ok
 import jakarta.ws.rs.GET
+import jakarta.ws.rs.POST
+import jakarta.ws.rs.DELETE
+import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
@@ -26,9 +30,14 @@ import java.util.concurrent.CompletableFuture
 import kotlin.math.round
 
 import com.tradingtool.core.database.CandleJdbiHandler
+import com.tradingtool.core.database.StockDeliveryJdbiHandler
+import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.TickStore
 import com.tradingtool.core.kite.TickerSubscriptions
+import com.tradingtool.core.screener.CandleDataService
+import java.time.LocalDate
+import java.time.ZoneId
 
 @Path("/api/stocks")
 @Produces(MediaType.APPLICATION_JSON)
@@ -36,12 +45,40 @@ class StockResource @Inject constructor(
     private val kiteClient: KiteConnectClient,
     private val resourceScope: ResourceScope,
     private val candleDb: CandleJdbiHandler,
+    private val deliveryDb: StockDeliveryJdbiHandler,
     private val instrumentCache: InstrumentCache,
     private val tickStore: TickStore,
     private val tickerSubscriptions: TickerSubscriptions,
+    private val candleDataService: CandleDataService,
+    private val noteService: com.tradingtool.core.note.NoteService,
 ) {
+    private companion object {
+        const val DELIVERY_HISTORY_DAYS = 5
+    }
+
     private val ioScope = resourceScope.ioScope
     private val log = LoggerFactory.getLogger(javaClass)
+    private val indiaTimeZone = ZoneId.of("Asia/Kolkata")
+
+    @GET
+    @Path("/notes/{instrumentToken}")
+    fun getNotes(@PathParam("instrumentToken") instrumentToken: Long): CompletableFuture<Response> = ioScope.endpoint { ok(noteService.list(instrumentToken)) }
+
+    @POST
+    @Path("/notes")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun createNote(request: com.tradingtool.core.note.CreateNoteRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        if (body.instrumentToken <= 0 || body.notes.isBlank()) return@endpoint badRequest("Instrument token and note are required.")
+        ok(noteService.create(body.copy(notes = body.notes.trim())))
+    }
+
+    @DELETE
+    @Path("/notes/{id}")
+    fun deleteNote(@PathParam("id") id: Long): CompletableFuture<Response> = ioScope.endpoint {
+        if (!noteService.delete(id)) return@endpoint notFound("Note not found.")
+        ok(mapOf("success" to true))
+    }
 
     @GET
     @Path("/quotes")
@@ -159,8 +196,13 @@ class StockResource @Inject constructor(
         val token = instrumentCache.token("NSE", normalizedSymbol)
             ?: return@endpoint notFound("Unknown NSE symbol: $normalizedSymbol")
 
+        refreshDailyCandlesIfStale(normalizedSymbol, token)
         val recentCandles = candleDb.read { it.getRecentDailyCandles(token, requestedDays + 21) }
             .sortedBy { candle -> candle.candleDate }
+            .toMutableList()
+        loadLatestLiveCandle(normalizedSymbol, token)
+            ?.takeIf { liveCandle -> recentCandles.lastOrNull()?.candleDate?.isBefore(liveCandle.candleDate) ?: true }
+            ?.let(recentCandles::add)
 
         if (recentCandles.isEmpty()) {
             return@endpoint notFound("No daily candle data found for: $normalizedSymbol")
@@ -202,6 +244,20 @@ class StockResource @Inject constructor(
             ?.takeIf { average -> average.isFinite() && average > 0.0 }
             ?.let(::roundTo2)
         val pivotLevels = buildPivotLevels(recentCandles.last())
+        val deliveryDays = deliveryDb.read { dao ->
+            dao.findRecentByInstrumentToken(
+                instrumentToken = token,
+                beforeDate = LocalDate.now(indiaTimeZone).plusDays(1),
+                limit = DELIVERY_HISTORY_DAYS,
+            )
+        }.map { delivery ->
+            DeliveryDayDetail(
+                date = delivery.tradingDate.toString(),
+                deliveryPercentage = delivery.delivPer,
+                deliveredQuantity = delivery.delivQty,
+                tradedQuantity = delivery.ttlTrdQnty,
+            )
+        }
 
         ok(
             StockDetailResponse(
@@ -210,8 +266,71 @@ class StockResource @Inject constructor(
                 avgVolume20d = latestPrior20,
                 pivotLevels = pivotLevels,
                 days = detailDays,
+                deliveryDays = deliveryDays,
             )
         )
+    }
+
+    private suspend fun refreshDailyCandlesIfStale(symbol: String, token: Long) {
+        if (!kiteClient.isAuthenticated) {
+            return
+        }
+
+        val today = LocalDate.now(indiaTimeZone)
+        val latestStoredDate = candleDb.read { dao ->
+            dao.getRecentDailyCandles(token, 1).firstOrNull()?.candleDate
+        }
+        if (latestStoredDate != null && !latestStoredDate.isBefore(today)) {
+            return
+        }
+
+        val fromDate = latestStoredDate?.plusDays(1) ?: today.minusDays(60)
+        val result = candleDataService.syncDailyRange(
+            symbols = listOf(symbol),
+            fromDate = fromDate,
+            toDate = today,
+            kiteClient = kiteClient,
+        )
+        if (result.symbolsFailed > 0) {
+            log.warn("Daily candle refresh failed for {}: {}", symbol, result.failedSymbols)
+        }
+    }
+
+    private fun loadLatestLiveCandle(symbol: String, token: Long): DailyCandle? {
+        val tick = tickStore.get(token)
+        if (tick != null) {
+            return DailyCandle(
+                instrumentToken = token,
+                symbol = symbol,
+                candleDate = Instant.ofEpochMilli(tick.updatedAt).atZone(indiaTimeZone).toLocalDate(),
+                open = tick.open,
+                high = tick.high,
+                low = tick.low,
+                close = tick.ltp,
+                volume = tick.volume,
+            )
+        }
+        if (!kiteClient.isAuthenticated) {
+            return null
+        }
+
+        return runCatching {
+            val quote = kiteClient.client().getQuote(arrayOf("NSE:$symbol"))["NSE:$symbol"] ?: return null
+            val ohlc = quote.ohlc ?: return null
+            DailyCandle(
+                instrumentToken = token,
+                symbol = symbol,
+                candleDate = quote.timestamp?.toInstant()?.atZone(indiaTimeZone)?.toLocalDate()
+                    ?: LocalDate.now(indiaTimeZone),
+                open = ohlc.open,
+                high = ohlc.high,
+                low = ohlc.low,
+                close = quote.lastPrice,
+                volume = quote.volumeTradedToday?.toLong() ?: 0L,
+            )
+        }.onFailure { error ->
+            log.warn("Could not load the live candle for {}: {}", symbol, error.message)
+        }.getOrNull()
     }
 
     private suspend fun fetchFallbackQuotes(symbols: List<String>): List<StockQuoteSnapshot> {

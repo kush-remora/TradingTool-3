@@ -82,6 +82,7 @@ class ServiceModule(
         bind(DeliveryReconciliationService::class.java).`in`(Singleton::class.java)
         bind(TradeService::class.java).`in`(Singleton::class.java)
         bind(TradeReadinessService::class.java).`in`(Singleton::class.java)
+        bind(com.tradingtool.core.note.NoteService::class.java).`in`(Singleton::class.java)
         bind(HttpRequestExecutor::class.java).to(JdkHttpRequestExecutor::class.java).`in`(Singleton::class.java)
 
         ALL_RESOURCE_CLASSES.forEach { bind(it).`in`(Singleton::class.java) }
@@ -346,6 +347,10 @@ class ServiceModule(
         handler: JdbiHandler<com.tradingtool.core.strategy.csvbacktest.dao.BacktestTradeReviewReadDao, com.tradingtool.core.strategy.csvbacktest.dao.BacktestTradeReviewWriteDao>
     ): com.tradingtool.core.strategy.csvbacktest.BacktestTradeReviewService =
         com.tradingtool.core.strategy.csvbacktest.BacktestTradeReviewService(handler)
+
+    @Provides @Singleton
+    fun provideNoteHandler(config: DatabaseConfig): JdbiHandler<com.tradingtool.core.note.NoteReadDao, com.tradingtool.core.note.NoteWriteDao> =
+        handler<com.tradingtool.core.note.NoteReadDao, com.tradingtool.core.note.NoteWriteDao>(config)
 
     private companion object {
         fun readPositiveIntEnv(envName: String, defaultValue: Int): Int {
