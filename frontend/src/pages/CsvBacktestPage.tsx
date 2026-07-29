@@ -392,6 +392,8 @@ export function CsvBacktestPage() {
       filterSearch: true,
       onFilter: matchesSectorFilter,
     },
+    { title: "V2 Vol Spike", dataIndex: "v2MaxPreBreakoutVolumeRatio", key: "v2MaxPreBreakoutVolumeRatio", render: (val: number | null) => val === null ? "-" : `${val.toFixed(2)}×` },
+    { title: "V2 Run %", dataIndex: "v2MoveFromRecentBasePct", key: "v2MoveFromRecentBasePct", render: (val: number | null) => val === null ? "-" : `${val.toFixed(2)}%` },
     {
       title: "P&L %",
       dataIndex: "profitLossPct",
@@ -457,10 +459,8 @@ export function CsvBacktestPage() {
     { title: "5D Drop ₹", dataIndex: "firstFiveDaysDropAmount", key: "firstFiveDaysDropAmount", render: (val: number | null) => val === null ? "-" : `₹${formatNumber(val)}` },
     { title: "5D Drop %", dataIndex: "firstFiveDaysDropPct", key: "firstFiveDaysDropPct", render: (val: number | null) => val === null ? "-" : `${val.toFixed(2)}%` },
     { title: "3D Red Candles", dataIndex: "firstThreeDaysRedCandleCount", key: "firstThreeDaysRedCandleCount", render: (val: number | null) => val ?? "-" },
-    { title: "V2 Vol Spike", dataIndex: "v2MaxPreBreakoutVolumeRatio", key: "v2MaxPreBreakoutVolumeRatio", render: (val: number | null) => val === null ? "-" : `${val.toFixed(2)}×` },
     { title: "V2 Failed Tests", dataIndex: "v2FailedResistanceAttempts", key: "v2FailedResistanceAttempts", render: (val: number | null) => val ?? "-" },
     { title: "V2 Base ₹", dataIndex: "v2RecentRunBasePrice", key: "v2RecentRunBasePrice", render: (val: number | null) => val === null ? "-" : `₹${formatNumber(val)}` },
-    { title: "V2 Run %", dataIndex: "v2MoveFromRecentBasePct", key: "v2MoveFromRecentBasePct", render: (val: number | null) => val === null ? "-" : `${val.toFixed(2)}%` },
     { title: "Exit Date", dataIndex: "exitDate", key: "exitDate", render: (val: string | null, record: any) => record.isOpen ? <Tag color="blue">Open</Tag> : (val || "-") },
     { title: "Exit Price", dataIndex: "exitPrice", key: "exitPrice", render: (val: number | null) => val ? `₹${formatNumber(val)}` : "-" },
     {
