@@ -16,8 +16,11 @@ import com.tradingtool.core.kite.KiteTokenWriteDao
 import com.tradingtool.core.model.DatabaseConfig
 import com.tradingtool.core.screener.CandleDataService
 import kotlinx.coroutines.runBlocking
+import org.slf4j.LoggerFactory
 import java.time.LocalDate
 import kotlin.system.exitProcess
+
+private val log = LoggerFactory.getLogger("DailyCandleRefreshJob")
 
 fun main(): Unit = runBlocking {
     val database = DatabaseConfig(jdbcUrl = ConfigLoader.get("SUPABASE_DB_URL", "supabase.dbUrl"))
@@ -31,6 +34,19 @@ fun main(): Unit = runBlocking {
     val symbols = indexHandler.read { dao -> dao.listUniqueIndices().flatMap { dao.listActiveByIndex(it.indexKey) }.map { it.symbol }.distinct() }
     val service = CandleDataService(candleHandler, instruments, InstrumentTokenResolverService(kite, instruments))
     service.syncDailyRange(symbols, LocalDate.now().minusDays(5), LocalDate.now(), kite)
-    RedisHandler.fromEnv().use { redis -> symbols.forEach { symbol -> redis.withJedis { jedis -> jedis.keys("candles:${symbol.uppercase()}:day:*").takeIf { it.isNotEmpty() }?.let { jedis.del(*it.toTypedArray()) } } } }
+    invalidateDailyCandleCache(symbols)
     exitProcess(0)
+}
+
+private fun invalidateDailyCandleCache(symbols: List<String>): Unit = try {
+    RedisHandler.fromEnv().use { redis ->
+        symbols.forEach { symbol ->
+            redis.withJedis { jedis ->
+                val keys = jedis.keys("candles:${symbol.uppercase()}:day:*")
+                if (keys.isNotEmpty()) jedis.del(*keys.toTypedArray())
+            }
+        }
+    }
+} catch (exception: Exception) {
+    log.warn("Daily candles were refreshed, but Redis cache invalidation failed. Cached candles may remain stale for up to one hour.", exception)
 }

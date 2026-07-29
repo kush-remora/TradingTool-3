@@ -43,6 +43,7 @@ data class CsvBacktestTradeResult(
     val exitPrice: Double?,
     val profitLossPct: Double?,
     val daysHeld: Int,
+    val targetHit: Boolean,
     val slHit: Boolean,
     val isOpen: Boolean
 )
@@ -55,8 +56,9 @@ data class CsvBacktestPriorDeliveryDay(
 data class CsvBacktestSummary(
     val month: String,
     val totalTrades: Int,
-    val winTrades: Int,
-    val lossTrades: Int,
+    val targetHitTrades: Int,
+    val stopLossHitTrades: Int,
+    val unresolvedTrades: Int,
     val avgHoldingPeriod: Double,
     val avgProfitPct: Double,
     val avgFirstFiveDaysDropPct: Double,

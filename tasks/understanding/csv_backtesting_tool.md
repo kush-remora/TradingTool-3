@@ -105,3 +105,9 @@ The packaged endpoint also accepted the intended 30% target / 10% initial stop /
 
 ## Complexity Estimate
 Medium-High. Involves a new UI page, new backend endpoints, a state machine for the backtest engine (handling gaps, conservative exits, trailing logic), and integrating the CSV parser.
+
+## Target Outcome Reporting (2026-07-29)
+
+The old monthly `Win`, `Loss`, and `Win Rate` values classified any positive return as a win. This was misleading for a target-driven strategy: an expiry at +5% must not be treated as a success when the configured target is +20%.
+
+The report now records target attainment directly at exit and presents Target Hit, Stop Hit, Unresolved, and Target Hit Rate. A target-hit rate counts only trades that reached the configured target; stopped and timed-out/open trades are not successes.

@@ -227,6 +227,7 @@ class CsvBacktestService(
                         exitPrice = null,
                         profitLossPct = null,
                         daysHeld = 0,
+                        targetHit = false,
                         slHit = false,
                         isOpen = false
                     )
@@ -257,6 +258,7 @@ class CsvBacktestService(
 
             val exitDate = exit?.candle?.candleDate
             val exitPrice = exit?.price
+            val targetHit = exit?.targetHit ?: false
             val slHit = exit?.slHit ?: false
             val postEntryCandles = candles.filter { it.candleDate.isAfter(entryCandle.candleDate) }
             val earlyDip = CsvBacktestEarlyDipCalculator.calculate(entryPrice, tradeCandles)
@@ -309,6 +311,7 @@ class CsvBacktestService(
                     exitPrice = exitPrice,
                     profitLossPct = profitLossPct,
                     daysHeld = daysHeld,
+                    targetHit = targetHit,
                     slHit = slHit,
                     isOpen = exitDate == null
                 )
@@ -323,15 +326,17 @@ class CsvBacktestService(
             val monthKey = "${entryDateParsed.year}-${entryDateParsed.monthValue.toString().padStart(2, '0')}"
             
             val existing = summaryMap[monthKey]
-            val isWin = (trade.profitLossPct ?: 0.0) > 0
-            val isLoss = (trade.profitLossPct ?: 0.0) <= 0
+            val isTargetHit = trade.targetHit
+            val isStopLossHit = trade.slHit
+            val isUnresolved = !isTargetHit && !isStopLossHit
             
             if (existing == null) {
                 summaryMap[monthKey] = CsvBacktestSummary(
                     month = monthKey,
                     totalTrades = 1,
-                    winTrades = if (isWin) 1 else 0,
-                    lossTrades = if (isLoss) 1 else 0,
+                    targetHitTrades = if (isTargetHit) 1 else 0,
+                    stopLossHitTrades = if (isStopLossHit) 1 else 0,
+                    unresolvedTrades = if (isUnresolved) 1 else 0,
                     avgHoldingPeriod = trade.daysHeld.toDouble(),
                     avgProfitPct = trade.profitLossPct ?: 0.0,
                     avgFirstFiveDaysDropPct = trade.firstFiveDaysDropPct ?: 0.0,
@@ -340,8 +345,9 @@ class CsvBacktestService(
                 val newTotal = existing.totalTrades + 1
                 summaryMap[monthKey] = existing.copy(
                     totalTrades = newTotal,
-                    winTrades = existing.winTrades + if (isWin) 1 else 0,
-                    lossTrades = existing.lossTrades + if (isLoss) 1 else 0,
+                    targetHitTrades = existing.targetHitTrades + if (isTargetHit) 1 else 0,
+                    stopLossHitTrades = existing.stopLossHitTrades + if (isStopLossHit) 1 else 0,
+                    unresolvedTrades = existing.unresolvedTrades + if (isUnresolved) 1 else 0,
                     avgHoldingPeriod = ((existing.avgHoldingPeriod * existing.totalTrades) + trade.daysHeld) / newTotal,
                     avgProfitPct = ((existing.avgProfitPct * existing.totalTrades) + (trade.profitLossPct ?: 0.0)) / newTotal,
                     avgFirstFiveDaysDropPct = (

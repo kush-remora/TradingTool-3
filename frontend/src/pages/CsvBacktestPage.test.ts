@@ -3,7 +3,7 @@ import type { CsvBacktestTradeResult } from "../types";
 import {
   buildCsvBacktestTableRows,
   buildSectorFilterOptions,
-  calculateSlOutcomeSummary,
+  calculateTargetOutcomeSummary,
   formatBreakoutSpan,
   matchesMaximumV2RunPct,
   matchesSelectedSectors,
@@ -49,6 +49,7 @@ const buildTrade = (
   daysHeld: 6,
   slHit: false,
   isOpen: false,
+  targetHit: false,
   ...overrides,
 });
 
@@ -128,26 +129,28 @@ describe("CSV backtest sector filter", () => {
     expect(result).toEqual([trades[2]]);
   });
 
-  it("summarizes SL outcomes for the currently filtered rows", () => {
+  it("counts only target exits as successful outcomes", () => {
     const filteredTrades = [
-      buildTrade("IT", { symbol: "INFY", slHit: false }),
-      buildTrade("IT", { symbol: "TCS", slHit: false }),
+      buildTrade("IT", { symbol: "INFY", targetHit: true }),
+      buildTrade("IT", { symbol: "TCS", profitLossPct: 5, targetHit: false }),
       buildTrade("IT", { symbol: "WIPRO", slHit: true }),
     ];
 
-    const summary = calculateSlOutcomeSummary(filteredTrades);
+    const summary = calculateTargetOutcomeSummary(filteredTrades);
 
     expect(summary).toMatchObject({
       total: 3,
-      slYes: 1,
-      slNo: 2,
+      targetHits: 1,
+      stopLossHits: 1,
+      unresolved: 1,
     });
-    expect(summary.successRatePct).toBeCloseTo(66.7, 1);
-    expect(calculateSlOutcomeSummary([])).toEqual({
+    expect(summary.targetHitRatePct).toBeCloseTo(33.3, 1);
+    expect(calculateTargetOutcomeSummary([])).toEqual({
       total: 0,
-      slYes: 0,
-      slNo: 0,
-      successRatePct: 0,
+      targetHits: 0,
+      stopLossHits: 0,
+      unresolved: 0,
+      targetHitRatePct: 0,
     });
   });
 });

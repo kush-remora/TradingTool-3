@@ -6,6 +6,7 @@ data class CsvBacktestExit(
     val candle: DailyCandle,
     val price: Double,
     val slHit: Boolean,
+    val targetHit: Boolean,
 )
 
 object CsvBacktestExitEvaluator {
@@ -21,19 +22,19 @@ object CsvBacktestExitEvaluator {
 
         for (candle in candles) {
             if (candle.open <= stopLossPrice) {
-                return CsvBacktestExit(candle, candle.open, slHit = true)
+                return CsvBacktestExit(candle, candle.open, slHit = true, targetHit = false)
             }
             if (candle.open >= targetPrice) {
-                return CsvBacktestExit(candle, candle.open, slHit = false)
+                return CsvBacktestExit(candle, candle.open, slHit = false, targetHit = true)
             }
             if (candle.low <= stopLossPrice) {
-                return CsvBacktestExit(candle, stopLossPrice, slHit = true)
+                return CsvBacktestExit(candle, stopLossPrice, slHit = true, targetHit = false)
             }
             if (candle.high >= targetPrice) {
-                return CsvBacktestExit(candle, targetPrice, slHit = false)
+                return CsvBacktestExit(candle, targetPrice, slHit = false, targetHit = true)
             }
             if (!candle.candleDate.isBefore(maximumHoldingDate)) {
-                return CsvBacktestExit(candle, candle.close, slHit = false)
+                return CsvBacktestExit(candle, candle.close, slHit = false, targetHit = false)
             }
         }
         return null
@@ -53,19 +54,19 @@ object CsvBacktestExitEvaluator {
 
         for ((sessionIndex, candle) in candles.withIndex()) {
             if (candle.open <= currentStopLossPrice) {
-                return CsvBacktestExit(candle, candle.open, slHit = true)
+                return CsvBacktestExit(candle, candle.open, slHit = true, targetHit = false)
             }
             if (candle.open >= targetPrice) {
-                return CsvBacktestExit(candle, candle.open, slHit = false)
+                return CsvBacktestExit(candle, candle.open, slHit = false, targetHit = true)
             }
             if (candle.low <= currentStopLossPrice) {
-                return CsvBacktestExit(candle, currentStopLossPrice, slHit = true)
+                return CsvBacktestExit(candle, currentStopLossPrice, slHit = true, targetHit = false)
             }
             if (candle.high >= targetPrice) {
-                return CsvBacktestExit(candle, targetPrice, slHit = false)
+                return CsvBacktestExit(candle, targetPrice, slHit = false, targetHit = true)
             }
             if (!candle.candleDate.isBefore(maximumHoldingDate)) {
-                return CsvBacktestExit(candle, candle.close, slHit = false)
+                return CsvBacktestExit(candle, candle.close, slHit = false, targetHit = false)
             }
 
             highestClose = maxOf(highestClose, candle.close)

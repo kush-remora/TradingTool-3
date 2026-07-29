@@ -14,4 +14,6 @@ The core Maven resource configuration now packages `config/accumulation_analysis
 
 ## Render Deployment Diagnosis (2026-07-29)
 
-Render builds through the repository `Dockerfile`, which copies individual Maven modules into `/workspace` but does not copy the root `config/` directory. The core Maven module packages this JSON from `${project.basedir}/../config`; therefore it is available during a local Maven package but absent during the Docker build. The resulting shaded service JAR has no classpath fallback and startup fails in `AccumulationShapeConfigLoader`. Add `COPY config config` before the Maven package command, then redeploy.
+Render builds through the repository `Dockerfile`, which copied individual Maven modules into `/workspace` but did not copy the root `config/` directory. The core Maven module packages this JSON from `${project.basedir}/../config`; therefore it is available during a local Maven package but absent during the Docker build. The resulting shaded service JAR had no classpath fallback and startup failed in `AccumulationShapeConfigLoader`. The Dockerfile now includes `COPY config config` before the Maven package command.
+
+Validation: `mvn -pl service -am package -DskipTests` passed and the shaded `service/target/service-0.1.0-SNAPSHOT.jar` contains `accumulation_analysis_config.json`. A Docker build could not run locally because the Docker daemon is unavailable.

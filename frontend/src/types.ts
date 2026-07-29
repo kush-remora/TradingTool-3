@@ -2699,6 +2699,7 @@ export interface CsvBacktestTradeResult {
   exitPrice: number | null;
   profitLossPct: number | null;
   daysHeld: number;
+  targetHit: boolean;
   slHit: boolean;
   isOpen: boolean;
 }
@@ -2711,8 +2712,9 @@ export interface CsvBacktestPriorDeliveryDay {
 export interface CsvBacktestSummary {
   month: string;
   totalTrades: number;
-  winTrades: number;
-  lossTrades: number;
+  targetHitTrades: number;
+  stopLossHitTrades: number;
+  unresolvedTrades: number;
   avgHoldingPeriod: number;
   avgProfitPct: number;
   avgFirstFiveDaysDropPct: number;

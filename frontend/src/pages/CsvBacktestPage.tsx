@@ -124,24 +124,27 @@ export const matchesSelectedSectors = (
   selectedSectors: string[],
 ): boolean => selectedSectors.length === 0 || selectedSectors.includes(trade.sector);
 
-export interface SlOutcomeSummary {
+export interface TargetOutcomeSummary {
   total: number;
-  slYes: number;
-  slNo: number;
-  successRatePct: number;
+  targetHits: number;
+  stopLossHits: number;
+  unresolved: number;
+  targetHitRatePct: number;
 }
 
-export const calculateSlOutcomeSummary = (
+export const calculateTargetOutcomeSummary = (
   trades: CsvBacktestTradeResult[],
-): SlOutcomeSummary => {
-  const slYes = trades.filter((trade) => trade.slHit).length;
-  const slNo = trades.length - slYes;
+): TargetOutcomeSummary => {
+  const targetHits = trades.filter((trade) => trade.targetHit).length;
+  const stopLossHits = trades.filter((trade) => trade.slHit).length;
+  const unresolved = trades.length - targetHits - stopLossHits;
 
   return {
     total: trades.length,
-    slYes,
-    slNo,
-    successRatePct: trades.length === 0 ? 0 : (slNo / trades.length) * 100,
+    targetHits,
+    stopLossHits,
+    unresolved,
+    targetHitRatePct: trades.length === 0 ? 0 : (targetHits / trades.length) * 100,
   };
 };
 
@@ -474,9 +477,10 @@ export function CsvBacktestPage() {
   const summaryColumns = [
     { title: "Month", dataIndex: "month", key: "month", sorter: (a: any, b: any) => a.month.localeCompare(b.month) },
     { title: "Total Trades", dataIndex: "totalTrades", key: "totalTrades" },
-    { title: "Win", dataIndex: "winTrades", key: "winTrades", render: (val: number) => <Text type="success">{val}</Text> },
-    { title: "Loss", dataIndex: "lossTrades", key: "lossTrades", render: (val: number) => <Text type="danger">{val}</Text> },
-    { title: "Win Rate", key: "winRate", render: (_: any, record: any) => `${((record.winTrades / record.totalTrades) * 100).toFixed(1)}%` },
+    { title: "Target Hit", dataIndex: "targetHitTrades", key: "targetHitTrades", render: (val: number) => <Text type="success">{val}</Text> },
+    { title: "Stop Hit", dataIndex: "stopLossHitTrades", key: "stopLossHitTrades", render: (val: number) => <Text type="danger">{val}</Text> },
+    { title: "Unresolved", dataIndex: "unresolvedTrades", key: "unresolvedTrades" },
+    { title: "Target Hit Rate", key: "targetHitRate", render: (_: unknown, record: CsvBacktestResponse["summaries"][number]) => `${((record.targetHitTrades / record.totalTrades) * 100).toFixed(1)}%` },
     { title: "Avg Holding", dataIndex: "avgHoldingPeriod", key: "avgHoldingPeriod", render: (val: number) => `${val.toFixed(1)} days` },
     { title: "Avg 5D Drop %", dataIndex: "avgFirstFiveDaysDropPct", key: "avgFirstFiveDaysDropPct", render: (val: number) => `${val.toFixed(2)}%` },
     { 
@@ -495,8 +499,8 @@ export function CsvBacktestPage() {
     () => displayedTrades.filter((trade) => matchesSelectedSectors(trade, selectedSectors)),
     [displayedTrades, selectedSectors],
   );
-  const slOutcomeSummary = useMemo(
-    () => calculateSlOutcomeSummary(filteredTrades),
+  const targetOutcomeSummary = useMemo(
+    () => calculateTargetOutcomeSummary(filteredTrades),
     [filteredTrades],
   );
   const hasV2TradeMetrics = tradeRows.some((trade) => trade.v2MoveFromRecentBasePct !== null);
@@ -689,15 +693,16 @@ export function CsvBacktestPage() {
                   disabled={!hasV2TradeMetrics}
                   onChange={setMaximumV2RunPct}
                 />
-                <Text type="secondary">Showing {slOutcomeSummary.total} of {tradeRows.length} trades</Text>
+                <Text type="secondary">Showing {targetOutcomeSummary.total} of {tradeRows.length} trades</Text>
               </Space>
             </Space>
             <Space size={16} wrap style={{ marginTop: 8 }}>
-              <Text strong>Filtered total: {slOutcomeSummary.total}</Text>
-              <Text type="danger">SL Yes: {slOutcomeSummary.slYes}</Text>
-              <Text type="success">SL No: {slOutcomeSummary.slNo}</Text>
+              <Text strong>Filtered total: {targetOutcomeSummary.total}</Text>
+              <Text type="success">Target hit: {targetOutcomeSummary.targetHits}</Text>
+              <Text type="danger">Stop hit: {targetOutcomeSummary.stopLossHits}</Text>
+              <Text>Unresolved: {targetOutcomeSummary.unresolved}</Text>
               <Text strong type="success">
-                Success rate: {slOutcomeSummary.successRatePct.toFixed(1)}%
+                Target hit rate: {targetOutcomeSummary.targetHitRatePct.toFixed(1)}%
               </Text>
             </Space>
             <Tabs defaultActiveKey="1">
