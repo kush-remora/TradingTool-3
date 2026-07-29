@@ -51,3 +51,9 @@ Show a selected stock's existing research notes beside the Fundamentals panel in
 Plan: extract the existing note fetch/mutation state into a small hook; render a dense read-only list in the review header; adapt the floating editor to consume that shared state; add focused tests for list content and mutation refresh; then run the focused frontend suite and production build.
 
 Implemented as planned: selected-stock notes appear as a scrollable 10–11px list with `1.` numbering, text, and an IST created date. `useInstrumentNotes` centralizes loading, saving, and deletion, so the list and floating editor stay synchronized. The focused frontend suite passed 13 tests and the production frontend build passed on 2026-07-29.
+
+## Intraday low/high moves — 2026-07-29
+
+Keep the existing chronological daily rows and close-versus-open `Daily %` column. Add compact `Low %` and `High %` columns that express each session's low and high relative to its opening price. This gives the requested intraday downside/upside mental model: low moves are red and high moves are green, with no interpretation or signal labelling added.
+
+Implemented: the table now shows `Low %` immediately after Low and `High %` immediately after High. A focused test verifies a 100 open, 95 low, and 110 high renders as red `-5.00%` and green `+10.00%`. The page test suite (12 tests) and production frontend build passed on 2026-07-29.

@@ -143,6 +143,29 @@ describe("ThreeWeekStockReviewPage", () => {
     expect(screen.getByText("12.50 L / 22.22 L")).toBeInTheDocument();
   });
 
+  it("shows intraday low and high moves from the open", () => {
+    useStockDetailMock.mockReturnValue({
+      data: {
+        symbol: "INFY",
+        exchange: "NSE",
+        avg_volume_20d: null,
+        pivot_levels: null,
+        delivery_days: [],
+        days: [dayWithPrices("2026-07-27", 100, 105, 95, 110)],
+      },
+      loading: false,
+      error: null,
+    });
+    render(<ThreeWeekStockReviewPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Select INFY" }));
+
+    expect(screen.getByRole("columnheader", { name: "Low %" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "High %" })).toBeInTheDocument();
+    expect(screen.getByText("-5.00%")).toHaveStyle({ color: "#cf1322" });
+    expect(screen.getByText("+10.00%")).toHaveStyle({ color: "#389e0d" });
+  });
+
   it("shows existing stock notes with a number, text, and created date beside fundamentals", () => {
     useInstrumentNotesMock.mockReturnValue({
       notes: [{
@@ -236,6 +259,6 @@ function day(date: string, low: number, high: number) {
   return { date, open: low + 2, close: high - 2, low, high, volume: 100, daily_change_pct: null, rsi14: null, vol_ratio: null };
 }
 
-function dayWithPrices(date: string, open: number, close: number) {
-  return { date, open, close, low: Math.min(open, close), high: Math.max(open, close), volume: 100, daily_change_pct: null, rsi14: null, vol_ratio: null };
+function dayWithPrices(date: string, open: number, close: number, low: number = Math.min(open, close), high: number = Math.max(open, close)) {
+  return { date, open, close, low, high, volume: 100, daily_change_pct: null, rsi14: null, vol_ratio: null };
 }

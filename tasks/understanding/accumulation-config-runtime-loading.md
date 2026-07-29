@@ -11,3 +11,7 @@ Service startup fails while constructing `AccumulationShapeEngine` because its a
 3. Add a focused test for the packaged-resource fallback and run the core test suite.
 
 The core Maven resource configuration now packages `config/accumulation_analysis_config.json` directly from its existing repository location, avoiding a duplicate source file. Runtime loading still prefers an editable local configuration and otherwise reads the packaged classpath resource. The focused fallback test and `mvn -pl core test` passed (11 `AccumulationShapeEngineTest` tests). A full service package attempt was blocked by unrelated untracked work in `core/src/main/kotlin/com/tradingtool/core/strategy/weeklyfloor/WeeklyFloorReboundEngine.kt`, which currently does not compile.
+
+## Render Deployment Diagnosis (2026-07-29)
+
+Render builds through the repository `Dockerfile`, which copies individual Maven modules into `/workspace` but does not copy the root `config/` directory. The core Maven module packages this JSON from `${project.basedir}/../config`; therefore it is available during a local Maven package but absent during the Docker build. The resulting shaded service JAR has no classpath fallback and startup fails in `AccumulationShapeConfigLoader`. Add `COPY config config` before the Maven package command, then redeploy.

@@ -26,6 +26,8 @@ interface DailyPriceRow extends WeeklyPriceTimelineDay {
   key: string;
   day: string;
   deliveryPct: number | null;
+  lowFromOpenPct: number | null;
+  highFromOpenPct: number | null;
 }
 
 function formatDay(date: string): string {
@@ -65,6 +67,11 @@ function formatCreatedDate(createdAt: string): string {
     year: "numeric",
     timeZone: "Asia/Kolkata",
   }).format(new Date(createdAt));
+}
+
+function calculatePercentChange(value: number, referenceValue: number): number | null {
+  if (referenceValue === 0) return null;
+  return ((value - referenceValue) / referenceValue) * 100;
 }
 
 function formatPercent(value: number | null): ReactNode {
@@ -139,15 +146,24 @@ export function ThreeWeekStockReviewPage() {
   const dailyRows = useMemo<DailyPriceRow[]>(() => weeklyTimelines
     .flatMap((timeline) => timeline.days)
     .sort((left, right) => right.date.localeCompare(left.date))
-    .map((day) => ({ ...day, key: day.date, day: formatDay(day.date), deliveryPct: deliveryByDate.get(day.date) ?? null })), [deliveryByDate, weeklyTimelines]);
+    .map((day) => ({
+      ...day,
+      key: day.date,
+      day: formatDay(day.date),
+      deliveryPct: deliveryByDate.get(day.date) ?? null,
+      lowFromOpenPct: calculatePercentChange(day.low, day.open),
+      highFromOpenPct: calculatePercentChange(day.high, day.open),
+    })), [deliveryByDate, weeklyTimelines]);
 
   const dailyColumns: ColumnsType<DailyPriceRow> = [
     { title: "Date", dataIndex: "date", key: "date", width: 92 },
     { title: "Day", dataIndex: "day", key: "day", width: 48 },
     { title: "Open", dataIndex: "open", key: "open", width: 90, render: formatPrice },
     { title: "Low", dataIndex: "low", key: "low", width: 90, render: formatPrice },
+    { title: "Low %", dataIndex: "lowFromOpenPct", key: "lowFromOpenPct", width: 70, render: formatPercent },
     { title: "Close", dataIndex: "close", key: "close", width: 90, render: formatPrice },
     { title: "High", dataIndex: "high", key: "high", width: 90, render: formatPrice },
+    { title: "High %", dataIndex: "highFromOpenPct", key: "highFromOpenPct", width: 70, render: formatPercent },
     { title: "Vol", dataIndex: "volume", key: "volume", width: 72, render: formatCompactQuantity },
     { title: "Del %", dataIndex: "deliveryPct", key: "deliveryPct", width: 65, render: formatDeliveryPercentage },
     { title: "Daily %", dataIndex: "dailyMovePct", key: "dailyMovePct", width: 70, render: formatPercent },
