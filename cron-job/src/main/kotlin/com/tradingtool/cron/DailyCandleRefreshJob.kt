@@ -17,6 +17,7 @@ import com.tradingtool.core.model.DatabaseConfig
 import com.tradingtool.core.screener.CandleDataService
 import kotlinx.coroutines.runBlocking
 import java.time.LocalDate
+import kotlin.system.exitProcess
 
 fun main(): Unit = runBlocking {
     val database = DatabaseConfig(jdbcUrl = ConfigLoader.get("SUPABASE_DB_URL", "supabase.dbUrl"))
@@ -31,4 +32,5 @@ fun main(): Unit = runBlocking {
     val service = CandleDataService(candleHandler, instruments, InstrumentTokenResolverService(kite, instruments))
     service.syncDailyRange(symbols, LocalDate.now().minusDays(5), LocalDate.now(), kite)
     RedisHandler.fromEnv().use { redis -> symbols.forEach { symbol -> redis.withJedis { jedis -> jedis.keys("candles:${symbol.uppercase()}:day:*").takeIf { it.isNotEmpty() }?.let { jedis.del(*it.toTypedArray()) } } } }
+    exitProcess(0)
 }

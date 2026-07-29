@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ThreeWeekStockReviewPage } from "./ThreeWeekStockReviewPage";
 import { buildWeeklyPriceSummaries, buildWeeklyPriceTimelines } from "../utils/threeWeekStockReview";
 
@@ -23,6 +23,11 @@ vi.mock("../hooks/useStockDetail", () => ({
   useStockDetail: (...args: unknown[]) => useStockDetailMock(...args),
 }));
 
+const useInstrumentNotesMock = vi.fn();
+vi.mock("../hooks/useInstrumentNotes", () => ({
+  useInstrumentNotes: (...args: unknown[]) => useInstrumentNotesMock(...args),
+}));
+
 vi.mock("../components/InstrumentSearch", () => ({
   InstrumentSearch: ({ onSelect }: { onSelect: (instrument: { trading_symbol: string } | null) => void }) => (
     <button onClick={() => onSelect({ trading_symbol: "INFY" })}>Select INFY</button>
@@ -34,10 +39,14 @@ vi.mock("../components/LiveMarketWidget", () => ({
 }));
 
 vi.mock("../components/FloatingInstrumentNotes", () => ({
-  FloatingInstrumentNotes: ({ instrumentToken }: { instrumentToken: number | null }) => <div>Notes: {instrumentToken ?? "none"}</div>,
+  FloatingInstrumentNotes: () => <div>Notes editor</div>,
 }));
 
 describe("ThreeWeekStockReviewPage", () => {
+  beforeEach(() => {
+    useInstrumentNotesMock.mockReturnValue({ notes: [], loading: false, error: null, addNote: vi.fn(), removeNote: vi.fn() });
+  });
+
   afterEach(() => {
     window.history.replaceState({}, "", "/");
   });
@@ -132,6 +141,28 @@ describe("ThreeWeekStockReviewPage", () => {
     expect(screen.getByTestId("delivery-history-table")).toBeInTheDocument();
     expect(screen.getByText("56.25%")).toBeInTheDocument();
     expect(screen.getByText("12.50 L / 22.22 L")).toBeInTheDocument();
+  });
+
+  it("shows existing stock notes with a number, text, and created date beside fundamentals", () => {
+    useInstrumentNotesMock.mockReturnValue({
+      notes: [{
+        id: 12,
+        instrumentToken: 1,
+        notes: "Watch for a spring below support",
+        createdAt: "2026-07-28T18:30:00Z",
+        updatedAt: "2026-07-28T18:30:00Z",
+      }],
+      loading: false,
+      error: null,
+      addNote: vi.fn(),
+      removeNote: vi.fn(),
+    });
+    useStockDetailMock.mockReturnValue({ data: null, loading: false, error: null });
+    render(<ThreeWeekStockReviewPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Select INFY" }));
+
+    expect(screen.getByTestId("existing-stock-notes")).toHaveTextContent(/1\.\s*Watch for a spring below support\s*29 Jul 2026/);
   });
 
   it("selects the NSE equity variant when the URL uses its base symbol", async () => {

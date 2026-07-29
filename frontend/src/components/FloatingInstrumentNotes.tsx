@@ -1,60 +1,30 @@
 import { DeleteOutlined, FileTextOutlined, SendOutlined } from "@ant-design/icons";
 import { Button, Input, Popover, Space, Typography } from "antd";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { StockNote } from "../types";
-import { deleteJson, getJson, postJson } from "../utils/api";
 
 const { Text } = Typography;
 const { TextArea } = Input;
 
 interface FloatingInstrumentNotesProps {
-  instrumentToken: number | null;
+  notes: StockNote[];
+  loading: boolean;
+  error: string | null;
+  onAddNote: (notes: string) => Promise<boolean>;
+  onRemoveNote: (id: number) => Promise<boolean>;
 }
 
-export function FloatingInstrumentNotes({ instrumentToken }: FloatingInstrumentNotesProps) {
-  const [notes, setNotes] = useState<StockNote[]>([]);
+export function FloatingInstrumentNotes({ notes, loading, error, onAddNote, onRemoveNote }: FloatingInstrumentNotesProps) {
   const [noteText, setNoteText] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (instrumentToken == null) {
-      setNotes([]);
-      setError(null);
-      return;
-    }
-
-    void getJson<StockNote[]>(`/api/stocks/notes/${instrumentToken}`, { useCache: false })
-      .then(setNotes)
-      .catch((requestError: unknown) => setError(requestError instanceof Error ? requestError.message : "Failed to load notes"));
-  }, [instrumentToken]);
 
   const addNote = async (): Promise<void> => {
-    if (instrumentToken == null || !noteText.trim()) return;
-
-    try {
-      const note = await postJson<StockNote>("/api/stocks/notes", {
-        instrumentToken,
-        notes: noteText.trim(),
-      });
-      setNotes((currentNotes) => [note, ...currentNotes]);
-      setNoteText("");
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Failed to save note");
-    }
+    if (!noteText.trim()) return;
+    if (await onAddNote(noteText)) setNoteText("");
   };
 
   const removeNote = async (id: number): Promise<void> => {
-    try {
-      await deleteJson(`/api/stocks/notes/${id}`);
-      setNotes((currentNotes) => currentNotes.filter((note) => note.id !== id));
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Failed to delete note");
-    }
+    await onRemoveNote(id);
   };
-
-  if (instrumentToken == null) {
-    return null;
-  }
 
   return (
     <div data-testid="floating-instrument-notes" style={{ position: "fixed", right: "min(292px, calc(100vw - 40px))", bottom: 20, zIndex: 1000 }}>
@@ -75,7 +45,7 @@ export function FloatingInstrumentNotes({ instrumentToken }: FloatingInstrumentN
               Save
             </Button>
             {error && <Text type="danger">{error}</Text>}
-            {notes.length === 0 ? <Text type="secondary">No saved notes.</Text> : (
+            {loading ? <Text type="secondary">Loading notes…</Text> : notes.length === 0 ? <Text type="secondary">No saved notes.</Text> : (
               <div style={{ maxHeight: 180, overflowY: "auto" }}>
                 <Space orientation="vertical" size={6} style={{ width: "100%" }}>
                   {notes.map((note) => (

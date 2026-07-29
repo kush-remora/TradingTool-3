@@ -43,3 +43,11 @@ Implemented: the calculator is title-free and narrow; notes are accessible only 
 The note query fails because JDBI's constructor mapper cannot reliably match Kotlin constructor parameters to PostgreSQL result-set labels. Replace it with the project-standard explicit row mapper, read the database's native snake_case columns directly, and validate the mapping with a focused test. This leaves the note API and schema unchanged.
 
 Implemented with `NoteMapper` for both note list and insert-returning results. `NoteMapperTest` and the resources reactor compile passed on 2026-07-28.
+
+## Existing research notes in review header — 2026-07-29
+
+Show a selected stock's existing research notes beside the Fundamentals panel in the review header. Each entry should remain compact and display its newest-first number, note text, and created date. Reuse the existing per-instrument notes endpoint and keep the floating notes control as the single place for adding or deleting notes. The frontend will own the shared note state so a saved or deleted note immediately updates both the header list and the popover without a duplicate request or a new backend contract.
+
+Plan: extract the existing note fetch/mutation state into a small hook; render a dense read-only list in the review header; adapt the floating editor to consume that shared state; add focused tests for list content and mutation refresh; then run the focused frontend suite and production build.
+
+Implemented as planned: selected-stock notes appear as a scrollable 10–11px list with `1.` numbering, text, and an IST created date. `useInstrumentNotes` centralizes loading, saving, and deletion, so the list and floating editor stay synchronized. The focused frontend suite passed 13 tests and the production frontend build passed on 2026-07-29.

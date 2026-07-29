@@ -6,6 +6,7 @@ import { LiveMarketWidget } from "../components/LiveMarketWidget";
 import { BuySellChangeCalculator } from "../components/BuySellChangeCalculator";
 import { FloatingInstrumentNotes } from "../components/FloatingInstrumentNotes";
 import { useInstrumentSearch } from "../hooks/useInstrumentSearch";
+import { useInstrumentNotes } from "../hooks/useInstrumentNotes";
 import { useStockDetail } from "../hooks/useStockDetail";
 import type { DeliveryDayDetail, InstrumentSearchResult } from "../types";
 import {
@@ -57,6 +58,15 @@ function formatDateWithDay(date: string): string {
   return `${date} (${formatDay(date)})`;
 }
 
+function formatCreatedDate(createdAt: string): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Kolkata",
+  }).format(new Date(createdAt));
+}
+
 function formatPercent(value: number | null): ReactNode {
   if (value === null) {
     return "—";
@@ -86,6 +96,7 @@ export function ThreeWeekStockReviewPage() {
   const historyDays = showThreeMonths ? THREE_MONTH_HISTORY_DAYS : COMPACT_HISTORY_DAYS;
   const weeksToDisplay = showThreeMonths ? THREE_MONTH_WEEKS_TO_DISPLAY : WEEKS_TO_DISPLAY;
   const { data, loading, error } = useStockDetail(selectedInstrument?.trading_symbol ?? null, historyDays);
+  const instrumentNotes = useInstrumentNotes(selectedInstrument?.instrument_token ?? null);
   const nseEquities = useMemo(
     () => allInstruments.filter((instrument) => instrument.exchange === "NSE" && instrument.instrument_type === "EQ"),
     [allInstruments],
@@ -190,7 +201,7 @@ export function ThreeWeekStockReviewPage() {
                   <Table
                     data-testid="delivery-history-table"
                     columns={deliveryColumns}
-                    dataSource={data.delivery_days.slice(0, 5)}
+                    dataSource={data.delivery_days?.slice(0, 5) ?? []}
                     rowKey="date"
                     pagination={false}
                     size="small"
@@ -219,6 +230,21 @@ export function ThreeWeekStockReviewPage() {
                   ]}
                 />}
               </div>
+              <div style={{ flex: "0 1 300px", minWidth: 250 }}>
+                <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>EXISTING NOTES</Text>
+                <div data-testid="existing-stock-notes" style={{ marginTop: 4, maxHeight: 112, overflowY: "auto" }}>
+                  {instrumentNotes.loading && <Text type="secondary" style={{ fontSize: 11 }}>Loading notes…</Text>}
+                  {instrumentNotes.error && <Text type="danger" style={{ fontSize: 11 }}>{instrumentNotes.error}</Text>}
+                  {!instrumentNotes.loading && !instrumentNotes.error && instrumentNotes.notes.length === 0 && <Text type="secondary" style={{ fontSize: 11 }}>No saved notes.</Text>}
+                  {instrumentNotes.notes.map((note, index) => (
+                    <div key={note.id} style={{ display: "flex", gap: 5, fontSize: 11, lineHeight: 1.35, marginBottom: 3 }}>
+                      <Text type="secondary" style={{ fontSize: 11, flex: "0 0 auto" }}>{index + 1}.</Text>
+                      <Text style={{ fontSize: 11, flex: 1 }}>{note.notes}</Text>
+                      <Text type="secondary" style={{ fontSize: 10, flex: "0 0 auto" }}>{formatCreatedDate(note.createdAt)}</Text>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </Card>
         )}
@@ -238,7 +264,13 @@ export function ThreeWeekStockReviewPage() {
           <Alert type="info" showIcon message="Use the raw price structure first." description="Compare weekly highs, lows, and range yourself; confirm any accumulation idea with volume and delivery evidence." />
         </>}
       </Space>
-      <FloatingInstrumentNotes instrumentToken={selectedInstrument?.instrument_token ?? null} />
+      {selectedInstrument && <FloatingInstrumentNotes
+        notes={instrumentNotes.notes}
+        loading={instrumentNotes.loading}
+        error={instrumentNotes.error}
+        onAddNote={instrumentNotes.addNote}
+        onRemoveNote={instrumentNotes.removeNote}
+      />}
       <div data-testid="floating-change-calculator" style={{ position: "fixed", right: 20, bottom: 20, zIndex: 1000, maxWidth: "calc(100vw - 32px)", background: "#fff", border: "1px solid #f0f0f0", borderRadius: 8, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)", padding: 6 }}>
         <BuySellChangeCalculator />
       </div>
