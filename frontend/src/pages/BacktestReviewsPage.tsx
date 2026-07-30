@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Card, Table, Typography, message, Tag, Space, Button } from "antd";
 import { ReloadOutlined } from "@ant-design/icons";
 import { BacktestTradeReview, BacktestTradeReviewApiResponse } from "../types";
-import { getJson } from "../utils/api";
 
 const { Text } = Typography;
 
@@ -18,7 +17,9 @@ export function BacktestReviewsPage() {
   const fetchReviews = async () => {
     setLoading(true);
     try {
-      const data = await getJson<BacktestTradeReviewApiResponse>("/api/strategy/csv-backtest/reviews");
+      const res = await fetch("/api/strategy/csv-backtest/reviews");
+      if (!res.ok) throw new Error("Failed to fetch reviews");
+      const data: BacktestTradeReviewApiResponse = await res.json();
       setReviews(data.reviews);
     } catch (err: any) {
       message.error(err.message || "Error fetching reviews");

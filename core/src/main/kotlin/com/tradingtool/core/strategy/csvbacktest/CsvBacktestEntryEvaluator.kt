@@ -5,6 +5,7 @@ import java.time.LocalDate
 
 enum class CsvBacktestEntryStrategy {
     NEXT_DAY_OPEN,
+    BREAKOUT_CLOSE_RECLAIM,
     TWO_GREEN_CANDLES,
     RETEST,
     CONFIRMED_RETEST,
@@ -24,6 +25,7 @@ data class CsvBacktestEntry(
 
 object CsvBacktestEntryEvaluator {
     private const val BREAKOUT_LOOKBACK_SESSIONS = 20
+    private const val BREAKOUT_CLOSE_RECLAIM_WINDOW_SESSIONS = 30
     private const val SECOND_GREEN_CANDLE_WINDOW_SESSIONS = 20
 
     fun findEntry(
@@ -41,6 +43,9 @@ object CsvBacktestEntryEvaluator {
             return postSignalCandles.firstOrNull()?.let { candle ->
                 CsvBacktestEntry(candle, candle.open, breakoutLevel = null)
             }
+        }
+        if (strategy == CsvBacktestEntryStrategy.BREAKOUT_CLOSE_RECLAIM) {
+            return findBreakoutCloseReclaimEntry(candles, signalDate)
         }
         if (strategy == CsvBacktestEntryStrategy.TWO_GREEN_CANDLES) {
             return findTwoGreenCandleEntry(candles, signalDate, maxCloseToCloseGainPct)
@@ -69,6 +74,23 @@ object CsvBacktestEntryEvaluator {
         val entryCandle = postSignalCandles.firstOrNull { it.candleDate.isAfter(confirmationCandle.candleDate) }
             ?: return null
         return CsvBacktestEntry(entryCandle, entryCandle.open, breakoutLevel)
+    }
+
+    private fun findBreakoutCloseReclaimEntry(
+        candles: List<DailyCandle>,
+        signalDate: LocalDate,
+    ): CsvBacktestEntry? {
+        val breakoutClose = candles.firstOrNull { it.candleDate == signalDate }?.close ?: return null
+        val confirmationCandle = candles
+            .asSequence()
+            .filter { it.candleDate.isAfter(signalDate) }
+            .take(BREAKOUT_CLOSE_RECLAIM_WINDOW_SESSIONS)
+            .firstOrNull { it.close > breakoutClose }
+            ?: return null
+        val entryCandle = candles.firstOrNull { it.candleDate.isAfter(confirmationCandle.candleDate) }
+            ?: return null
+
+        return CsvBacktestEntry(entryCandle, entryCandle.open, breakoutLevel = breakoutClose)
     }
 
     private fun findTwoGreenCandleEntry(

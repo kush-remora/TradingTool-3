@@ -30,7 +30,6 @@ import {
   ReviewReasonsResponse,
   ReviewReason
 } from "../types";
-import { getJson, postJson } from "../utils/api";
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -179,7 +178,7 @@ export function CsvBacktestPage() {
   
   const [form] = Form.useForm();
   const [type, setType] = useState<"FIXED" | "TRAILING">("FIXED");
-  const [entryStrategy, setEntryStrategy] = useState<"NEXT_DAY_OPEN" | "TWO_GREEN_CANDLES" | "RETEST" | "CONFIRMED_RETEST">("NEXT_DAY_OPEN");
+  const [entryStrategy, setEntryStrategy] = useState<"NEXT_DAY_OPEN" | "BREAKOUT_CLOSE_RECLAIM" | "TWO_GREEN_CANDLES" | "RETEST" | "CONFIRMED_RETEST">("NEXT_DAY_OPEN");
 
   // Filter State
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
@@ -194,9 +193,10 @@ export function CsvBacktestPage() {
   const [reviewReasons, setReviewReasons] = useState<ReviewReasonsResponse | null>(null);
 
   useEffect(() => {
-    void getJson<ReviewReasonsResponse>("/api/strategy/csv-backtest/reviews/reasons")
-      .then(setReviewReasons)
-      .catch(() => undefined);
+    fetch("/api/strategy/csv-backtest/reviews/reasons")
+      .then(res => res.json())
+      .then(data => setReviewReasons(data as ReviewReasonsResponse))
+      .catch(err => console.error("Failed to load review reasons", err));
   }, []);
 
   useEffect(() => {
@@ -286,8 +286,18 @@ export function CsvBacktestPage() {
         maxCloseToCloseGainPct: values.maxCloseToCloseGainPct,
       };
 
-      const data = await postJson<CsvBacktestResponse>("/api/strategy/csv-backtest/run", requestPayload);
-      setResponse(data);
+      const res = await fetch("/api/strategy/csv-backtest/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestPayload),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to run analysis: ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      setResponse(data as CsvBacktestResponse);
       message.success("Backtest completed successfully!");
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
@@ -330,7 +340,13 @@ export function CsvBacktestPage() {
         notes: values.notes || null,
       };
 
-      await postJson("/api/strategy/csv-backtest/reviews", payload);
+      const res = await fetch("/api/strategy/csv-backtest/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) throw new Error("Failed to save review");
       
       message.success(`Saved review for ${selectedTrade.symbol}`);
       closeReviewDrawer();
@@ -605,6 +621,7 @@ export function CsvBacktestPage() {
               <Form.Item label="Entry Rule" name="entryStrategy">
                 <Radio.Group onChange={(e) => setEntryStrategy(e.target.value)}>
                   <Radio.Button value="NEXT_DAY_OPEN">Next-Day Open</Radio.Button>
+                  <Radio.Button value="BREAKOUT_CLOSE_RECLAIM">Breakout Close Reclaim (30d)</Radio.Button>
                   <Radio.Button value="TWO_GREEN_CANDLES">2 Green Candles</Radio.Button>
                   <Radio.Button value="RETEST">Breakout Retest</Radio.Button>
                   <Radio.Button value="CONFIRMED_RETEST">Confirmed Retest</Radio.Button>

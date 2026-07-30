@@ -88,7 +88,7 @@ fun loadAppConfig(resourceName: String = defaultConfigFileName()): AppConfig {
         fileValues = fileValues,
         yamlKey = "cors.allowedOrigins",
         envVars = listOf("CORS_ALLOWED_ORIGINS"),
-        defaultValue = "https://kush-remora.github.io,http://localhost:5173,http://127.0.0.1:5173",
+        defaultValue = "https://kushb2.github.io,http://localhost:5173,http://127.0.0.1:5173",
     )
     val cors = CorsConfig(
         allowedOrigins = parseCsv(corsAllowedOriginsRaw),
@@ -165,7 +165,7 @@ fun loadAppConfig(resourceName: String = defaultConfigFileName()): AppConfig {
             fileValues = fileValues,
             yamlKey = "deployment.githubPagesUrl",
             envVars = listOf("GITHUB_PAGES_URL"),
-            defaultValue = "https://kush-remora.github.io/TradingTool-3/",
+            defaultValue = "https://kushb2.github.io/TradingTool-3/",
         ),
     )
 
