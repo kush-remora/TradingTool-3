@@ -16,7 +16,7 @@ service:
   name: ${SERVICE_NAME:-TradingTool-3}
 
 cors:
-  allowedOrigins: ${CORS_ALLOWED_ORIGINS:-https://kushb2.github.io,http://localhost:5173,http://127.0.0.1:5173}
+  allowedOrigins: ${CORS_ALLOWED_ORIGINS:-https://kush-remora.github.io,http://localhost:5173,http://127.0.0.1:5173}
 
 telegram:
   botToken: ${TELEGRAM_BOT_TOKEN:-}
@@ -33,7 +33,7 @@ supabase:
 
 deployment:
   renderExternalUrl: ${RENDER_EXTERNAL_URL:-https://tradingtool-3-service.onrender.com}
-  githubPagesUrl: ${GITHUB_PAGES_URL:-https://kushb2.github.io/TradingTool-3/}
+  githubPagesUrl: ${GITHUB_PAGES_URL:-https://kush-remora.github.io/TradingTool-3/}
 
 kite:
   apiKey: ${KITE_API_KEY:-}
