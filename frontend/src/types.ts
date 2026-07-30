@@ -2778,6 +2778,27 @@ export interface StockNote {
   updatedAt: string;
 }
 
+// ==================== Breakout Tracker ====================
+
+export interface BreakoutTrackerEntry {
+  id: number;
+  instrumentToken: number;
+  symbol: string;
+  companyName: string;
+  breakoutDate: string;
+  breakoutPrice: number;
+  notes: string;
+}
+
+export interface SaveBreakoutTrackerEntryRequest {
+  instrumentToken: number;
+  symbol: string;
+  companyName: string;
+  breakoutDate: string;
+  breakoutPrice: number;
+  notes: string;
+}
+
 export interface ReviewReason {
   id: string;
   label: string;

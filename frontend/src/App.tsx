@@ -29,6 +29,7 @@ import { WeeklyBaseDefinitionPage } from "./pages/WeeklyBaseDefinitionPage";
 import { WeeklyBaseGroupBacktestPage } from "./pages/WeeklyBaseGroupBacktestPage";
 import { ThreeWeekStockReviewPage } from "./pages/ThreeWeekStockReviewPage";
 import { WeeklyPriceWatchlistScannerPage } from "./pages/WeeklyPriceWatchlistScannerPage";
+import { BreakoutTrackerPage } from "./pages/BreakoutTrackerPage";
 import type { AccumulationCaseSnapshot } from "./types";
 
 type V1PageKey =
@@ -50,7 +51,8 @@ type V1PageKey =
   | "weekly-base-definition"
   | "weekly-base-group-backtest"
   | "three-week-stock-review"
-  | "weekly-price-watchlist-scanner";
+  | "weekly-price-watchlist-scanner"
+  | "breakout-tracker";
 
 type PageKey = V1PageKey;
 
@@ -143,6 +145,11 @@ const menuItems: MenuProps["items"] = [
     label: "Forward Accumulation",
     icon: <BarChartOutlined />,
   },
+  {
+    key: "breakout-tracker",
+    label: "Breakout Tracker",
+    icon: <LineChartOutlined />,
+  },
   { key: "trade", label: "Trade Journal", icon: <BookOutlined /> },
 ];
 
@@ -166,6 +173,7 @@ const validPages: PageKey[] = [
   "backtest-reviews",
   "chartink-evidence",
   "forward-accumulation",
+  "breakout-tracker",
 ];
 
 const restoreFallbackRoute = (): void => {
@@ -373,6 +381,7 @@ export default function App() {
             {route === "forward-accumulation" && (
               <ForwardAccumulationAnalysisPage onOpenTimeline={openTimeline} />
             )}
+            {route === "breakout-tracker" && <BreakoutTrackerPage />}
             {typeof route !== "string" && (
               <ForwardAccumulationTimelinePage
                 runId={route.runId}

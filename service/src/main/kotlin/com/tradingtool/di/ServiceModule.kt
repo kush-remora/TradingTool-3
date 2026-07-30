@@ -83,6 +83,7 @@ class ServiceModule(
         bind(TradeService::class.java).`in`(Singleton::class.java)
         bind(TradeReadinessService::class.java).`in`(Singleton::class.java)
         bind(com.tradingtool.core.note.NoteService::class.java).`in`(Singleton::class.java)
+        bind(com.tradingtool.core.breakouttracker.BreakoutTrackerService::class.java).`in`(Singleton::class.java)
         bind(HttpRequestExecutor::class.java).to(JdkHttpRequestExecutor::class.java).`in`(Singleton::class.java)
 
         ALL_RESOURCE_CLASSES.forEach { bind(it).`in`(Singleton::class.java) }
@@ -351,6 +352,10 @@ class ServiceModule(
     @Provides @Singleton
     fun provideNoteHandler(config: DatabaseConfig): JdbiHandler<com.tradingtool.core.note.NoteReadDao, com.tradingtool.core.note.NoteWriteDao> =
         handler<com.tradingtool.core.note.NoteReadDao, com.tradingtool.core.note.NoteWriteDao>(config)
+
+    @Provides @Singleton
+    fun provideBreakoutTrackerHandler(config: DatabaseConfig): JdbiHandler<com.tradingtool.core.breakouttracker.BreakoutTrackerReadDao, com.tradingtool.core.breakouttracker.BreakoutTrackerWriteDao> =
+        handler<com.tradingtool.core.breakouttracker.BreakoutTrackerReadDao, com.tradingtool.core.breakouttracker.BreakoutTrackerWriteDao>(config)
 
     private companion object {
         fun readPositiveIntEnv(envName: String, defaultValue: Int): Int {
