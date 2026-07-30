@@ -243,6 +243,7 @@ export interface CreateTradeInput {
   stop_loss_percent: string;
   notes?: string;
   trade_date?: string;
+  strategy?: string;
 }
 
 // ==================== Stock 7-Day Detail ====================

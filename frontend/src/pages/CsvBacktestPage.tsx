@@ -19,7 +19,7 @@ import {
   Switch,
   Tooltip
 } from "antd";
-import { UploadOutlined, EditOutlined } from "@ant-design/icons";
+import { CopyOutlined, UploadOutlined, EditOutlined } from "@ant-design/icons";
 import type { TableProps } from "antd";
 import type { UploadProps, UploadFile } from "antd/es/upload/interface";
 import { 
@@ -28,7 +28,9 @@ import {
   CsvBacktestTradeResult,
   BacktestTradeReviewApiRequest,
   ReviewReasonsResponse,
-  ReviewReason
+  ReviewReason,
+  CreateTradeInput,
+  TradeWithTargets,
 } from "../types";
 import { getJson, postJson } from "../utils/api";
 
@@ -47,6 +49,78 @@ export const formatBreakoutSpan = (
   if (sessions === null) return "-";
   return `${sessions}${isLowerBound ? "+" : ""} days`;
 };
+
+function copyValue(value: number | null | undefined, suffix = ""): string {
+  return value === null || value === undefined ? "-" : `${formatNumber(value)}${suffix}`;
+}
+
+function copyMoney(value: number | null | undefined): string {
+  return value === null || value === undefined ? "-" : `₹${formatNumber(value)}`;
+}
+
+export function buildCopyableTradeDetails(trade: CsvBacktestTradeResult): string {
+  const deliveryDays = trade.priorFiveDaysDelivery
+    .map((day) => `${day.date}: ${copyValue(day.deliveryPct, "%")}`)
+    .join("; ");
+
+  return [
+    `Symbol: ${trade.symbol}`,
+    `Market cap: ${trade.marketCapName}`,
+    `Sector: ${trade.sector}`,
+    `Signal date: ${trade.signalDate}`,
+    `Entry rule: ${trade.entryStrategy}`,
+    `Breakout level: ${copyMoney(trade.breakoutLevel)}`,
+    `Breakout span: ${formatBreakoutSpan(trade.breakoutSpanSessions, trade.breakoutSpanIsLowerBound)}`,
+    `Breakout day move: ${copyValue(trade.breakoutDayMovePct, "%")}`,
+    `Breakout delivery: ${copyValue(trade.breakoutDayDeliveryPct, "%")}`,
+    `Prior 5D max delivery: ${copyValue(trade.priorFiveDaysMaxDeliveryPct, "%")}`,
+    `Prior 5D delivery: ${deliveryDays || "-"}`,
+    `Entry: ${trade.entryDate ?? "-"} @ ${copyMoney(trade.entryPrice)}`,
+    `First 5D low: ${copyMoney(trade.firstFiveDaysLowestPrice)}`,
+    `First 5D drop: ${copyMoney(trade.firstFiveDaysDropAmount)} (${copyValue(trade.firstFiveDaysDropPct, "%")})`,
+    `First 3D red candles: ${trade.firstThreeDaysRedCandleCount ?? "-"}`,
+    `V2 volume spike: ${copyValue(trade.v2MaxPreBreakoutVolumeRatio, "×")}`,
+    `V2 run: ${copyValue(trade.v2MoveFromRecentBasePct, "%")}`,
+    `V2 failed tests: ${trade.v2FailedResistanceAttempts ?? "-"}`,
+    `V2 base: ${copyMoney(trade.v2RecentRunBasePrice)}`,
+    `Exit: ${trade.isOpen ? "Open" : trade.exitDate ?? "-"} @ ${copyMoney(trade.exitPrice)}`,
+    `P&L: ${copyValue(trade.profitLossPct, "%")}`,
+    `Days held: ${trade.daysHeld}`,
+    `Target hit: ${trade.targetHit ? "Yes" : "No"}`,
+    `Stop hit: ${trade.slHit ? "Yes" : "No"}`,
+  ].join("\n");
+}
+
+export function buildBacktestTradeJournalInput(
+  trade: CsvBacktestTradeResult,
+  reviewNotes: string | null,
+  reasonTags: string | null,
+  stopLossPercent: number,
+): CreateTradeInput | null {
+  if (trade.instrumentToken <= 0 || trade.entryPrice === null || trade.entryPrice <= 0 || trade.entryDate === null) {
+    return null;
+  }
+
+  const noteSections = [
+    "CSV backtest trade",
+    reasonTags ? `Review reasons: ${reasonTags}` : null,
+    reviewNotes?.trim() || null,
+  ].filter((section): section is string => section !== null);
+
+  return {
+    instrument_token: trade.instrumentToken,
+    company_name: trade.symbol,
+    exchange: "NSE",
+    nse_symbol: trade.symbol,
+    quantity: 1,
+    avg_buy_price: trade.entryPrice.toFixed(2),
+    today_low: trade.firstFiveDaysLowestPrice?.toFixed(2),
+    stop_loss_percent: stopLossPercent.toFixed(2),
+    notes: noteSections.join("\n"),
+    trade_date: trade.entryDate,
+    strategy: "CSV_BACKTEST",
+  };
+}
 
 const filterCsv = (rawCsv: string, selectedMonths: string[], selectedMarketCaps: string[]) => {
   if ((!selectedMonths || !selectedMonths.length) && (!selectedMarketCaps || !selectedMarketCaps.length)) return rawCsv;
@@ -331,8 +405,42 @@ export function CsvBacktestPage() {
       };
 
       await postJson("/api/strategy/csv-backtest/reviews", payload);
+
+      const reviewNotes = values.notes || null;
+      const reasonTags = values.reasonTags ? values.reasonTags.join(",") : null;
+      const journalInput = buildBacktestTradeJournalInput(
+        selectedTrade,
+        reviewNotes,
+        reasonTags,
+        Number(form.getFieldValue("stopLossPct") ?? 0),
+      );
+      let journalMessage = "";
+
+      if (journalInput) {
+        try {
+          const existingTrades = await getJson<TradeWithTargets[]>("/api/trades", { useCache: false });
+          const existingTrade = existingTrades.find(
+            (tradeWithTargets) => tradeWithTargets.trade.instrument_token === selectedTrade.instrumentToken,
+          );
+
+          if (existingTrade) {
+            journalMessage = " Journal entry skipped because this symbol already has a trade.";
+          } else {
+            const createdTrade = await postJson<TradeWithTargets>("/api/trades", journalInput);
+            if (!selectedTrade.isOpen && selectedTrade.exitPrice !== null && selectedTrade.exitDate !== null) {
+              await postJson<TradeWithTargets>(`/api/trades/${createdTrade.trade.id}/close`, {
+                close_price: selectedTrade.exitPrice.toFixed(2),
+                close_date: selectedTrade.exitDate,
+              });
+            }
+            journalMessage = " Added to Trade Journal.";
+          }
+        } catch {
+          journalMessage = " Review saved, but the Trade Journal entry could not be created.";
+        }
+      }
       
-      message.success(`Saved review for ${selectedTrade.symbol}`);
+      message.success(`Saved review for ${selectedTrade.symbol}.${journalMessage}`);
       closeReviewDrawer();
     } catch (err: any) {
       message.error(err.message || "Error saving review");
@@ -349,6 +457,15 @@ export function CsvBacktestPage() {
     () => buildSectorFilterOptions(tradeRows),
     [tradeRows],
   );
+
+  const copyTradeDetails = async (trade: CsvBacktestTradeResult): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(buildCopyableTradeDetails(trade));
+      message.success(`${trade.symbol} trade details copied.`);
+    } catch {
+      message.error("Could not copy trade details. Copy the row manually.");
+    }
+  };
 
   const tradesColumns = [
     { title: "Sr.", key: "index", width: 50, render: (_: any, __: any, index: number) => index + 1 },
@@ -450,11 +567,16 @@ export function CsvBacktestPage() {
     {
       title: "Action",
       key: "action",
-      render: (_: any, record: any) => (
-        <Button size="small" type="dashed" icon={<EditOutlined />} onClick={() => openReviewDrawer(record)}>
-          Analyze
-        </Button>
-      )
+      render: (_: unknown, record: CsvBacktestTradeResult) => (
+        <Space size={4}>
+          <Button size="small" icon={<CopyOutlined />} onClick={() => void copyTradeDetails(record)}>
+            Copy
+          </Button>
+          <Button size="small" type="dashed" icon={<EditOutlined />} onClick={() => openReviewDrawer(record)}>
+            Analyze
+          </Button>
+        </Space>
+      ),
     }
   ];
 

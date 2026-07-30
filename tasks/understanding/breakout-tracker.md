@@ -4,6 +4,8 @@ Kush needs a compact personal screen for recording an emerging breakout while it
 
 Phase 1 uses one persisted entry per instrument. Notes remain editable and accept pasted scanner evidence such as breakout volume and five-day delivery percentage. Current price is read through the existing quotes endpoint; no new market-data pipeline is introduced. Entries can be added, edited, and removed. Validation will cover API persistence and the primary frontend add/edit/performance flow.
 
+Each tracked row also links to the existing Three-Week Stock Review + Current Week page in a new tab, carrying its symbol in the URL. This reuses the existing review flow instead of duplicating daily price and delivery analysis in the tracker.
+
 ## Plan
 
 1. Add a small `breakout_tracker_entries` migration and Kotlin persistence service with list/create/update/delete endpoints.

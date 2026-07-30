@@ -111,3 +111,11 @@ Medium-High. Involves a new UI page, new backend endpoints, a state machine for 
 The old monthly `Win`, `Loss`, and `Win Rate` values classified any positive return as a win. This was misleading for a target-driven strategy: an expiry at +5% must not be treated as a success when the configured target is +20%.
 
 The report now records target attainment directly at exit and presents Target Hit, Stop Hit, Unresolved, and Target Hit Rate. A target-hit rate counts only trades that reached the configured target; stopped and timed-out/open trades are not successes.
+
+## Trade Detail Copy (2026-07-31)
+
+Each Trade Details row needs a one-click copy action for sharing or saving a complete simulated-trade record. The copied text must include the signal, breakout, delivery, entry, first-five-session, and exit/outcome fields shown by the table. This is frontend-only: it reuses the already-loaded result and reports clipboard failure rather than silently losing the action.
+
+## Review-to-Trade Journal Sync (2026-07-31)
+
+Saving an Analyze review should also add its entered CSV trade to the generic Trade Journal. The journal entry uses a quantity of one because a backtest has no real position size, marks its strategy as `CSV_BACKTEST`, saves the review notes, and records the simulated exit when available. An existing generic trade for the same instrument is never consolidated or closed by this flow; the review still saves and the UI reports that the journal entry was skipped.

@@ -3,6 +3,8 @@ import type { CsvBacktestTradeResult } from "../types";
 import {
   buildCsvBacktestTableRows,
   buildSectorFilterOptions,
+  buildCopyableTradeDetails,
+  buildBacktestTradeJournalInput,
   calculateTargetOutcomeSummary,
   formatBreakoutSpan,
   matchesMaximumV2RunPct,
@@ -54,6 +56,43 @@ const buildTrade = (
 });
 
 describe("CSV backtest sector filter", () => {
+  it("formats every trade detail needed for one-click copying", () => {
+    const copiedDetails = buildCopyableTradeDetails(buildTrade("IT", { targetHit: true }));
+
+    expect(copiedDetails).toContain("Symbol: INFY");
+    expect(copiedDetails).toContain("Breakout span: 120 days");
+    expect(copiedDetails).toContain("Prior 5D delivery: 24-06-2026: 51.20%");
+    expect(copiedDetails).toContain("Entry: 2026-07-02 @ ₹1510.00");
+    expect(copiedDetails).toContain("Target hit: Yes");
+  });
+
+  it("builds a quantity-one generic journal entry for an entered backtest trade", () => {
+    expect(buildBacktestTradeJournalInput(
+      buildTrade("IT", { firstFiveDaysLowestPrice: 1490 }),
+      "Watch for follow-through.",
+      "Clean base",
+      10,
+    )).toMatchObject({
+      instrument_token: 408065,
+      quantity: 1,
+      avg_buy_price: "1510.00",
+      today_low: "1490.00",
+      stop_loss_percent: "10.00",
+      trade_date: "2026-07-02",
+      strategy: "CSV_BACKTEST",
+      notes: "CSV backtest trade\nReview reasons: Clean base\nWatch for follow-through.",
+    });
+  });
+
+  it("does not create a journal entry for a backtest signal without an entry", () => {
+    expect(buildBacktestTradeJournalInput(
+      buildTrade("IT", { entryDate: null, entryPrice: null }),
+      null,
+      null,
+      10,
+    )).toBeNull();
+  });
+
   it("formats exact and lower-bound breakout spans", () => {
     expect(formatBreakoutSpan(120, false)).toBe("120 days");
     expect(formatBreakoutSpan(500, true)).toBe("500+ days");

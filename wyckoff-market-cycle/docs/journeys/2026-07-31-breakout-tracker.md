@@ -6,7 +6,7 @@ Quiet, flat accumulation candidates need a durable place to be monitored before 
 
 ## Implemented
 
-The tracker records one NSE instrument with its observed breakout date, price, and editable evidence notes. It shows the current price and percentage move from the recorded price through the existing quote feed. A copy control in each notes cell copies the full saved evidence block for reuse.
+The tracker records one NSE instrument with its observed breakout date, price, and editable evidence notes. It shows the current price and percentage move from the recorded price through the existing quote feed. A copy control in each notes cell copies the full saved evidence block for reuse. Each row also opens its existing Three-Week Stock Review + Current Week screen in a new tab.
 
 ## Decisions
 

@@ -381,7 +381,7 @@ export default function App() {
             {route === "forward-accumulation" && (
               <ForwardAccumulationAnalysisPage onOpenTimeline={openTimeline} />
             )}
-            {route === "breakout-tracker" && <BreakoutTrackerPage />}
+            {route === "breakout-tracker" && <BreakoutTrackerPage onOpenStockReview={openStockReview} />}
             {typeof route !== "string" && (
               <ForwardAccumulationTimelinePage
                 runId={route.runId}

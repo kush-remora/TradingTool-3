@@ -1,4 +1,4 @@
-import { CopyOutlined, DeleteOutlined, EditOutlined, SaveOutlined } from "@ant-design/icons";
+import { CopyOutlined, DeleteOutlined, EditOutlined, ExportOutlined, SaveOutlined } from "@ant-design/icons";
 import { Alert, Button, Card, DatePicker, Empty, Input, InputNumber, Popconfirm, Space, Table, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs, { type Dayjs } from "dayjs";
@@ -35,7 +35,11 @@ function formatPerformance(value: number | null): React.ReactNode {
   return <span style={{ color, fontWeight: 600 }}>{`${value > 0 ? "+" : ""}${value.toFixed(2)}%`}</span>;
 }
 
-export function BreakoutTrackerPage() {
+interface BreakoutTrackerPageProps {
+  onOpenStockReview: (symbol: string) => void;
+}
+
+export function BreakoutTrackerPage({ onOpenStockReview }: BreakoutTrackerPageProps) {
   const [draft, setDraft] = useState<EntryDraft>(emptyDraft);
   const [editingId, setEditingId] = useState<number | null>(null);
   const { allInstruments, loading: instrumentsLoading, error: instrumentsError } = useInstrumentSearch();
@@ -99,7 +103,7 @@ export function BreakoutTrackerPage() {
     { title: "Last price", key: "lastPrice", width: 110, render: (_, entry) => formatPrice(quotesBySymbol[entry.symbol]?.ltp) },
     { title: "Since breakout", key: "performance", width: 120, render: (_, entry) => formatPerformance(performance(quotesBySymbol[entry.symbol]?.ltp, entry.breakoutPrice)) },
     { title: "Notes", dataIndex: "notes", key: "notes", render: (notes: string, entry) => <Space orientation="vertical" size={2}><Text style={{ whiteSpace: "pre-wrap", fontSize: 12 }}>{notes || "—"}</Text><Button aria-label={`Copy ${entry.symbol} details`} type="link" size="small" icon={<CopyOutlined />} onClick={() => void copyNotes(entry)} style={{ alignSelf: "flex-start", padding: 0 }}>Copy details</Button></Space> },
-    { title: "", key: "actions", width: 72, render: (_, entry) => <Space size={2}><Button aria-label={`Edit ${entry.symbol}`} type="text" size="small" icon={<EditOutlined />} onClick={() => edit(entry)} /><Popconfirm title="Remove this breakout candidate?" onConfirm={() => void removeEntry(entry.id)}><Button aria-label={`Remove ${entry.symbol}`} type="text" danger size="small" icon={<DeleteOutlined />} /></Popconfirm></Space> },
+    { title: "", key: "actions", width: 128, render: (_, entry) => <Space size={2}><Button aria-label={`Open ${entry.symbol} three-week review`} type="link" size="small" icon={<ExportOutlined />} onClick={() => onOpenStockReview(entry.symbol)}>Review</Button><Button aria-label={`Edit ${entry.symbol}`} type="text" size="small" icon={<EditOutlined />} onClick={() => edit(entry)} /><Popconfirm title="Remove this breakout candidate?" onConfirm={() => void removeEntry(entry.id)}><Button aria-label={`Remove ${entry.symbol}`} type="text" danger size="small" icon={<DeleteOutlined />} /></Popconfirm></Space> },
   ];
 
   return (
