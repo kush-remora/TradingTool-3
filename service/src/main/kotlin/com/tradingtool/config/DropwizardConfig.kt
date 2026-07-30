@@ -44,7 +44,7 @@ class DropwizardConfig : Configuration() {
     var redis: DropwizardRedisConfig = DropwizardRedisConfig()
 
     fun toAppConfig(): AppConfig {
-        val defaultAllowedOrigins = "https://kushb2.github.io,http://localhost:5173,http://127.0.0.1:5173"
+        val defaultAllowedOrigins = "https://kush-remora.github.io,http://localhost:5173,http://127.0.0.1:5173"
         return AppConfig(
             server = ServerConfig(
                 host = "0.0.0.0",
@@ -67,7 +67,7 @@ class DropwizardConfig : Configuration() {
             supabase = SupabaseConfig(dbUrl = supabase.dbUrl ?: ""),
             deployment = DeploymentConfig(
                 renderExternalUrl = deployment.renderExternalUrl ?: "",
-                githubPagesUrl = deployment.githubPagesUrl ?: "https://kushb2.github.io/TradingTool-3/",
+                githubPagesUrl = deployment.githubPagesUrl ?: "https://kush-remora.github.io/TradingTool-3/",
             ),
             kite = KiteConfig(
                 apiKey = kite.apiKey ?: "",
@@ -82,7 +82,7 @@ class DropwizardConfig : Configuration() {
     private fun parseAllowedOrigins(rawValue: String): List<String> {
         if (rawValue.isBlank()) {
             return listOf(
-                "https://kushb2.github.io",
+                "https://kush-remora.github.io",
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
             )
@@ -102,7 +102,7 @@ class DropwizardServiceConfig {
 class DropwizardCorsConfig {
     @JsonProperty("allowedOrigins")
     var allowedOrigins: String? =
-        "https://kushb2.github.io,http://localhost:5173,http://127.0.0.1:5173"
+        "https://kush-remora.github.io,http://localhost:5173,http://127.0.0.1:5173"
 }
 
 class DropwizardTelegramConfig {
@@ -141,7 +141,7 @@ class DropwizardDeploymentConfig {
     var renderExternalUrl: String? = ""
 
     @JsonProperty("githubPagesUrl")
-    var githubPagesUrl: String? = "https://kushb2.github.io/TradingTool-3/"
+    var githubPagesUrl: String? = "https://kush-remora.github.io/TradingTool-3/"
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)

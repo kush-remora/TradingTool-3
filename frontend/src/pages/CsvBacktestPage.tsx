@@ -30,6 +30,7 @@ import {
   ReviewReasonsResponse,
   ReviewReason
 } from "../types";
+import { getJson, postJson } from "../utils/api";
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -193,10 +194,9 @@ export function CsvBacktestPage() {
   const [reviewReasons, setReviewReasons] = useState<ReviewReasonsResponse | null>(null);
 
   useEffect(() => {
-    fetch("/api/strategy/csv-backtest/reviews/reasons")
-      .then(res => res.json())
-      .then(data => setReviewReasons(data as ReviewReasonsResponse))
-      .catch(err => console.error("Failed to load review reasons", err));
+    void getJson<ReviewReasonsResponse>("/api/strategy/csv-backtest/reviews/reasons")
+      .then(setReviewReasons)
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -286,18 +286,8 @@ export function CsvBacktestPage() {
         maxCloseToCloseGainPct: values.maxCloseToCloseGainPct,
       };
 
-      const res = await fetch("/api/strategy/csv-backtest/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestPayload),
-      });
-
-      if (!res.ok) {
-        throw new Error(`Failed to run analysis: ${res.statusText}`);
-      }
-
-      const data = await res.json();
-      setResponse(data as CsvBacktestResponse);
+      const data = await postJson<CsvBacktestResponse>("/api/strategy/csv-backtest/run", requestPayload);
+      setResponse(data);
       message.success("Backtest completed successfully!");
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
@@ -340,13 +330,7 @@ export function CsvBacktestPage() {
         notes: values.notes || null,
       };
 
-      const res = await fetch("/api/strategy/csv-backtest/reviews", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) throw new Error("Failed to save review");
+      await postJson("/api/strategy/csv-backtest/reviews", payload);
       
       message.success(`Saved review for ${selectedTrade.symbol}`);
       closeReviewDrawer();
