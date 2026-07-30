@@ -12,9 +12,9 @@ services:
     dockerfilePath: ./Dockerfile
     envVars:
       - key: CORS_ALLOWED_ORIGINS
-        value: https://kush-remora.github.io,http://localhost:5173,http://127.0.0.1:5173
+        value: https://kushb2.github.io,http://localhost:5173,http://127.0.0.1:5173
       - key: GITHUB_PAGES_URL
-        value: https://kush-remora.github.io/TradingTool-3/
+        value: https://kushb2.github.io/TradingTool-3/
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_CHAT_ID
