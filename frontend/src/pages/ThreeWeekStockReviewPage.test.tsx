@@ -143,7 +143,7 @@ describe("ThreeWeekStockReviewPage", () => {
     expect(screen.getByText("12.50 L / 22.22 L")).toBeInTheDocument();
   });
 
-  it("shows intraday low and high moves from the open", () => {
+  it("shows the intraday low move from open and the full low-to-high range", () => {
     useStockDetailMock.mockReturnValue({
       data: {
         symbol: "INFY",
@@ -163,7 +163,7 @@ describe("ThreeWeekStockReviewPage", () => {
     expect(screen.getByRole("columnheader", { name: "Low %" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "High %" })).toBeInTheDocument();
     expect(screen.getByText("-5.00%")).toHaveStyle({ color: "#cf1322" });
-    expect(screen.getByText("+10.00%")).toHaveStyle({ color: "#389e0d" });
+    expect(screen.getByText("+15.79%")).toHaveStyle({ color: "#389e0d" });
   });
 
   it("shows existing stock notes with a number, text, and created date beside fundamentals", () => {

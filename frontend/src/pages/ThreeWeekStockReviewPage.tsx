@@ -27,7 +27,7 @@ interface DailyPriceRow extends WeeklyPriceTimelineDay {
   day: string;
   deliveryPct: number | null;
   lowFromOpenPct: number | null;
-  highFromOpenPct: number | null;
+  lowToHighPct: number | null;
 }
 
 function formatDay(date: string): string {
@@ -72,6 +72,10 @@ function formatCreatedDate(createdAt: string): string {
 function calculatePercentChange(value: number, referenceValue: number): number | null {
   if (referenceValue === 0) return null;
   return ((value - referenceValue) / referenceValue) * 100;
+}
+
+function calculateLowToHighPercent(low: number, high: number): number | null {
+  return low === 0 ? null : ((high - low) / low) * 100;
 }
 
 function formatPercent(value: number | null): ReactNode {
@@ -152,7 +156,7 @@ export function ThreeWeekStockReviewPage() {
       day: formatDay(day.date),
       deliveryPct: deliveryByDate.get(day.date) ?? null,
       lowFromOpenPct: calculatePercentChange(day.low, day.open),
-      highFromOpenPct: calculatePercentChange(day.high, day.open),
+      lowToHighPct: calculateLowToHighPercent(day.low, day.high),
     })), [deliveryByDate, weeklyTimelines]);
 
   const dailyColumns: ColumnsType<DailyPriceRow> = [
@@ -163,7 +167,7 @@ export function ThreeWeekStockReviewPage() {
     { title: "Low %", dataIndex: "lowFromOpenPct", key: "lowFromOpenPct", width: 70, render: formatPercent },
     { title: "Close", dataIndex: "close", key: "close", width: 90, render: formatPrice },
     { title: "High", dataIndex: "high", key: "high", width: 90, render: formatPrice },
-    { title: "High %", dataIndex: "highFromOpenPct", key: "highFromOpenPct", width: 70, render: formatPercent },
+    { title: "High %", dataIndex: "lowToHighPct", key: "lowToHighPct", width: 70, render: formatPercent },
     { title: "Vol", dataIndex: "volume", key: "volume", width: 72, render: formatCompactQuantity },
     { title: "Del %", dataIndex: "deliveryPct", key: "deliveryPct", width: 65, render: formatDeliveryPercentage },
     { title: "Daily %", dataIndex: "dailyMovePct", key: "dailyMovePct", width: 70, render: formatPercent },

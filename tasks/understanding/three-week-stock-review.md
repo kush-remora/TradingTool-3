@@ -57,3 +57,11 @@ Implemented as planned: selected-stock notes appear as a scrollable 10–11px li
 Keep the existing chronological daily rows and close-versus-open `Daily %` column. Add compact `Low %` and `High %` columns that express each session's low and high relative to its opening price. This gives the requested intraday downside/upside mental model: low moves are red and high moves are green, with no interpretation or signal labelling added.
 
 Implemented: the table now shows `Low %` immediately after Low and `High %` immediately after High. A focused test verifies a 100 open, 95 low, and 110 high renders as red `-5.00%` and green `+10.00%`. The page test suite (12 tests) and production frontend build passed on 2026-07-29.
+
+## HFCL four-week review correction — 2026-07-31
+
+The compact review must continue to show the three preceding completed trading weeks plus the latest/current week (four ISO-week groups total). Its 30-session request already provides enough data, including around market holidays. The `High %` column was incorrectly expressed relative to the opening price; it must instead show the session's full intraday move from low to high: `(high - low) / low * 100`. `Low %` remains the move from open to low, and `Daily %` remains close versus open.
+
+Plan: retain the existing four-week grouping, make the `High %` calculation explicit with the low as denominator, update the focused assertion, then run the page test suite and production frontend build. The Kotlin review gate will confirm that no Kotlin code is affected.
+
+Implemented and validated: the compact four-week grouping remains unchanged, and `High %` now shows `+15.79%` for a ₹95 low to ₹110 high session. The focused review-page suite passed all 12 tests, and the production frontend build passed on 2026-07-31. The Kotlin review gate found no Kotlin changes or Kotlin-specific concerns. The frontend build continues to emit its existing, unrelated duplicate-`title` and bundle-size warnings.

@@ -168,8 +168,36 @@ const validPages: PageKey[] = [
   "forward-accumulation",
 ];
 
+const restoreFallbackRoute = (): void => {
+  const redirect = new URLSearchParams(window.location.search).get("redirect");
+  if (!redirect) {
+    return;
+  }
+
+  let requestedUrl: URL;
+  try {
+    requestedUrl = new URL(redirect, window.location.origin);
+  } catch {
+    return;
+  }
+  const baseUrl = import.meta.env.BASE_URL;
+  if (
+    requestedUrl.origin !== window.location.origin ||
+    !requestedUrl.pathname.startsWith(baseUrl)
+  ) {
+    return;
+  }
+
+  window.history.replaceState(
+    {},
+    "",
+    `${requestedUrl.pathname}${requestedUrl.search}${requestedUrl.hash}`,
+  );
+};
+
 export default function App() {
   const getInitialRoute = (): Route => {
+    restoreFallbackRoute();
     const path = window.location.pathname;
     const baseUrl = import.meta.env.BASE_URL;
     const internalPath = path.startsWith(baseUrl)
