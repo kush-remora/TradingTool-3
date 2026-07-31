@@ -10,11 +10,16 @@ export function useSilentBreakoutBacktest() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const run = useCallback(async (csvContent: string, targetPct: number): Promise<SilentBreakoutBacktestResponse> => {
+  const run = useCallback(async (
+    csvContent: string,
+    targetPct: number,
+    signalMonth: string | null,
+    marketCaps: string[],
+  ): Promise<SilentBreakoutBacktestResponse> => {
     setLoading(true);
     setError(null);
     try {
-      const response = await postJson<SilentBreakoutBacktestResponse>(PATH, { csvContent, targetPct });
+      const response = await postJson<SilentBreakoutBacktestResponse>(PATH, { csvContent, targetPct, signalMonth, marketCaps });
       setData(response);
       return response;
     } catch (caughtError) {

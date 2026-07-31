@@ -449,7 +449,7 @@ class StrategyResource @Inject constructor(
             return@endpoint badRequest("Target must be between 0.1% and 1000%.")
         }
         try {
-            ok(silentBreakoutBacktestService.run(body.csvContent, body.targetPct))
+            ok(silentBreakoutBacktestService.run(body.csvContent, body.targetPct, body.signalMonth, body.marketCaps))
         } catch (error: IllegalArgumentException) {
             badRequest(error.message ?: "Invalid silent breakout CSV.")
         }

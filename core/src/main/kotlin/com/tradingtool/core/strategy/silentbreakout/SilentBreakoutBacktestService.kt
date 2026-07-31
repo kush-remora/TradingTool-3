@@ -14,6 +14,7 @@ import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVParser
 import java.io.StringReader
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 
@@ -25,8 +26,20 @@ class SilentBreakoutBacktestService(
     private val instrumentCache: InstrumentCache,
     private val stockDeliveryHandler: StockDeliveryJdbiHandler,
 ) {
-    suspend fun run(csvContent: String, targetPct: Double): SilentBreakoutBacktestResponse = withContext(Dispatchers.IO) {
-        val signals = parseSignals(csvContent)
+    suspend fun run(
+        csvContent: String,
+        targetPct: Double,
+        signalMonth: String?,
+        marketCaps: Set<String>,
+    ): SilentBreakoutBacktestResponse = withContext(Dispatchers.IO) {
+        val selectedMonth = signalMonth?.takeIf(String::isNotBlank)?.let { value ->
+            try {
+                YearMonth.parse(value)
+            } catch (_: DateTimeParseException) {
+                throw IllegalArgumentException("Month must use YYYY-MM format.")
+            }
+        }
+        val signals = SilentBreakoutSignalCsvParser.parse(csvContent, selectedMonth, marketCaps)
         if (signals.isEmpty()) {
             return@withContext SilentBreakoutBacktestResponse(emptyList(), emptySummary())
         }
@@ -59,32 +72,6 @@ class SilentBreakoutBacktestService(
         }.sortedWith(compareByDescending<SilentBreakoutBacktestRow> { row -> row.signalDate }.thenBy(SilentBreakoutBacktestRow::symbol))
 
         SilentBreakoutBacktestResponse(rows, summary(rows))
-    }
-
-    private fun parseSignals(csvContent: String): List<SilentBreakoutSignal> {
-        CSVParser.parse(
-            StringReader(csvContent),
-            CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).setIgnoreHeaderCase(true).setTrim(true).build(),
-        ).use { parser ->
-            val headerMap = parser.headerMap.mapKeys { (header) -> header.lowercase().replace(" ", "") }
-            val symbolHeader = headerMap.keys.firstOrNull { header -> header.contains("symbol") }
-            val dateHeader = headerMap.keys.firstOrNull { header -> header.contains("date") }
-            require(symbolHeader != null && dateHeader != null) { "CSV must contain symbol and date columns." }
-
-            return parser.mapNotNull { record ->
-                val symbol = record.get(headerMap.getValue(symbolHeader)).trim().uppercase()
-                val date = parseDate(record.get(headerMap.getValue(dateHeader)).trim())
-                if (symbol.isBlank() || date == null) null else SilentBreakoutSignal(symbol, date)
-            }.distinctBy { signal -> signal.symbol to signal.signalDate }
-        }
-    }
-
-    private fun parseDate(value: String): LocalDate? = DATE_FORMATTERS.firstNotNullOfOrNull { formatter ->
-        try {
-            LocalDate.parse(value, formatter)
-        } catch (_: DateTimeParseException) {
-            null
-        }
     }
 
     private suspend fun loadCandles(symbol: String, fromDate: LocalDate, toDate: LocalDate): List<DailyCandle> {
@@ -120,6 +107,59 @@ class SilentBreakoutBacktestService(
 
     private companion object {
         const val HISTORY_CALENDAR_DAYS = 800L
-        val DATE_FORMATTERS = listOf(DateTimeFormatter.ISO_LOCAL_DATE, DateTimeFormatter.ofPattern("dd-MM-yyyy"))
     }
+}
+
+internal object SilentBreakoutSignalCsvParser {
+    fun parse(
+        csvContent: String,
+        selectedMonth: YearMonth? = null,
+        selectedMarketCaps: Set<String> = emptySet(),
+    ): List<SilentBreakoutSignal> {
+        CSVParser.parse(
+            StringReader(csvContent),
+            CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).setIgnoreHeaderCase(true).setTrim(true).build(),
+        ).use { parser ->
+            val headerMap = parser.headerMap.mapKeys { (header) -> normalizeHeader(header) }
+            val symbolHeader = headerMap.keys.firstOrNull { header -> header.contains("symbol") }
+            val dateHeader = headerMap.keys.firstOrNull { header -> header.contains("date") }
+            val marketCapHeader = headerMap.keys.firstOrNull { header -> header.contains("marketcap") || header.contains("capbucket") }
+            require(symbolHeader != null && dateHeader != null) { "CSV must contain symbol and date columns." }
+            val normalizedMarketCaps = selectedMarketCaps.map(::normalizeMarketCap).toSet()
+            require(normalizedMarketCaps.isEmpty() || marketCapHeader != null) {
+                "CSV must contain a market-cap column when a market-cap filter is selected."
+            }
+
+            return parser.mapNotNull { record ->
+                val symbol = record.get(headerMap.getValue(symbolHeader)).trim().uppercase()
+                val date = parseDate(record.get(headerMap.getValue(dateHeader)).trim())
+                val marketCap = marketCapHeader?.let { header -> record.get(headerMap.getValue(header)) }?.let(::normalizeMarketCap)
+                if (symbol.isBlank() || date == null || !matchesSelectedMonth(date, selectedMonth) || !matchesSelectedMarketCap(marketCap, normalizedMarketCaps)) {
+                    null
+                } else {
+                    SilentBreakoutSignal(symbol, date)
+                }
+            }
+        }
+    }
+
+    private fun matchesSelectedMonth(date: LocalDate, selectedMonth: YearMonth?): Boolean =
+        selectedMonth == null || YearMonth.from(date) == selectedMonth
+
+    private fun matchesSelectedMarketCap(marketCap: String?, selectedMarketCaps: Set<String>): Boolean =
+        selectedMarketCaps.isEmpty() || marketCap in selectedMarketCaps
+
+    private fun normalizeMarketCap(value: String): String = value.lowercase().replace(" ", "").replace("_", "").replace("-", "")
+
+    private fun normalizeHeader(value: String): String = normalizeMarketCap(value)
+
+    private fun parseDate(value: String): LocalDate? = dateFormatters.firstNotNullOfOrNull { formatter ->
+        try {
+            LocalDate.parse(value, formatter)
+        } catch (_: DateTimeParseException) {
+            null
+        }
+    }
+
+    private val dateFormatters = listOf(DateTimeFormatter.ISO_LOCAL_DATE, DateTimeFormatter.ofPattern("dd-MM-yyyy"))
 }

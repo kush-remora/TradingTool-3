@@ -7,8 +7,39 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import java.time.LocalDate
+import java.time.YearMonth
 
 class SilentBreakoutBacktestAnalyzerTest {
+    @Test
+    fun `preserves duplicate signal rows from a CSV upload`() {
+        val signals = SilentBreakoutSignalCsvParser.parse(
+            """
+            symbol,date
+            TEST,2024-01-10
+            TEST,2024-01-10
+            """.trimIndent(),
+        )
+
+        assertEquals(2, signals.size)
+        assertEquals(signals[0], signals[1])
+    }
+
+    @Test
+    fun `filters signals by month and market cap from the uploaded CSV`() {
+        val signals = SilentBreakoutSignalCsvParser.parse(
+            """
+            symbol,date,marketcapname
+            LARGE,2024-01-10,Largecap
+            MID,2024-01-10,Midcap
+            LARGE_FEB,2024-02-10,Largecap
+            """.trimIndent(),
+            selectedMonth = YearMonth.of(2024, 1),
+            selectedMarketCaps = setOf("largecap"),
+        )
+
+        assertEquals(listOf(SilentBreakoutSignal("LARGE", LocalDate.of(2024, 1, 10))), signals)
+    }
+
     @Test
     fun `flags a signal that has advanced at least 20 percent in 20 sessions`() {
         val start = LocalDate.of(2024, 1, 1)

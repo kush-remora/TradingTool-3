@@ -8,6 +8,8 @@ The existing CSV backtest is not a faithful evaluator because it always requires
 
 - Each uploaded row is only a `symbol` and `signal date`; optional source columns may be retained for display but do not affect analysis.
 - A user may upload different historical screener files for separate backtest runs. The tool evaluates every imported signal independently, without needing to understand the file's volume rule.
+- Duplicate `symbol` and `date` rows in one upload are separate imported observations and must remain visible; the tool must not deduplicate them.
+- The console must optionally filter an upload by one calendar month and one or more Large/Mid/Small market-cap buckets using the CSV's date and market-cap columns before running the analysis.
 - The Chartink condition that produced a file remains external to this backtest. Its quiet green/red candle definition is not recomputed here.
 - The signal date is an observation date, not an entry or proof of a breakout.
 

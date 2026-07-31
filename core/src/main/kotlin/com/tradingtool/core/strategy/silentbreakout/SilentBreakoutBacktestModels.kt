@@ -3,6 +3,8 @@ package com.tradingtool.core.strategy.silentbreakout
 data class SilentBreakoutBacktestRequest(
     val csvContent: String,
     val targetPct: Double,
+    val signalMonth: String? = null,
+    val marketCaps: Set<String> = emptySet(),
 )
 
 enum class SilentBreakoutDataStatus {

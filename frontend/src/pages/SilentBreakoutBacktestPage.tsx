@@ -1,6 +1,7 @@
 import { ExportOutlined, UploadOutlined } from "@ant-design/icons";
 import { useMemo, useState } from "react";
-import { Alert, Button, Card, InputNumber, Select, Space, Statistic, Switch, Table, Tag, Tooltip, Typography, Upload, message } from "antd";
+import dayjs, { type Dayjs } from "dayjs";
+import { Alert, Button, Card, DatePicker, InputNumber, Select, Space, Statistic, Switch, Table, Tag, Tooltip, Typography, Upload, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { UploadFile, UploadProps } from "antd/es/upload/interface";
 
@@ -13,6 +14,12 @@ const labelOptions = [
   { value: "ACCUMULATION", label: "Accumulation" },
   { value: "DISTRIBUTION", label: "Distribution" },
   { value: "UNCLEAR", label: "Unclear" },
+];
+
+const marketCapOptions = [
+  { value: "largecap", label: "Large cap" },
+  { value: "midcap", label: "Mid cap" },
+  { value: "smallcap", label: "Small cap" },
 ];
 
 const futurePerformanceColumnKeys = new Set([
@@ -54,6 +61,8 @@ export function SilentBreakoutBacktestPage({ onOpenStockReview }: SilentBreakout
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [labels, setLabels] = useState<Record<string, WyckoffLabel>>({});
   const [targetPct, setTargetPct] = useState(20);
+  const [signalMonth, setSignalMonth] = useState<string | null>(null);
+  const [marketCaps, setMarketCaps] = useState<string[]>([]);
   const [blindReview, setBlindReview] = useState(true);
 
   const uploadProps: UploadProps = {
@@ -71,7 +80,7 @@ export function SilentBreakoutBacktestPage({ onOpenStockReview }: SilentBreakout
       return;
     }
     try {
-      await run(await file.text(), targetPct);
+      await run(await file.text(), targetPct, signalMonth, marketCaps);
       setLabels({});
       message.success("Silent breakout backtest completed.");
     } catch {
@@ -111,14 +120,14 @@ export function SilentBreakoutBacktestPage({ onOpenStockReview }: SilentBreakout
       <Card size="small" title="Silent Breakout Backtesting Engine">
         <Space orientation="vertical" size={12} style={{ width: "100%" }}>
           <Typography.Text type="secondary">Upload a Chartink export with <Typography.Text code>symbol</Typography.Text> and <Typography.Text code>date</Typography.Text>. The scan rule stays external; this tool measures price action after each signal and flags a possible late-stage move.</Typography.Text>
-          <Space wrap><Upload {...uploadProps}><Button icon={<UploadOutlined />}>Select CSV</Button></Upload><InputNumber aria-label="Target percentage" value={targetPct} min={0.1} max={1000} step={0.5} addonAfter="% target" onChange={(value) => setTargetPct(value ?? 20)} /><Button type="primary" loading={loading} disabled={fileList.length === 0} onClick={() => void runBacktest()}>Run Backtest</Button></Space>
+          <Space wrap><Upload {...uploadProps}><Button icon={<UploadOutlined />}>Select CSV</Button></Upload><DatePicker aria-label="Signal month" picker="month" placeholder="All months" allowClear size="small" value={signalMonth ? dayjs(signalMonth) : null} onChange={(value: Dayjs | null) => setSignalMonth(value?.format("YYYY-MM") ?? null)} /><Select aria-label="Market-cap buckets" mode="multiple" allowClear placeholder="All market caps" size="small" options={marketCapOptions} value={marketCaps} onChange={setMarketCaps} style={{ minWidth: 180 }} /><InputNumber aria-label="Target percentage" value={targetPct} min={0.1} max={1000} step={0.5} addonAfter="% target" onChange={(value) => setTargetPct(value ?? 20)} /><Button type="primary" loading={loading} disabled={fileList.length === 0} onClick={() => void runBacktest()}>Run Backtest</Button></Space>
           <Typography.Text type="secondary">Late-stage risk = a 20D move of at least 20%. The 52-week-high distance and 200 DMA remain chart-review context, not automatic exclusions.</Typography.Text>
         </Space>
       </Card>
       {error && <Alert type="error" showIcon message={error} />}
       {data && <>
         <Card size="small"><Space size={36} wrap><Statistic title="Signals" value={data.summary.signalCount} /><Statistic title="Analysed" value={data.summary.availableCount} /><Statistic title="Late-stage risk" value={data.summary.lateStageRiskCount} /><Statistic title="Average forward 20D" value={formatPercent(data.summary.averageForward20SessionReturnPct)} /><Statistic title="Average forward 40D" value={formatPercent(data.summary.averageForward40SessionReturnPct)} /></Space></Card>
-        <Card size="small" title="Signal review" extra={<Tooltip title="Hide every post-signal metric before inspecting the chart."><Space size={6}><Typography.Text type="secondary" style={{ fontSize: 12 }}>Blind review</Typography.Text><Switch aria-label="Blind review" size="small" checked={blindReview} onChange={setBlindReview} /></Space></Tooltip>}><Table size="small" sticky={{ offsetHeader: 64 }} rowKey={(row) => `${row.symbol}-${row.signalDate}`} columns={columns} dataSource={data.rows} pagination={{ pageSize: 50 }} scroll={{ x: 1500 }} /></Card>
+        <Card size="small" title="Signal review" extra={<Tooltip title="Hide every post-signal metric before inspecting the chart."><Space size={6}><Typography.Text type="secondary" style={{ fontSize: 12 }}>Blind review</Typography.Text><Switch aria-label="Blind review" size="small" checked={blindReview} onChange={setBlindReview} /></Space></Tooltip>}><Table size="small" sticky={{ offsetHeader: 64 }} rowKey={(row, index) => `${row.symbol}-${row.signalDate}-${index}`} columns={columns} dataSource={data.rows} pagination={{ pageSize: 50 }} scroll={{ x: 1500 }} /></Card>
       </>}
     </Space>
   </div>;
