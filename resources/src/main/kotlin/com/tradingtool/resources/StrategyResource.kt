@@ -57,6 +57,7 @@ class StrategyResource @Inject constructor(
     private val trailingStopBacktestService: com.tradingtool.core.strategy.trailingstopbacktest.TrailingStopBacktestService,
     private val fiftyTwoWeekMomentumRule5Service: com.tradingtool.core.strategy.fiftytwomomentum.FiftyTwoWeekMomentumRule5Service,
     private val csvBacktestService: com.tradingtool.core.strategy.csvbacktest.CsvBacktestService,
+    private val silentBreakoutBacktestService: com.tradingtool.core.strategy.silentbreakout.SilentBreakoutBacktestService,
     private val backtestTradeReviewService: com.tradingtool.core.strategy.csvbacktest.BacktestTradeReviewService,
     private val chartinkEvidenceService: ChartinkEvidenceService,
     private val accumulationAnalysisService: AccumulationAnalysisService,
@@ -432,6 +433,26 @@ class StrategyResource @Inject constructor(
             maxCloseToCloseGainPct = body.maxCloseToCloseGainPct,
         )
         ok(response)
+    }
+
+    @POST
+    @Path("/silent-breakout-backtest/run")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runSilentBreakoutBacktest(
+        request: com.tradingtool.core.strategy.silentbreakout.SilentBreakoutBacktestRequest?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        if (body.csvContent.isBlank()) {
+            return@endpoint badRequest("CSV content is required.")
+        }
+        if (body.targetPct !in 0.1..1_000.0) {
+            return@endpoint badRequest("Target must be between 0.1% and 1000%.")
+        }
+        try {
+            ok(silentBreakoutBacktestService.run(body.csvContent, body.targetPct))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid silent breakout CSV.")
+        }
     }
 
     @GET

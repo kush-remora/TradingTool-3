@@ -340,6 +340,24 @@ class ServiceModule(
         )
 
     @Provides @Singleton
+    fun provideSilentBreakoutBacktestService(
+        candleCacheService: CandleCacheService,
+        candleHandler: CandleJdbiHandler,
+        candleDataService: CandleDataService,
+        kiteClient: KiteConnectClient,
+        instrumentCache: InstrumentCache,
+        stockDeliveryHandler: StockDeliveryJdbiHandler,
+    ): com.tradingtool.core.strategy.silentbreakout.SilentBreakoutBacktestService =
+        com.tradingtool.core.strategy.silentbreakout.SilentBreakoutBacktestService(
+            candleCacheService = candleCacheService,
+            candleHandler = candleHandler,
+            candleDataService = candleDataService,
+            kiteClient = kiteClient,
+            instrumentCache = instrumentCache,
+            stockDeliveryHandler = stockDeliveryHandler,
+        )
+
+    @Provides @Singleton
     fun provideBacktestTradeReviewJdbiHandler(config: DatabaseConfig): JdbiHandler<com.tradingtool.core.strategy.csvbacktest.dao.BacktestTradeReviewReadDao, com.tradingtool.core.strategy.csvbacktest.dao.BacktestTradeReviewWriteDao> =
         handler<com.tradingtool.core.strategy.csvbacktest.dao.BacktestTradeReviewReadDao, com.tradingtool.core.strategy.csvbacktest.dao.BacktestTradeReviewWriteDao>(config)
 

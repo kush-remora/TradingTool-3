@@ -30,6 +30,7 @@ import { WeeklyBaseGroupBacktestPage } from "./pages/WeeklyBaseGroupBacktestPage
 import { ThreeWeekStockReviewPage } from "./pages/ThreeWeekStockReviewPage";
 import { WeeklyPriceWatchlistScannerPage } from "./pages/WeeklyPriceWatchlistScannerPage";
 import { BreakoutTrackerPage } from "./pages/BreakoutTrackerPage";
+import { SilentBreakoutBacktestPage } from "./pages/SilentBreakoutBacktestPage";
 import type { AccumulationCaseSnapshot } from "./types";
 
 type V1PageKey =
@@ -52,7 +53,8 @@ type V1PageKey =
   | "weekly-base-group-backtest"
   | "three-week-stock-review"
   | "weekly-price-watchlist-scanner"
-  | "breakout-tracker";
+  | "breakout-tracker"
+  | "silent-breakout-backtest";
 
 type PageKey = V1PageKey;
 
@@ -125,6 +127,11 @@ const menuItems: MenuProps["items"] = [
     icon: <LineChartOutlined />,
   },
   {
+    key: "silent-breakout-backtest",
+    label: "Silent Breakout Backtest",
+    icon: <LineChartOutlined />,
+  },
+  {
     key: "backtest-reviews",
     label: "Saved Backtest Reviews",
     icon: <BookOutlined />,
@@ -170,6 +177,7 @@ const validPages: PageKey[] = [
   "weekly-price-watchlist-scanner",
   "52w-momentum-rule5",
   "csv-backtest",
+  "silent-breakout-backtest",
   "backtest-reviews",
   "chartink-evidence",
   "forward-accumulation",
@@ -376,6 +384,7 @@ export default function App() {
               <FiftyTwoWeekMomentumRule5Page />
             )}
             {route === "csv-backtest" && <CsvBacktestPage />}
+            {route === "silent-breakout-backtest" && <SilentBreakoutBacktestPage onOpenStockReview={openStockReview} />}
             {route === "backtest-reviews" && <BacktestReviewsPage />}
             {route === "chartink-evidence" && <ChartinkEvidencePage />}
             {route === "forward-accumulation" && (

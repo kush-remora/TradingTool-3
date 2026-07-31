@@ -69,6 +69,48 @@ export interface InstrumentSearchResult {
   instrument_type: string;
 }
 
+// ==================== Silent Breakout Backtest ====================
+
+export type SilentBreakoutDataStatus = "AVAILABLE" | "MISSING_SIGNAL_CANDLE" | "PARTIAL_HISTORY";
+
+export interface SilentBreakoutBacktestRow {
+  symbol: string;
+  instrumentToken: number | null;
+  signalDate: string;
+  dataStatus: SilentBreakoutDataStatus;
+  signalClose: number | null;
+  distanceFromFiftyTwoWeekHighPct: number | null;
+  roc20Pct: number | null;
+  distanceFromSma200Pct: number | null;
+  lateStageRisk: boolean | null;
+  priorFiveSessionsMaxDeliveryPct: number | null;
+  entryDate: string | null;
+  entryPrice: number | null;
+  targetPrice: number | null;
+  targetAchieved: boolean | null;
+  targetAchievedDays: number | null;
+  nextFiveSessionsLow: number | null;
+  nextFiveSessionsLowMovePct: number | null;
+  nextFiveSessionsLowDays: number | null;
+  forward20SessionReturnPct: number | null;
+  forward40SessionReturnPct: number | null;
+  maxGain40SessionsPct: number | null;
+  maxDrawdown40SessionsPct: number | null;
+}
+
+export interface SilentBreakoutBacktestSummary {
+  signalCount: number;
+  availableCount: number;
+  lateStageRiskCount: number;
+  averageForward20SessionReturnPct: number | null;
+  averageForward40SessionReturnPct: number | null;
+}
+
+export interface SilentBreakoutBacktestResponse {
+  rows: SilentBreakoutBacktestRow[];
+  summary: SilentBreakoutBacktestSummary;
+}
+
 // ==================== Weekly Floor Rebound Backtest ====================
 
 export interface WeeklyFloorReboundRequest {
