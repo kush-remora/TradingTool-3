@@ -26,6 +26,8 @@ import { ChartinkEvidencePage } from "./pages/ChartinkEvidencePage";
 import { ForwardAccumulationAnalysisPage } from "./pages/ForwardAccumulationAnalysisPage";
 import { ForwardAccumulationTimelinePage } from "./pages/ForwardAccumulationTimelinePage";
 import { WeeklyFloorReboundPage } from "./pages/WeeklyFloorReboundPage";
+import { WeeklyLowLimitBacktestPage } from "./pages/WeeklyLowLimitBacktestPage";
+import { WeeklyLowLimitDailyValidationPage } from "./pages/WeeklyLowLimitDailyValidationPage";
 import { WeeklyBaseDefinitionPage } from "./pages/WeeklyBaseDefinitionPage";
 import { WeeklyBaseGroupBacktestPage } from "./pages/WeeklyBaseGroupBacktestPage";
 import { ThreeWeekStockReviewPage } from "./pages/ThreeWeekStockReviewPage";
@@ -51,6 +53,7 @@ type V1PageKey =
   | "chartink-evidence"
   | "forward-accumulation"
   | "weekly-floor-rebound"
+  | "weekly-low-limit-backtest"
   | "weekly-base-definition"
   | "weekly-base-group-backtest"
   | "three-week-stock-review"
@@ -68,7 +71,16 @@ interface ForwardAccumulationTimelineRoute {
   chainEndDate: string | null;
 }
 
-type Route = PageKey | ForwardAccumulationTimelineRoute;
+interface WeeklyLowLimitDailyValidationRoute {
+  page: "weekly-low-limit-validation";
+  symbol: string;
+  instrumentToken: number;
+  previousWeekLowDate: string;
+  entryWeekStartDate: string;
+  entryDate: string | null;
+}
+
+type Route = PageKey | ForwardAccumulationTimelineRoute | WeeklyLowLimitDailyValidationRoute;
 
 const menuItems: MenuProps["items"] = [
   { key: "volume-shocker", label: "Volume Shocker", icon: <FundOutlined /> },
@@ -100,6 +112,11 @@ const menuItems: MenuProps["items"] = [
     icon: <LineChartOutlined />,
   },
   {
+    key: "weekly-low-limit-backtest",
+    label: "Weekly Low Limit Backtest",
+    icon: <LineChartOutlined />,
+  },
+  {
     key: "weekly-base-definition",
     label: "Weekly Base Definition",
     icon: <LineChartOutlined />,
@@ -116,7 +133,7 @@ const menuItems: MenuProps["items"] = [
   },
   {
     key: "weekly-price-watchlist-scanner",
-    label: "Weekly Price Scanner",
+    label: "Base Consolidation Scanner",
     icon: <LineChartOutlined />,
   },
   {
@@ -175,6 +192,7 @@ const validPages: PageKey[] = [
   "chartink-52w",
   "trailing-stop",
   "weekly-floor-rebound",
+  "weekly-low-limit-backtest",
   "weekly-base-definition",
   "weekly-base-group-backtest",
   "three-week-stock-review",
@@ -225,6 +243,23 @@ export default function App() {
       : path;
 
     const cleanPath = internalPath.replace(/^\//, "").replace(/\/+$/, "");
+    if (cleanPath === "console/weekly-low-limit-validation") {
+      const params = new URLSearchParams(window.location.search);
+      const instrumentToken = Number(params.get("instrumentToken"));
+      const symbol = params.get("symbol")?.trim().toUpperCase();
+      const previousWeekLowDate = params.get("previousWeekLowDate");
+      const entryWeekStartDate = params.get("entryWeekStartDate");
+      if (symbol && Number.isInteger(instrumentToken) && instrumentToken > 0 && previousWeekLowDate && entryWeekStartDate) {
+        return {
+          page: "weekly-low-limit-validation",
+          symbol,
+          instrumentToken,
+          previousWeekLowDate,
+          entryWeekStartDate,
+          entryDate: params.get("entryDate"),
+        };
+      }
+    }
     const timelineMatch = cleanPath.match(
       /^(?:console|console-v1|console-v2)\/forward-accumulation\/timeline\/(\d+)\/([^/]+)$/,
     );
@@ -377,6 +412,16 @@ export default function App() {
             {route === "chartink-52w" && <ChartinkFiftyTwoWeekHighPage />}
             {route === "trailing-stop" && <TrailingStopBacktestPage />}
             {route === "weekly-floor-rebound" && <WeeklyFloorReboundPage />}
+            {route === "weekly-low-limit-backtest" && <WeeklyLowLimitBacktestPage />}
+            {typeof route !== "string" && route.page === "weekly-low-limit-validation" && (
+              <WeeklyLowLimitDailyValidationPage
+                symbol={route.symbol}
+                instrumentToken={route.instrumentToken}
+                previousWeekLowDate={route.previousWeekLowDate}
+                entryWeekStartDate={route.entryWeekStartDate}
+                entryDate={route.entryDate}
+              />
+            )}
             {route === "weekly-base-definition" && <WeeklyBaseDefinitionPage />}
             {route === "weekly-base-group-backtest" && (
               <WeeklyBaseGroupBacktestPage />
@@ -396,7 +441,7 @@ export default function App() {
               <ForwardAccumulationAnalysisPage onOpenTimeline={openTimeline} />
             )}
             {route === "breakout-tracker" && <BreakoutTrackerPage onOpenStockReview={openStockReview} />}
-            {typeof route !== "string" && (
+            {typeof route !== "string" && route.page === "forward-accumulation-timeline" && (
               <ForwardAccumulationTimelinePage
                 runId={route.runId}
                 symbol={route.symbol}

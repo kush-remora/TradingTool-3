@@ -1,4 +1,4 @@
-import { CopyOutlined, DeleteOutlined, EditOutlined, ExportOutlined, SaveOutlined } from "@ant-design/icons";
+import { CopyOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, ExportOutlined, SaveOutlined } from "@ant-design/icons";
 import { Alert, Button, Card, DatePicker, Empty, Input, InputNumber, Popconfirm, Space, Table, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs, { type Dayjs } from "dayjs";
@@ -8,6 +8,7 @@ import { useBreakoutTracker } from "../hooks/useBreakoutTracker";
 import { useInstrumentSearch } from "../hooks/useInstrumentSearch";
 import { useStockQuotes } from "../hooks/useStockQuotes";
 import type { BreakoutTrackerEntry, InstrumentSearchResult } from "../types";
+import { buildBreakoutTrackerCsv } from "../utils/breakoutTrackerCsv";
 
 const { Text, Title } = Typography;
 
@@ -24,7 +25,7 @@ function formatPrice(price: number | null | undefined): string {
   return price == null ? "—" : `₹${price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function performance(currentPrice: number | undefined, breakoutPrice: number): number | null {
+function performance(currentPrice: number | null | undefined, breakoutPrice: number): number | null {
   if (currentPrice == null || breakoutPrice <= 0) return null;
   return ((currentPrice - breakoutPrice) / breakoutPrice) * 100;
 }
@@ -97,6 +98,20 @@ export function BreakoutTrackerPage({ onOpenStockReview }: BreakoutTrackerPagePr
     }
   };
 
+  const downloadCsv = (): void => {
+    if (entries.length === 0) return;
+
+    const blob = new Blob(["\uFEFF", buildBreakoutTrackerCsv(entries, quotesBySymbol)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `breakout_tracker_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const columns: ColumnsType<BreakoutTrackerEntry> = [
     { title: "Symbol", key: "symbol", width: 180, render: (_, entry) => <><Text strong>{entry.symbol}</Text><br /><Text type="secondary" style={{ fontSize: 11 }}>{entry.companyName}</Text></> },
     { title: "Breakout", key: "breakout", width: 160, render: (_, entry) => <>{entry.breakoutDate}<br /><Text>{formatPrice(entry.breakoutPrice)}</Text></> },
@@ -128,7 +143,18 @@ export function BreakoutTrackerPage({ onOpenStockReview }: BreakoutTrackerPagePr
         </Card>
         {error && <Alert type="error" showIcon message={error} />}
         {quotesError && <Alert type="warning" showIcon message={`Current prices unavailable: ${quotesError}`} />}
-        <Card size="small" title="Tracked candidates" extra={quotesLoading ? <Text type="secondary">Refreshing prices…</Text> : null}>
+        <Card
+          size="small"
+          title="Tracked candidates"
+          extra={
+            <Space size={8}>
+              {quotesLoading && <Text type="secondary">Refreshing prices…</Text>}
+              <Button aria-label="Download all entries as CSV" size="small" icon={<DownloadOutlined />} disabled={entries.length === 0} onClick={downloadCsv}>
+                Download CSV
+              </Button>
+            </Space>
+          }
+        >
           {entries.length === 0 && !loading ? <Empty description="Add an accumulation candidate to start tracking it." /> : <Table columns={columns} dataSource={entries} rowKey="id" loading={loading} size="small" pagination={false} scroll={{ x: 900 }} />}
         </Card>
       </Space>

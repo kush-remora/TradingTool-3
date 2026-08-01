@@ -9,42 +9,56 @@ vi.mock("../utils/api", () => ({
 }));
 
 describe("WeeklyPriceWatchlistScannerPage", () => {
-  it("shows four weekly comparisons and opens the selected stock review", async () => {
+  it("shows ten raw candidate lows, highlights strongest rows and opens stock review", async () => {
     getJsonMock.mockImplementation((path: string) => {
       if (path === "/api/strategy/weekly-price-review/watchlists") {
-        return Promise.resolve({ options: [{ label: "weekly", value: "weekly", count: 1 }] });
+        return Promise.resolve({ options: [{ label: "watchlist", value: "watchlist", count: 1 }] });
       }
+
       return Promise.resolve({
-        watchlistKey: "weekly",
-        rows: [{ symbol: "INFY", companyName: "Infosys", days: [
-          day("2026-07-06", 100, 110),
-          day("2026-07-13", 105, 115),
-          day("2026-07-20", 110, 120),
-          day("2026-07-27", 115, 125),
-        ] }],
+        watchlistKey: "watchlist",
+        rows: [{
+          symbol: "INFY",
+          companyName: "Infosys",
+          instrumentToken: 408065,
+          days: buildDays(),
+        }],
       });
     });
+
     const onOpenStockReview = vi.fn();
-    render(<WeeklyPriceWatchlistScannerPage onOpenStockReview={onOpenStockReview} />);
+    const { container } = render(<WeeklyPriceWatchlistScannerPage onOpenStockReview={onOpenStockReview} />);
 
     fireEvent.mouseDown(screen.getByRole("combobox", { name: "Watchlist" }));
-    fireEvent.click(await screen.findByText("weekly (1)"));
+    fireEvent.click(await screen.findByText("watchlist (1)"));
 
-    await screen.findByText("INFY");
-    expect(screen.getAllByText(/Range /)).toHaveLength(4);
-    expect(screen.getAllByText("2026-07-06 (Mon)")).toHaveLength(2);
-    expect(screen.getAllByText("2026-07-27 (Mon)")).toHaveLength(2);
-    expect(screen.getByTestId("floating-change-calculator")).toHaveStyle({
-      position: "fixed",
-      right: "24px",
-      bottom: "24px",
-    });
+    await screen.findByRole("columnheader", { name: "Stock" });
+    expect(screen.getByRole("columnheader", { name: "Stock" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Reference date" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Reference low" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Hits in previous 20 sessions" })).toBeInTheDocument();
+    expect(screen.getAllByRole("row")).toHaveLength(11);
+    expect(screen.getAllByText("15")).toHaveLength(5);
+    expect(container.querySelectorAll(".base-consolidation-focus-row")).toHaveLength(5);
+    expect(container.querySelector(".base-consolidation-focus-stock")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Open review" }));
+    const kiteLink = screen.getByRole("link", { name: "Open INFY in Kite" });
+    expect(kiteLink).toHaveAttribute("href", "https://kite.zerodha.com/chart/web/tvc/NSE/INFY/408065");
+    expect(kiteLink).toHaveAttribute("target", "_blank");
+
+    fireEvent.click(screen.getAllByRole("link", { name: "INFY" })[0]);
     await waitFor(() => expect(onOpenStockReview).toHaveBeenCalledWith("INFY"));
   });
 });
 
-function day(date: string, low: number, high: number) {
-  return { date, open: low, low, high, close: high, volume: 100 };
+function buildDays() {
+  return Array.from({ length: 30 }, (_, index) => ({
+    date: `2026-06-${String(index + 1).padStart(2, "0")}`,
+    open: 100,
+    high: 110,
+    low: index < 20 || index >= 25 ? 100 : 110,
+    close: 105,
+    volume: 100,
+    deliveryPercentage: null,
+  }));
 }

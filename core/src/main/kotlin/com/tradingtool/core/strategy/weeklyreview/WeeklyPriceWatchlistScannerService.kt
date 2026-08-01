@@ -72,11 +72,11 @@ class WeeklyPriceWatchlistScannerService @Inject constructor(
                     deliveryPercentage = deliveryByDate[candle.candleDate.toString()],
                 )
             }
-        return WeeklyPriceWatchlistRow(member.symbol, member.companyName, days)
+        return WeeklyPriceWatchlistRow(member.symbol, member.companyName, member.instrumentToken, days)
     }
 
     private companion object {
-        const val HISTORY_CALENDAR_DAYS = 35L
+        const val HISTORY_CALENDAR_DAYS = 60L
         const val MAX_PARALLEL_CANDLE_READS = 12
     }
 }

@@ -8,6 +8,7 @@ data class WeeklyPriceWatchlistScannerResponse(
 data class WeeklyPriceWatchlistRow(
     val symbol: String,
     val companyName: String,
+    val instrumentToken: Long,
     val days: List<WeeklyPriceWatchlistDay>,
 )
 

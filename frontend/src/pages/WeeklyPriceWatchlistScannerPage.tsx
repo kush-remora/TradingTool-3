@@ -1,45 +1,70 @@
-import { Alert, Button, Card, Empty, Select, Space, Spin, Table, Typography } from "antd";
+import { Alert, Card, Empty, Select, Space, Spin, Table, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState } from "react";
-import { BuySellChangeCalculator } from "../components/BuySellChangeCalculator";
-import type { DayDetail, UniverseOptionsResponse, WeeklyPriceWatchlistScannerResponse } from "../types";
+import type { UniverseOptionsResponse, WeeklyPriceWatchlistScannerResponse } from "../types";
+import { buildBaseConsolidationObservations, type BaseConsolidationObservation } from "../utils/baseConsolidation";
 import { getJson } from "../utils/api";
-import { buildWeeklyPriceSummaries } from "../utils/threeWeekStockReview";
 
-const { Text, Title } = Typography;
+const { Link, Text, Title } = Typography;
+const TOP_STOCK_COUNT = 10;
 
 interface WeeklyPriceWatchlistScannerPageProps {
   onOpenStockReview: (symbol: string) => void;
 }
 
-interface ScannerWeeklyRow {
-  key: string;
-  week: string;
-  low: number;
-  lowDay: string;
-  high: number;
-  highDay: string;
-  range: string;
+interface BaseConsolidationTableRow extends BaseConsolidationObservation {
+  symbol: string;
+  isStrongestRow: boolean;
+}
+
+interface BaseConsolidationCard {
+  symbol: string;
+  companyName: string;
+  instrumentToken: number;
+  observations: BaseConsolidationObservation[];
+  strongestHitCount: number | null;
+  isFocusStock: boolean;
 }
 
 function formatPrice(value: number): string {
   return `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
 }
 
-function formatDateWithDay(date: string): string {
-  const day = new Intl.DateTimeFormat("en-IN", { weekday: "short", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
-  return `${date} (${day})`;
+function buildKiteChartUrl(symbol: string, instrumentToken: number): string {
+  return `https://kite.zerodha.com/chart/web/tvc/NSE/${encodeURIComponent(symbol)}/${instrumentToken}`;
 }
-function formatDeliveryPercentage(value: number | null): string { return value == null ? "—" : `${value.toFixed(2)}%`; }
-function formatCompactQuantity(value: number | null): string { if (value == null) return "—"; return value >= 100_000 ? `${(value / 100_000).toFixed(2)} L` : `${(value / 1_000).toFixed(1)} K`; }
 
-function toDayDetails(days: WeeklyPriceWatchlistScannerResponse["rows"][number]["days"]): DayDetail[] {
-  return days.map((day) => ({
-    ...day,
-    daily_change_pct: null,
-    rsi14: null,
-    vol_ratio: null,
-  }));
+function buildCards(response: WeeklyPriceWatchlistScannerResponse | null): BaseConsolidationCard[] {
+  if (!response) return [];
+
+  const cards = response.rows.map((row) => {
+    const observations = buildBaseConsolidationObservations(row.days);
+    const hitCounts = observations
+      .map((observation) => observation.hitCount)
+      .filter((hitCount): hitCount is number => hitCount != null);
+
+    return {
+      symbol: row.symbol,
+      companyName: row.companyName,
+      instrumentToken: row.instrumentToken,
+      observations,
+      strongestHitCount: hitCounts.length > 0 ? Math.max(...hitCounts) : null,
+      isFocusStock: false,
+    };
+  });
+
+  const sortedCards = [...cards]
+    .sort((left, right) => {
+      const leftHits = left.strongestHitCount ?? -1;
+      const rightHits = right.strongestHitCount ?? -1;
+      return rightHits - leftHits || left.symbol.localeCompare(right.symbol);
+    });
+  let focusStockCount = 0;
+  return sortedCards.map((card) => {
+    const isFocusStock = card.strongestHitCount != null && focusStockCount < TOP_STOCK_COUNT;
+    if (isFocusStock) focusStockCount += 1;
+    return { ...card, isFocusStock };
+  });
 }
 
 export function WeeklyPriceWatchlistScannerPage({ onOpenStockReview }: WeeklyPriceWatchlistScannerPageProps) {
@@ -54,8 +79,7 @@ export function WeeklyPriceWatchlistScannerPage({ onOpenStockReview }: WeeklyPri
     let active = true;
     void getJson<UniverseOptionsResponse>("/api/strategy/weekly-price-review/watchlists")
       .then((response) => {
-        if (!active) return;
-        setOptions(response.options);
+        if (active) setOptions(response.options);
       })
       .catch((requestError: unknown) => {
         if (active) setError(requestError instanceof Error ? requestError.message : "Failed to load watchlists");
@@ -71,10 +95,14 @@ export function WeeklyPriceWatchlistScannerPage({ onOpenStockReview }: WeeklyPri
       setData(null);
       return;
     }
+
     let active = true;
     setLoadingScan(true);
     setError(null);
-    void getJson<WeeklyPriceWatchlistScannerResponse>(`/api/strategy/weekly-price-review/scan?watchlist=${encodeURIComponent(selectedWatchlist)}`, { useCache: false })
+    void getJson<WeeklyPriceWatchlistScannerResponse>(
+      `/api/strategy/weekly-price-review/scan?watchlist=${encodeURIComponent(selectedWatchlist)}`,
+      { useCache: false },
+    )
       .then((response) => {
         if (active) setData(response);
       })
@@ -87,58 +115,48 @@ export function WeeklyPriceWatchlistScannerPage({ onOpenStockReview }: WeeklyPri
     return () => { active = false; };
   }, [selectedWatchlist]);
 
-  const cards = useMemo(() => data?.rows.map((row) => ({
-    ...row,
-    summaries: [...buildWeeklyPriceSummaries(toDayDetails(row.days), 4)].reverse(),
-    dayByDate: new Map(row.days.map((day) => [day.date, day])),
-  })).map((card) => {
-    const weeklyLowsOldestFirst = [...card.summaries].reverse().map((summary) => summary.low);
-    const lowestLow = Math.min(...card.summaries.map((summary) => summary.low));
-    const highestLow = Math.max(...card.summaries.map((summary) => summary.low));
-    const isHigherLowSequence = weeklyLowsOldestFirst.every((low, index) => index === 0 || low > weeklyLowsOldestFirst[index - 1]);
-    const isLowerLowSequence = weeklyLowsOldestFirst.every((low, index) => index === 0 || low < weeklyLowsOldestFirst[index - 1]);
-    const absoluteLow = card.summaries.length > 0 ? card.summaries.reduce((lowest, summary) => summary.low < lowest.low ? summary : lowest) : null;
-    const absoluteHigh = card.summaries.length > 0 ? card.summaries.reduce((highest, summary) => summary.high > highest.high ? summary : highest) : null;
-    const lowDay = absoluteLow ? card.dayByDate.get(absoluteLow.lowDate) : undefined;
-    const highDay = absoluteHigh ? card.dayByDate.get(absoluteHigh.highDate) : undefined;
-    const lowDelivery = lowDay?.deliveryPercentage ?? null;
-    const highDelivery = highDay?.deliveryPercentage ?? null;
-    const lowVolume = lowDay?.volume ?? null;
-    const highVolume = highDay?.volume ?? null;
-    const absorptionSignal = lowVolume != null && highVolume != null && lowDelivery != null && highDelivery != null
-      ? lowVolume > highVolume && lowDelivery > highDelivery ? "bullish" : lowVolume < highVolume && lowDelivery < highDelivery ? "bearish" : "mixed"
-      : "mixed";
-    return {
-      ...card,
-      fourWeekRange: card.summaries.length === 0 ? null : {
-        low: lowestLow,
-        high: highestLow,
-        pct: ((highestLow - lowestLow) / lowestLow) * 100,
-      },
-      lowTrend: isHigherLowSequence ? "bullish" : isLowerLowSequence ? "bearish" : "mixed",
-      absorptionSignal,
-      lowVolume,
-      highVolume,
-      lowDelivery,
-      highDelivery,
-    };
-  }) ?? [], [data]);
-  const weeklyColumns: ColumnsType<ScannerWeeklyRow> = [
-    { title: "Week", dataIndex: "week", key: "week", width: 120 },
-    { title: "Low", dataIndex: "low", key: "low", width: 85, render: formatPrice },
-    { title: "Low day · Del / Vol", dataIndex: "lowDay", key: "lowDay", width: 190 },
-    { title: "High", dataIndex: "high", key: "high", width: 85, render: formatPrice },
-    { title: "High day · Del / Vol", dataIndex: "highDay", key: "highDay", width: 190 },
-    { title: "Range", dataIndex: "range", key: "range", width: 65 },
-  ];
+  const cards = useMemo(() => buildCards(data), [data]);
+  const columns = useMemo<ColumnsType<BaseConsolidationTableRow>>(() => [
+    {
+      title: "Stock",
+      dataIndex: "symbol",
+      key: "symbol",
+      width: 120,
+      render: (symbol: string) => (
+        <Link
+          href="#"
+          onClick={(event) => {
+            event.preventDefault();
+            onOpenStockReview(symbol);
+          }}
+        >
+          {symbol}
+        </Link>
+      ),
+    },
+    { title: "Reference date", dataIndex: "date", key: "date", width: 130 },
+    { title: "Reference low", dataIndex: "low", key: "low", width: 130, render: formatPrice },
+    {
+      title: "Hits in previous 20 sessions",
+      dataIndex: "hitCount",
+      key: "hitCount",
+      width: 190,
+      render: (hitCount: number | null) => hitCount ?? "—",
+    },
+  ], [onOpenStockReview]);
 
   return (
     <div style={{ padding: "24px 24px 160px" }}>
       <Space orientation="vertical" size={16} style={{ width: "100%" }}>
         <Card>
           <Space orientation="vertical" size={8} style={{ width: "100%" }}>
-            <Title level={3} style={{ margin: 0 }}>Weekly Price Watchlist Scanner</Title>
-            <Text type="secondary">Compare weekly high, low, and range across one watchlist. Open a stock only when its price structure deserves deeper review.</Text>
+            <Title level={3} style={{ margin: 0 }}>Base Consolidation Low-Hit Scanner</Title>
+            <Text type="secondary">
+              Raw validation view: each stock shows its latest 10 daily lows and the number of hits in the previous 20 sessions within ±1%.
+            </Text>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Yellow rows are the strongest repeated lows for that stock. Yellow stock cards are the top 10 by strongest hit count.
+            </Text>
             <Select
               aria-label="Watchlist"
               loading={loadingOptions}
@@ -152,48 +170,53 @@ export function WeeklyPriceWatchlistScannerPage({ onOpenStockReview }: WeeklyPri
         </Card>
 
         {error && <Alert type="error" message={error} showIcon />}
-        {!selectedWatchlist && !loadingOptions && <Empty description="Select a watchlist to compare its weekly price structure." />}
+        {!selectedWatchlist && !loadingOptions && <Empty description="Select a watchlist to inspect repeated daily lows." />}
         {loadingScan && <Spin />}
         {data && !loadingScan && cards.length === 0 && <Empty description="No stocks are available in this watchlist." />}
-        {cards.map((card) => (
-          <Card
-            key={card.symbol}
-            size="small"
-            title={<Space size={8}><Text strong>{card.symbol}</Text><Text type="secondary">{card.companyName}</Text>{card.fourWeekRange && <Text type="secondary" style={{ fontSize: 12 }}>4W low range: {formatPrice(card.fourWeekRange.low)} → {formatPrice(card.fourWeekRange.high)} ({card.fourWeekRange.pct.toFixed(2)}%)</Text>}{card.lowTrend === "bullish" && <Text style={{ color: "#389e0d", fontSize: 12, fontWeight: 600 }}>Higher lows · Bullish</Text>}{card.lowTrend === "bearish" && <Text style={{ color: "#cf1322", fontSize: 12, fontWeight: 600 }}>Lower lows · Bearish</Text>}{card.lowTrend === "mixed" && <Text style={{ color: "#d48806", fontSize: 12, fontWeight: 600 }}>Mixed lows · No clear direction</Text>}</Space>}
-            title={<Space size={8}><Text strong>{card.symbol}</Text><Text type="secondary">{card.companyName}</Text>{card.fourWeekRange && <Text type="secondary" style={{ fontSize: 12 }}>4W low range: {formatPrice(card.fourWeekRange.low)} → {formatPrice(card.fourWeekRange.high)} ({card.fourWeekRange.pct.toFixed(2)}%)</Text>}{card.lowTrend === "bullish" && <Text style={{ color: "#389e0d", fontSize: 12, fontWeight: 600 }}>Higher lows · Bullish</Text>}{card.lowTrend === "bearish" && <Text style={{ color: "#cf1322", fontSize: 12, fontWeight: 600 }}>Lower lows · Bearish</Text>}{card.lowTrend === "mixed" && <Text style={{ color: "#d48806", fontSize: 12, fontWeight: 600 }}>Mixed lows · No clear direction</Text>}<Text style={{ color: card.absorptionSignal === "bullish" ? "#389e0d" : card.absorptionSignal === "bearish" ? "#cf1322" : "#d48806", fontSize: 12, fontWeight: 600 }}>Absorption: low {formatCompactQuantity(card.lowVolume)} / {formatDeliveryPercentage(card.lowDelivery)} · high {formatCompactQuantity(card.highVolume)} / {formatDeliveryPercentage(card.highDelivery)}</Text></Space>}
-            extra={<Button size="small" onClick={() => onOpenStockReview(card.symbol)}>Open review</Button>}
-          >
-            {card.summaries.length === 0 ? <Text type="secondary">No recent daily history.</Text> : (
-              <Table
-                size="small"
-                pagination={false}
-                scroll={{ x: true }}
-                columns={weeklyColumns}
-                dataSource={card.summaries.map((summary) => ({
-                  key: summary.weekLabel,
-                  week: summary.weekLabel,
-                  low: summary.low,
-                  lowDay: `${formatDateWithDay(summary.lowDate)} · ${formatDeliveryPercentage(card.dayByDate.get(summary.lowDate)?.deliveryPercentage ?? null)} / ${formatCompactQuantity(card.dayByDate.get(summary.lowDate)?.volume ?? null)}`,
-                  high: summary.high,
-                  highDay: `${formatDateWithDay(summary.highDate)} · ${formatDeliveryPercentage(card.dayByDate.get(summary.highDate)?.deliveryPercentage ?? null)} / ${formatCompactQuantity(card.dayByDate.get(summary.highDate)?.volume ?? null)}`,
-                  range: `${summary.rangePct.toFixed(2)}%`,
-                }))}
-              />
-            )}
-          </Card>
-        ))}
+        {cards.map((card) => {
+          const strongestHitCount = card.strongestHitCount;
+          const tableRows: BaseConsolidationTableRow[] = card.observations.map((observation) => ({
+            ...observation,
+            symbol: card.symbol,
+            isStrongestRow: strongestHitCount != null && observation.hitCount === strongestHitCount,
+          }));
+
+          return (
+            <Card
+              key={card.symbol}
+              size="small"
+              data-testid={`base-stock-card-${card.symbol}`}
+              className={card.isFocusStock ? "base-consolidation-focus-stock" : undefined}
+              title={(
+                <Space size={8}>
+                  <a
+                    aria-label={`Open ${card.symbol} in Kite`}
+                    href={buildKiteChartUrl(card.symbol, card.instrumentToken)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Text strong>{card.symbol}</Text>
+                    <Text type="secondary"> · {card.companyName}</Text>
+                  </a>
+                </Space>
+              )}
+            >
+              {tableRows.length === 0 ? (
+                <Text type="secondary">No recent daily history.</Text>
+              ) : (
+                <Table<BaseConsolidationTableRow>
+                  size="small"
+                  pagination={false}
+                  scroll={{ x: true }}
+                  columns={columns}
+                  dataSource={tableRows}
+                  rowClassName={(row) => row.isStrongestRow ? "base-consolidation-focus-row" : ""}
+                />
+              )}
+            </Card>
+          );
+        })}
       </Space>
-      <div
-        data-testid="floating-change-calculator"
-        style={{ position: "fixed", right: 24, bottom: 24, zIndex: 1000, maxWidth: "calc(100vw - 32px)" }}
-      >
-        <Card size="small">
-          <Space orientation="vertical" size={4}>
-            <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>BUY / SELL CALCULATOR</Text>
-            <BuySellChangeCalculator />
-          </Space>
-        </Card>
-      </div>
     </div>
   );
 }

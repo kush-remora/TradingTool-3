@@ -23,6 +23,10 @@ import com.tradingtool.core.strategy.accumulationanalysis.AccumulationAnalysisSe
 import com.tradingtool.core.strategy.weeklyfloor.WeeklyFloorReboundRequest
 import com.tradingtool.core.strategy.weeklyfloor.WeeklyFloorReboundRunConfig
 import com.tradingtool.core.strategy.weeklyfloor.WeeklyFloorReboundService
+import com.tradingtool.core.strategy.weeklylowlimit.WeeklyLowLimitBacktestRequest
+import com.tradingtool.core.strategy.weeklylowlimit.WeeklyLowLimitBacktestRunConfig
+import com.tradingtool.core.strategy.weeklylowlimit.WeeklyLowLimitBacktestService
+import com.tradingtool.core.strategy.weeklylowlimit.WeeklyLowLimitDailyValidationRequest
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionRequest
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionRunConfig
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionService
@@ -65,6 +69,7 @@ class StrategyResource @Inject constructor(
     private val chartinkEvidenceService: ChartinkEvidenceService,
     private val accumulationAnalysisService: AccumulationAnalysisService,
     private val weeklyFloorReboundService: WeeklyFloorReboundService,
+    private val weeklyLowLimitBacktestService: WeeklyLowLimitBacktestService,
     private val weeklyBaseDefinitionService: WeeklyBaseDefinitionService,
     private val weeklyBaseGroupBacktestService: WeeklyBaseGroupBacktestService,
     private val weeklyPriceWatchlistScannerService: WeeklyPriceWatchlistScannerService,
@@ -368,6 +373,45 @@ class StrategyResource @Inject constructor(
             )
         } catch (error: IllegalArgumentException) {
             badRequest(error.message ?: "Invalid weekly floor rebound request.")
+        }
+    }
+
+    @POST
+    @Path("/weekly-low-limit-backtest/run")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runWeeklyLowLimitBacktest(
+        request: WeeklyLowLimitBacktestRequest?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        try {
+            ok(
+                weeklyLowLimitBacktestService.run(
+                    WeeklyLowLimitBacktestRunConfig(
+                        mode = body.mode,
+                        entryRule = body.entryRule,
+                        symbol = body.symbol,
+                        instrumentToken = body.instrumentToken,
+                        watchlistKey = body.watchlistKey,
+                        toDate = LocalDate.now(),
+                    ),
+                ),
+            )
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid weekly low limit backtest request.")
+        }
+    }
+
+    @POST
+    @Path("/weekly-low-limit-backtest/daily-validation")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun loadWeeklyLowLimitDailyValidation(
+        request: WeeklyLowLimitDailyValidationRequest?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        try {
+            ok(weeklyLowLimitBacktestService.loadDailyValidation(body))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid weekly low limit validation request.")
         }
     }
 

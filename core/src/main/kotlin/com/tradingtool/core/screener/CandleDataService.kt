@@ -92,10 +92,18 @@ class CandleDataService(
         }
     }
 
-    private suspend fun resolveInstrumentToken(symbol: String, token: Long?): Long? {
-        token?.takeIf { it > 0 }?.let { return it }
+    internal suspend fun resolveInstrumentToken(symbol: String, token: Long?): Long? {
         ensureInstrumentCacheLoaded()
-        return tokenResolver.resolve(exchange = "NSE", symbol = symbol)
+        val currentToken = tokenResolver.resolve(exchange = "NSE", symbol = symbol)
+        if (currentToken != null && token != null && currentToken != token) {
+            log.warn(
+                "Ignoring stale instrument token {} for {}; current Kite token is {}",
+                token,
+                symbol,
+                currentToken,
+            )
+        }
+        return currentToken
     }
 
     private suspend fun ensureInstrumentCacheLoaded() {

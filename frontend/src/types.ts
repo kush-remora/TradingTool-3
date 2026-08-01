@@ -215,6 +215,103 @@ export interface WeeklyFloorReboundDailyRow {
   decision: string;
 }
 
+// ==================== Weekly Low Limit Backtest ====================
+
+export type WeeklyLowLimitBacktestMode = "STOCK" | "WATCHLIST";
+export type WeeklyLowLimitBacktestEntryRule = "ANY_DAY_MAX_5_TRADING_DAYS" | "FIRST_3_DAYS_WEEK_CLOSE";
+
+export interface WeeklyLowLimitBacktestRequest {
+  mode: WeeklyLowLimitBacktestMode;
+  entryRule: WeeklyLowLimitBacktestEntryRule;
+  symbol?: string;
+  instrumentToken?: number;
+  watchlistKey?: string;
+}
+
+export interface WeeklyLowLimitBacktestTrade {
+  symbol: string;
+  instrumentToken: number;
+  previousWeekStartDate: string;
+  entryWeekStartDate: string;
+  orderStartDate: string;
+  orderEndDate: string;
+  previousWeekLow: number;
+  previousWeekLowDate: string;
+  previousWeekLastClose: number;
+  limitPrice: number;
+  outcome: "NO_FILL" | "POSITION_OPEN_SKIP" | "PREMARKET_FILTER_SKIP" | "OPEN_DEVIATION_SKIP" | "TARGET_HIT" | "STOP_LOSS" | "TIME_EXIT" | string;
+  entryDate: string | null;
+  entryOpenDeviationPct: number | null;
+  entryPrice: number | null;
+  stopPrice: number | null;
+  targetPrice: number | null;
+  exitDate: string | null;
+  exitPrice: number | null;
+  holdingTradingDays: number | null;
+  returnPct: number | null;
+  gapFill: boolean;
+  exitWasAmbiguous: boolean;
+}
+
+export interface WeeklyLowLimitDailyValidationRequest {
+  symbol: string;
+  instrumentToken: number;
+  previousWeekLowDate: string;
+  entryWeekStartDate: string;
+  entryDate: string | null;
+}
+
+export interface WeeklyLowLimitDailyValidationRow {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  dailyChangePct: number | null;
+}
+
+export interface WeeklyLowLimitDailyValidationResponse {
+  symbol: string;
+  previousWeekLowDate: string;
+  entryWeekStartDate: string;
+  entryDate: string | null;
+  rows: WeeklyLowLimitDailyValidationRow[];
+}
+
+export interface WeeklyLowLimitBacktestSummary {
+  setupCount: number;
+  noFillCount: number;
+  filledTradeCount: number;
+  targetHitCount: number;
+  stopLossCount: number;
+  timeExitCount: number;
+  positionOpenSkipCount: number;
+  premarketFilterSkipCount: number;
+  openDeviationSkipCount: number;
+  ambiguousExitCount: number;
+  averageReturnPct: number | null;
+}
+
+export interface WeeklyLowLimitBacktestSymbolReport {
+  symbol: string;
+  companyName: string | null;
+  entryRule: WeeklyLowLimitBacktestEntryRule;
+  testedFromDate: string;
+  testedToDate: string;
+  summary: WeeklyLowLimitBacktestSummary;
+  trades: WeeklyLowLimitBacktestTrade[];
+}
+
+export interface WeeklyLowLimitBacktestReport {
+  mode: WeeklyLowLimitBacktestMode;
+  entryRule: WeeklyLowLimitBacktestEntryRule;
+  selection: string;
+  testedFromDate: string;
+  testedToDate: string;
+  summary: WeeklyLowLimitBacktestSummary;
+  symbols: WeeklyLowLimitBacktestSymbolReport[];
+}
+
 export interface WeeklyBaseDefinitionRequest {
   symbol: string;
 }
@@ -2112,6 +2209,7 @@ export interface WeeklyPriceWatchlistDay {
 export interface WeeklyPriceWatchlistRow {
   symbol: string;
   companyName: string;
+  instrumentToken: number;
   days: WeeklyPriceWatchlistDay[];
 }
 

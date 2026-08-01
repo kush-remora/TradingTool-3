@@ -36,6 +36,8 @@ import com.tradingtool.core.strategy.profitlookback.ProfitLookbackService
 import com.tradingtool.core.strategy.fiftytwohigh.ChartinkFiftyTwoWeekHighReportService
 import com.tradingtool.core.strategy.hotsma.HotSmaScannerService
 import com.tradingtool.core.strategy.sma200backtest.Sma200BacktestService
+import com.tradingtool.core.strategy.weeklylowlimit.WeeklyLowLimitBacktestEngine
+import com.tradingtool.core.strategy.weeklylowlimit.WeeklyLowLimitBacktestService
 import com.tradingtool.core.volumeshocker.groww.dao.GrowwVolumeShockerReadDao
 import com.tradingtool.core.volumeshocker.groww.dao.GrowwVolumeShockerWriteDao
 import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceJdbiHandler
@@ -288,6 +290,20 @@ class ServiceModule(
         candleCacheService: CandleCacheService,
     ): Sma200BacktestService = Sma200BacktestService(
         candleCacheService = candleCacheService,
+    )
+
+    @Provides @Singleton
+    fun provideWeeklyLowLimitBacktestEngine(): WeeklyLowLimitBacktestEngine = WeeklyLowLimitBacktestEngine()
+
+    @Provides @Singleton
+    fun provideWeeklyLowLimitBacktestService(
+        indexConstituentHandler: IndexConstituentJdbiHandler,
+        candleCacheService: CandleCacheService,
+        engine: WeeklyLowLimitBacktestEngine,
+    ): WeeklyLowLimitBacktestService = WeeklyLowLimitBacktestService(
+        indexConstituentHandler = indexConstituentHandler,
+        candleCacheService = candleCacheService,
+        engine = engine,
     )
 
     @Provides @Singleton
