@@ -1,7 +1,6 @@
 package com.tradingtool.core.strategy.profitlookback
 
-import com.tradingtool.core.kite.KiteConfig
-import com.tradingtool.core.kite.KiteConnectClient
+import com.tradingtool.core.candle.testCandleCacheService
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -11,7 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class ProfitLookbackServiceTest {
     private val service = ProfitLookbackService(
-        kiteClient = KiteConnectClient(KiteConfig(apiKey = "test-api-key", apiSecret = "test-api-secret"))
+        candleCacheService = testCandleCacheService(),
     )
 
     @Test

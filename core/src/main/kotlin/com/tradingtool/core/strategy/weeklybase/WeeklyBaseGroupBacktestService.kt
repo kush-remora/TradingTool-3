@@ -6,17 +6,12 @@ import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
-import com.tradingtool.core.kite.KiteConnectClient
-import com.tradingtool.core.screener.CandleDataService
 import java.time.LocalDate
-import java.time.temporal.ChronoUnit
 
 @Singleton
 class WeeklyBaseGroupBacktestService @Inject constructor(
     private val indexConstituentHandler: IndexConstituentJdbiHandler,
     private val candleCacheService: CandleCacheService,
-    private val candleDataService: CandleDataService,
-    private val kiteClient: KiteConnectClient,
     private val configService: WeeklyBaseDefinitionConfigService,
     private val engine: WeeklyBaseGroupBacktestEngine,
 ) {
@@ -79,19 +74,12 @@ class WeeklyBaseGroupBacktestService @Inject constructor(
     private suspend fun loadCandles(symbol: String, instrumentToken: Long): List<DailyCandle> {
         val toDate = LocalDate.now()
         val fromDate = toDate.minusDays(HISTORY_CALENDAR_DAYS)
-        var candles = candleCacheService.getDailyCandles(instrumentToken, symbol, fromDate, toDate).sortedBy(DailyCandle::candleDate)
-        val latestDate = candles.lastOrNull()?.candleDate
-        val gapDays = latestDate?.let { ChronoUnit.DAYS.between(it, toDate) } ?: Long.MAX_VALUE
-        if (candles.isEmpty() || gapDays > MAX_ALLOWED_LATEST_GAP_DAYS) {
-            candleDataService.syncDailyRange(listOf(symbol), fromDate, toDate, kiteClient)
-            candles = candleCacheService.getDailyCandles(instrumentToken, symbol, fromDate, toDate).sortedBy(DailyCandle::candleDate)
-        }
-        return candles
+        return candleCacheService.getDailyCandles(instrumentToken, symbol, fromDate, toDate)
+            .sortedBy(DailyCandle::candleDate)
     }
 
     private companion object {
         const val HISTORY_CALENDAR_DAYS = 800L
-        const val MAX_ALLOWED_LATEST_GAP_DAYS = 3L
     }
 
     private data class MemberBacktestResult(

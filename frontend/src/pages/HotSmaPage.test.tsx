@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { HotSmaPage } from "./HotSmaPage";
+import type { HotSmaRow } from "../types";
+import { applyQuickFilter, HotSmaPage } from "./HotSmaPage";
 
 const useHotSmaScannerMock = vi.fn();
 const useStockQuotesMock = vi.fn();
@@ -46,6 +47,13 @@ describe("HotSmaPage", () => {
     localStorage.clear();
     vi.clearAllMocks();
     useStockQuotesMock.mockReturnValue({ quotesBySymbol: {}, loading: false, error: null });
+  });
+
+  it("keeps only stocks with an SMA200 touch in the last five trading days", () => {
+    const recentTouch = { symbol: "INFY", sma200TouchedInLast5d: true } as HotSmaRow;
+    const olderTouch = { symbol: "TCS", sma200TouchedInLast5d: false } as HotSmaRow;
+
+    expect(applyQuickFilter([recentTouch, olderTouch], "goldenBuyZone")).toEqual([recentTouch]);
   });
 
   it("runs with the selected universes", async () => {
@@ -114,8 +122,8 @@ describe("HotSmaPage", () => {
             move3dPct: -1.5,
             sma100TouchedInLast5d: false,
             sma100TouchDate: null,
-            sma200TouchedInLast5d: false,
-            sma200TouchDate: null,
+            sma200TouchedInLast5d: true,
+            sma200TouchDate: "2026-06-22",
             signalTag: null,
             zoneStatus: "BUY_ZONE",
           },
@@ -170,5 +178,6 @@ describe("HotSmaPage", () => {
         symbol: "INFY",
       }),
     );
+
   });
 });

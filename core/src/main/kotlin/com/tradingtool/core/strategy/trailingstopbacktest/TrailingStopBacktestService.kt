@@ -1,14 +1,13 @@
 package com.tradingtool.core.strategy.trailingstopbacktest
 
-import com.tradingtool.core.candle.dao.CandleReadDao
-import com.tradingtool.core.database.CandleJdbiHandler
+import com.tradingtool.core.candle.CandleCacheService
 import java.time.LocalDate
 import com.google.inject.Inject
 
 class TrailingStopBacktestService @Inject constructor(
     private val signalCsvSource: TrailingStopSignalCsvSource,
     private val engine: TrailingStopBacktestEngine,
-    private val candleHandler: CandleJdbiHandler,
+    private val candleCacheService: CandleCacheService,
 ) {
 
     suspend fun run(config: TrailingStopBacktestConfig): TrailingStopBacktestReport {
@@ -52,9 +51,8 @@ class TrailingStopBacktestService @Inject constructor(
             emptyList<com.tradingtool.core.candle.DailyCandle>()
         }.toMutableMap().also { candlesBySymbol ->
             symbols.forEach { symbol ->
-                val candles = candleHandler.read { dao: CandleReadDao ->
-                    dao.getDailyCandlesBySymbol(symbol, fromDate, toDate)
-                }.sortedBy { it.candleDate }
+                val candles = candleCacheService.getDailyCandles(symbol, fromDate, toDate)
+                    .sortedBy { it.candleDate }
 
                 candlesBySymbol[symbol] = candles
             }

@@ -2,11 +2,7 @@ package com.tradingtool.core.strategy.csvbacktest
 
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.candle.CandleCacheService
-import com.tradingtool.core.database.CandleJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
-import com.tradingtool.core.kite.InstrumentCache
-import com.tradingtool.core.kite.KiteConnectClient
-import com.tradingtool.core.screener.CandleDataService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.apache.commons.csv.CSVFormat
@@ -30,10 +26,6 @@ internal fun deduplicateCsvBacktestSignals(signals: List<CsvBacktestSignal>): Li
 
 class CsvBacktestService(
     private val candleCacheService: CandleCacheService,
-    private val candleHandler: CandleJdbiHandler,
-    private val candleDataService: CandleDataService,
-    private val kiteClient: KiteConnectClient,
-    private val instrumentCache: InstrumentCache,
     private val stockDeliveryHandler: StockDeliveryJdbiHandler,
 ) {
     private val log = LoggerFactory.getLogger(CsvBacktestService::class.java)
@@ -369,29 +361,12 @@ class CsvBacktestService(
     }
 
     private suspend fun loadCandles(symbol: String, fromDate: LocalDate, toDate: LocalDate): List<DailyCandle> {
-        val instrumentToken = instrumentCache.token("NSE", symbol)
-        var candles = if (instrumentToken == null) {
-            candleHandler.read { dao -> dao.getDailyCandlesBySymbol(symbol, fromDate, toDate) }
-        } else {
-            candleCacheService.getDailyCandles(instrumentToken, symbol, fromDate, toDate)
-        }.sortedBy(DailyCandle::candleDate)
-        val rangeStartsTooLate = candles.firstOrNull()?.candleDate?.isAfter(fromDate.plusDays(MAX_INITIAL_GAP_DAYS)) == true
-        val latestGapDays = candles.lastOrNull()?.candleDate?.let { date -> ChronoUnit.DAYS.between(date, toDate) } ?: Long.MAX_VALUE
-        if (candles.isEmpty() || rangeStartsTooLate || latestGapDays > MAX_ALLOWED_LATEST_GAP_DAYS) {
-            candleDataService.syncDailyRange(listOf(symbol), fromDate, toDate, kiteClient)
-            candleCacheService.invalidateDailyCandles(symbol)
-            candles = instrumentCache.token("NSE", symbol)?.let { token ->
-                candleCacheService.getDailyCandles(token, symbol, fromDate, toDate)
-            } ?: candleHandler.read { dao -> dao.getDailyCandlesBySymbol(symbol, fromDate, toDate) }
-            candles = candles.sortedBy(DailyCandle::candleDate)
-        }
-        return candles
+        return candleCacheService.getDailyCandles(symbol, fromDate, toDate)
+            .sortedBy(DailyCandle::candleDate)
     }
 
     private companion object {
         const val MIN_BREAKOUT_HISTORY_CALENDAR_DAYS = 800L
         const val BREAKOUT_HISTORY_CALENDAR_DAYS_PER_SESSION = 3L
-        const val MAX_INITIAL_GAP_DAYS = 7L
-        const val MAX_ALLOWED_LATEST_GAP_DAYS = 3L
     }
 }

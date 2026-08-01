@@ -5,7 +5,6 @@ import com.google.inject.Provides
 import com.google.inject.Singleton
 import com.google.inject.name.Named
 import com.tradingtool.config.AppConfig
-import com.tradingtool.core.database.CandleJdbiHandler
 import com.tradingtool.core.database.GrowwVolumeShockerJdbiHandler
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.database.JdbiHandler
@@ -26,8 +25,6 @@ import com.tradingtool.core.kite.TickStore
 import com.tradingtool.core.kite.TickerSubscriptions
 import com.tradingtool.core.model.DatabaseConfig
 import com.tradingtool.core.candle.CandleCacheService
-import com.tradingtool.core.candle.dao.CandleReadDao
-import com.tradingtool.core.candle.dao.CandleWriteDao
 import com.tradingtool.core.delivery.dao.StockDeliveryReadDao
 import com.tradingtool.core.delivery.dao.StockDeliveryWriteDao
 import com.tradingtool.core.delivery.config.DeliveryConfigService
@@ -38,6 +35,7 @@ import com.tradingtool.core.screener.CandleDataService
 import com.tradingtool.core.strategy.profitlookback.ProfitLookbackService
 import com.tradingtool.core.strategy.fiftytwohigh.ChartinkFiftyTwoWeekHighReportService
 import com.tradingtool.core.strategy.hotsma.HotSmaScannerService
+import com.tradingtool.core.strategy.sma200backtest.Sma200BacktestService
 import com.tradingtool.core.volumeshocker.groww.dao.GrowwVolumeShockerReadDao
 import com.tradingtool.core.volumeshocker.groww.dao.GrowwVolumeShockerWriteDao
 import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceJdbiHandler
@@ -154,7 +152,7 @@ class ServiceModule(
     fun provideAccumulationAnalysisStore(handler: AccumulationAnalysisJdbiHandler): AccumulationAnalysisStore = JdbiAccumulationAnalysisStore(handler)
 
     @Provides @Singleton
-    fun provideAccumulationAnalysisService(store: AccumulationAnalysisStore, candleHandler: CandleJdbiHandler, membershipStore: ChartinkUniverseMembershipStore): AccumulationAnalysisService = AccumulationAnalysisService(store, candleHandler, membershipStore)
+    fun provideAccumulationAnalysisService(store: AccumulationAnalysisStore, candleCacheService: CandleCacheService, membershipStore: ChartinkUniverseMembershipStore): AccumulationAnalysisService = AccumulationAnalysisService(store, candleCacheService, membershipStore)
 
 
 
@@ -248,12 +246,6 @@ class ServiceModule(
     fun provideNseDeliverySourceAdapter(jsonHttpClient: com.tradingtool.core.http.JsonHttpClient): NseDeliverySourceAdapter =
         NseDeliverySourceAdapter(jsonHttpClient)
 
-    @Provides @Singleton
-    fun provideCandleJdbiHandler(config: DatabaseConfig): CandleJdbiHandler =
-        handler<CandleReadDao, CandleWriteDao>(config)
-
-
-    
     @Provides
     @Singleton
     fun provideObjectMapper(): com.fasterxml.jackson.databind.ObjectMapper {
@@ -267,33 +259,35 @@ class ServiceModule(
     @Provides
     @Singleton
     fun provideCandleCacheService(
-        candleHandler: CandleJdbiHandler,
         redis: RedisHandler,
         objectMapper: com.fasterxml.jackson.databind.ObjectMapper,
-    ): CandleCacheService = CandleCacheService(candleHandler, redis, objectMapper)
+        candleDataService: CandleDataService,
+    ): CandleCacheService = CandleCacheService(redis, objectMapper, candleDataService)
 
     @Provides @Singleton
     fun provideCandleDataService(
-        candleHandler: CandleJdbiHandler,
         instrumentCache: InstrumentCache,
         kiteClient: KiteConnectClient,
     ): CandleDataService = CandleDataService(
-        candleHandler = candleHandler,
         instrumentCache = instrumentCache,
         tokenResolver = InstrumentTokenResolverService(kiteClient, instrumentCache),
+        kiteClient = kiteClient,
     )
 
     @Provides @Singleton
     fun provideHotSmaScannerService(
         indexConstituentHandler: IndexConstituentJdbiHandler,
         candleCacheService: CandleCacheService,
-        candleDataService: CandleDataService,
-        kiteClient: KiteConnectClient,
     ): HotSmaScannerService = HotSmaScannerService(
         indexConstituentHandler = indexConstituentHandler,
         candleCacheService = candleCacheService,
-        candleDataService = candleDataService,
-        kiteClient = kiteClient,
+    )
+
+    @Provides @Singleton
+    fun provideSma200BacktestService(
+        candleCacheService: CandleCacheService,
+    ): Sma200BacktestService = Sma200BacktestService(
+        candleCacheService = candleCacheService,
     )
 
     @Provides @Singleton
@@ -307,53 +301,33 @@ class ServiceModule(
     fun providePhaseCWatchlistService(
         jdbiHandler: com.tradingtool.core.strategy.phasedbreakout.PhaseCWatchlistJdbiHandler,
         stockDeliveryHandler: StockDeliveryJdbiHandler,
-        candleHandler: CandleJdbiHandler,
-        candleDataService: CandleDataService,
-        kiteClient: KiteConnectClient,
+        candleCacheService: CandleCacheService,
         instrumentTokenResolver: InstrumentTokenResolverService
     ): com.tradingtool.core.strategy.phasedbreakout.PhaseCWatchlistService =
         com.tradingtool.core.strategy.phasedbreakout.PhaseCWatchlistService(
             watchlistHandler = jdbiHandler,
             stockDeliveryHandler = stockDeliveryHandler,
-            candleHandler = candleHandler,
-            candleDataService = candleDataService,
-            kiteClient = kiteClient,
+            candleCacheService = candleCacheService,
             instrumentTokenResolver = instrumentTokenResolver
         )
 
     @Provides @Singleton
     fun provideCsvBacktestService(
         candleCacheService: CandleCacheService,
-        candleHandler: CandleJdbiHandler,
-        candleDataService: CandleDataService,
-        kiteClient: KiteConnectClient,
-        instrumentCache: InstrumentCache,
         stockDeliveryHandler: StockDeliveryJdbiHandler,
     ): com.tradingtool.core.strategy.csvbacktest.CsvBacktestService =
         com.tradingtool.core.strategy.csvbacktest.CsvBacktestService(
             candleCacheService = candleCacheService,
-            candleHandler = candleHandler,
-            candleDataService = candleDataService,
-            kiteClient = kiteClient,
-            instrumentCache = instrumentCache,
             stockDeliveryHandler = stockDeliveryHandler,
         )
 
     @Provides @Singleton
     fun provideSilentBreakoutBacktestService(
         candleCacheService: CandleCacheService,
-        candleHandler: CandleJdbiHandler,
-        candleDataService: CandleDataService,
-        kiteClient: KiteConnectClient,
-        instrumentCache: InstrumentCache,
         stockDeliveryHandler: StockDeliveryJdbiHandler,
     ): com.tradingtool.core.strategy.silentbreakout.SilentBreakoutBacktestService =
         com.tradingtool.core.strategy.silentbreakout.SilentBreakoutBacktestService(
             candleCacheService = candleCacheService,
-            candleHandler = candleHandler,
-            candleDataService = candleDataService,
-            kiteClient = kiteClient,
-            instrumentCache = instrumentCache,
             stockDeliveryHandler = stockDeliveryHandler,
         )
 

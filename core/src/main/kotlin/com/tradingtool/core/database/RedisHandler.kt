@@ -21,17 +21,17 @@ import java.net.URI
  * For the cron job (standalone process), use [RedisHandler.fromEnv] — the pool is
  * automatically cleaned up when the JVM exits.
  */
-class RedisHandler(redisUrl: String) : Closeable {
+class RedisHandler(redisUrl: String) : Closeable, KeyValueCache {
 
     private val pool: JedisPool = buildPool(redisUrl)
 
     fun <T> withJedis(block: (Jedis) -> T): T = pool.resource.use(block)
 
-    suspend fun set(key: String, value: String, ttlSeconds: Long) {
+    override suspend fun set(key: String, value: String, ttlSeconds: Long) {
         withContext(Dispatchers.IO) { withJedis { it.setex(key, ttlSeconds, value) } }
     }
 
-    suspend fun get(key: String): String? =
+    override suspend fun get(key: String): String? =
         withContext(Dispatchers.IO) { withJedis { it.get(key) } }
 
     suspend fun delete(key: String) {

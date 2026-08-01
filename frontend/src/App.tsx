@@ -13,6 +13,7 @@ import { VolumeShockerDashboardPage } from "./pages/VolumeShockerDashboardPage";
 import { AbsoluteDeliveryBacktestPage } from "./pages/AbsoluteDeliveryBacktestPage";
 import { DeliveryBreakoutScannerPage } from "./pages/DeliveryBreakoutScannerPage";
 import { HotSmaPage } from "./pages/HotSmaPage";
+import { Sma200BacktestPage } from "./pages/Sma200BacktestPage";
 import { WyckoffPhase1Page } from "./pages/WyckoffPhase1Page";
 import { TradePage } from "./pages/TradePage";
 import { PhaseDScannerPage } from "./pages/PhaseDScannerPage";
@@ -40,6 +41,7 @@ type V1PageKey =
   | "absolute-delivery"
   | "delivery-breakout"
   | "hot-sma"
+  | "sma200-backtest"
   | "phase-d"
   | "chartink-52w"
   | "trailing-stop"
@@ -81,6 +83,7 @@ const menuItems: MenuProps["items"] = [
     icon: <FundOutlined />,
   },
   { key: "hot-sma", label: "SMA Buy Zone", icon: <HeatMapOutlined /> },
+  { key: "sma200-backtest", label: "SMA200 Backtest", icon: <LineChartOutlined /> },
   {
     key: "chartink-52w",
     label: "Chartink 52W Backtest",
@@ -167,6 +170,7 @@ const validPages: PageKey[] = [
   "absolute-delivery",
   "delivery-breakout",
   "hot-sma",
+  "sma200-backtest",
   "phase-d",
   "chartink-52w",
   "trailing-stop",
@@ -368,6 +372,7 @@ export default function App() {
             {route === "absolute-delivery" && <AbsoluteDeliveryBacktestPage />}
             {route === "delivery-breakout" && <DeliveryBreakoutScannerPage />}
             {route === "hot-sma" && <HotSmaPage />}
+            {route === "sma200-backtest" && <Sma200BacktestPage />}
             {route === "phase-d" && <PhaseDScannerPage />}
             {route === "chartink-52w" && <ChartinkFiftyTwoWeekHighPage />}
             {route === "trailing-stop" && <TrailingStopBacktestPage />}

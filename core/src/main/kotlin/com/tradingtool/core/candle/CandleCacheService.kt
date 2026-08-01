@@ -2,131 +2,96 @@ package com.tradingtool.core.candle
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.tradingtool.core.database.CandleJdbiHandler
-import com.tradingtool.core.database.RedisHandler
+import com.tradingtool.core.database.KeyValueCache
+import kotlinx.coroutines.CancellationException
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-/**
- * A caching wrapper for historical candle data.
- * Implements the Cache-Aside strategy:
- *   1. Check Redis for a key (e.g., candles:INFY:day).
- *   2. If hit, deserialize the JSON string.
- *   3. If miss, fetch from JDBI, serialize to JSON, store in Redis with TTL, and return.
- *
- * This reduces latency from Supabase (300-500ms) to Redis (2-5ms).
- */
+/** Redis cache-aside access for Kite candle data. */
 class CandleCacheService(
-    private val candleHandler: CandleJdbiHandler,
-    private val redis: RedisHandler,
+    private val cache: KeyValueCache,
     private val objectMapper: ObjectMapper,
+    private val candleSource: CandleSource,
 ) {
     private val log = LoggerFactory.getLogger(CandleCacheService::class.java)
-    private val ttlSeconds = 3600L // 1 hour TTL
 
     suspend fun getDailyCandles(
-        token: Long,
+        token: Long?,
         symbol: String,
         from: LocalDate,
         to: LocalDate,
     ): List<DailyCandle> {
         val normalizedSymbol = symbol.trim().uppercase()
-        val key = "candles:$normalizedSymbol:day:$from:$to"
+        val key = "$CACHE_KEY_PREFIX:$normalizedSymbol:day:$from:$to"
+        readDailyCandles(key, normalizedSymbol)?.let { return it }
 
-        // 1. Try Cache
-        try {
-            val cachedJson = redis.get(key)
-            if (cachedJson != null) {
-                val candles: List<DailyCandle> = objectMapper.readValue(
-                    cachedJson,
-                    object : TypeReference<List<DailyCandle>>() {}
-                )
-                if (candles.isNotEmpty()) {
-                    log.debug("Cache hit for {} ({} candles)", normalizedSymbol, candles.size)
-                    return candles
-                }
-            }
-        } catch (e: Exception) {
-            log.warn("Redis error fetching daily candles for {}: {}", normalizedSymbol, e.message)
-        }
-
-        // 2. Cache Miss: Fetch from DB
-        val dbCandles = candleHandler.read { it.getDailyCandles(token, from, to) }
-        log.info("Cache miss for daily candles {} {}..{} — fetched {} from DB", normalizedSymbol, from, to, dbCandles.size)
-
-        // 3. Update Cache
-        if (dbCandles.isNotEmpty()) {
-            try {
-                val json = objectMapper.writeValueAsString(dbCandles)
-                redis.set(key, json, ttlSeconds)
-            } catch (e: Exception) {
-                log.warn("Failed to update daily cache for {}: {}", normalizedSymbol, e.message)
-            }
-        }
-
-        return dbCandles
+        val candles = candleSource.getDailyCandles(token, normalizedSymbol, from, to)
+        writeCandles(key, normalizedSymbol, candles)
+        return candles
     }
 
+    suspend fun getDailyCandles(
+        symbol: String,
+        from: LocalDate,
+        to: LocalDate,
+    ): List<DailyCandle> = getDailyCandles(token = null, symbol = symbol, from = from, to = to)
+
     suspend fun getIntradayCandles(
-        token: Long,
+        token: Long?,
         symbol: String,
         interval: String,
         from: LocalDateTime,
         to: LocalDateTime,
     ): List<IntradayCandle> {
-        val key = "candles:$symbol:$interval"
+        val normalizedSymbol = symbol.trim().uppercase()
+        val key = "$CACHE_KEY_PREFIX:$normalizedSymbol:$interval:$from:$to"
+        readIntradayCandles(key, normalizedSymbol, interval)?.let { return it }
 
-        // 1. Try Cache
-        try {
-            val cachedJson = redis.get(key)
-            if (cachedJson != null) {
-                val candles: List<IntradayCandle> = objectMapper.readValue(
-                    cachedJson,
-                    object : TypeReference<List<IntradayCandle>>() {}
-                )
-                val filtered = candles.filter { it.candleTimestamp in from..to }
-                if (filtered.isNotEmpty()) {
-                    log.debug("Cache hit for {}/{} ({} candles)", symbol, interval, filtered.size)
-                    return filtered
-                }
-            }
-        } catch (e: Exception) {
-            log.warn("Redis error fetching intraday candles for {}/{}: {}", symbol, interval, e.message)
-        }
-
-        // 2. Cache Miss: Fetch from DB
-        // For simplicity, we just fetch what's requested.
-        val dbCandles = candleHandler.read { it.getMondayMorningCandles(token, interval, from, to) }
-        // Note: The CandleReadDao only has 'getMondayMorningCandles' for intraday currently.
-        // If we need general intraday candles, we should add that to CandleReadDao.
-        // For now, we mirror the existing DAO capabilities.
-        log.info("Cache miss for intraday candles {}/{} — fetched {} from DB", symbol, interval, dbCandles.size)
-
-        // 3. Update Cache
-        if (dbCandles.isNotEmpty()) {
-            try {
-                val json = objectMapper.writeValueAsString(dbCandles)
-                redis.set(key, json, ttlSeconds)
-            } catch (e: Exception) {
-                log.warn("Failed to update intraday cache for {}/{}: {}", symbol, interval, e.message)
-            }
-        }
-
-        return dbCandles
+        val candles = candleSource.getIntradayCandles(token, normalizedSymbol, interval, from, to)
+        writeCandles(key, "$normalizedSymbol/$interval", candles)
+        return candles
     }
 
-    suspend fun invalidateDailyCandles(symbol: String) {
-        val pattern = "candles:${symbol.trim().uppercase()}:day:*"
-        try {
-            redis.withJedis { jedis ->
-                val keys = jedis.keys(pattern)
-                if (keys.isNotEmpty()) {
-                    jedis.del(*keys.toTypedArray())
-                }
+    private suspend fun readDailyCandles(key: String, symbol: String): List<DailyCandle>? =
+        readCandles(key, symbol, object : TypeReference<List<DailyCandle>>() {})
+
+    private suspend fun readIntradayCandles(
+        key: String,
+        symbol: String,
+        interval: String,
+    ): List<IntradayCandle>? = readCandles(
+        key,
+        "$symbol/$interval",
+        object : TypeReference<List<IntradayCandle>>() {},
+    )
+
+    private suspend fun <T> readCandles(key: String, label: String, type: TypeReference<List<T>>): List<T>? {
+        return try {
+            val json = cache.get(key) ?: return null
+            objectMapper.readValue(json, type).also { candles ->
+                log.debug("Candle cache hit for {} ({} candles)", label, candles.size)
             }
-        } catch (e: Exception) {
-            log.warn("Failed to invalidate daily cache for {}: {}", symbol, e.message)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            log.warn("Candle cache read failed for {}: {}", label, error.message)
+            null
         }
+    }
+
+    private suspend fun writeCandles(key: String, label: String, candles: List<*>) {
+        try {
+            cache.set(key, objectMapper.writeValueAsString(candles), CANDLE_CACHE_TTL_SECONDS)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            log.warn("Candle cache write failed for {}: {}", label, error.message)
+        }
+    }
+
+    companion object {
+        const val CANDLE_CACHE_TTL_SECONDS: Long = 3 * 60 * 60L
+        private const val CACHE_KEY_PREFIX = "candles:v2"
     }
 }

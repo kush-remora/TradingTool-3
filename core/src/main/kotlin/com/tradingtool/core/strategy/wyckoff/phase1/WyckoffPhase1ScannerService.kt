@@ -8,10 +8,8 @@ import com.tradingtool.core.database.StockDeliveryJdbiHandler
 import com.tradingtool.core.indexconstituents.IndexConstituentKeys
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
 import com.tradingtool.core.indexconstituents.dao.IndexSummary
-import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.model.screener.UniverseOption
 import com.tradingtool.core.model.screener.UniverseOptionsResponse
-import com.tradingtool.core.screener.CandleDataService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -26,8 +24,6 @@ class WyckoffPhase1ScannerService @Inject constructor(
     private val indexConstituentHandler: IndexConstituentJdbiHandler,
     private val deliveryHandler: StockDeliveryJdbiHandler,
     private val candleCacheService: CandleCacheService,
-    private val candleDataService: CandleDataService,
-    private val kiteClient: KiteConnectClient,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val engine = WyckoffPhase1ScannerEngine()
@@ -59,43 +55,6 @@ class WyckoffPhase1ScannerService @Inject constructor(
             toDate = runConfig.asOfDate,
             parallelism = parallelism,
         )
-
-        val symbolsNeedingBackfill = resolvedSymbols
-            .filter { resolved ->
-                val candles = candlesBySymbol[resolved.symbol].orEmpty()
-                val latest = candles.lastOrNull()?.candleDate
-                candles.isEmpty() || latest == null || latest.isBefore(runConfig.asOfDate)
-            }
-        val symbolsNeedingBackfillSet = symbolsNeedingBackfill.map { resolved -> resolved.symbol }.toSet()
-
-        if (symbolsNeedingBackfillSet.isNotEmpty() && config.runtime.enableCandleBackfill) {
-            runCatching {
-                candleDataService.syncDailyRange(
-                    symbols = symbolsNeedingBackfillSet.toList(),
-                    fromDate = warmupFrom,
-                    toDate = runConfig.asOfDate,
-                    kiteClient = kiteClient,
-                )
-            }.onFailure { error ->
-                log.warn(
-                    "Wyckoff Phase-1 candle backfill failed for {} symbols: {}",
-                    symbolsNeedingBackfillSet.size,
-                    error.message,
-                )
-            }
-
-            symbolsNeedingBackfillSet.forEach { symbol ->
-                candleCacheService.invalidateDailyCandles(symbol)
-            }
-
-            val refreshedCandles = loadCandlesForSymbols(
-                symbols = resolvedSymbols.filter { resolved -> symbolsNeedingBackfillSet.contains(resolved.symbol) },
-                fromDate = warmupFrom,
-                toDate = runConfig.asOfDate,
-                parallelism = parallelism,
-            )
-            candlesBySymbol.putAll(refreshedCandles)
-        }
 
         val deliveriesByToken = loadDeliveriesByToken(
             resolvedSymbols = resolvedSymbols,

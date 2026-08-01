@@ -1,13 +1,12 @@
 package com.tradingtool.core.strategy.fiftytwohigh
 
-import com.tradingtool.core.candle.dao.CandleReadDao
-import com.tradingtool.core.database.CandleJdbiHandler
+import com.tradingtool.core.candle.CandleCacheService
 import java.time.LocalDate
 
 class ChartinkFiftyTwoWeekHighBacktestService(
     private val signalCsvSource: ChartinkFiftyTwoWeekHighSignalCsvSource,
     private val engine: ChartinkFiftyTwoWeekHighBacktestEngine,
-    private val candleHandler: CandleJdbiHandler,
+    private val candleCacheService: CandleCacheService,
 ) {
 
     suspend fun run(config: ChartinkFiftyTwoWeekHighBacktestConfig): ChartinkFiftyTwoWeekHighBacktestReport {
@@ -48,9 +47,8 @@ class ChartinkFiftyTwoWeekHighBacktestService(
             emptyList<com.tradingtool.core.candle.DailyCandle>()
         }.toMutableMap().also { candlesBySymbol ->
             symbols.forEach { symbol ->
-                val candles = candleHandler.read { dao: CandleReadDao ->
-                    dao.getDailyCandlesBySymbol(symbol, fromDate, toDate)
-                }.sortedBy { candle -> candle.candleDate }
+                val candles = candleCacheService.getDailyCandles(symbol, fromDate, toDate)
+                    .sortedBy { candle -> candle.candleDate }
 
                 candlesBySymbol[symbol] = candles
             }

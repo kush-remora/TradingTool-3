@@ -29,13 +29,13 @@ import java.util.Locale
 import java.util.concurrent.CompletableFuture
 import kotlin.math.round
 
-import com.tradingtool.core.database.CandleJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
+import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.TickStore
 import com.tradingtool.core.kite.TickerSubscriptions
-import com.tradingtool.core.screener.CandleDataService
+import kotlinx.coroutines.CancellationException
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -44,16 +44,16 @@ import java.time.ZoneId
 class StockResource @Inject constructor(
     private val kiteClient: KiteConnectClient,
     private val resourceScope: ResourceScope,
-    private val candleDb: CandleJdbiHandler,
+    private val candleCacheService: CandleCacheService,
     private val deliveryDb: StockDeliveryJdbiHandler,
     private val instrumentCache: InstrumentCache,
     private val tickStore: TickStore,
     private val tickerSubscriptions: TickerSubscriptions,
-    private val candleDataService: CandleDataService,
     private val noteService: com.tradingtool.core.note.NoteService,
 ) {
     private companion object {
         const val DELIVERY_HISTORY_DAYS = 75
+        const val DETAIL_HISTORY_CALENDAR_DAYS = 400L
     }
 
     private val ioScope = resourceScope.ioScope
@@ -95,7 +95,7 @@ class StockResource @Inject constructor(
         }
 
         if (!kiteClient.isAuthenticated) {
-            log.warn("Kite connection not authenticated, falling back to local DB for LTP.")
+            log.warn("Kite connection not authenticated, using cached candles for fallback quotes.")
             return@endpoint ok(fetchFallbackQuotes(requestedSymbols))
         }
 
@@ -108,7 +108,7 @@ class StockResource @Inject constructor(
                 log.warn("Unknown symbol requested: $symbol")
                 return@forEach
             }
-            val previousDayVolume = loadPreviousDayVolume(token)
+            val previousDayVolume = loadPreviousDayVolume(symbol, token)
 
             val tick = tickStore.get(token)
             if (tick != null) {
@@ -152,13 +152,13 @@ class StockResource @Inject constructor(
                             dayHigh = quote.ohlc?.high,
                             dayLow = quote.ohlc?.low,
                             volume = quote.volumeTradedToday?.toLong(),
-                            previousDayVolume = loadPreviousDayVolume(token),
+                            previousDayVolume = loadPreviousDayVolume(symbol, token),
                             updatedAt = quote.timestamp?.toString() ?: Instant.now().toString(),
                         )
                     )
                 }
             } catch (e: Exception) {
-                log.error("Failed to fetch quotes from Kite for ${kiteSymbols.joinToString()}: ${e.message}. Falling back to DB.", e)
+                log.error("Failed to fetch quotes from Kite for ${kiteSymbols.joinToString()}: ${e.message}. Using cached candles.", e)
                 snapshots.addAll(fetchFallbackQuotes(kiteSymbolsToFetch))
             }
         }
@@ -168,7 +168,14 @@ class StockResource @Inject constructor(
 
     @GET
     @Path("/instruments")
-    fun getInstruments(): Response {
+    fun getInstruments(): CompletableFuture<Response> = ioScope.endpoint {
+        if (instrumentCache.isEmpty()) {
+            if (!kiteClient.isAuthenticated) {
+                return@endpoint badRequest("Kite login is required before stocks can be loaded.")
+            }
+            instrumentCache.refresh(kiteClient.client().getInstruments("NSE"))
+        }
+
         val results = instrumentCache.all().map { inst ->
             InstrumentSearchResult(
                 instrumentToken = inst.instrument_token,
@@ -178,7 +185,7 @@ class StockResource @Inject constructor(
                 instrumentType = inst.instrument_type
             )
         }
-        return ok(results)
+        ok(results)
     }
 
     @GET
@@ -196,8 +203,13 @@ class StockResource @Inject constructor(
         val token = instrumentCache.token("NSE", normalizedSymbol)
             ?: return@endpoint notFound("Unknown NSE symbol: $normalizedSymbol")
 
-        refreshDailyCandlesIfStale(normalizedSymbol, token)
-        val recentCandles = candleDb.read { it.getRecentDailyCandles(token, maxOf(requestedDays + 21, 252)) }
+        val today = LocalDate.now(indiaTimeZone)
+        val recentCandles = candleCacheService.getDailyCandles(
+            token = token,
+            symbol = normalizedSymbol,
+            from = today.minusDays(DETAIL_HISTORY_CALENDAR_DAYS),
+            to = today,
+        )
             .sortedBy { candle -> candle.candleDate }
             .toMutableList()
         loadLatestLiveCandle(normalizedSymbol, token)
@@ -279,31 +291,6 @@ class StockResource @Inject constructor(
         )
     }
 
-    private suspend fun refreshDailyCandlesIfStale(symbol: String, token: Long) {
-        if (!kiteClient.isAuthenticated) {
-            return
-        }
-
-        val today = LocalDate.now(indiaTimeZone)
-        val latestStoredDate = candleDb.read { dao ->
-            dao.getRecentDailyCandles(token, 1).firstOrNull()?.candleDate
-        }
-        if (latestStoredDate != null && !latestStoredDate.isBefore(today)) {
-            return
-        }
-
-        val fromDate = latestStoredDate?.plusDays(1) ?: today.minusDays(60)
-        val result = candleDataService.syncDailyRange(
-            symbols = listOf(symbol),
-            fromDate = fromDate,
-            toDate = today,
-            kiteClient = kiteClient,
-        )
-        if (result.symbolsFailed > 0) {
-            log.warn("Daily candle refresh failed for {}: {}", symbol, result.failedSymbols)
-        }
-    }
-
     private fun loadLatestLiveCandle(symbol: String, token: Long): DailyCandle? {
         val tick = tickStore.get(token)
         if (tick != null) {
@@ -344,7 +331,16 @@ class StockResource @Inject constructor(
     private suspend fun fetchFallbackQuotes(symbols: List<String>): List<StockQuoteSnapshot> {
         return symbols.mapNotNull { symbol ->
             val token = instrumentCache.token("NSE", symbol) ?: return@mapNotNull null
-            val recentCandles = candleDb.read { it.getRecentDailyCandles(token, 2) }
+            val today = LocalDate.now(indiaTimeZone)
+            val recentCandles = try {
+                candleCacheService.getDailyCandles(token, symbol, today.minusDays(10), today)
+                    .sortedByDescending(DailyCandle::candleDate)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                log.warn("Could not load fallback candles for {}: {}", symbol, error.message)
+                return@mapNotNull null
+            }
             val lastCandle = recentCandles.firstOrNull() ?: return@mapNotNull null
             val previousCandle = recentCandles.getOrNull(1)
             val changePercent = previousCandle
@@ -366,9 +362,19 @@ class StockResource @Inject constructor(
         }
     }
 
-    private suspend fun loadPreviousDayVolume(token: Long): Long? {
-        val recentCandles = candleDb.read { it.getRecentDailyCandles(token, 2) }
-        return recentCandles.getOrNull(1)?.volume
+    private suspend fun loadPreviousDayVolume(symbol: String, token: Long): Long? {
+        val today = LocalDate.now(indiaTimeZone)
+        return try {
+            candleCacheService.getDailyCandles(token, symbol, today.minusDays(10), today)
+                .sortedByDescending(DailyCandle::candleDate)
+                .getOrNull(1)
+                ?.volume
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            log.warn("Could not load previous-day volume for {}: {}", symbol, error.message)
+            null
+        }
     }
 
     private fun roundTo2(value: Double): Double {

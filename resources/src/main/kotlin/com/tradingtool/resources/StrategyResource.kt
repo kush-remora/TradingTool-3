@@ -8,6 +8,8 @@ import com.tradingtool.core.strategy.hotsma.HotSmaRunConfig
 import com.tradingtool.core.strategy.hotsma.HotSmaRunRequest
 import com.tradingtool.core.strategy.hotsma.HotSmaScannerService
 import com.tradingtool.core.strategy.hotsma.HotSmaTelegramRequest
+import com.tradingtool.core.strategy.sma200backtest.Sma200BacktestRequest
+import com.tradingtool.core.strategy.sma200backtest.Sma200BacktestService
 import com.tradingtool.core.strategy.deliverybreakout.DeliveryBreakoutScannerService
 import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1ConfigService
 import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1RunConfig
@@ -47,6 +49,7 @@ import java.util.concurrent.CompletableFuture
 class StrategyResource @Inject constructor(
     resourceScope: ResourceScope,
     private val hotSmaScannerService: HotSmaScannerService,
+    private val sma200BacktestService: Sma200BacktestService,
     private val absoluteDeliveryBacktestService: AbsoluteDeliveryBacktestService,
     private val deliveryBreakoutScannerService: DeliveryBreakoutScannerService,
     private val wyckoffPhase1ScannerService: WyckoffPhase1ScannerService,
@@ -180,6 +183,18 @@ class StrategyResource @Inject constructor(
         }
 
         ok(hotSmaScannerService.run(HotSmaRunConfig(indexKeys = normalizedRequest.indexKeys)))
+    }
+
+    @POST
+    @Path("/sma200-backtest/run")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runSma200Backtest(request: Sma200BacktestRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        try {
+            ok(sma200BacktestService.run(body.copy(symbol = body.symbol.trim().uppercase())))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid SMA200 backtest request.")
+        }
     }
 
     @GET

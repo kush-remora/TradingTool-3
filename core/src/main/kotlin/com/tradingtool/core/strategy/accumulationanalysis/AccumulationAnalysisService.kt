@@ -1,7 +1,6 @@
 package com.tradingtool.core.strategy.accumulationanalysis
 
-import com.tradingtool.core.candle.dao.CandleReadDao
-import com.tradingtool.core.database.CandleJdbiHandler
+import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.strategy.accumulationanalysis.dao.AccumulationAnalysisReadDao
 import com.tradingtool.core.strategy.accumulationanalysis.dao.AccumulationAnalysisWriteDao
@@ -29,7 +28,7 @@ class JdbiAccumulationAnalysisStore(private val handler: AccumulationAnalysisJdb
     override suspend fun findTimeline(runId: Long, symbol: String, chainStartDate: LocalDate?, chainEndDate: LocalDate?) = handler.read { it.findTimeline(runId, symbol, chainStartDate, chainEndDate) }
 }
 
-class AccumulationAnalysisService(private val store: AccumulationAnalysisStore, private val candleHandler: CandleJdbiHandler, private val membershipStore: ChartinkUniverseMembershipStore, private val engine: AccumulationShapeEngine = AccumulationShapeEngine()) {
+class AccumulationAnalysisService(private val store: AccumulationAnalysisStore, private val candleCacheService: CandleCacheService, private val membershipStore: ChartinkUniverseMembershipStore, private val engine: AccumulationShapeEngine = AccumulationShapeEngine()) {
     suspend fun run(request: AccumulationAnalysisRunRequest): AccumulationAnalysisRun {
         require(request.universeKey in UNIVERSES) { "Unsupported universe." }
         val toDate = requireNotNull(store.latestAccumulationDate(request.universeKey)) { "No Accumulation evidence uploaded for this universe." }
@@ -61,7 +60,7 @@ class AccumulationAnalysisService(private val store: AccumulationAnalysisStore, 
 
     private suspend fun buildSnapshots(symbol: String, events: List<AnalysisEvidenceEvent>, run: AccumulationAnalysisRun): List<AccumulationCaseSnapshot> {
         val earliest = events.minOfOrNull { it.eventDate } ?: return emptyList()
-        val candles = candleHandler.read { dao: CandleReadDao -> dao.getDailyCandlesBySymbol(symbol, earliest.minusDays(SHAPE_HISTORY_CALENDAR_DAYS), run.toDate) }
+        val candles = candleCacheService.getDailyCandles(symbol, earliest.minusDays(SHAPE_HISTORY_CALENDAR_DAYS), run.toDate)
         require(candles.isNotEmpty()) { "Missing Kite daily candles for $symbol." }
         val chains = engine.buildChains(events.filter { it.source == ChartinkEvidenceSource.ACCUMULATION }.map { it.eventDate }, candles)
         return chains.flatMap { chain ->

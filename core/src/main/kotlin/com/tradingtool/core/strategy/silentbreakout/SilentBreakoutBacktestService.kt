@@ -2,12 +2,7 @@ package com.tradingtool.core.strategy.silentbreakout
 
 import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.candle.DailyCandle
-import com.tradingtool.core.candle.dao.CandleReadDao
-import com.tradingtool.core.database.CandleJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
-import com.tradingtool.core.kite.InstrumentCache
-import com.tradingtool.core.kite.KiteConnectClient
-import com.tradingtool.core.screener.CandleDataService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.apache.commons.csv.CSVFormat
@@ -20,10 +15,6 @@ import java.time.format.DateTimeParseException
 
 class SilentBreakoutBacktestService(
     private val candleCacheService: CandleCacheService,
-    private val candleHandler: CandleJdbiHandler,
-    private val candleDataService: CandleDataService,
-    private val kiteClient: KiteConnectClient,
-    private val instrumentCache: InstrumentCache,
     private val stockDeliveryHandler: StockDeliveryJdbiHandler,
 ) {
     suspend fun run(
@@ -75,19 +66,8 @@ class SilentBreakoutBacktestService(
     }
 
     private suspend fun loadCandles(symbol: String, fromDate: LocalDate, toDate: LocalDate): List<DailyCandle> {
-        val instrumentToken = instrumentCache.token("NSE", symbol)
-        var candles = instrumentToken?.let { token ->
-            candleCacheService.getDailyCandles(token, symbol, fromDate, toDate)
-        } ?: candleHandler.read { dao: CandleReadDao -> dao.getDailyCandlesBySymbol(symbol, fromDate, toDate) }
-
-        if (candles.isEmpty()) {
-            candleDataService.syncDailyRange(listOf(symbol), fromDate, toDate, kiteClient)
-            candleCacheService.invalidateDailyCandles(symbol)
-            candles = instrumentCache.token("NSE", symbol)?.let { token ->
-                candleCacheService.getDailyCandles(token, symbol, fromDate, toDate)
-            } ?: candleHandler.read { dao: CandleReadDao -> dao.getDailyCandlesBySymbol(symbol, fromDate, toDate) }
-        }
-        return candles.sortedBy(DailyCandle::candleDate)
+        return candleCacheService.getDailyCandles(symbol, fromDate, toDate)
+            .sortedBy(DailyCandle::candleDate)
     }
 
     private fun summary(rows: List<SilentBreakoutBacktestRow>): SilentBreakoutBacktestSummary {

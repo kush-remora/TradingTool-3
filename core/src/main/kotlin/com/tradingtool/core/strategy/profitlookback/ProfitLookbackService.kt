@@ -1,26 +1,21 @@
 package com.tradingtool.core.strategy.profitlookback
 
-import com.tradingtool.core.kite.KiteConnectClient
 import com.google.inject.Inject
-import kotlinx.coroutines.Dispatchers
+import com.tradingtool.core.candle.CandleCacheService
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.supervisorScope
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.ConcurrentHashMap
-import java.util.Date
 
 class ProfitLookbackService @Inject constructor(
-    private val kiteClient: KiteConnectClient,
+    private val candleCacheService: CandleCacheService,
 ) {
     private val log = LoggerFactory.getLogger(ProfitLookbackService::class.java)
-    private val istZone: ZoneId = ZoneId.of("Asia/Kolkata")
     private val lookbackBufferDays: Int = 20
     private val bulkConcurrencyLimit: Int = 6
 
@@ -28,7 +23,6 @@ class ProfitLookbackService @Inject constructor(
         val requestedSellDate = LocalDate.parse(request.sellDate)
         val targetPercents = request.targetPercents
         val candles = loadDailyCandles(
-            kiteClient = kiteClient,
             symbol = request.symbol,
             instrumentToken = request.instrumentToken,
             requestedSellDate = requestedSellDate,
@@ -194,28 +188,23 @@ class ProfitLookbackService @Inject constructor(
     }
 
     private suspend fun loadDailyCandles(
-        kiteClient: KiteConnectClient,
         symbol: String,
         instrumentToken: Long,
         requestedSellDate: LocalDate,
         lookbackDays: Int,
     ): List<ProfitLookbackDailyCandle> {
         val fromDate = requestedSellDate.minusDays((lookbackDays + lookbackBufferDays).toLong())
-        val toDateExclusive = requestedSellDate.plusDays(1)
-
-        val history = withContext(Dispatchers.IO) {
-            kiteClient.client().getHistoricalData(
-                Date.from(fromDate.atStartOfDay(istZone).toInstant()),
-                Date.from(toDateExclusive.atStartOfDay(istZone).toInstant()),
-                instrumentToken.toString(),
-                "day",
-                false,
-                false,
+        val candles = candleCacheService.getDailyCandles(
+            token = instrumentToken,
+            symbol = symbol,
+            from = fromDate,
+            to = requestedSellDate,
+        ).map { candle ->
+            ProfitLookbackDailyCandle(
+                date = candle.candleDate,
+                open = candle.open,
+                low = candle.low,
             )
-        }
-
-        val candles = history.dataArrayList.mapNotNull { bar ->
-            parseKiteDayCandle(bar.timeStamp, bar.open, bar.low)
         }
 
         if (candles.isEmpty()) {
@@ -229,20 +218,6 @@ class ProfitLookbackService @Inject constructor(
         }
 
         return candles
-    }
-
-    private fun parseKiteDayCandle(timestamp: String?, open: Double, low: Double): ProfitLookbackDailyCandle? {
-        if (timestamp.isNullOrBlank()) {
-            return null
-        }
-        if (open <= 0.0 || !open.isFinite() || low <= 0.0 || !low.isFinite()) {
-            return null
-        }
-
-        val datePart = timestamp.take(10)
-        return runCatching {
-            ProfitLookbackDailyCandle(date = LocalDate.parse(datePart), open = open, low = low)
-        }.getOrNull()
     }
 
     private fun calculateMaxDrawdown(

@@ -6,8 +6,6 @@ import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
 import com.tradingtool.core.delivery.model.StockDeliveryDaily
-import com.tradingtool.core.kite.KiteConnectClient
-import com.tradingtool.core.screener.CandleDataService
 import com.tradingtool.core.technical.roundTo2
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -22,8 +20,6 @@ import java.time.LocalDate
 class DeliveryBreakoutScannerService @Inject constructor(
     private val stockDeliveryHandler: StockDeliveryJdbiHandler,
     private val candleCacheService: CandleCacheService,
-    private val candleDataService: CandleDataService,
-    private val kiteClient: KiteConnectClient,
     private val configService: DeliveryBreakoutConfigService,
     private val etfService: DeliveryBreakoutEtfService,
 ) {
@@ -164,42 +160,12 @@ class DeliveryBreakoutScannerService @Inject constructor(
         fromDate: LocalDate,
         toDate: LocalDate,
     ): List<DailyCandle> {
-        var candles = candleCacheService.getDailyCandles(
+        return candleCacheService.getDailyCandles(
             token = candidate.instrumentToken,
             symbol = candidate.symbol,
             from = fromDate,
             to = toDate,
         ).sortedBy { candle -> candle.candleDate }
-
-        val earliestCandleDate = candles.firstOrNull()?.candleDate
-        val latestCandleDate = candles.lastOrNull()?.candleDate
-        val latestAcceptableFirstCandleDate = fromDate.plusDays(MAX_TRADING_CALENDAR_GAP_DAYS)
-        if (
-            candles.isEmpty() ||
-            earliestCandleDate == null ||
-            latestCandleDate == null ||
-            earliestCandleDate.isAfter(latestAcceptableFirstCandleDate) ||
-            latestCandleDate.isBefore(toDate)
-        ) {
-            runCatching {
-                candleDataService.syncDailyRange(
-                    symbols = listOf(candidate.symbol),
-                    fromDate = fromDate,
-                    toDate = toDate,
-                    kiteClient = kiteClient,
-                )
-            }.onFailure { error ->
-                log.warn("Delivery breakout candle backfill failed for {}: {}", candidate.symbol, error.message)
-            }
-            candles = candleCacheService.getDailyCandles(
-                token = candidate.instrumentToken,
-                symbol = candidate.symbol,
-                from = fromDate,
-                to = toDate,
-            ).sortedBy { candle -> candle.candleDate }
-        }
-
-        return candles
     }
 
     private fun buildDeliverySeries(
@@ -214,7 +180,6 @@ class DeliveryBreakoutScannerService @Inject constructor(
     private companion object {
         private const val DELIVERY_HISTORY_CALENDAR_DAYS = 15L
         private const val CANDLE_HISTORY_CALENDAR_DAYS = 370L
-        private const val MAX_TRADING_CALENDAR_GAP_DAYS = 7L
         private const val MAX_PARALLEL_SYMBOL_LOADS = 16
     }
 }

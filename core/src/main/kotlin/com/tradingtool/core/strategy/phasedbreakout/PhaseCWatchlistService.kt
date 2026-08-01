@@ -1,9 +1,7 @@
 package com.tradingtool.core.strategy.phasedbreakout
 
-import com.tradingtool.core.candle.dao.CandleReadDao
-import com.tradingtool.core.database.CandleJdbiHandler
+import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
-import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.kite.InstrumentTokenResolverService
 import java.time.LocalDate
 
@@ -12,9 +10,7 @@ private const val WAKE_UP_VOLUME_RATIO_THRESHOLD = 2.0
 class PhaseCWatchlistService(
     private val watchlistHandler: PhaseCWatchlistJdbiHandler,
     private val stockDeliveryHandler: StockDeliveryJdbiHandler,
-    private val candleHandler: CandleJdbiHandler,
-    private val candleDataService: com.tradingtool.core.screener.CandleDataService,
-    private val kiteClient: KiteConnectClient,
+    private val candleCacheService: CandleCacheService,
     private val instrumentTokenResolver: InstrumentTokenResolverService,
 ) {
     private val phase2Config = Phase2DeliveryConfig()
@@ -110,26 +106,14 @@ class PhaseCWatchlistService(
 
         val refreshFromDate = LocalDate.now().minusDays(400)
         val refreshToDate = LocalDate.now()
-        val symbols = watchlist.map { row -> row.symbol }.distinct()
-        val syncResult = candleDataService.syncDailyRange(
-            symbols = symbols,
-            fromDate = refreshFromDate,
-            toDate = refreshToDate,
-            kiteClient = kiteClient,
-        )
-        require(syncResult.symbolsFailed == 0) {
-            "Failed to sync daily candles for: ${syncResult.failedSymbols.joinToString(", ")}"
-        }
-
         val updates = watchlist.map { row ->
             val instrumentToken = requireNotNull(row.instrumentToken)
-            val candles = candleHandler.read { dao: CandleReadDao ->
-                dao.getDailyCandles(
-                    token = instrumentToken,
-                    from = refreshFromDate,
-                    to = refreshToDate,
-                )
-            }
+            val candles = candleCacheService.getDailyCandles(
+                token = instrumentToken,
+                symbol = row.symbol,
+                from = refreshFromDate,
+                to = refreshToDate,
+            )
             val snapshot = try {
                 PhaseCFreshFieldCalculator.calculate(candles)
             } catch (error: IllegalArgumentException) {
@@ -233,13 +217,12 @@ class PhaseCWatchlistService(
                 toDate = evaluationDate,
             )
         }
-        val candles = candleHandler.read { dao: CandleReadDao ->
-            dao.getDailyCandles(
-                token = instrumentToken,
-                from = fromDate,
-                to = evaluationDate,
-            )
-        }
+        val candles = candleCacheService.getDailyCandles(
+            token = instrumentToken,
+            symbol = row.symbol,
+            from = fromDate,
+            to = evaluationDate,
+        )
         val metrics = PhaseCDeliveryValidationAnalyzer.evaluate(
             evaluationDate = evaluationDate,
             deliveries = deliveries,
@@ -272,7 +255,7 @@ class PhaseCWatchlistService(
             val token = row.instrumentToken
             val history = if (token != null) {
                 val deliveries = stockDeliveryHandler.read { it.findByInstrumentTokenBetweenDates(token, fromDate, latestTradingDate) }
-                val candles = candleHandler.read { it.getDailyCandles(token, fromDate, latestTradingDate) }
+                val candles = candleCacheService.getDailyCandles(token, row.symbol, fromDate, latestTradingDate)
 
                 val deliveriesByDate = deliveries.associateBy { it.tradingDate }
                 candles.map { candle ->

@@ -1,8 +1,8 @@
 package com.tradingtool.core.trade.service
 
 import com.google.inject.Inject
+import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.candle.IntradayCandle
-import com.tradingtool.core.database.CandleJdbiHandler
 import com.tradingtool.core.model.trade.TradeReadinessAlert
 import com.tradingtool.core.model.trade.TradeReadinessResponse
 import com.tradingtool.core.model.trade.TradeReadinessSymbol
@@ -12,10 +12,8 @@ import com.tradingtool.core.technical.calculateRsi
 import com.tradingtool.core.technical.getNullableDouble
 import com.tradingtool.core.technical.roundTo2
 import com.tradingtool.core.technical.toTa4jSeries
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withContext
 import org.ta4j.core.BaseBarSeriesBuilder
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -23,7 +21,7 @@ import java.util.Locale
 
 class TradeReadinessService @Inject constructor(
     private val instrumentResolver: InstrumentTokenResolverService,
-    private val candleHandler: CandleJdbiHandler,
+    private val candleCacheService: CandleCacheService,
     private val telegramApiClient: TelegramApiClient,
 ) {
     private val ist: ZoneId = ZoneId.of("Asia/Kolkata")
@@ -46,8 +44,8 @@ class TradeReadinessService @Inject constructor(
         val readinessDeferred = normalizedSymbols.map { symbol ->
             async {
                 val instrumentToken = instrumentResolver.resolve("NSE", symbol) ?: return@async null
-                val rsi14 = loadDailyRsi(instrumentToken)
-                val rsi15m = loadIntradayRsi15m(instrumentToken)
+                val rsi14 = loadDailyRsi(symbol, instrumentToken)
+                val rsi15m = loadIntradayRsi15m(symbol, instrumentToken)
 
                 TradeReadinessSymbol(
                     symbol = symbol,
@@ -68,36 +66,39 @@ class TradeReadinessService @Inject constructor(
         TradeReadinessResponse(symbols = rows)
     }
 
-    private suspend fun loadDailyRsi(instrumentToken: Long): Double? = withContext(Dispatchers.IO) {
-        val candles = candleHandler.read { dao ->
-            dao.getRecentDailyCandles(instrumentToken, 80)
-        }.sortedBy { it.candleDate }
+    private suspend fun loadDailyRsi(symbol: String, instrumentToken: Long): Double? {
+        val to = java.time.LocalDate.now(ist)
+        val candles = candleCacheService.getDailyCandles(
+            token = instrumentToken,
+            symbol = symbol,
+            from = to.minusDays(120),
+            to = to,
+        ).sortedBy { it.candleDate }
 
-        if (candles.size < 14) return@withContext null
+        if (candles.size < 14) return null
 
         val series = candles.toTa4jSeries(name = "daily-rsi-$instrumentToken")
         val indicator = series.calculateRsi(14)
-        indicator.getNullableDouble(series.endIndex)?.roundTo2()
+        return indicator.getNullableDouble(series.endIndex)?.roundTo2()
     }
 
-    private suspend fun loadIntradayRsi15m(instrumentToken: Long): Double? = withContext(Dispatchers.IO) {
+    private suspend fun loadIntradayRsi15m(symbol: String, instrumentToken: Long): Double? {
         val to = LocalDateTime.now(ist)
         val from = to.minusDays(10)
 
-        val candles = candleHandler.read { dao ->
-            dao.getIntradayCandles(
-                token = instrumentToken,
-                interval = "15minute",
-                from = from,
-                to = to,
-            )
-        }
+        val candles = candleCacheService.getIntradayCandles(
+            token = instrumentToken,
+            symbol = symbol,
+            interval = "15minute",
+            from = from,
+            to = to,
+        )
 
-        if (candles.size < 14) return@withContext null
+        if (candles.size < 14) return null
 
         val series = intradayToSeries(candles, "15m-rsi-$instrumentToken")
         val indicator = series.calculateRsi(14)
-        indicator.getNullableDouble(series.endIndex)?.roundTo2()
+        return indicator.getNullableDouble(series.endIndex)?.roundTo2()
     }
 
     private fun intradayToSeries(candles: List<IntradayCandle>, name: String) =

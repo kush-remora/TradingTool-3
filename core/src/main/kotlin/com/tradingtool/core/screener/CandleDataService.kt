@@ -2,12 +2,14 @@ package com.tradingtool.core.screener
 
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.candle.IntradayCandle
-import com.tradingtool.core.database.CandleJdbiHandler
+import com.tradingtool.core.candle.CandleSource
 import com.tradingtool.core.kite.InstrumentCache
-import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.kite.InstrumentTokenResolverService
+import com.tradingtool.core.kite.KiteConnectClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
@@ -15,226 +17,135 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.Date
 
-/**
- * Fetches raw OHLCV candles from Kite Connect and upserts them into the database.
- *
- * Fetches 10 weeks of:
- *   - daily candles  → for SMA, momentum, Thursday peak detection
- *   - 15-min candles → for Monday morning dip detection and future intraday strategies
- *
- * Rate-limited to ~2 req/s (350ms delay between Kite calls) to stay under the 3 req/s limit.
- */
+/** Fetches candle ranges directly from Kite. Persistence and caching belong to CandleCacheService. */
 class CandleDataService(
-    private val candleHandler: CandleJdbiHandler,
     private val instrumentCache: InstrumentCache,
     private val tokenResolver: InstrumentTokenResolverService,
-) {
+    private val kiteClient: KiteConnectClient,
+) : CandleSource {
     private val log = LoggerFactory.getLogger(CandleDataService::class.java)
     private val ist = ZoneId.of("Asia/Kolkata")
-    private val kiteDelayMs = 350L
+    private val kiteRequestMutex = Mutex()
 
-    data class DailyCandleSyncResult(
-        val fromDate: String,
-        val toDate: String,
-        val totalSymbols: Int,
-        val symbolsSynced: Int,
-        val symbolsFailed: Int,
-        val failedSymbols: List<String>,
-        val dailyCandlesUpserted: Int,
-    )
-
-    /**
-     * Syncs candle data for all given [symbols] from Kite.
-     * Returns the count of symbols successfully synced.
-     */
-    suspend fun sync(symbols: List<String>, kiteClient: KiteConnectClient): Int {
-        ensureInstrumentCacheLoaded(kiteClient)
-
-        val today = LocalDate.now(ist)
-        val fromDaily = today.minusDays(500) // Approx 2 years of trading days for SMA200 + RSI bounds
-        val fromIntraday = today.minusDays(70) // 10-week lookback for intraday patterns
-        val toDate = today.toJavaDate()
-
-        var synced = 0
-        for (symbol in symbols) {
-            val token = resolveInstrumentToken(symbol, null)
-            if (token == null || token <= 0) {
-                log.warn("Symbol {} has no instrument token in the Kite instrument cache — skipping sync", symbol)
-                continue
-            }
-
-            val tokenStr = token.toString()
-            log.info("Syncing candles for {} (token={})", symbol, tokenStr)
-
-            try {
-                // Fetch + store daily candles (Longer lookback)
-                val dailyRaw = withContext(Dispatchers.IO) {
-                    kiteClient.client().getHistoricalData(fromDaily.toJavaDate(), toDate, tokenStr, "day", false, false)
-                }
-                val dailyCandles = dailyRaw.dataArrayList.mapNotNull { bar ->
-                    parseDailyCandle(bar, token, symbol)
-                }
-                if (dailyCandles.isNotEmpty()) {
-                    candleHandler.write { it.upsertDailyCandles(dailyCandles) }
-                    log.info("  → {} daily candles upserted for {}", dailyCandles.size, symbol)
-                }
-                delay(kiteDelayMs)
-
-                // Fetch + store 15-minute intraday candles (Shorter lookback)
-                val intradayRaw = withContext(Dispatchers.IO) {
-                    kiteClient.client().getHistoricalData(fromIntraday.toJavaDate(), toDate, tokenStr, "15minute", false, false)
-                }
-                val intradayCandles = intradayRaw.dataArrayList.mapNotNull { bar ->
-                    parseIntradayCandle(bar, token, symbol, "15minute")
-                }
-                if (intradayCandles.isNotEmpty()) {
-                    candleHandler.write { it.upsertIntradayCandles(intradayCandles) }
-                    log.info("  → {} intraday candles upserted for {}", intradayCandles.size, symbol)
-                }
-                delay(kiteDelayMs)
-
-                synced++
-            } catch (e: Exception) {
-                log.error("Failed to sync candles for {}: {}", symbol, e.message)
-                // Continue with remaining symbols — partial sync is better than full failure
-            }
-        }
-
-        log.info("Candle sync complete: {}/{} symbols synced", synced, symbols.size)
-        return synced
-    }
-
-    /**
-     * Syncs daily candles for [symbols] in [fromDate, toDate] and upserts into `daily_candles`.
-     * Uses full-range fetch + upsert for reliability (fills gaps and refreshes stale rows).
-     */
-    suspend fun syncDailyRange(
-        symbols: List<String>,
+    override suspend fun getDailyCandles(
+        token: Long?,
+        symbol: String,
         fromDate: LocalDate,
         toDate: LocalDate,
-        kiteClient: KiteConnectClient,
-    ): DailyCandleSyncResult {
+    ): List<DailyCandle> {
         require(!fromDate.isAfter(toDate)) { "fromDate must be on or before toDate." }
-        ensureInstrumentCacheLoaded(kiteClient)
+        val normalizedSymbol = symbol.trim().uppercase()
+        val resolvedToken = resolveInstrumentToken(normalizedSymbol, token)
+            ?: error("No Kite instrument token available for $normalizedSymbol.")
 
-        val uniqueSymbols = symbols
-            .map { symbol -> symbol.trim().uppercase() }
-            .filter { symbol -> symbol.isNotEmpty() }
-            .distinct()
-
-        var synced = 0
-        var upsertedCandles = 0
-        val failedSymbols = mutableListOf<String>()
-        val toJavaDate = toDate.toJavaDate()
-
-        for (symbol in uniqueSymbols) {
-            val token = resolveInstrumentToken(symbol, null)
-            if (token == null || token <= 0) {
-                failedSymbols += symbol
-                log.warn("Skipping daily sync for {} — no instrument token available from the Kite instrument cache", symbol)
-                continue
-            }
-
-            runCatching {
-                val tokenStr = token.toString()
-                val dailyRaw = withContext(Dispatchers.IO) {
-                    kiteClient.client().getHistoricalData(fromDate.toJavaDate(), toJavaDate, tokenStr, "day", false, false)
-                }
-                val dailyCandles = dailyRaw.dataArrayList.mapNotNull { bar ->
-                    parseDailyCandle(bar, token, symbol)
-                }
-                if (dailyCandles.isNotEmpty()) {
-                    candleHandler.write { dao -> dao.upsertDailyCandles(dailyCandles) }
-                    upsertedCandles += dailyCandles.size
-                }
-                synced++
-            }.onFailure { error ->
-                failedSymbols += symbol
-                log.warn(
-                    "Daily range sync failed for {} in {}..{}: {}",
-                    symbol,
-                    fromDate,
-                    toDate,
-                    error.message,
-                )
-            }
-
-            delay(kiteDelayMs)
+        val history = callKite {
+            kiteClient.client().getHistoricalData(
+                fromDate.toJavaDate(),
+                toDate.toJavaDate(),
+                resolvedToken.toString(),
+                "day",
+                false,
+                false,
+            )
         }
 
-        return DailyCandleSyncResult(
-            fromDate = fromDate.toString(),
-            toDate = toDate.toString(),
-            totalSymbols = uniqueSymbols.size,
-            symbolsSynced = synced,
-            symbolsFailed = failedSymbols.size,
-            failedSymbols = failedSymbols.sorted(),
-            dailyCandlesUpserted = upsertedCandles,
-        )
+        return history.dataArrayList
+            .mapNotNull { bar -> parseDailyCandle(bar, resolvedToken, normalizedSymbol) }
+            .distinctBy(DailyCandle::candleDate)
+            .sortedBy(DailyCandle::candleDate)
+    }
+
+    override suspend fun getIntradayCandles(
+        token: Long?,
+        symbol: String,
+        interval: String,
+        from: LocalDateTime,
+        to: LocalDateTime,
+    ): List<IntradayCandle> {
+        require(!from.isAfter(to)) { "from must be on or before to." }
+        val normalizedSymbol = symbol.trim().uppercase()
+        val resolvedToken = resolveInstrumentToken(normalizedSymbol, token)
+            ?: error("No Kite instrument token available for $normalizedSymbol.")
+
+        val history = callKite {
+            kiteClient.client().getHistoricalData(
+                from.atZone(ist).toInstant().let(Date::from),
+                to.atZone(ist).toInstant().let(Date::from),
+                resolvedToken.toString(),
+                interval,
+                false,
+                false,
+            )
+        }
+
+        return history.dataArrayList
+            .mapNotNull { bar -> parseIntradayCandle(bar, resolvedToken, normalizedSymbol, interval) }
+            .distinctBy(IntradayCandle::candleTimestamp)
+            .sortedBy(IntradayCandle::candleTimestamp)
+    }
+
+    private suspend fun <T> callKite(request: suspend () -> T): T = kiteRequestMutex.withLock {
+        try {
+            withContext(Dispatchers.IO) { request() }
+        } finally {
+            delay(KITE_REQUEST_DELAY_MS)
+        }
+    }
+
+    private suspend fun resolveInstrumentToken(symbol: String, token: Long?): Long? {
+        token?.takeIf { it > 0 }?.let { return it }
+        ensureInstrumentCacheLoaded()
+        return tokenResolver.resolve(exchange = "NSE", symbol = symbol)
+    }
+
+    private suspend fun ensureInstrumentCacheLoaded() {
+        if (!instrumentCache.isEmpty()) return
+        val instruments = callKite { kiteClient.client().getInstruments("NSE") }
+        instrumentCache.refresh(instruments)
     }
 
     private fun parseDailyCandle(bar: Any?, token: Long, symbol: String): DailyCandle? {
         if (bar == null) return null
-        return try {
-            val hk = bar as com.zerodhatech.models.HistoricalData
-            val date = LocalDateTime.parse(hk.timeStamp.substring(0, 19)).toLocalDate()
+        return runCatching {
+            val historicalData = bar as com.zerodhatech.models.HistoricalData
             DailyCandle(
                 instrumentToken = token,
                 symbol = symbol,
-                candleDate = date,
-                open = hk.open,
-                high = hk.high,
-                low = hk.low,
-                close = hk.close,
-                volume = hk.volume.toLong(),
+                candleDate = LocalDateTime.parse(historicalData.timeStamp.substring(0, 19)).toLocalDate(),
+                open = historicalData.open,
+                high = historicalData.high,
+                low = historicalData.low,
+                close = historicalData.close,
+                volume = historicalData.volume,
             )
-        } catch (e: Exception) {
-            log.warn("Skipping unparseable daily candle: {}", e.message)
-            null
-        }
+        }.onFailure { error ->
+            log.warn("Skipping unparseable daily candle for {}: {}", symbol, error.message)
+        }.getOrNull()
     }
 
     private fun parseIntradayCandle(bar: Any?, token: Long, symbol: String, interval: String): IntradayCandle? {
         if (bar == null) return null
-        return try {
-            val hk = bar as com.zerodhatech.models.HistoricalData
-            val timestamp = LocalDateTime.parse(hk.timeStamp.substring(0, 19))
+        return runCatching {
+            val historicalData = bar as com.zerodhatech.models.HistoricalData
             IntradayCandle(
                 instrumentToken = token,
                 symbol = symbol,
                 interval = interval,
-                candleTimestamp = timestamp,
-                open = hk.open,
-                high = hk.high,
-                low = hk.low,
-                close = hk.close,
-                volume = hk.volume.toLong(),
+                candleTimestamp = LocalDateTime.parse(historicalData.timeStamp.substring(0, 19)),
+                open = historicalData.open,
+                high = historicalData.high,
+                low = historicalData.low,
+                close = historicalData.close,
+                volume = historicalData.volume,
             )
-        } catch (e: Exception) {
-            log.warn("Skipping unparseable intraday candle: {}", e.message)
-            null
-        }
+        }.onFailure { error ->
+            log.warn("Skipping unparseable intraday candle for {}/{}: {}", symbol, interval, error.message)
+        }.getOrNull()
     }
 
-    private fun LocalDate.toJavaDate(): Date =
-        Date.from(atStartOfDay(ist).toInstant())
+    private fun LocalDate.toJavaDate(): Date = Date.from(atStartOfDay(ist).toInstant())
 
-    private suspend fun ensureInstrumentCacheLoaded(kiteClient: KiteConnectClient) {
-        if (!instrumentCache.isEmpty()) {
-            return
-        }
-        val instruments = withContext(Dispatchers.IO) {
-            kiteClient.client().getInstruments("NSE")
-        }
-        instrumentCache.refresh(instruments)
-    }
-
-    internal suspend fun resolveInstrumentToken(symbol: String, stockInstrumentToken: Long?): Long? {
-        val normalizedToken = stockInstrumentToken?.takeIf { token -> token > 0 }
-        if (normalizedToken != null) {
-            return normalizedToken
-        }
-
-        return tokenResolver.resolve(exchange = "NSE", symbol = symbol)
+    private companion object {
+        const val KITE_REQUEST_DELAY_MS = 350L
     }
 }

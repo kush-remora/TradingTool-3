@@ -2,9 +2,7 @@ package com.tradingtool.core.strategy.fiftytwomomentum
 
 import com.google.inject.Inject
 import com.tradingtool.core.candle.DailyCandle
-import com.tradingtool.core.database.CandleJdbiHandler
-import com.tradingtool.core.kite.KiteConnectClient
-import com.tradingtool.core.screener.CandleDataService
+import com.tradingtool.core.candle.CandleCacheService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
@@ -17,9 +15,7 @@ import org.apache.commons.csv.CSVParser
 import java.io.StringReader
 
 class FiftyTwoWeekMomentumRule5Service @Inject constructor(
-    private val candleHandler: CandleJdbiHandler,
-    private val candleDataService: CandleDataService,
-    private val kiteClient: KiteConnectClient
+    private val candleCacheService: CandleCacheService,
 ) {
     private val log = LoggerFactory.getLogger(FiftyTwoWeekMomentumRule5Service::class.java)
     private val dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
@@ -89,17 +85,9 @@ class FiftyTwoWeekMomentumRule5Service @Inject constructor(
     ): Rule5SymbolResult? {
         val fromDate = endDate.minusDays(400) // Ensure enough history for 200 SMA + 30 days
         
-        // Ensure data is synced
-        candleDataService.syncDailyRange(
-            symbols = listOf(symbol),
-            fromDate = fromDate,
-            toDate = endDate,
-            kiteClient = kiteClient
-        )
-        
-        val candles = candleHandler.read { dao ->
-            dao.getDailyCandlesBySymbol(symbol, fromDate, endDate)
-        }.distinctBy { it.candleDate }.sortedBy { it.candleDate }
+        val candles = candleCacheService.getDailyCandles(symbol, fromDate, endDate)
+            .distinctBy(DailyCandle::candleDate)
+            .sortedBy(DailyCandle::candleDate)
         
         if (candles.size < 230) {
             log.warn("Not enough data for symbol {} to calculate 200 SMA over 30 days (found {} candles)", symbol, candles.size)

@@ -74,35 +74,6 @@ CREATE INDEX IF NOT EXISTS idx_trades_created_at ON public.trades(created_at DES
 
 
 
--- Daily candles: one row per (instrument, date) for long-term metrics
-CREATE TABLE IF NOT EXISTS public.daily_candles (
-    instrument_token  BIGINT         NOT NULL,
-    symbol            TEXT           NOT NULL,
-    candle_date       DATE           NOT NULL,
-    open              NUMERIC(12, 4) NOT NULL,
-    high              NUMERIC(12, 4) NOT NULL,
-    low               NUMERIC(12, 4) NOT NULL,
-    close             NUMERIC(12, 4) NOT NULL,
-    volume            BIGINT         NOT NULL,
-    created_at        TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (instrument_token, candle_date)
-);
-
--- Intraday candles: one row per (instrument, interval, timestamp) for intraday patterns
-CREATE TABLE IF NOT EXISTS public.intraday_candles (
-    instrument_token  BIGINT         NOT NULL,
-    symbol            TEXT           NOT NULL,
-    interval          TEXT           NOT NULL,
-    candle_timestamp  TIMESTAMP      NOT NULL, -- always IST, no timezone (Kite always returns IST)
-    open              NUMERIC(12, 4) NOT NULL,
-    high              NUMERIC(12, 4) NOT NULL,
-    low               NUMERIC(12, 4) NOT NULL,
-    close             NUMERIC(12, 4) NOT NULL,
-    volume            BIGINT         NOT NULL,
-    created_at        TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (instrument_token, interval, candle_timestamp)
-);
-
 -- Stock delivery data: daily delivery metrics for each stock
 CREATE TABLE IF NOT EXISTS public.stock_delivery_daily (
     instrument_token BIGINT NOT NULL,
@@ -147,8 +118,6 @@ ALTER TABLE public.stock_delivery_daily
 
 DROP TABLE IF EXISTS public.stocks;
 
-CREATE INDEX IF NOT EXISTS idx_daily_candles_symbol      ON public.daily_candles (symbol, candle_date);
-CREATE INDEX IF NOT EXISTS idx_intraday_candles_symbol   ON public.intraday_candles (symbol, interval, candle_timestamp);
 CREATE INDEX IF NOT EXISTS idx_stock_delivery_daily_trading_date ON public.stock_delivery_daily (trading_date DESC);
 CREATE INDEX IF NOT EXISTS idx_stock_delivery_daily_symbol_date ON public.stock_delivery_daily (symbol, trading_date DESC);
 

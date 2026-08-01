@@ -3,12 +3,19 @@ package com.tradingtool.cron
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import com.tradingtool.core.candle.dao.CandleReadDao
-import com.tradingtool.core.candle.dao.CandleWriteDao
+import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.config.ConfigLoader
-import com.tradingtool.core.database.CandleJdbiHandler
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
+import com.tradingtool.core.database.JdbiHandler
+import com.tradingtool.core.database.RedisHandler
+import com.tradingtool.core.kite.InstrumentCache
+import com.tradingtool.core.kite.InstrumentTokenResolverService
+import com.tradingtool.core.kite.KiteConfig
+import com.tradingtool.core.kite.KiteConnectClient
+import com.tradingtool.core.kite.KiteTokenReadDao
+import com.tradingtool.core.kite.KiteTokenWriteDao
 import com.tradingtool.core.model.DatabaseConfig
+import com.tradingtool.core.screener.CandleDataService
 import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceJdbiHandler
 import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceService
 import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceUploadRequest
@@ -85,10 +92,31 @@ private data class ChartinkFiftyTwoWeekHighBacktestRuntime(
             val databaseConfig = DatabaseConfig(
                 jdbcUrl = ConfigLoader.get("SUPABASE_DB_URL", "supabase.dbUrl"),
             )
-            val candleHandler = CandleJdbiHandler(
+            val kiteClient = KiteConnectClient(
+                KiteConfig(
+                    apiKey = ConfigLoader.get("KITE_API_KEY", "kite.apiKey"),
+                    apiSecret = ConfigLoader.get("KITE_API_SECRET", "kite.apiSecret"),
+                ),
+            )
+            val kiteTokenHandler = JdbiHandler(
                 databaseConfig,
-                CandleReadDao::class.java,
-                CandleWriteDao::class.java,
+                KiteTokenReadDao::class.java,
+                KiteTokenWriteDao::class.java,
+            )
+            kiteClient.applyAccessToken(
+                runBlocking { kiteTokenHandler.read { dao -> dao.getLatestToken() } }
+                    ?: error("Kite token is required."),
+            )
+            val instrumentCache = InstrumentCache()
+            val candleDataService = CandleDataService(
+                instrumentCache = instrumentCache,
+                tokenResolver = InstrumentTokenResolverService(kiteClient, instrumentCache),
+                kiteClient = kiteClient,
+            )
+            val candleCacheService = CandleCacheService(
+                cache = RedisHandler.fromEnv(),
+                objectMapper = objectMapper,
+                candleSource = candleDataService,
             )
             val evidenceHandler = ChartinkEvidenceJdbiHandler(
                 databaseConfig,
@@ -104,7 +132,7 @@ private data class ChartinkFiftyTwoWeekHighBacktestRuntime(
             val service = ChartinkFiftyTwoWeekHighBacktestService(
                 signalCsvSource = ChartinkFiftyTwoWeekHighSignalCsvSource(),
                 engine = ChartinkFiftyTwoWeekHighBacktestEngine(),
-                candleHandler = candleHandler,
+                candleCacheService = candleCacheService,
             )
 
             val config = ChartinkFiftyTwoWeekHighBacktestConfig(

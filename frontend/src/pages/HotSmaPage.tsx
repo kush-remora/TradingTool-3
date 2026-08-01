@@ -14,6 +14,8 @@ const UNIVERSES_PATH = "/api/strategy/hot-sma/universes";
 const STORAGE_KEY = "hot-sma-filters-v1";
 const DEFAULT_PAGE_SIZE = 110;
 
+type QuickFilter = "all" | "goldenBuyZone";
+
 type PersistedFilters = {
   indexKeys?: string[];
   indexKey?: string;
@@ -60,6 +62,7 @@ const DISPLAY_COLUMNS: Array<keyof HotSmaRow> = [
   "pctToSma100",
   "sma200",
   "pctToSma200",
+  "sma200TouchedInLast5d",
   "distanceToSma200AbsPct",
   "rsi14",
   "drawdownFromHigh20Pct",
@@ -117,12 +120,20 @@ function persistFilters(filters: PersistedFilters): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
 }
 
+export function applyQuickFilter(rows: HotSmaRow[], quickFilter: QuickFilter): HotSmaRow[] {
+  if (quickFilter === "goldenBuyZone") {
+    return rows.filter((row) => row.sma200TouchedInLast5d);
+  }
+  return rows;
+}
+
 export function HotSmaPage() {
   const { data, loading, error, run } = useHotSmaScanner();
   const [universeOptions, setUniverseOptions] = useState<HotSmaUniverseOption[]>([]);
   const [loadingUniverses, setLoadingUniverses] = useState<boolean>(true);
   const [universeError, setUniverseError] = useState<string | null>(null);
   const [selectedUniverseKeys, setSelectedUniverseKeys] = useState<string[]>([]);
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [filteredInfo, setFilteredInfo] = useState<Record<string, FilterValue | null>>({});
   const [filteredRows, setFilteredRows] = useState<HotSmaRow[]>([]);
   const quoteSymbols = useMemo(() => (data?.rows ?? []).map((row) => row.symbol), [data?.rows]);
@@ -163,9 +174,9 @@ export function HotSmaPage() {
   }, []);
 
   useEffect(() => {
-    setFilteredRows(data?.rows ?? []);
+    setFilteredRows(applyQuickFilter(data?.rows ?? [], quickFilter));
     setFilteredInfo({});
-  }, [data?.rows]);
+  }, [data?.rows, quickFilter]);
 
   useEffect(() => {
     persistFilters({ indexKeys: selectedUniverseKeys });
@@ -177,6 +188,11 @@ export function HotSmaPage() {
     }
     await run({ indexKeys: selectedUniverseKeys });
   };
+
+  const goldenBuyZoneCount = useMemo(
+    () => (data?.rows ?? []).filter((row) => row.sma200TouchedInLast5d).length,
+    [data?.rows],
+  );
 
   const handleTableChange: TableProps<HotSmaRow>["onChange"] = (
     _pagination: TablePaginationConfig,
@@ -285,6 +301,12 @@ export function HotSmaPage() {
               />
               <Button type="primary" onClick={() => void handleRun()} loading={loading} disabled={selectedUniverseKeys.length === 0}>
                 Run Scanner
+              </Button>
+              <Button type={quickFilter === "all" ? "primary" : "default"} onClick={() => setQuickFilter("all")} disabled={!data}>
+                All stocks
+              </Button>
+              <Button type={quickFilter === "goldenBuyZone" ? "primary" : "default"} onClick={() => setQuickFilter("goldenBuyZone")} disabled={!data}>
+                Golden Buy Zone ({goldenBuyZoneCount})
               </Button>
             </Space>
             {data ? (

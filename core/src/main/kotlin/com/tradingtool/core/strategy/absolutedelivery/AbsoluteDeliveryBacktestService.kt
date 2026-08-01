@@ -2,7 +2,7 @@ package com.tradingtool.core.strategy.absolutedelivery
 
 import com.google.inject.Inject
 import com.google.inject.Singleton
-import com.tradingtool.core.database.CandleJdbiHandler
+import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
 import com.tradingtool.core.indexconstituents.IndexConstituentKeys
@@ -12,7 +12,7 @@ import java.time.LocalDate
 class AbsoluteDeliveryBacktestService @Inject constructor(
     private val indexConstituentHandler: IndexConstituentJdbiHandler,
     private val stockDeliveryHandler: StockDeliveryJdbiHandler,
-    private val candleHandler: CandleJdbiHandler,
+    private val candleCacheService: CandleCacheService,
 ) {
     suspend fun listGroupingOptions(): List<AbsoluteDeliveryGroupingOption> =
         indexConstituentHandler.read { dao ->
@@ -56,9 +56,10 @@ class AbsoluteDeliveryBacktestService @Inject constructor(
         val candles = if (members.isEmpty()) {
             emptyList()
         } else {
-            candleHandler.read { dao ->
-                dao.getDailyCandlesByTokens(
-                    tokens = members.map { member -> member.instrumentToken }.distinct(),
+            members.flatMap { member ->
+                candleCacheService.getDailyCandles(
+                    token = member.instrumentToken,
+                    symbol = member.symbol,
                     from = fromDate.minusYears(1L),
                     to = toDate,
                 )

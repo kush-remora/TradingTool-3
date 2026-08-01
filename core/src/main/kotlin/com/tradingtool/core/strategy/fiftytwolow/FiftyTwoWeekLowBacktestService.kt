@@ -6,8 +6,6 @@ import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
-import com.tradingtool.core.kite.KiteConnectClient
-import com.tradingtool.core.screener.CandleDataService
 import com.tradingtool.core.strategy.wyckoff.deliverythreshold.normalizeIndexKeyInCore
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -16,8 +14,6 @@ import java.time.temporal.ChronoUnit
 class FiftyTwoWeekLowBacktestService @Inject constructor(
     private val indexConstituentHandler: IndexConstituentJdbiHandler,
     private val candleCacheService: CandleCacheService,
-    private val candleDataService: CandleDataService,
-    private val kiteClient: KiteConnectClient,
 ) {
     suspend fun runBacktest(config: FiftyTwoWeekLowBacktestRunConfig): FiftyTwoWeekLowBacktestResponse {
         val toDate = config.toDate
@@ -60,26 +56,8 @@ class FiftyTwoWeekLowBacktestService @Inject constructor(
     }
 
     private suspend fun loadCandles(symbol: String, token: Long, fromDate: LocalDate, toDate: LocalDate): List<DailyCandle> {
-        var candles = candleCacheService.getDailyCandles(token = token, symbol = symbol, from = fromDate, to = toDate)
+        return candleCacheService.getDailyCandles(token = token, symbol = symbol, from = fromDate, to = toDate)
             .sortedBy { it.candleDate }
-        val latest = candles.lastOrNull()?.candleDate
-        val daysGapFromLatest = latest?.let { ChronoUnit.DAYS.between(it, toDate) } ?: Long.MAX_VALUE
-        val shouldBackfill = candles.isEmpty() || (latest != null && latest.isBefore(toDate) && daysGapFromLatest > MAX_ALLOWED_LATEST_GAP_DAYS)
-
-        if (shouldBackfill) {
-            runCatching {
-                candleDataService.syncDailyRange(
-                    symbols = listOf(symbol),
-                    fromDate = fromDate,
-                    toDate = toDate,
-                    kiteClient = kiteClient,
-                )
-            }
-            candles = candleCacheService.getDailyCandles(token = token, symbol = symbol, from = fromDate, to = toDate)
-                .sortedBy { it.candleDate }
-        }
-
-        return candles
     }
 
     private fun runSymbolBacktest(
@@ -187,6 +165,5 @@ class FiftyTwoWeekLowBacktestService @Inject constructor(
 
     companion object {
         private const val LOOKBACK_TRADING_DAYS: Int = 252
-        private const val MAX_ALLOWED_LATEST_GAP_DAYS: Long = 3
     }
 }

@@ -6,9 +6,7 @@ import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
-import com.tradingtool.core.kite.KiteConnectClient
 import com.tradingtool.core.indexconstituents.dao.IndexSummary
-import com.tradingtool.core.screener.CandleDataService
 import java.time.LocalDate
 import org.slf4j.LoggerFactory
 
@@ -17,8 +15,6 @@ class DeliveryThresholdBacktestService @Inject constructor(
     private val indexConstituentHandler: IndexConstituentJdbiHandler,
     private val deliveryHandler: StockDeliveryJdbiHandler,
     private val candleCacheService: CandleCacheService,
-    private val candleDataService: CandleDataService,
-    private val kiteClient: KiteConnectClient,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val engine = DeliveryThresholdBacktestEngine()
@@ -55,53 +51,10 @@ class DeliveryThresholdBacktestService @Inject constructor(
         val candlesBySymbol = resolvedUniverse.symbols.associate { symbol ->
             val candles = loadCandles(symbol.symbol, symbol.instrumentToken, warmupFrom, config.toDate)
             symbol.symbol to candles
-        }.toMutableMap()
+        }
 
         fun candlesForSymbol(symbol: String): List<com.tradingtool.core.candle.DailyCandle> {
             return candlesBySymbol[symbol].orEmpty()
-        }
-
-        val requiredLookbackStart = config.fromDate.minusDays(INDICATOR_LOOKBACK_DAYS)
-        val symbolsNeedingBackfill = resolvedUniverse.symbols
-            .filter { symbol ->
-                val candles = candlesForSymbol(symbol.symbol)
-                val earliest = candles.firstOrNull()?.candleDate
-                val latest = candles.lastOrNull()?.candleDate
-                candles.isEmpty() ||
-                    earliest == null ||
-                    earliest.isAfter(requiredLookbackStart) ||
-                    latest == null ||
-                    latest.isBefore(config.toDate)
-            }
-            .map { symbol -> symbol.symbol }
-            .distinct()
-
-        if (symbolsNeedingBackfill.isNotEmpty()) {
-            runCatching {
-                candleDataService.syncDailyRange(
-                    symbols = symbolsNeedingBackfill,
-                    fromDate = warmupFrom,
-                    toDate = config.toDate,
-                    kiteClient = kiteClient,
-                )
-            }.onFailure { error ->
-                log.warn(
-                    "Delivery threshold backtest candle backfill failed for {} symbols: {}",
-                    symbolsNeedingBackfill.size,
-                    error.message,
-                )
-            }
-
-            resolvedUniverse.symbols
-                .filter { symbol -> symbolsNeedingBackfill.contains(symbol.symbol) }
-                .forEach { symbol ->
-                    candlesBySymbol[symbol.symbol] = loadCandles(
-                        symbol = symbol.symbol,
-                        instrumentToken = symbol.instrumentToken,
-                        fromDate = warmupFrom,
-                        toDate = config.toDate,
-                    )
-                }
         }
 
         val contexts = resolvedUniverse.symbols.mapNotNull { symbol ->

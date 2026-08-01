@@ -6,21 +6,16 @@ import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
-import com.tradingtool.core.kite.KiteConnectClient
-import com.tradingtool.core.screener.CandleDataService
 import com.tradingtool.core.strategy.wyckoff.deliverythreshold.normalizeIndexKeyInCore
 import com.tradingtool.core.technical.calculateRsiValues
 import com.tradingtool.core.technical.roundTo2
 import java.time.LocalDate
-import java.time.temporal.ChronoUnit
 import kotlin.math.abs
 
 @Singleton
 class HotSmaScannerService @Inject constructor(
     private val indexConstituentHandler: IndexConstituentJdbiHandler,
     private val candleCacheService: CandleCacheService,
-    private val candleDataService: CandleDataService,
-    private val kiteClient: KiteConnectClient,
 ) {
     suspend fun listUniverseOptions(): List<HotSmaUniverseOption> {
         return indexConstituentHandler.read { dao -> dao.listUniqueIndices() }
@@ -113,35 +108,12 @@ class HotSmaScannerService @Inject constructor(
         fromDate: LocalDate,
         toDate: LocalDate,
     ): List<DailyCandle> {
-        var candles = candleCacheService.getDailyCandles(
+        return candleCacheService.getDailyCandles(
             token = instrumentToken,
             symbol = symbol,
             from = fromDate,
             to = toDate,
         ).sortedBy { candle -> candle.candleDate }
-
-        val latestDate = candles.lastOrNull()?.candleDate
-        val gapDays = latestDate?.let { date -> ChronoUnit.DAYS.between(date, toDate) } ?: Long.MAX_VALUE
-        val shouldBackfill = candles.isEmpty() || gapDays > MAX_ALLOWED_LATEST_GAP_DAYS
-
-        if (shouldBackfill) {
-            runCatching {
-                candleDataService.syncDailyRange(
-                    symbols = listOf(symbol),
-                    fromDate = fromDate,
-                    toDate = toDate,
-                    kiteClient = kiteClient,
-                )
-            }
-            candles = candleCacheService.getDailyCandles(
-                token = instrumentToken,
-                symbol = symbol,
-                from = fromDate,
-                to = toDate,
-            ).sortedBy { candle -> candle.candleDate }
-        }
-
-        return candles
     }
 
     private fun evaluateSymbol(
@@ -254,7 +226,6 @@ class HotSmaScannerService @Inject constructor(
         const val DRAWDOWN_WINDOW_20: Int = 20
         const val DRAWDOWN_WINDOW_60: Int = 60
         const val HISTORY_DAYS: Long = 450
-        const val MAX_ALLOWED_LATEST_GAP_DAYS: Long = 3
         const val RSI_FALLBACK: Double = 50.0
     }
 }

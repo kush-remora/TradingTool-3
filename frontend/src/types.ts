@@ -69,6 +69,52 @@ export interface InstrumentSearchResult {
   instrument_type: string;
 }
 
+// ==================== SMA Limit-Entry Backtest ====================
+
+export interface Sma200BacktestRequest {
+  symbol: string;
+  instrumentToken: number;
+  entrySmaPeriod: 50 | 100 | 200;
+}
+
+export interface Sma200BacktestTrade {
+  entryDate: string;
+  entryPrice: number;
+  entryClose: number;
+  sma100: number;
+  pctToSma100: number;
+  sma200: number;
+  pctToSma200: number;
+  distanceToSma200AbsPct: number;
+  rsi14: number;
+  drawdownFromHigh20Pct: number;
+  drawdownFromHigh60Pct: number;
+  consecutiveRedDays: number;
+  move3dPct: number;
+  return10dPct: number | null;
+  return20dPct: number | null;
+  return40dPct: number | null;
+  return10dDate: string | null;
+  return20dDate: string | null;
+  return40dDate: string | null;
+}
+
+export interface Sma200BacktestResponse {
+  symbol: string;
+  entrySmaPeriod: 50 | 100 | 200;
+  testedFromDate: string;
+  testedToDate: string;
+  summary: {
+    smaTouchCount: number;
+    tradeCount: number;
+    ignoredTouchCount: number;
+    completed10dCount: number;
+    completed20dCount: number;
+    completed40dCount: number;
+  };
+  trades: Sma200BacktestTrade[];
+}
+
 // ==================== Silent Breakout Backtest ====================
 
 export type SilentBreakoutDataStatus = "AVAILABLE" | "MISSING_SIGNAL_CANDLE" | "PARTIAL_HISTORY";

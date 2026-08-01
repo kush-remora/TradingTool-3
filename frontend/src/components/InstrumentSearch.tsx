@@ -159,7 +159,7 @@ function InstrumentSearchCore({
       allowClear
       placeholder={placeholder || "Search eg: infy, reliance..."}
       size="small"
-      notFoundContent={availableInstruments.length === 0 ? "All stocks already added" : null}
+      notFoundContent={availableInstruments.length === 0 && existingStockTokens.size > 0 ? "All stocks already added" : "No stocks found"}
       filterOption={false}
     />
   );
