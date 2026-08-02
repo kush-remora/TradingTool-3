@@ -21,6 +21,7 @@ import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceUploadRequ
 import com.tradingtool.core.strategy.accumulationanalysis.AccumulationAnalysisRunRequest
 import com.tradingtool.core.strategy.accumulationanalysis.AccumulationAnalysisService
 import com.tradingtool.core.strategy.weeklyfloor.WeeklyFloorReboundRequest
+import com.tradingtool.core.strategy.priceacceptance.PriceAcceptanceScannerService
 import com.tradingtool.core.strategy.weeklyfloor.WeeklyFloorReboundRunConfig
 import com.tradingtool.core.strategy.weeklyfloor.WeeklyFloorReboundService
 import com.tradingtool.core.strategy.weeklylowlimit.WeeklyLowLimitBacktestRequest
@@ -73,6 +74,7 @@ class StrategyResource @Inject constructor(
     private val weeklyBaseDefinitionService: WeeklyBaseDefinitionService,
     private val weeklyBaseGroupBacktestService: WeeklyBaseGroupBacktestService,
     private val weeklyPriceWatchlistScannerService: WeeklyPriceWatchlistScannerService,
+    private val priceAcceptanceScannerService: PriceAcceptanceScannerService,
 ) {
     private val ioScope = resourceScope.ioScope
 
@@ -212,6 +214,36 @@ class StrategyResource @Inject constructor(
     @Path("/weekly-price-review/watchlists")
     fun getWeeklyPriceReviewWatchlists(): CompletableFuture<Response> = ioScope.endpoint {
         ok(weeklyPriceWatchlistScannerService.listWatchlists())
+    }
+
+    @GET
+    @Path("/price-acceptance/universes")
+    fun getPriceAcceptanceUniverseOptions(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(priceAcceptanceScannerService.listUniverseOptions())
+    }
+
+    @GET
+    @Path("/price-acceptance/scan")
+    fun getPriceAcceptanceScan(
+        @QueryParam("indexKey") indexKey: String?,
+        @QueryParam("asOfDate") asOfDate: String?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val requestedIndexKey = indexKey?.trim().orEmpty()
+        if (requestedIndexKey.isEmpty()) {
+            return@endpoint badRequest("indexKey is required.")
+        }
+
+        val parsedAsOfDate = try {
+            asOfDate?.takeIf { value -> value.isNotBlank() }?.let(LocalDate::parse) ?: LocalDate.now()
+        } catch (_: Exception) {
+            return@endpoint badRequest("asOfDate must be a valid ISO date in YYYY-MM-DD format.")
+        }
+
+        try {
+            ok(priceAcceptanceScannerService.scan(requestedIndexKey, parsedAsOfDate))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid price acceptance scan request.")
+        }
     }
 
     @GET

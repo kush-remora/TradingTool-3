@@ -54,6 +54,7 @@ import com.tradingtool.core.strategy.accumulationanalysis.AccumulationAnalysisSt
 import com.tradingtool.core.strategy.accumulationanalysis.JdbiAccumulationAnalysisStore
 import com.tradingtool.core.strategy.accumulationanalysis.dao.AccumulationAnalysisReadDao
 import com.tradingtool.core.strategy.accumulationanalysis.dao.AccumulationAnalysisWriteDao
+import com.tradingtool.core.strategy.priceacceptance.PriceAcceptanceScannerService
 import com.tradingtool.core.telegram.TelegramApiClient
 import com.tradingtool.core.telegram.TelegramNotifier
 import com.tradingtool.core.telegram.TelegramSender
@@ -281,6 +282,15 @@ class ServiceModule(
         indexConstituentHandler: IndexConstituentJdbiHandler,
         candleCacheService: CandleCacheService,
     ): HotSmaScannerService = HotSmaScannerService(
+        indexConstituentHandler = indexConstituentHandler,
+        candleCacheService = candleCacheService,
+    )
+
+    @Provides @Singleton
+    fun providePriceAcceptanceScannerService(
+        indexConstituentHandler: IndexConstituentJdbiHandler,
+        candleCacheService: CandleCacheService,
+    ): PriceAcceptanceScannerService = PriceAcceptanceScannerService(
         indexConstituentHandler = indexConstituentHandler,
         candleCacheService = candleCacheService,
     )

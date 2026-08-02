@@ -3157,3 +3157,35 @@ export interface AccumulationAnalysisTimeline {
   isStale: boolean;
   rows: AccumulationCaseSnapshot[];
 }
+
+export interface PriceAcceptanceRow {
+  symbol: string;
+  companyName: string;
+  indexKey: string;
+  instrumentToken: number;
+  anchorDate: string;
+  open: number;
+  close: number;
+  bodyLow: number;
+  bodyHigh: number;
+  bodyRangePct: number;
+  priorSessionCount: number;
+  closeHits20: number;
+  closeHitRate20Pct: number;
+  closeHits40: number;
+  closeHitRate40Pct: number;
+  closeHits60: number;
+  closeHitRate60Pct: number;
+  closeHits80: number;
+  closeHitRate80Pct: number;
+  closeHits100: number;
+  closeHitRate100Pct: number;
+}
+
+export interface PriceAcceptanceScanResponse {
+  selectedIndexKey: string;
+  requestedAsOfDate: string;
+  scannedStockCount: number;
+  resultCount: number;
+  rows: PriceAcceptanceRow[];
+}

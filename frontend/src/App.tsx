@@ -34,6 +34,7 @@ import { ThreeWeekStockReviewPage } from "./pages/ThreeWeekStockReviewPage";
 import { WeeklyPriceWatchlistScannerPage } from "./pages/WeeklyPriceWatchlistScannerPage";
 import { BreakoutTrackerPage } from "./pages/BreakoutTrackerPage";
 import { SilentBreakoutBacktestPage } from "./pages/SilentBreakoutBacktestPage";
+import { PriceAcceptanceScannerPage } from "./pages/PriceAcceptanceScannerPage";
 import type { AccumulationCaseSnapshot } from "./types";
 
 type V1PageKey =
@@ -59,7 +60,8 @@ type V1PageKey =
   | "three-week-stock-review"
   | "weekly-price-watchlist-scanner"
   | "breakout-tracker"
-  | "silent-breakout-backtest";
+  | "silent-breakout-backtest"
+  | "price-acceptance";
 
 type PageKey = V1PageKey;
 
@@ -137,6 +139,11 @@ const menuItems: MenuProps["items"] = [
     icon: <LineChartOutlined />,
   },
   {
+    key: "price-acceptance",
+    label: "Price Acceptance Scanner",
+    icon: <BarChartOutlined />,
+  },
+  {
     key: "52w-momentum-rule5",
     label: "52W Momentum Rule 5",
     icon: <LineChartOutlined />,
@@ -197,6 +204,7 @@ const validPages: PageKey[] = [
   "weekly-base-group-backtest",
   "three-week-stock-review",
   "weekly-price-watchlist-scanner",
+  "price-acceptance",
   "52w-momentum-rule5",
   "csv-backtest",
   "silent-breakout-backtest",
@@ -430,6 +438,7 @@ export default function App() {
             {route === "weekly-price-watchlist-scanner" && (
               <WeeklyPriceWatchlistScannerPage onOpenStockReview={openStockReview} />
             )}
+            {route === "price-acceptance" && <PriceAcceptanceScannerPage />}
             {route === "52w-momentum-rule5" && (
               <FiftyTwoWeekMomentumRule5Page />
             )}
