@@ -31,6 +31,7 @@ import { WeeklyLowLimitDailyValidationPage } from "./pages/WeeklyLowLimitDailyVa
 import { WeeklyBaseDefinitionPage } from "./pages/WeeklyBaseDefinitionPage";
 import { WeeklyBaseGroupBacktestPage } from "./pages/WeeklyBaseGroupBacktestPage";
 import { ThreeWeekStockReviewPage } from "./pages/ThreeWeekStockReviewPage";
+import { ThreeWeekWatchlistReviewPage } from "./pages/ThreeWeekWatchlistReviewPage";
 import { WeeklyPriceWatchlistScannerPage } from "./pages/WeeklyPriceWatchlistScannerPage";
 import { BreakoutTrackerPage } from "./pages/BreakoutTrackerPage";
 import { SilentBreakoutBacktestPage } from "./pages/SilentBreakoutBacktestPage";
@@ -58,6 +59,7 @@ type V1PageKey =
   | "weekly-base-definition"
   | "weekly-base-group-backtest"
   | "three-week-stock-review"
+  | "three-week-watchlist-review"
   | "weekly-price-watchlist-scanner"
   | "breakout-tracker"
   | "silent-breakout-backtest"
@@ -134,6 +136,11 @@ const menuItems: MenuProps["items"] = [
     icon: <LineChartOutlined />,
   },
   {
+    key: "three-week-watchlist-review",
+    label: "Three-Week Stock Review + Current Week",
+    icon: <LineChartOutlined />,
+  },
+  {
     key: "weekly-price-watchlist-scanner",
     label: "Base Consolidation Scanner",
     icon: <LineChartOutlined />,
@@ -203,6 +210,7 @@ const validPages: PageKey[] = [
   "weekly-base-definition",
   "weekly-base-group-backtest",
   "three-week-stock-review",
+  "three-week-watchlist-review",
   "weekly-price-watchlist-scanner",
   "price-acceptance",
   "52w-momentum-rule5",
@@ -435,6 +443,9 @@ export default function App() {
               <WeeklyBaseGroupBacktestPage />
             )}
             {route === "three-week-stock-review" && <ThreeWeekStockReviewPage />}
+            {route === "three-week-watchlist-review" && (
+              <ThreeWeekWatchlistReviewPage onOpenStockReview={openStockReview} />
+            )}
             {route === "weekly-price-watchlist-scanner" && (
               <WeeklyPriceWatchlistScannerPage onOpenStockReview={openStockReview} />
             )}
