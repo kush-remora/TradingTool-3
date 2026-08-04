@@ -161,8 +161,10 @@ describe("ThreeWeekStockReviewPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Select INFY" }));
 
     expect(screen.getByRole("columnheader", { name: "Low %" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Open → High %" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "High %" })).toBeInTheDocument();
     expect(screen.getByText("-5.00%")).toHaveStyle({ color: "#cf1322" });
+    expect(screen.getByText("+10.00%")).toHaveStyle({ color: "#389e0d" });
     expect(screen.getByText("+15.79%")).toHaveStyle({ color: "#389e0d" });
   });
 

@@ -27,6 +27,7 @@ interface DailyPriceRow extends WeeklyPriceTimelineDay {
   day: string;
   deliveryPct: number | null;
   lowFromOpenPct: number | null;
+  highFromOpenPct: number | null;
   lowToHighPct: number | null;
 }
 
@@ -156,6 +157,7 @@ export function ThreeWeekStockReviewPage() {
       day: formatDay(day.date),
       deliveryPct: deliveryByDate.get(day.date) ?? null,
       lowFromOpenPct: calculatePercentChange(day.low, day.open),
+      highFromOpenPct: calculatePercentChange(day.high, day.open),
       lowToHighPct: calculateLowToHighPercent(day.low, day.high),
     })), [deliveryByDate, weeklyTimelines]);
 
@@ -167,6 +169,7 @@ export function ThreeWeekStockReviewPage() {
     { title: "Low %", dataIndex: "lowFromOpenPct", key: "lowFromOpenPct", width: 70, render: formatPercent },
     { title: "Close", dataIndex: "close", key: "close", width: 90, render: formatPrice },
     { title: "High", dataIndex: "high", key: "high", width: 90, render: formatPrice },
+    { title: "Open → High %", dataIndex: "highFromOpenPct", key: "highFromOpenPct", width: 105, render: formatPercent },
     { title: "High %", dataIndex: "lowToHighPct", key: "lowToHighPct", width: 70, render: formatPercent },
     { title: "Vol", dataIndex: "volume", key: "volume", width: 72, render: formatCompactQuantity },
     { title: "Del %", dataIndex: "deliveryPct", key: "deliveryPct", width: 65, render: formatDeliveryPercentage },

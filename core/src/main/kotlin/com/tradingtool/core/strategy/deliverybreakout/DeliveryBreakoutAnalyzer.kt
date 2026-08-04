@@ -7,43 +7,72 @@ import java.time.LocalDate
 
 internal object DeliveryBreakoutAnalyzer {
 
-    fun buildStage1Candidate(
-        row: StockDeliveryDaily,
+    fun buildEvents(
+        symbol: String,
+        instrumentToken: Long,
         history: List<StockDeliveryDaily>,
-        config: DeliveryBreakoutConfig,
-    ): DeliveryBreakoutStage1Candidate? {
-        val currentVolume = row.ttlTrdQnty ?: return null
-        val currentDeliveryQuantity = row.delivQty ?: return null
-        
-        val prevRow = history.lastOrNull { historyRow -> historyRow.tradingDate.isBefore(row.tradingDate) }
-        if (prevRow == null) {
-            return null
-        }
+        evaluationDates: List<LocalDate>,
+        baselineSessions: Int,
+        shockMultiplier: Double,
+    ): List<DeliveryBreakoutEvent> {
+        val rowsByDate = history.associateBy { row -> row.tradingDate }
 
-        val prevVolume = prevRow.ttlTrdQnty ?: return null
-        val prevDelivery = prevRow.delivQty ?: return null
-        if (prevVolume <= 0L || prevDelivery <= 0L) {
-            return null
-        }
-        
-        val requiredVolume = (prevVolume * config.volumeMultiplier).toLong()
-        val requiredDelivery = (prevDelivery * config.deliveryMultiplier).toLong()
-        if (currentVolume < requiredVolume || currentDeliveryQuantity < requiredDelivery) {
-            return null
-        }
+        return evaluationDates.mapNotNull { eventDate ->
+            val current = rowsByDate[eventDate] ?: return@mapNotNull null
+            val previousRows = history
+                .filter { row -> row.tradingDate.isBefore(eventDate) }
+                .sortedBy { row -> row.tradingDate }
+                .takeLast(baselineSessions)
 
-        return DeliveryBreakoutStage1Candidate(
-            instrumentToken = row.instrumentToken,
-            symbol = row.symbol,
-            tradeDate = row.tradingDate.toString(),
-            volume = currentVolume,
-            deliveryQuantity = currentDeliveryQuantity,
-            deliveryPercentage = row.delivPer?.roundTo2(),
-            prevVolume = prevVolume,
-            prevDeliveryQuantity = prevDelivery,
-            volumeRatio = (currentVolume.toDouble() / prevVolume.toDouble()).roundTo2(),
-            deliveryRatio = (currentDeliveryQuantity.toDouble() / prevDelivery.toDouble()).roundTo2(),
-        )
+            val averageVolume = averageOf(
+                previousRows.mapNotNull { row -> row.ttlTrdQnty?.takeIf { value -> value > 0L } },
+                baselineSessions,
+            )
+            val averageDeliveryQuantity = averageOf(
+                previousRows.mapNotNull { row -> row.delivQty?.takeIf { value -> value > 0L } },
+                baselineSessions,
+            )
+            val volumeRatio = ratio(current.ttlTrdQnty, averageVolume)
+            val deliveryRatio = ratio(current.delivQty, averageDeliveryQuantity)
+            val volumeShock = volumeRatio?.let { ratio -> ratio >= shockMultiplier } == true
+            val deliveryShock = deliveryRatio?.let { ratio -> ratio >= shockMultiplier } == true
+
+            if (!volumeShock && !deliveryShock) {
+                return@mapNotNull null
+            }
+
+            DeliveryBreakoutEvent(
+                instrumentToken = instrumentToken,
+                symbol = symbol,
+                eventDate = eventDate.toString(),
+                eventType = when {
+                    volumeShock && deliveryShock -> "BOTH"
+                    deliveryShock -> "DELIVERY_ONLY"
+                    else -> "VOLUME_ONLY"
+                },
+                volume = current.ttlTrdQnty,
+                deliveryQuantity = current.delivQty,
+                deliveryPercentage = current.delivPer?.roundTo2(),
+                averageVolume10d = averageVolume,
+                averageDeliveryQuantity10d = averageDeliveryQuantity,
+                volumeRatio = volumeRatio,
+                deliveryRatio = deliveryRatio,
+            )
+        }
+    }
+
+    private fun averageOf(values: List<Long>, requiredSize: Int): Double? {
+        if (values.size < requiredSize) {
+            return null
+        }
+        return values.average()
+    }
+
+    private fun ratio(value: Long?, average: Double?): Double? {
+        if (value == null || average == null || average <= 0.0) {
+            return null
+        }
+        return (value.toDouble() / average).roundTo2()
     }
 
     fun calculatePctChange(candles: List<DailyCandle>, tradeDate: LocalDate): Double? {
@@ -59,4 +88,5 @@ internal object DeliveryBreakoutAnalyzer {
 
         return (((candles[candleIndex].close - previousClose) / previousClose) * 100.0).roundTo2()
     }
+
 }

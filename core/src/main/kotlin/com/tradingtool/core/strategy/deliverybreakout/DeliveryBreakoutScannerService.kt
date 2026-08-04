@@ -4,8 +4,10 @@ import com.google.inject.Inject
 import com.google.inject.Singleton
 import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.candle.DailyCandle
+import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
 import com.tradingtool.core.delivery.model.StockDeliveryDaily
+import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
 import com.tradingtool.core.technical.roundTo2
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -18,6 +20,7 @@ import java.time.LocalDate
 
 @Singleton
 class DeliveryBreakoutScannerService @Inject constructor(
+    private val indexConstituentHandler: IndexConstituentJdbiHandler,
     private val stockDeliveryHandler: StockDeliveryJdbiHandler,
     private val candleCacheService: CandleCacheService,
     private val configService: DeliveryBreakoutConfigService,
@@ -25,160 +28,203 @@ class DeliveryBreakoutScannerService @Inject constructor(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    suspend fun getDashboard(requestedTradeDate: LocalDate?): DeliveryBreakoutDashboardResponse {
+    suspend fun getDashboard(
+        watchlistKey: String,
+        requestedTradeDate: LocalDate?,
+    ): DeliveryBreakoutDashboardResponse {
+        val config = configService.loadConfig()
+        require(config.baselineSessions > 0) { "baselineSessions must be greater than zero." }
+        require(config.scanSessions > 0) { "scanSessions must be greater than zero." }
+        require(config.shockMultiplier > 0.0) { "shockMultiplier must be greater than zero." }
+
+        val resolvedWatchlist = resolveWatchlist(watchlistKey)
         val tradeDate = requestedTradeDate ?: stockDeliveryHandler.read { dao -> dao.getLatestTradingDate() }
         requireNotNull(tradeDate) { "No stock delivery data available." }
-        val config = configService.loadConfig()
 
-        val currentRows = stockDeliveryHandler.read { dao -> dao.findAllByTradingDate(tradeDate) }
-        val nonEtfRows = etfService.filterNonEtfRows(currentRows)
-        val excludedEtfCount = currentRows.size - nonEtfRows.size
-        if (excludedEtfCount > 0) {
-            log.info("Delivery breakout excluded {} ETF rows for {}", excludedEtfCount, tradeDate)
+        val totalRequiredSessions = config.baselineSessions + config.scanSessions
+        val availableDates = loadTradingDates(tradeDate, totalRequiredSessions)
+        require(availableDates.size >= totalRequiredSessions) {
+            "At least $totalRequiredSessions trading sessions are required before $tradeDate."
         }
 
-        val liquidityEligibleRows = nonEtfRows.filter { row ->
-            val volume = row.ttlTrdQnty
-            val deliveryQuantity = row.delivQty
-            volume != null && volume >= config.minCurrentVolume && deliveryQuantity != null
-        }
+        val baselineAndScanDates = availableDates.takeLast(totalRequiredSessions)
+        val evaluationDates = baselineAndScanDates.takeLast(config.scanSessions)
+        val members = resolvedWatchlist.members
+        val nonEtfMembers = etfService.filterNonEtfMembers(members)
+        val deliveryHistoryByToken = loadDeliveryHistoryByToken(
+            tokens = nonEtfMembers.map { member -> member.instrumentToken }.distinct(),
+            fromDate = baselineAndScanDates.first(),
+            toDate = tradeDate,
+        )
 
-        if (liquidityEligibleRows.isEmpty()) {
-            return DeliveryBreakoutDashboardResponse(
-                meta = DeliveryBreakoutDashboardMeta(
-                    trade_date = tradeDate.toString(),
-                    scanned_count = nonEtfRows.size,
-                    liquidity_eligible_count = 0,
-                    shortlisted_count = 0,
-                ),
-                rows = emptyList(),
+        val events = nonEtfMembers.flatMap { member ->
+            DeliveryBreakoutAnalyzer.buildEvents(
+                symbol = member.symbol,
+                instrumentToken = member.instrumentToken,
+                history = deliveryHistoryByToken[member.instrumentToken].orEmpty(),
+                evaluationDates = evaluationDates,
+                baselineSessions = config.baselineSessions,
+                shockMultiplier = config.shockMultiplier,
             )
         }
-
-        val tokens = liquidityEligibleRows.map { row -> row.instrumentToken }.distinct()
-        val deliveryHistoryByToken = loadDeliveryHistoryByToken(tokens = tokens, tradeDate = tradeDate)
-        val stage1Candidates = liquidityEligibleRows.mapNotNull { row ->
-            DeliveryBreakoutAnalyzer.buildStage1Candidate(
-                row = row,
-                history = deliveryHistoryByToken[row.instrumentToken].orEmpty(),
-                config = config,
-            )
-        }
-        val currentRowsByToken = liquidityEligibleRows.associateBy { row -> row.instrumentToken }
-
-        if (stage1Candidates.isEmpty()) {
-            return DeliveryBreakoutDashboardResponse(
-                meta = DeliveryBreakoutDashboardMeta(
-                    trade_date = tradeDate.toString(),
-                    scanned_count = nonEtfRows.size,
-                    liquidity_eligible_count = liquidityEligibleRows.size,
-                    shortlisted_count = 0,
-                ),
-                rows = emptyList(),
-            )
-        }
-
-        val candlesBySymbol = loadCandlesBySymbol(stage1Candidates, tradeDate)
-        val dashboardRows = stage1Candidates.mapNotNull { candidate ->
-            val candles = candlesBySymbol[candidate.symbol].orEmpty()
-            val deliveries = buildDeliverySeries(
-                history = deliveryHistoryByToken[candidate.instrumentToken].orEmpty(),
-                currentRow = requireNotNull(currentRowsByToken[candidate.instrumentToken]),
-            )
-            val candleIndex = candles.indexOfFirst { candle -> candle.candleDate == tradeDate }
-            val close = candles.getOrNull(candleIndex)?.close?.roundTo2()
-            val prevClose = if (candleIndex > 0) candles[candleIndex - 1].close.roundTo2() else null
-            val closePctChange = DeliveryBreakoutAnalyzer.calculatePctChange(candles, tradeDate)
-            val fiftyTwoWeekHigh = candles.maxOfOrNull { candle -> candle.high }?.roundTo2()
-            val fiftyTwoWeekLow = candles.minOfOrNull { candle -> candle.low }?.roundTo2()
-
-            DeliveryBreakoutDashboardRow(
-                symbol = candidate.symbol,
-                trade_date = candidate.tradeDate,
-                close = close,
-                prev_close = prevClose,
-                close_pct_change = closePctChange,
-                fifty_two_week_high = fiftyTwoWeekHigh,
-                fifty_two_week_low = fiftyTwoWeekLow,
-                volume = candidate.volume,
-                delivery_quantity = candidate.deliveryQuantity,
-                delivery_percentage = candidate.deliveryPercentage,
-                prev_volume = candidate.prevVolume,
-                prev_delivery_quantity = candidate.prevDeliveryQuantity,
-                volume_ratio = candidate.volumeRatio,
-                delivery_ratio = candidate.deliveryRatio,
-            )
+        val eventsBySymbol = events.groupBy { event -> event.symbol }
+        val candlesBySymbol = loadCandlesBySymbol(events, tradeDate)
+        val dashboardRows = events.map { event ->
+            buildDashboardRow(event, candlesBySymbol[event.symbol].orEmpty())
         }.sortedWith(
-            compareByDescending<DeliveryBreakoutDashboardRow> { row -> row.delivery_ratio }
-                .thenByDescending { row -> row.volume_ratio },
+            compareBy<DeliveryBreakoutDashboardRow> { eventPriority(it.event_type) }
+                .thenByDescending { row -> row.event_date }
+                .thenByDescending { row -> maxOf(row.volume_ratio ?: 0.0, row.delivery_ratio ?: 0.0) },
+        )
+
+        val stocksWithData = deliveryHistoryByToken.count { (_, rows) -> rows.any { row -> row.tradingDate in baselineAndScanDates } }
+        val bothCount = dashboardRows.count { row -> row.event_type == EVENT_BOTH }
+        val deliveryOnlyCount = dashboardRows.count { row -> row.event_type == EVENT_DELIVERY_ONLY }
+        val volumeOnlyCount = dashboardRows.count { row -> row.event_type == EVENT_VOLUME_ONLY }
+        val stocksWithEvents = eventsBySymbol.size
+
+        log.info(
+            "Delivery breakout scanned watchlist {} through {}: {} members, {} events",
+            resolvedWatchlist.key,
+            tradeDate,
+            nonEtfMembers.size,
+            dashboardRows.size,
         )
 
         return DeliveryBreakoutDashboardResponse(
             meta = DeliveryBreakoutDashboardMeta(
+                watchlist_key = resolvedWatchlist.key,
                 trade_date = tradeDate.toString(),
-                scanned_count = nonEtfRows.size,
-                liquidity_eligible_count = liquidityEligibleRows.size,
-                shortlisted_count = dashboardRows.size,
+                window_start_date = evaluationDates.first().toString(),
+                window_end_date = evaluationDates.last().toString(),
+                scanned_count = nonEtfMembers.size,
+                data_available_count = stocksWithData,
+                event_count = dashboardRows.size,
+                both_count = bothCount,
+                delivery_only_count = deliveryOnlyCount,
+                volume_only_count = volumeOnlyCount,
+                no_event_count = (nonEtfMembers.size - stocksWithEvents).coerceAtLeast(0),
             ),
             rows = dashboardRows,
         )
     }
 
+    private suspend fun resolveWatchlist(requestedKey: String): ResolvedWatchlist {
+        val normalizedKey = requestedKey.trim()
+        require(normalizedKey.isNotEmpty()) { "watchlistKey is required." }
+
+        val resolvedKey = indexConstituentHandler.read { dao ->
+            dao.listUniqueIndices()
+                .firstOrNull { summary -> summary.indexKey.equals(normalizedKey, ignoreCase = true) }
+                ?.indexKey
+        } ?: throw IllegalArgumentException("Unknown watchlist: $requestedKey")
+
+        val members = indexConstituentHandler.read { dao -> dao.listActiveByIndex(resolvedKey) }
+            .distinctBy { member -> member.instrumentToken }
+        require(members.isNotEmpty()) { "Watchlist $resolvedKey has no active stocks." }
+        return ResolvedWatchlist(resolvedKey, members)
+    }
+
+    private suspend fun loadTradingDates(
+        tradeDate: LocalDate,
+        requiredSessions: Int,
+    ): List<LocalDate> {
+        val dates = stockDeliveryHandler.read { dao ->
+            dao.findTradingDatesBetween(
+                fromDate = tradeDate.minusDays(TRADING_DATE_LOOKBACK_CALENDAR_DAYS),
+                toDate = tradeDate,
+            )
+        }
+        if (dates.isEmpty() || !dates.contains(tradeDate)) {
+            throw IllegalArgumentException("No delivery data is available for $tradeDate.")
+        }
+        return dates.takeLast(requiredSessions)
+    }
+
     private suspend fun loadDeliveryHistoryByToken(
         tokens: List<Long>,
-        tradeDate: LocalDate,
+        fromDate: LocalDate,
+        toDate: LocalDate,
     ): Map<Long, List<StockDeliveryDaily>> {
-        val fromDate = tradeDate.minusDays(DELIVERY_HISTORY_CALENDAR_DAYS)
+        if (tokens.isEmpty()) {
+            return emptyMap()
+        }
         return stockDeliveryHandler.read { dao ->
             dao.findByInstrumentTokensBetweenDates(
                 instrumentTokens = tokens,
                 fromDate = fromDate,
-                toDate = tradeDate.minusDays(1),
+                toDate = toDate,
             )
         }.groupBy { row -> row.instrumentToken }
             .mapValues { (_, rows) -> rows.sortedBy { row -> row.tradingDate } }
     }
 
     private suspend fun loadCandlesBySymbol(
-        candidates: List<DeliveryBreakoutStage1Candidate>,
+        events: List<DeliveryBreakoutEvent>,
         tradeDate: LocalDate,
     ): Map<String, List<DailyCandle>> = coroutineScope {
         val semaphore = Semaphore(MAX_PARALLEL_SYMBOL_LOADS)
-        val fromDate = tradeDate.minusDays(CANDLE_HISTORY_CALENDAR_DAYS)
-
-        candidates.map { candidate ->
-            async(Dispatchers.IO) {
-                semaphore.withPermit {
-                    candidate.symbol to loadCandlesForCandidate(candidate, fromDate, tradeDate)
+        events.map { event -> event.symbol to event.instrumentToken }
+            .distinct()
+            .map { (symbol, token) ->
+                async(Dispatchers.IO) {
+                    semaphore.withPermit {
+                        symbol to candleCacheService.getDailyCandles(
+                            token = token,
+                            symbol = symbol,
+                            from = tradeDate.minusDays(CANDLE_HISTORY_CALENDAR_DAYS),
+                            to = tradeDate,
+                        ).sortedBy { candle -> candle.candleDate }
+                    }
                 }
-            }
-        }.awaitAll().toMap()
+            }.awaitAll().toMap()
     }
 
-    private suspend fun loadCandlesForCandidate(
-        candidate: DeliveryBreakoutStage1Candidate,
-        fromDate: LocalDate,
-        toDate: LocalDate,
-    ): List<DailyCandle> {
-        return candleCacheService.getDailyCandles(
-            token = candidate.instrumentToken,
-            symbol = candidate.symbol,
-            from = fromDate,
-            to = toDate,
-        ).sortedBy { candle -> candle.candleDate }
+    private fun buildDashboardRow(
+        event: DeliveryBreakoutEvent,
+        candles: List<DailyCandle>,
+    ): DeliveryBreakoutDashboardRow {
+        val eventDate = LocalDate.parse(event.eventDate)
+        val candleIndex = candles.indexOfFirst { candle -> candle.candleDate == eventDate }
+        val close = candles.getOrNull(candleIndex)?.close?.roundTo2()
+        val prevClose = if (candleIndex > 0) candles[candleIndex - 1].close.roundTo2() else null
+
+        return DeliveryBreakoutDashboardRow(
+            symbol = event.symbol,
+            instrument_token = event.instrumentToken,
+            event_date = event.eventDate,
+            event_type = event.eventType,
+            close = close,
+            prev_close = prevClose,
+            close_pct_change = DeliveryBreakoutAnalyzer.calculatePctChange(candles, eventDate),
+            fifty_two_week_high = candles.maxOfOrNull { candle -> candle.high }?.roundTo2(),
+            fifty_two_week_low = candles.minOfOrNull { candle -> candle.low }?.roundTo2(),
+            volume = event.volume,
+            delivery_quantity = event.deliveryQuantity,
+            delivery_percentage = event.deliveryPercentage,
+            average_volume_10d = event.averageVolume10d?.roundTo2(),
+            average_delivery_quantity_10d = event.averageDeliveryQuantity10d?.roundTo2(),
+            volume_ratio = event.volumeRatio,
+            delivery_ratio = event.deliveryRatio,
+        )
     }
 
-    private fun buildDeliverySeries(
-        history: List<StockDeliveryDaily>,
-        currentRow: StockDeliveryDaily,
-    ): List<StockDeliveryDaily> {
-        return (history + currentRow)
-            .distinctBy { row -> row.tradingDate }
-            .sortedBy { row -> row.tradingDate }
+    private fun eventPriority(eventType: String): Int = when (eventType) {
+        EVENT_BOTH -> 0
+        EVENT_DELIVERY_ONLY -> 1
+        else -> 2
     }
+
+    private data class ResolvedWatchlist(
+        val key: String,
+        val members: List<IndexConstituentUpsertRow>,
+    )
 
     private companion object {
-        private const val DELIVERY_HISTORY_CALENDAR_DAYS = 15L
+        private const val EVENT_BOTH = "BOTH"
+        private const val EVENT_DELIVERY_ONLY = "DELIVERY_ONLY"
+        private const val EVENT_VOLUME_ONLY = "VOLUME_ONLY"
+        private const val TRADING_DATE_LOOKBACK_CALENDAR_DAYS = 90L
         private const val CANDLE_HISTORY_CALENDAR_DAYS = 370L
         private const val MAX_PARALLEL_SYMBOL_LOADS = 16
     }

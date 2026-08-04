@@ -2043,36 +2043,36 @@ export interface VolumeShockerDetailResponse {
 // ==================== Delivery Breakout Dashboard ====================
 
 export interface DeliveryBreakoutDashboardMeta {
+  watchlist_key: string;
   trade_date: string;
+  window_start_date: string;
+  window_end_date: string;
   scanned_count: number;
-  liquidity_eligible_count: number;
-  shortlisted_count: number;
-  confirmed_breakout_count: number;
-  quiet_clue_count: number;
+  data_available_count: number;
+  event_count: number;
+  both_count: number;
+  delivery_only_count: number;
+  volume_only_count: number;
+  no_event_count: number;
 }
 
 export interface DeliveryBreakoutDashboardRow {
   symbol: string;
-  trade_date: string;
+  instrument_token: number;
+  event_date: string;
+  event_type: "BOTH" | "DELIVERY_ONLY" | "VOLUME_ONLY" | string;
   close: number | null;
   prev_close: number | null;
   close_pct_change: number | null;
   fifty_two_week_high: number | null;
   fifty_two_week_low: number | null;
-  volume: number;
-  delivery_quantity: number;
+  volume: number | null;
+  delivery_quantity: number | null;
   delivery_percentage: number | null;
-  prev_volume: number;
-  prev_delivery_quantity: number;
-  volume_ratio: number;
-  delivery_ratio: number;
-  has_quiet_clue: boolean;
-  quiet_clue_day: string | null;
-  is_confirmed_breakout_today: boolean;
-  sma200: number | null;
-  distance_from_sma200_pct: number | null;
-  is_near_200_sma: boolean | null;
-  label: string;
+  average_volume_10d: number | null;
+  average_delivery_quantity_10d: number | null;
+  volume_ratio: number | null;
+  delivery_ratio: number | null;
 }
 
 export interface DeliveryBreakoutDashboardResponse {

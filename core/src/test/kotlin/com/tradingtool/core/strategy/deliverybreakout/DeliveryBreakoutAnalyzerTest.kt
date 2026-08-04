@@ -1,96 +1,127 @@
 package com.tradingtool.core.strategy.deliverybreakout
 
-import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.delivery.model.DeliveryReconciliationStatus
 import com.tradingtool.core.delivery.model.StockDeliveryDaily
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 import java.time.OffsetDateTime
 
 class DeliveryBreakoutAnalyzerTest {
-    private val config = DeliveryBreakoutConfig(volumeMultiplier = 2.0, deliveryMultiplier = 2.0)
+    private val tradeDate = LocalDate.of(2026, 6, 23)
+    private val evaluationDates = listOf(tradeDate)
 
     @Test
-    fun `stage1 candidate requires both volume and delivery to beat prior day by multiplier`() {
-        val tradeDate = LocalDate.of(2026, 6, 23)
-        val history = listOf(
-            deliveryRow(
-                tradingDate = tradeDate.minusDays(1),
-                volume = 10_000L,
-                deliveryQuantity = 5_000L,
-            )
-        )
-        val current = deliveryRow(
-            tradingDate = tradeDate,
-            volume = 20_000L,
-            deliveryQuantity = 10_000L,
+    fun `detects both volume and delivery shocks`() {
+        val events = DeliveryBreakoutAnalyzer.buildEvents(
+            symbol = "TEST",
+            instrumentToken = 101L,
+            history = baselineRows() + deliveryRow(tradeDate, 200L, 100L),
+            evaluationDates = evaluationDates,
+            baselineSessions = 10,
+            shockMultiplier = 2.0,
         )
 
-        val candidate = requireNotNull(
-            DeliveryBreakoutAnalyzer.buildStage1Candidate(
-                row = current,
-                history = history,
-                config = config,
-            ),
-        )
-
-        assertEquals(20_000L, candidate.volume)
-        assertEquals(10_000L, candidate.prevVolume)
-        assertEquals(5_000L, candidate.prevDeliveryQuantity)
-        assertEquals(2.0, candidate.volumeRatio)
-        assertEquals(2.0, candidate.deliveryRatio)
+        assertEquals(1, events.size)
+        assertEquals("BOTH", events.single().eventType)
+        assertEquals(2.0, events.single().volumeRatio)
+        assertEquals(2.0, events.single().deliveryRatio)
     }
 
     @Test
-    fun `stage1 candidate rejects if volume or delivery fails to beat multiplier`() {
-        val tradeDate = LocalDate.of(2026, 6, 23)
-        val history = listOf(
-            deliveryRow(
-                tradingDate = tradeDate.minusDays(1),
-                volume = 10_000L,
-                deliveryQuantity = 5_000L,
-            )
+    fun `detects volume-only and delivery-only shocks`() {
+        val volumeOnly = DeliveryBreakoutAnalyzer.buildEvents(
+            symbol = "TEST",
+            instrumentToken = 101L,
+            history = baselineRows() + deliveryRow(tradeDate, 200L, 50L),
+            evaluationDates = evaluationDates,
+            baselineSessions = 10,
+            shockMultiplier = 2.0,
         )
-        
-        // Volume high enough, delivery too low
-        assertNull(
-            DeliveryBreakoutAnalyzer.buildStage1Candidate(
-                row = deliveryRow(tradingDate = tradeDate, volume = 20_000L, deliveryQuantity = 9_000L),
-                history = history,
-                config = config,
-            )
+        val deliveryOnly = DeliveryBreakoutAnalyzer.buildEvents(
+            symbol = "TEST",
+            instrumentToken = 101L,
+            history = baselineRows() + deliveryRow(tradeDate, 100L, 100L),
+            evaluationDates = evaluationDates,
+            baselineSessions = 10,
+            shockMultiplier = 2.0,
         )
-        
-        // Delivery high enough, volume too low
-        assertNull(
-            DeliveryBreakoutAnalyzer.buildStage1Candidate(
-                row = deliveryRow(tradingDate = tradeDate, volume = 19_000L, deliveryQuantity = 10_000L),
-                history = history,
-                config = config,
-            )
-        )
+
+        assertEquals("VOLUME_ONLY", volumeOnly.single().eventType)
+        assertEquals("DELIVERY_ONLY", deliveryOnly.single().eventType)
     }
 
     @Test
-    fun `stage1 candidate rejects rows with no history`() {
-        val tradeDate = LocalDate.of(2026, 6, 23)
-        val candidate = DeliveryBreakoutAnalyzer.buildStage1Candidate(
-            row = deliveryRow(tradingDate = tradeDate, volume = 20_000L, deliveryQuantity = 9_000L),
-            history = emptyList(),
-            config = config,
+    fun `does not emit a non-shock day`() {
+        val events = DeliveryBreakoutAnalyzer.buildEvents(
+            symbol = "TEST",
+            instrumentToken = 101L,
+            history = baselineRows() + deliveryRow(tradeDate, 150L, 75L),
+            evaluationDates = evaluationDates,
+            baselineSessions = 10,
+            shockMultiplier = 2.0,
         )
 
-        assertNull(candidate)
+        assertTrue(events.isEmpty())
+    }
+
+    @Test
+    fun `uses exactly the preceding ten sessions and ignores future rows`() {
+        val events = DeliveryBreakoutAnalyzer.buildEvents(
+            symbol = "TEST",
+            instrumentToken = 101L,
+            history = baselineRows() +
+                deliveryRow(tradeDate, 150L, 75L) +
+                deliveryRow(tradeDate.plusDays(1), 10_000L, 10_000L),
+            evaluationDates = evaluationDates,
+            baselineSessions = 10,
+            shockMultiplier = 2.0,
+        )
+
+        assertTrue(events.isEmpty())
+    }
+
+    @Test
+    fun `emits a volume event when delivery data is missing`() {
+        val events = DeliveryBreakoutAnalyzer.buildEvents(
+            symbol = "TEST",
+            instrumentToken = 101L,
+            history = baselineRows() + deliveryRow(tradeDate, 200L, null),
+            evaluationDates = evaluationDates,
+            baselineSessions = 10,
+            shockMultiplier = 2.0,
+        )
+
+        assertEquals("VOLUME_ONLY", events.single().eventType)
+        assertEquals(null, events.single().deliveryQuantity)
+    }
+
+    @Test
+    fun `emits a delivery event when volume data is missing`() {
+        val events = DeliveryBreakoutAnalyzer.buildEvents(
+            symbol = "TEST",
+            instrumentToken = 101L,
+            history = baselineRows() + deliveryRow(tradeDate, null, 100L),
+            evaluationDates = evaluationDates,
+            baselineSessions = 10,
+            shockMultiplier = 2.0,
+        )
+
+        assertEquals("DELIVERY_ONLY", events.single().eventType)
+        assertEquals(null, events.single().volume)
+    }
+
+    private fun baselineRows(): List<StockDeliveryDaily> {
+        return (10 downTo 1).map { offset ->
+            deliveryRow(tradeDate.minusDays(offset.toLong()), 100L, 50L)
+        }
     }
 
     private fun deliveryRow(
         tradingDate: LocalDate,
-        volume: Long,
-        deliveryQuantity: Long,
+        volume: Long?,
+        deliveryQuantity: Long?,
     ): StockDeliveryDaily {
         return StockDeliveryDaily(
             instrumentToken = 101L,
@@ -106,19 +137,6 @@ class DeliveryBreakoutAnalyzerTest {
             sourceFileName = null,
             sourceUrl = null,
             fetchedAt = OffsetDateTime.parse("2026-06-23T12:00:00Z"),
-        )
-    }
-
-    private fun candle(date: LocalDate, close: Double): DailyCandle {
-        return DailyCandle(
-            instrumentToken = 101L,
-            symbol = "TEST",
-            candleDate = date,
-            open = close,
-            high = close + 1.0,
-            low = close - 1.0,
-            close = close,
-            volume = 20_000L,
         )
     }
 }

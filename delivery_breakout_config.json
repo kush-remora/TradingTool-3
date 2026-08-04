@@ -1,5 +1,5 @@
 {
-  "volumeMultiplier" : 3.0,
-  "deliveryMultiplier" : 3.0,
-  "minCurrentVolume" : 10000
+  "shockMultiplier" : 2.0,
+  "baselineSessions" : 10,
+  "scanSessions" : 10
 }

@@ -3,6 +3,7 @@ package com.tradingtool.core.strategy.deliverybreakout
 import com.google.inject.Inject
 import com.google.inject.Singleton
 import com.tradingtool.core.delivery.model.StockDeliveryDaily
+import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
 import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVParser
 import org.slf4j.LoggerFactory
@@ -22,6 +23,17 @@ class DeliveryBreakoutEtfService @Inject constructor() {
 
         return rows.filterNot { row ->
             etfSymbols.contains(normalizeSymbol(row.symbol))
+        }
+    }
+
+    fun filterNonEtfMembers(members: List<IndexConstituentUpsertRow>): List<IndexConstituentUpsertRow> {
+        val etfSymbols = loadEtfSymbols()
+        if (etfSymbols.isEmpty()) {
+            return members
+        }
+
+        return members.filterNot { member ->
+            etfSymbols.contains(normalizeSymbol(member.symbol))
         }
     }
 

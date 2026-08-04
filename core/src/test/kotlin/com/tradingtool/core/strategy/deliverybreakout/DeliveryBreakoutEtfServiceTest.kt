@@ -2,6 +2,7 @@ package com.tradingtool.core.strategy.deliverybreakout
 
 import com.tradingtool.core.delivery.model.DeliveryReconciliationStatus
 import com.tradingtool.core.delivery.model.StockDeliveryDaily
+import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -62,6 +63,22 @@ class DeliveryBreakoutEtfServiceTest {
         }
     }
 
+    @Test
+    fun `filterNonEtfMembers removes ETF watchlist members`() {
+        withTempEtfFile(
+            """
+            Symbol,Underlying,SecurityName
+            NIFTYBEES,Nifty50,ETF One
+            """.trimIndent(),
+        ) {
+            val filteredMembers = DeliveryBreakoutEtfService().filterNonEtfMembers(
+                listOf(member(symbol = "NIFTYBEES", token = 101L), member(symbol = "RELIANCE", token = 202L)),
+            )
+
+            assertEquals(listOf("RELIANCE"), filteredMembers.map { member -> member.symbol })
+        }
+    }
+
     private fun withTempEtfFile(csvBody: String, block: () -> Unit) {
         val tempFile = kotlin.io.path.createTempFile(prefix = "delivery-breakout-etf-", suffix = ".csv")
         val previous = System.getProperty(DeliveryBreakoutEtfService.ETF_FILE_PATH_PROPERTY)
@@ -99,8 +116,21 @@ class DeliveryBreakoutEtfServiceTest {
             delivQty = 60_000L,
             delivPer = 60.0,
             sourceFileName = null,
-            sourceUrl = null,
+            sourceUrl = "",
             fetchedAt = OffsetDateTime.parse("2026-06-24T12:00:00Z"),
+        )
+    }
+
+    private fun member(symbol: String, token: Long): IndexConstituentUpsertRow {
+        return IndexConstituentUpsertRow(
+            indexKey = "growth_watchlist",
+            symbol = symbol,
+            instrumentToken = token,
+            companyName = symbol,
+            industry = "Technology",
+            series = "EQ",
+            isinCode = "ISIN",
+            sourceUrl = "",
         )
     }
 }
