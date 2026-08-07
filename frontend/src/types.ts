@@ -470,6 +470,40 @@ export interface StockDetailResponse {
   fundamentals: StockFundamentals;
   days: DayDetail[];
   delivery_days: DeliveryDayDetail[];
+  momentum_evidence?: MomentumEvidence | null;
+}
+
+export interface MomentumWeeklyReturn {
+  week_start: string;
+  week_end: string;
+  return_pct: number;
+}
+
+export interface MomentumParticipationEvent {
+  event_date: string;
+  close: number;
+  volume: number;
+  volume_ratio: number;
+  daily_return_pct: number | null;
+  price_since_event_pct: number;
+  delivery_percentage: number | null;
+}
+
+export type MomentumDataStatus = "AVAILABLE" | "INSUFFICIENT_HISTORY" | "NO_CANDLES";
+
+export interface MomentumEvidence {
+  as_of_date: string;
+  current_close: number | null;
+  sma200: number | null;
+  above_sma200: boolean | null;
+  distance_from_sma200_pct: number | null;
+  fifty_two_week_high: number | null;
+  distance_from_fifty_two_week_high_pct: number | null;
+  weekly_returns: MomentumWeeklyReturn[];
+  participation_events: MomentumParticipationEvent[];
+  participation_threshold: number;
+  participation_lookback_days: number;
+  data_status: MomentumDataStatus;
 }
 
 export interface StockFundamentals {
@@ -2211,6 +2245,7 @@ export interface WeeklyPriceWatchlistRow {
   companyName: string;
   instrumentToken: number;
   days: WeeklyPriceWatchlistDay[];
+  momentum_evidence?: MomentumEvidence | null;
 }
 
 export interface WeeklyPriceWatchlistScannerResponse {

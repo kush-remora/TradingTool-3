@@ -1,8 +1,10 @@
-import { Alert, Button, Card, Empty, Select, Space, Spin, Table, Typography } from "antd";
+import { Alert, Button, Card, Collapse, Empty, Segmented, Select, Space, Spin, Table, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState } from "react";
 import type { UniverseOptionsResponse, WeeklyPriceWatchlistScannerResponse } from "../types";
 import { WeeklyStructureIndicator } from "../components/WeeklyStructureIndicator";
+import { MomentumEvidenceSummary, MomentumParticipationTable } from "../components/MomentumEvidencePanel";
+import { useStockQuotes } from "../hooks/useStockQuotes";
 import { getJson } from "../utils/api";
 import { buildWeeklyPriceSummaries, type WeeklyPriceDay, type WeeklyPriceSummary, type WeeklyStructure } from "../utils/threeWeekStockReview";
 
@@ -29,6 +31,7 @@ interface WatchlistReviewCard {
   companyName: string;
   summaries: WeeklyPriceSummary[];
   dayByDate: Map<string, WeeklyPriceWatchlistScannerResponse["rows"][number]["days"][number]>;
+  momentumEvidence: WeeklyPriceWatchlistScannerResponse["rows"][number]["momentum_evidence"];
 }
 
 function formatPrice(value: number): string {
@@ -68,6 +71,7 @@ function buildCards(response: WeeklyPriceWatchlistScannerResponse | null): Watch
     companyName: row.companyName,
     summaries: [...buildWeeklyPriceSummaries(toDayDetails(row.days), 4)].reverse(),
     dayByDate: new Map(row.days.map((day) => [day.date, day])),
+    momentumEvidence: row.momentum_evidence,
   }));
 }
 
@@ -78,6 +82,7 @@ export function ThreeWeekWatchlistReviewPage({ onOpenStockReview }: ThreeWeekWat
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [loadingScan, setLoadingScan] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [momentumFilter, setMomentumFilter] = useState<"ALL" | "ABOVE_200_DMA">("ALL");
 
   useEffect(() => {
     let active = true;
@@ -120,6 +125,14 @@ export function ThreeWeekWatchlistReviewPage({ onOpenStockReview }: ThreeWeekWat
   }, [selectedWatchlist]);
 
   const cards = useMemo(() => buildCards(data), [data]);
+  const quoteSymbols = useMemo(() => cards.map((card) => card.symbol), [cards]);
+  const { quotesBySymbol } = useStockQuotes(quoteSymbols);
+  const visibleCards = useMemo(
+    () => momentumFilter === "ABOVE_200_DMA"
+      ? cards.filter((card) => card.momentumEvidence?.above_sma200 === true)
+      : cards,
+    [cards, momentumFilter],
+  );
   const weeklyColumns: ColumnsType<WatchlistWeeklyRow> = [
     { title: "Week", dataIndex: "week", key: "week", width: 120 },
     { title: "Low", dataIndex: "low", key: "low", width: 85, render: formatPrice },
@@ -138,29 +151,56 @@ export function ThreeWeekWatchlistReviewPage({ onOpenStockReview }: ThreeWeekWat
           <Space orientation="vertical" size={8} style={{ width: "100%" }}>
             <Title level={3} style={{ margin: 0 }}>Three-Week Stock Review + Current Week</Title>
             <Text type="secondary">Compare weekly highs, lows, ranges, delivery, and volume across one watchlist. Select a stock's review button for its daily detail.</Text>
-            <Select
-              aria-label="Watchlist"
-              loading={loadingOptions}
-              value={selectedWatchlist}
-              onChange={setSelectedWatchlist}
-              placeholder="Select a watchlist"
-              style={{ width: 360, maxWidth: "100%" }}
-              options={options.map((option) => ({ value: option.value, label: `${option.label} (${option.count})` }))}
-            />
+            <Space wrap size={12}>
+              <Select
+                aria-label="Watchlist"
+                loading={loadingOptions}
+                value={selectedWatchlist}
+                onChange={setSelectedWatchlist}
+                placeholder="Select a watchlist"
+                style={{ width: 360, maxWidth: "100%" }}
+                options={options.map((option) => ({ value: option.value, label: `${option.label} (${option.count})` }))}
+              />
+              <Segmented
+                aria-label="Momentum filter"
+                value={momentumFilter}
+                onChange={(value) => setMomentumFilter(value as "ALL" | "ABOVE_200_DMA")}
+                options={[{ label: "All stocks", value: "ALL" }, { label: "Above 200 DMA", value: "ABOVE_200_DMA" }]}
+              />
+            </Space>
+            {data && <Text type="secondary" style={{ fontSize: 12 }}>
+              Showing {visibleCards.length} of {cards.length} stocks · momentum evidence is raw market data, not a recommendation.
+            </Text>}
           </Space>
         </Card>
 
         {error && <Alert type="error" message={error} showIcon />}
         {!selectedWatchlist && !loadingOptions && <Empty description="Select a watchlist to compare its three-week price structure." />}
         {loadingScan && <Spin />}
-        {data && !loadingScan && cards.length === 0 && <Empty description="No stocks are available in this watchlist." />}
-        {cards.map((card) => (
+        {data && !loadingScan && visibleCards.length === 0 && <Empty description={momentumFilter === "ABOVE_200_DMA" ? "No stocks are above the 200 DMA." : "No stocks are available in this watchlist."} />}
+        {visibleCards.map((card) => (
           <Card
             key={card.symbol}
             size="small"
+            data-testid={`watchlist-stock-card-${card.symbol}`}
             title={<Space size={8}><Text strong>{card.symbol}</Text><Text type="secondary">{card.companyName}</Text></Space>}
             extra={<Button size="small" onClick={() => onOpenStockReview(card.symbol)}>Open review</Button>}
           >
+            <div style={{ marginBottom: 10, padding: "8px 10px", background: "#fafafa", borderRadius: 6 }}>
+              <Text type="secondary" style={{ display: "block", fontSize: 11, marginBottom: 4 }}>MOMENTUM EVIDENCE</Text>
+              <MomentumEvidenceSummary evidence={card.momentumEvidence} />
+            </div>
+            {card.momentumEvidence && card.momentumEvidence.participation_events.length > 0 && (
+              <Collapse
+                size="small"
+                items={[{
+                  key: "volume-events",
+                  label: `Volume events · last ${card.momentumEvidence.participation_lookback_days} days (${card.momentumEvidence.participation_events.length})`,
+                  children: <MomentumParticipationTable evidence={card.momentumEvidence} currentLtp={quotesBySymbol[card.symbol]?.ltp} />,
+                }]}
+                style={{ marginBottom: 10 }}
+              />
+            )}
             {card.summaries.length === 0 ? <Text type="secondary">No recent daily history.</Text> : <>
               <Text type="secondary" style={{ display: "block", marginBottom: 8, fontSize: 12 }}>Structure: ↑ higher high + higher low, ↓ lower high + lower low, → mixed or unchanged.</Text>
               <Table<WatchlistWeeklyRow>

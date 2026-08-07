@@ -8,6 +8,8 @@ import com.tradingtool.core.database.StockDeliveryJdbiHandler
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
 import com.tradingtool.core.model.screener.UniverseOption
 import com.tradingtool.core.model.screener.UniverseOptionsResponse
+import com.tradingtool.core.strategy.momentum.PARTICIPATION_DELIVERY_HISTORY_SESSIONS
+import com.tradingtool.core.strategy.momentum.calculateMomentumEvidence
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -53,14 +55,21 @@ class WeeklyPriceWatchlistScannerService @Inject constructor(
     }
 
     private suspend fun buildRow(member: IndexConstituentUpsertRow, toDate: LocalDate): WeeklyPriceWatchlistRow {
-        val deliveryByDate = deliveryHandler.read { dao -> dao.findRecentByInstrumentToken(member.instrumentToken, toDate.plusDays(1), HISTORY_CALENDAR_DAYS.toInt()) }
-            .associate { delivery -> delivery.tradingDate.toString() to delivery.delivPer }
-        val days = candleCacheService.getDailyCandles(
+        val deliveryByDate = deliveryHandler.read { dao -> dao.findRecentByInstrumentToken(member.instrumentToken, toDate.plusDays(1), MOMENTUM_DELIVERY_HISTORY_SESSIONS) }
+            .associate { delivery -> delivery.tradingDate to delivery.delivPer }
+        val allCandles = candleCacheService.getDailyCandles(
             token = member.instrumentToken,
             symbol = member.symbol,
-            from = toDate.minusDays(HISTORY_CALENDAR_DAYS),
+            from = toDate.minusDays(MOMENTUM_HISTORY_CALENDAR_DAYS),
             to = toDate,
         ).sortedBy { candle -> candle.candleDate }
+        val momentumEvidence = calculateMomentumEvidence(
+            candles = allCandles,
+            asOfDate = toDate,
+            deliveryPercentageByDate = deliveryByDate,
+        )
+        val days = allCandles
+            .filter { candle -> !candle.candleDate.isBefore(toDate.minusDays(DISPLAY_HISTORY_CALENDAR_DAYS)) }
             .map { candle ->
                 WeeklyPriceWatchlistDay(
                     date = candle.candleDate.toString(),
@@ -69,14 +78,22 @@ class WeeklyPriceWatchlistScannerService @Inject constructor(
                     low = candle.low,
                     close = candle.close,
                     volume = candle.volume,
-                    deliveryPercentage = deliveryByDate[candle.candleDate.toString()],
+                    deliveryPercentage = deliveryByDate[candle.candleDate],
                 )
             }
-        return WeeklyPriceWatchlistRow(member.symbol, member.companyName, member.instrumentToken, days)
+        return WeeklyPriceWatchlistRow(
+            symbol = member.symbol,
+            companyName = member.companyName,
+            instrumentToken = member.instrumentToken,
+            days = days,
+            momentumEvidence = momentumEvidence,
+        )
     }
 
     private companion object {
-        const val HISTORY_CALENDAR_DAYS = 60L
+        const val DISPLAY_HISTORY_CALENDAR_DAYS = 60L
+        const val MOMENTUM_HISTORY_CALENDAR_DAYS = 400L
+        const val MOMENTUM_DELIVERY_HISTORY_SESSIONS = PARTICIPATION_DELIVERY_HISTORY_SESSIONS
         const val MAX_PARALLEL_CANDLE_READS = 12
     }
 }

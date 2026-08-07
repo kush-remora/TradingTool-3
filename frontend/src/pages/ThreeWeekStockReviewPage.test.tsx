@@ -4,6 +4,7 @@ import { ThreeWeekStockReviewPage } from "./ThreeWeekStockReviewPage";
 import { buildWeeklyPriceSummaries, buildWeeklyPriceTimelines } from "../utils/threeWeekStockReview";
 
 const useStockDetailMock = vi.fn();
+const useLiveMarketDataMock = vi.fn(() => null);
 
 vi.mock("../hooks/useInstrumentSearch", () => ({
   useInstrumentSearch: () => ({
@@ -21,6 +22,10 @@ vi.mock("../hooks/useInstrumentSearch", () => ({
 
 vi.mock("../hooks/useStockDetail", () => ({
   useStockDetail: (...args: unknown[]) => useStockDetailMock(...args),
+}));
+
+vi.mock("../hooks/useLiveMarketData", () => ({
+  useLiveMarketData: (...args: unknown[]) => useLiveMarketDataMock(...args),
 }));
 
 const useInstrumentNotesMock = vi.fn();
@@ -253,6 +258,49 @@ describe("ThreeWeekStockReviewPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Select INFY" }));
 
     expect(screen.getByTestId("existing-stock-notes")).toHaveTextContent(/1\.\s*Watch for a spring below support\s*29 Jul 2026/);
+  });
+
+  it("shows the selected stock's momentum evidence separately from interpretation", () => {
+    useStockDetailMock.mockReturnValue({
+      data: {
+        symbol: "INFY",
+        exchange: "NSE",
+        avg_volume_20d: 1000,
+        pivot_levels: null,
+        fundamentals: { currentPrice: 112, fiftyTwoWeekLow: 80, fiftyTwoWeekHigh: 120, sma200: 100 },
+        days: [],
+        delivery_days: [],
+        momentum_evidence: {
+          as_of_date: "2026-07-31",
+          current_close: 112,
+          sma200: 100,
+          above_sma200: true,
+          distance_from_sma200_pct: 12,
+          fifty_two_week_high: 120,
+          distance_from_fifty_two_week_high_pct: -6.67,
+          weekly_returns: [{ week_start: "2026-07-27", week_end: "2026-07-31", return_pct: 4.8 }],
+          participation_events: [{ event_date: "2026-07-29", close: 110, volume: 2400000, volume_ratio: 2.4, daily_return_pct: 3.1, price_since_event_pct: 2.2, delivery_percentage: 58.4 }],
+          participation_threshold: 2,
+          participation_lookback_days: 90,
+          data_status: "AVAILABLE",
+        },
+      },
+      loading: false,
+      error: null,
+    });
+    render(<ThreeWeekStockReviewPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Select INFY" }));
+
+    expect(screen.getByTestId("momentum-evidence-panel")).toBeInTheDocument();
+    expect(screen.getByText("Momentum evidence")).toBeInTheDocument();
+    expect(screen.getByText("High-volume days: 1 · lookback: 90 days")).toBeInTheDocument();
+    expect(screen.getByText("Dates: 29 Jul")).toBeInTheDocument();
+    expect(screen.getByText("-6.67% from 52-week high")).toBeInTheDocument();
+    expect(screen.getByText("Distance from 52-week high")).toBeInTheDocument();
+    expect(screen.getAllByRole("columnheader", { name: "Close" }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole("columnheader", { name: "Delivery" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Since event" })).toBeInTheDocument();
   });
 
   it("selects the NSE equity variant when the URL uses its base symbol", async () => {

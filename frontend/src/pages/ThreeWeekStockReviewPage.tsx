@@ -6,8 +6,10 @@ import { LiveMarketWidget } from "../components/LiveMarketWidget";
 import { BuySellChangeCalculator } from "../components/BuySellChangeCalculator";
 import { FloatingInstrumentNotes } from "../components/FloatingInstrumentNotes";
 import { WeeklyStructureIndicator } from "../components/WeeklyStructureIndicator";
+import { MomentumEvidencePanel } from "../components/MomentumEvidencePanel";
 import { useInstrumentSearch } from "../hooks/useInstrumentSearch";
 import { useInstrumentNotes } from "../hooks/useInstrumentNotes";
+import { useLiveMarketData } from "../hooks/useLiveMarketData";
 import { useStockDetail } from "../hooks/useStockDetail";
 import type { DeliveryDayDetail, InstrumentSearchResult } from "../types";
 import {
@@ -109,6 +111,7 @@ export function ThreeWeekStockReviewPage() {
   const historyDays = showThreeMonths ? THREE_MONTH_HISTORY_DAYS : COMPACT_HISTORY_DAYS;
   const weeksToDisplay = showThreeMonths ? THREE_MONTH_WEEKS_TO_DISPLAY : WEEKS_TO_DISPLAY;
   const { data, loading, error } = useStockDetail(selectedInstrument?.trading_symbol ?? null, historyDays);
+  const liveMarketData = useLiveMarketData(selectedInstrument ? `NSE:${selectedInstrument.trading_symbol}` : "");
   const instrumentNotes = useInstrumentNotes(selectedInstrument?.instrument_token ?? null);
   const nseEquities = useMemo(
     () => allInstruments.filter((instrument) => instrument.exchange === "NSE" && instrument.instrument_type === "EQ"),
@@ -284,6 +287,7 @@ export function ThreeWeekStockReviewPage() {
         {!selectedInstrument && <Empty description="Select a stock to start the three-week review." />}
         {loading && <Spin />}
         {data && !loading && <>
+          <MomentumEvidencePanel evidence={data.momentum_evidence} currentLtp={liveMarketData?.ltp} />
           <Card title={`${data.symbol}: weekly high, low, and range`}>
             <Text type="secondary" style={{ display: "block", marginBottom: 8, fontSize: 12 }}>Structure compares each week with the preceding week: ↑ higher high + higher low, ↓ lower high + lower low, → mixed or unchanged.</Text>
             <Table

@@ -9,6 +9,8 @@ import com.tradingtool.core.model.stock.InstrumentSearchResult
 import com.tradingtool.core.model.stock.PivotLevels
 import com.tradingtool.core.model.stock.StockDetailResponse
 import com.tradingtool.core.model.stock.StockQuoteSnapshot
+import com.tradingtool.core.strategy.momentum.PARTICIPATION_DELIVERY_HISTORY_SESSIONS
+import com.tradingtool.core.strategy.momentum.calculateMomentumEvidence
 import com.tradingtool.resources.common.badRequest
 import com.tradingtool.resources.common.endpoint
 import com.tradingtool.resources.common.notFound
@@ -53,6 +55,7 @@ class StockResource @Inject constructor(
 ) {
     private companion object {
         const val DELIVERY_HISTORY_DAYS = 75
+        const val MOMENTUM_DELIVERY_HISTORY_SESSIONS = PARTICIPATION_DELIVERY_HISTORY_SESSIONS
         const val DETAIL_HISTORY_CALENDAR_DAYS = 400L
     }
 
@@ -263,13 +266,15 @@ class StockResource @Inject constructor(
             fiftyTwoWeekHigh = last252.maxOfOrNull { it.high },
             sma200 = recentCandles.takeLast(200).takeIf { it.size == 200 }?.map { it.close }?.average()?.let(::roundTo2),
         )
-        val deliveryDays = deliveryDb.read { dao ->
+        val deliveryRecords = deliveryDb.read { dao ->
             dao.findRecentByInstrumentToken(
                 instrumentToken = token,
-                beforeDate = LocalDate.now(indiaTimeZone).plusDays(1),
-                limit = DELIVERY_HISTORY_DAYS,
+                beforeDate = today.plusDays(1),
+                limit = MOMENTUM_DELIVERY_HISTORY_SESSIONS,
             )
-        }.map { delivery ->
+        }
+        val deliveryByDate = deliveryRecords.associate { delivery -> delivery.tradingDate to delivery.delivPer }
+        val deliveryDays = deliveryRecords.take(DELIVERY_HISTORY_DAYS).map { delivery ->
             DeliveryDayDetail(
                 date = delivery.tradingDate.toString(),
                 deliveryPercentage = delivery.delivPer,
@@ -287,6 +292,11 @@ class StockResource @Inject constructor(
                 fundamentals = fundamentals,
                 days = detailDays,
                 deliveryDays = deliveryDays,
+                momentumEvidence = calculateMomentumEvidence(
+                    candles = recentCandles,
+                    asOfDate = today,
+                    deliveryPercentageByDate = deliveryByDate,
+                ),
             )
         )
     }

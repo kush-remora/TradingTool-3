@@ -1,6 +1,7 @@
 package com.tradingtool.core.model.stock
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.tradingtool.core.strategy.momentum.MomentumEvidence
 
 data class DayDetail(
     val date: String,
@@ -46,4 +47,5 @@ data class StockDetailResponse(
     val fundamentals: StockFundamentals,
     val days: List<DayDetail>,
     @get:JsonProperty("delivery_days") val deliveryDays: List<DeliveryDayDetail>,
+    @get:JsonProperty("momentum_evidence") val momentumEvidence: MomentumEvidence? = null,
 )
