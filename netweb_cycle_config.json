@@ -1,0 +1,13 @@
+{
+  "baseLookbackTradingDays": 20,
+  "minimumBaseHistoryTradingDays": 15,
+  "maximumBaseWidthPct": 10.0,
+  "maximumBaseDriftPct": 8.0,
+  "breakoutBufferPct": 1.0,
+  "strongBreakoutMovePct": 5.0,
+  "drawdownTriggerPct": 8.0,
+  "minimumNewBaseTradingDays": 10,
+  "newBaseLookbackTradingDays": 10,
+  "minimumHistoryTradingDays": 25,
+  "rotationMoveTargetPct": 5.0
+}
