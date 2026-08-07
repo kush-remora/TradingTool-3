@@ -26,6 +26,8 @@ class MomentumEvidenceCalculatorTest {
         assertEquals(true, evidence.aboveSma200)
         assertEquals(320.0, evidence.fiftyTwoWeekHigh)
         assertEquals(-0.31, evidence.distanceFromFiftyTwoWeekHighPct)
+        assertEquals(289.0, evidence.thirtyDayLow)
+        assertEquals(10.38, evidence.distanceFromThirtyDayLowPct)
         assertEquals(4, evidence.weeklyReturns.size)
         assertTrue((evidence.weeklyRoc?.currentRocPct ?: 0.0) > 0.0)
         assertTrue(evidence.weeklyRoc?.changePctPoints != null)
@@ -34,9 +36,26 @@ class MomentumEvidenceCalculatorTest {
         assertEquals(2_500L, evidence.participationEvents.single().volume)
         assertEquals(2.5, evidence.participationEvents.single().volumeRatio)
         assertEquals(58.4, evidence.participationEvents.single().deliveryPercentage)
+        assertTrue(evidence.participationEvents.single().rsi14 != null)
         assertEquals(90, evidence.participationLookbackDays)
         assertEquals(eventCandle.candleDate.toString(), evidence.participationEvents.single().eventDate)
         assertTrue(evidence.participationEvents.single().priceSinceEventPct > 0.0)
+    }
+
+    @Test
+    fun `uses the lowest low from the latest thirty trading sessions`() {
+        val candles = buildWeekdayCandles(40).mapIndexed { index, candle ->
+            when (index) {
+                5 -> candle.copy(low = 70.0)
+                20 -> candle.copy(low = 80.0)
+                else -> candle.copy(low = 100.0 + index)
+            }
+        }
+
+        val evidence = calculateMomentumEvidence(candles, candles.last().candleDate)
+
+        assertEquals(80.0, evidence.thirtyDayLow)
+        assertEquals(73.75, evidence.distanceFromThirtyDayLowPct)
     }
 
     @Test

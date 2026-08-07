@@ -68,6 +68,7 @@ describe("ThreeWeekWatchlistReviewPage", () => {
     expect(screen.getAllByText(/Week of 2026-/)).toHaveLength(4);
     expect(screen.getByRole("columnheader", { name: "Low day · Del / Vol" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "52W high" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Move from 30D low" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "10D volume anomaly" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Weekly momentum" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Weekly ROC" })).toBeInTheDocument();
@@ -80,6 +81,8 @@ describe("ThreeWeekWatchlistReviewPage", () => {
     expect(screen.getByText(/High-volume days: 1 · lookback: 90 days/)).toBeInTheDocument();
     expect(screen.getByText("Dates: 29 Jun")).toBeInTheDocument();
     expect(screen.getByText("Near high")).toBeInTheDocument();
+    expect(screen.getByText("≥10% move")).toBeInTheDocument();
+    expect(screen.getByText("+15.00% from low")).toBeInTheDocument();
     expect(screen.getByText("1 day · max 2.4×")).toBeInTheDocument();
     expect(screen.getByText("≥5% weeks 2/3 · Up weeks 3/3")).toBeInTheDocument();
     expect(screen.getAllByText("Rising from negative").length).toBeGreaterThanOrEqual(1);

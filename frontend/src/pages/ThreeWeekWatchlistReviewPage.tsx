@@ -11,6 +11,7 @@ import { buildWeeklyPriceSummaries, type WeeklyPriceDay, type WeeklyPriceSummary
 const { Text, Title } = Typography;
 const NEAR_52_WEEK_HIGH_PCT = -5;
 const STRONG_WEEKLY_MOMENTUM_PCT = 5;
+const SIGNIFICANT_30D_LOW_MOVE_PCT = 10;
 
 interface ThreeWeekWatchlistReviewPageProps {
   onOpenStockReview: (symbol: string) => void;
@@ -66,6 +67,8 @@ interface WatchlistSummaryRow {
   card: WatchlistReviewCard;
   currentPrice: number | null;
   distanceFromHighPct: number | null;
+  thirtyDayLow: number | null;
+  distanceFromThirtyDayLowPct: number | null;
   volumeAnomaly: VolumeAnomalySummary;
   weeklyMomentum: WeeklyMomentumSummary;
   weeklyRoc: MomentumWeeklyRoc | null;
@@ -113,6 +116,23 @@ function calculateVolumeChangePct(currentVolume: number | null, previousVolume: 
 function calculateDistanceFromHigh(currentPrice: number | null, high: number | null): number | null {
   if (currentPrice == null || high == null || high <= 0) return null;
   return ((currentPrice - high) / high) * 100;
+}
+
+function calculateDistanceFromLow(currentPrice: number | null, low: number | null): number | null {
+  if (currentPrice == null || low == null || low <= 0) return null;
+  return ((currentPrice - low) / low) * 100;
+}
+
+function findThirtyDayLow(card: WatchlistReviewCard): number | null {
+  const evidenceLow = card.momentumEvidence?.thirty_day_low;
+  if (evidenceLow != null) return evidenceLow;
+
+  return Array.from(card.dayByDate.values())
+    .sort((left, right) => left.date.localeCompare(right.date))
+    .slice(-30)
+    .map((day) => day.low)
+    .filter((low) => low > 0 && Number.isFinite(low))
+    .reduce<number | null>((lowest, low) => lowest == null ? low : Math.min(lowest, low), null);
 }
 
 function buildRecentVolumeAnomalySummary(card: WatchlistReviewCard): VolumeAnomalySummary {
@@ -290,11 +310,14 @@ export function ThreeWeekWatchlistReviewPage({ onOpenStockReview }: ThreeWeekWat
   );
   const summaryRows = useMemo<WatchlistSummaryRow[]>(() => visibleCards.map((card) => {
     const currentPrice = quotesBySymbol[card.symbol]?.ltp ?? card.momentumEvidence?.current_close ?? null;
+    const thirtyDayLow = findThirtyDayLow(card);
     return {
       key: card.symbol,
       card,
       currentPrice,
       distanceFromHighPct: calculateDistanceFromHigh(currentPrice, card.momentumEvidence?.fifty_two_week_high ?? null),
+      thirtyDayLow,
+      distanceFromThirtyDayLowPct: calculateDistanceFromLow(currentPrice, thirtyDayLow),
       volumeAnomaly: buildRecentVolumeAnomalySummary(card),
       weeklyMomentum: buildWeeklyMomentumSummary(card),
       weeklyRoc: card.momentumEvidence?.weekly_roc ?? null,
@@ -327,6 +350,24 @@ export function ThreeWeekWatchlistReviewPage({ onOpenStockReview }: ThreeWeekWat
           <Space orientation="vertical" size={0}>
             {nearHigh && <Tag color={breakout ? "green" : "gold"} style={{ width: "fit-content", marginInlineEnd: 0 }}>{breakout ? "52W breakout" : "Near high"}</Tag>}
             <Text>{row.distanceFromHighPct == null ? "—" : `${formatSignedPercentage(row.distanceFromHighPct)} from high`}</Text>
+          </Space>
+        );
+      },
+    },
+    {
+      title: "Move from 30D low",
+      key: "distanceFromThirtyDayLowPct",
+      width: 155,
+      sorter: (left, right) => (left.distanceFromThirtyDayLowPct ?? Number.NEGATIVE_INFINITY) - (right.distanceFromThirtyDayLowPct ?? Number.NEGATIVE_INFINITY),
+      render: (_, row) => {
+        const significantMove = row.distanceFromThirtyDayLowPct != null && row.distanceFromThirtyDayLowPct >= SIGNIFICANT_30D_LOW_MOVE_PCT;
+        return (
+          <Space orientation="vertical" size={0}>
+            {significantMove && <Tag color="green" style={{ width: "fit-content", marginInlineEnd: 0 }}>≥10% move</Tag>}
+            <Text style={{ color: significantMove ? "#389e0d" : undefined, fontWeight: significantMove ? 600 : undefined }}>
+              {row.distanceFromThirtyDayLowPct == null ? "—" : `${formatSignedPercentage(row.distanceFromThirtyDayLowPct)} from low`}
+            </Text>
+            <Text type="secondary">Low {row.thirtyDayLow == null ? "—" : formatPrice(row.thirtyDayLow)}</Text>
           </Space>
         );
       },

@@ -9,6 +9,7 @@ import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
 import com.tradingtool.core.model.screener.UniverseOption
 import com.tradingtool.core.model.screener.UniverseOptionsResponse
 import com.tradingtool.core.strategy.momentum.PARTICIPATION_DELIVERY_HISTORY_SESSIONS
+import com.tradingtool.core.strategy.momentum.MOMENTUM_RSI_WARMUP_CALENDAR_DAYS
 import com.tradingtool.core.strategy.momentum.calculateMomentumEvidence
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -92,7 +93,7 @@ class WeeklyPriceWatchlistScannerService @Inject constructor(
 
     private companion object {
         const val DISPLAY_HISTORY_CALENDAR_DAYS = 60L
-        const val MOMENTUM_HISTORY_CALENDAR_DAYS = 400L
+        const val MOMENTUM_HISTORY_CALENDAR_DAYS = MOMENTUM_RSI_WARMUP_CALENDAR_DAYS
         const val MOMENTUM_DELIVERY_HISTORY_SESSIONS = PARTICIPATION_DELIVERY_HISTORY_SESSIONS
         const val MAX_PARALLEL_CANDLE_READS = 12
     }

@@ -33,6 +33,7 @@ data class MomentumWeeklyRoc(
 data class MomentumParticipationEvent(
     @get:JsonProperty("event_date") val eventDate: String,
     val close: Double,
+    @get:JsonProperty("rsi14") val rsi14: Double?,
     val volume: Long,
     @get:JsonProperty("volume_ratio") val volumeRatio: Double,
     @get:JsonProperty("daily_return_pct") val dailyReturnPct: Double?,
@@ -48,6 +49,8 @@ data class MomentumEvidence(
     @get:JsonProperty("distance_from_sma200_pct") val distanceFromSma200Pct: Double?,
     @get:JsonProperty("fifty_two_week_high") val fiftyTwoWeekHigh: Double?,
     @get:JsonProperty("distance_from_fifty_two_week_high_pct") val distanceFromFiftyTwoWeekHighPct: Double?,
+    @get:JsonProperty("thirty_day_low") val thirtyDayLow: Double?,
+    @get:JsonProperty("distance_from_thirty_day_low_pct") val distanceFromThirtyDayLowPct: Double?,
     @get:JsonProperty("weekly_returns") val weeklyReturns: List<MomentumWeeklyReturn>,
     @get:JsonProperty("weekly_roc") val weeklyRoc: MomentumWeeklyRoc?,
     @get:JsonProperty("participation_events") val participationEvents: List<MomentumParticipationEvent>,

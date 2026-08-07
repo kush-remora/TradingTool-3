@@ -19,6 +19,7 @@ interface VolumeEventRow {
   eventDate: string;
   ageDays: number;
   close: number;
+  rsi14: number | null;
   volume: number;
   volumeRatio: number;
   deliveryPercentage: number | null;
@@ -57,6 +58,10 @@ function formatVolume(value: number): string {
 function formatSignedPercent(value: number | null): string {
   if (value == null) return "—";
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function formatRsi(value: number | null): string {
+  return value == null ? "—" : value.toFixed(2);
 }
 
 function formatDelivery(value: number | null): string {
@@ -100,17 +105,21 @@ function buildStockRows(
     const currentPrice = quotesBySymbol[row.symbol]?.ltp ?? getLatestClose(row);
     const evidence = row.momentum_evidence;
     const candidateEvents = getEventCandidates(row);
-    const events = candidateEvents.slice(0, TOP_EVENT_COUNT).map((event, index) => ({
-      key: `${row.symbol}-${event.event_date}`,
-      rank: index + 1,
-      eventDate: event.event_date,
-      ageDays: evidence ? calculateAgeInDays(evidence.as_of_date, event.event_date) : 0,
-      close: event.close,
-      volume: event.volume,
-      volumeRatio: event.volume_ratio,
-      deliveryPercentage: event.delivery_percentage,
-      moveSinceEventPct: currentPrice == null || event.close <= 0 ? null : ((currentPrice - event.close) / event.close) * 100,
-    }));
+    const rankedEvents = candidateEvents.slice(0, TOP_EVENT_COUNT).map((event, index) => ({ event, rank: index + 1 }));
+    const events = [...rankedEvents]
+      .sort((left, right) => right.event.event_date.localeCompare(left.event.event_date))
+      .map(({ event, rank }) => ({
+        key: `${row.symbol}-${event.event_date}`,
+        rank,
+        eventDate: event.event_date,
+        ageDays: evidence ? calculateAgeInDays(evidence.as_of_date, event.event_date) : 0,
+        close: event.close,
+        rsi14: event.rsi14 ?? null,
+        volume: event.volume,
+        volumeRatio: event.volume_ratio,
+        deliveryPercentage: event.delivery_percentage,
+        moveSinceEventPct: currentPrice == null || event.close <= 0 ? null : ((currentPrice - event.close) / event.close) * 100,
+      }));
 
     return {
       key: row.symbol,
@@ -129,6 +138,7 @@ const eventColumns: ColumnsType<VolumeEventRow> = [
   { title: "Date", dataIndex: "eventDate", key: "eventDate", width: 90, render: formatDate },
   { title: "Age", dataIndex: "ageDays", key: "ageDays", width: 60, render: (value: number) => `${value}d` },
   { title: "Event close", dataIndex: "close", key: "close", width: 100, render: formatPrice },
+  { title: "RSI 14", dataIndex: "rsi14", key: "rsi14", width: 75, render: formatRsi },
   { title: "Volume", dataIndex: "volume", key: "volume", width: 90, render: formatVolume },
   { title: "Volume / prior 10D avg", dataIndex: "volumeRatio", key: "volumeRatio", width: 150, render: (value: number) => `${value.toFixed(2)}×` },
   { title: "Delivery", dataIndex: "deliveryPercentage", key: "deliveryPercentage", width: 90, render: formatDelivery },
@@ -240,8 +250,13 @@ export function VolumeEventReviewPage({ onOpenStockReview }: { onOpenStockReview
                   title: "Strongest event",
                   key: "strongestEvent",
                   width: 180,
-                  sorter: (left, right) => (left.events[0]?.eventDate ?? "").localeCompare(right.events[0]?.eventDate ?? ""),
-                  render: (_, row) => row.events[0] ? `${row.events[0].volumeRatio.toFixed(2)}× · ${formatDate(row.events[0].eventDate)} · ${formatSignedPercent(row.events[0].moveSinceEventPct)}` : <Text type="secondary">No ≥2× event</Text>,
+                  sorter: (left, right) => (left.events.find((event) => event.rank === 1)?.eventDate ?? "").localeCompare(right.events.find((event) => event.rank === 1)?.eventDate ?? ""),
+                  render: (_, row) => {
+                    const strongestEvent = row.events.find((event) => event.rank === 1);
+                    return strongestEvent
+                      ? `${strongestEvent.volumeRatio.toFixed(2)}× · ${formatDate(strongestEvent.eventDate)} · ${formatSignedPercent(strongestEvent.moveSinceEventPct)}`
+                      : <Text type="secondary">No ≥2× event</Text>;
+                  },
                 },
                 { title: "Action", key: "action", width: 105, render: (_, row) => <Button size="small" onClick={() => onOpenStockReview(row.symbol)}>Open review</Button> },
               ]}

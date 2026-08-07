@@ -1,9 +1,12 @@
 package com.tradingtool.core.strategy.momentum
 
 import com.tradingtool.core.candle.DailyCandle
+import com.tradingtool.core.technical.calculateRsi
 import com.tradingtool.core.technical.getNullableDouble
+import com.tradingtool.core.technical.toTa4jSeries
 import org.ta4j.core.BaseBarSeriesBuilder
 import org.ta4j.core.indicators.ROCIndicator
+import org.ta4j.core.indicators.RSIIndicator
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -41,6 +44,8 @@ fun calculateMomentumEvidence(
             distanceFromSma200Pct = null,
             fiftyTwoWeekHigh = null,
             distanceFromFiftyTwoWeekHighPct = null,
+            thirtyDayLow = null,
+            distanceFromThirtyDayLowPct = null,
             weeklyReturns = emptyList(),
             weeklyRoc = null,
             participationEvents = emptyList(),
@@ -66,6 +71,15 @@ fun calculateMomentumEvidence(
         .maxOrNull()
     val distanceFromFiftyTwoWeekHighPct = fiftyTwoWeekHigh
         ?.let { high -> ((currentCandle.close / high) - 1.0) * 100.0 }
+    val thirtyDayLow = availableCandles
+        .takeLast(THIRTY_DAY_TRADING_SESSIONS)
+        .map(DailyCandle::low)
+        .filter { low -> low > 0.0 && low.isFinite() }
+        .minOrNull()
+    val distanceFromThirtyDayLowPct = thirtyDayLow
+        ?.let { low -> ((currentCandle.close / low) - 1.0) * 100.0 }
+    val rsiIndicator = availableCandles.toTa4jSeries("momentum-rsi").calculateRsi(RSI_PERIOD)
+    val candleIndexByDate = availableCandles.mapIndexed { index, candle -> candle.candleDate to index }.toMap()
 
     return MomentumEvidence(
         asOfDate = asOfDate.toString(),
@@ -75,9 +89,18 @@ fun calculateMomentumEvidence(
         distanceFromSma200Pct = distanceFromSma200Pct?.roundTo2(),
         fiftyTwoWeekHigh = fiftyTwoWeekHigh?.roundTo2(),
         distanceFromFiftyTwoWeekHighPct = distanceFromFiftyTwoWeekHighPct?.roundTo2(),
+        thirtyDayLow = thirtyDayLow?.roundTo2(),
+        distanceFromThirtyDayLowPct = distanceFromThirtyDayLowPct?.roundTo2(),
         weeklyReturns = buildWeeklyReturns(availableCandles, asOfDate),
         weeklyRoc = buildWeeklyRoc(availableCandles, asOfDate),
-        participationEvents = buildParticipationEvents(availableCandles, asOfDate, participationThreshold, deliveryPercentageByDate),
+        participationEvents = buildParticipationEvents(
+            candles = availableCandles,
+            asOfDate = asOfDate,
+            participationThreshold = participationThreshold,
+            deliveryPercentageByDate = deliveryPercentageByDate,
+            rsiIndicator = rsiIndicator,
+            candleIndexByDate = candleIndexByDate,
+        ),
         participationThreshold = participationThreshold,
         participationLookbackDays = PARTICIPATION_LOOKBACK_CALENDAR_DAYS.toInt(),
         dataStatus = dataStatus,
@@ -155,6 +178,8 @@ private fun buildParticipationEvents(
     asOfDate: LocalDate,
     participationThreshold: Double,
     deliveryPercentageByDate: Map<LocalDate, Double?>,
+    rsiIndicator: RSIIndicator,
+    candleIndexByDate: Map<LocalDate, Int>,
 ): List<MomentumParticipationEvent> {
     val eventFromDate = asOfDate.minusDays(PARTICIPATION_LOOKBACK_CALENDAR_DAYS)
     return candles.indices.mapNotNull { index ->
@@ -174,6 +199,8 @@ private fun buildParticipationEvents(
         MomentumParticipationEvent(
             eventDate = candle.candleDate.toString(),
             close = candle.close.roundTo2(),
+            rsi14 = candleIndexByDate[candle.candleDate]
+                ?.let { index -> rsiIndicator.getNullableDouble(index)?.roundTo2() },
             volume = candle.volume,
             volumeRatio = volumeRatio.roundTo2(),
             dailyReturnPct = candles.getOrNull(index - 1)
@@ -195,6 +222,9 @@ private const val VOLUME_BASELINE_DAYS = 10
 const val PARTICIPATION_LOOKBACK_CALENDAR_DAYS = 90L
 const val PARTICIPATION_DELIVERY_HISTORY_SESSIONS = 120
 private const val FIFTY_TWO_WEEK_TRADING_SESSIONS = 252
+private const val THIRTY_DAY_TRADING_SESSIONS = 30
+private const val RSI_PERIOD = 14
 private const val WEEKLY_RETURNS_TO_DISPLAY = 4
 private const val WEEKLY_ROC_LOOKBACK_WEEKS = 3
 const val DEFAULT_PARTICIPATION_THRESHOLD = 2.0
+const val MOMENTUM_RSI_WARMUP_CALENDAR_DAYS = 5 * 365L

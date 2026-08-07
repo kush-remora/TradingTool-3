@@ -10,6 +10,7 @@ import com.tradingtool.core.model.stock.PivotLevels
 import com.tradingtool.core.model.stock.StockDetailResponse
 import com.tradingtool.core.model.stock.StockQuoteSnapshot
 import com.tradingtool.core.strategy.momentum.PARTICIPATION_DELIVERY_HISTORY_SESSIONS
+import com.tradingtool.core.strategy.momentum.MOMENTUM_RSI_WARMUP_CALENDAR_DAYS
 import com.tradingtool.core.strategy.momentum.calculateMomentumEvidence
 import com.tradingtool.resources.common.badRequest
 import com.tradingtool.resources.common.endpoint
@@ -56,7 +57,7 @@ class StockResource @Inject constructor(
     private companion object {
         const val DELIVERY_HISTORY_DAYS = 75
         const val MOMENTUM_DELIVERY_HISTORY_SESSIONS = PARTICIPATION_DELIVERY_HISTORY_SESSIONS
-        const val DETAIL_HISTORY_CALENDAR_DAYS = 400L
+        const val DETAIL_HISTORY_CALENDAR_DAYS = MOMENTUM_RSI_WARMUP_CALENDAR_DAYS
     }
 
     private val ioScope = resourceScope.ioScope

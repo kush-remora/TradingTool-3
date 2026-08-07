@@ -405,6 +405,54 @@ export interface WeeklyBaseDefinitionReport {
   rows: WeeklyBaseDefinitionRow[];
 }
 
+export type NetwebCyclePhase = "WEEKLY_ROTATION" | "BULL_RUN" | "DRAWDOWN" | "NEW_BASE";
+
+export interface NetwebCycleRequest {
+  symbol: string;
+}
+
+export interface NetwebCycleSnapshot {
+  date: string;
+  phase: NetwebCyclePhase;
+  currentPrice: number;
+  baseLow: number | null;
+  baseHigh: number | null;
+  baseWidthPct: number | null;
+  positionInBasePct: number | null;
+  dailyChangePct: number | null;
+  fiveDayReturnPct: number | null;
+  twentyDayReturnPct: number | null;
+  volumeRatio20Day: number | null;
+  expansionPeak: number | null;
+  drawdownFromPeakPct: number | null;
+  phaseStartDate: string;
+  phaseAgeTradingDays: number;
+  fivePercentMoveCount: number;
+  breakoutAboveBase: boolean;
+  confidencePct: number;
+  action: string;
+  evidence: string[];
+}
+
+export interface NetwebCycleSegment {
+  phase: NetwebCyclePhase;
+  startDate: string;
+  endDate: string;
+  tradingDays: number;
+  startPrice: number;
+  endPrice: number;
+  returnPct: number;
+}
+
+export interface NetwebCycleReport {
+  symbol: string;
+  testedFromDate: string;
+  testedToDate: string;
+  current: NetwebCycleSnapshot;
+  segments: NetwebCycleSegment[];
+  dailySnapshots: NetwebCycleSnapshot[];
+}
+
 export interface WeeklyBaseGroupBacktestRequest {
   indexKeys: string[];
 }
@@ -555,6 +603,7 @@ export interface MomentumWeeklyRoc {
 export interface MomentumParticipationEvent {
   event_date: string;
   close: number;
+  rsi14?: number | null;
   volume: number;
   volume_ratio: number;
   daily_return_pct: number | null;
@@ -572,6 +621,8 @@ export interface MomentumEvidence {
   distance_from_sma200_pct: number | null;
   fifty_two_week_high: number | null;
   distance_from_fifty_two_week_high_pct: number | null;
+  thirty_day_low?: number | null;
+  distance_from_thirty_day_low_pct?: number | null;
   weekly_returns: MomentumWeeklyReturn[];
   weekly_roc?: MomentumWeeklyRoc | null;
   participation_events: MomentumParticipationEvent[];

@@ -36,6 +36,9 @@ import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionService
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseGroupBacktestRequest
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseGroupBacktestService
 import com.tradingtool.core.strategy.weeklyreview.WeeklyPriceWatchlistScannerService
+import com.tradingtool.core.strategy.netwebcycle.NetwebCycleRequest
+import com.tradingtool.core.strategy.netwebcycle.NetwebCycleRunConfig
+import com.tradingtool.core.strategy.netwebcycle.NetwebCycleService
 import com.tradingtool.resources.common.badRequest
 import com.tradingtool.resources.common.endpoint
 import com.tradingtool.resources.common.notFound
@@ -78,6 +81,7 @@ class StrategyResource @Inject constructor(
     private val weeklyBaseGroupBacktestService: WeeklyBaseGroupBacktestService,
     private val weeklyPriceWatchlistScannerService: WeeklyPriceWatchlistScannerService,
     private val priceAcceptanceScannerService: PriceAcceptanceScannerService,
+    private val netwebCycleService: NetwebCycleService,
 ) {
     private val ioScope = resourceScope.ioScope
 
@@ -484,6 +488,27 @@ class StrategyResource @Inject constructor(
             ok(weeklyBaseDefinitionService.run(WeeklyBaseDefinitionRunConfig(body.symbol, LocalDate.now())))
         } catch (error: IllegalArgumentException) {
             badRequest(error.message ?: "Invalid weekly base definition request.")
+        }
+    }
+
+    @POST
+    @Path("/netweb-cycle/run")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runNetwebCycle(
+        request: NetwebCycleRequest?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        try {
+            ok(
+                netwebCycleService.run(
+                    NetwebCycleRunConfig(
+                        symbol = body.symbol,
+                        toDate = LocalDate.now(),
+                    ),
+                ),
+            )
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid NETWEB cycle request.")
         }
     }
 

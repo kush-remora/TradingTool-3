@@ -40,6 +40,7 @@ import { BreakoutTrackerPage } from "./pages/BreakoutTrackerPage";
 import { SilentBreakoutBacktestPage } from "./pages/SilentBreakoutBacktestPage";
 import { PriceAcceptanceScannerPage } from "./pages/PriceAcceptanceScannerPage";
 import { StockHistoryDownloadPage } from "./pages/StockHistoryDownloadPage";
+import { NetwebCycleTrackerPage } from "./pages/NetwebCycleTrackerPage";
 import type { AccumulationCaseSnapshot } from "./types";
 
 type V1PageKey =
@@ -70,7 +71,8 @@ type V1PageKey =
   | "breakout-tracker"
   | "silent-breakout-backtest"
   | "price-acceptance"
-  | "stock-history-download";
+  | "stock-history-download"
+  | "netweb-cycle";
 
 type PageKey = V1PageKey;
 
@@ -204,6 +206,11 @@ const menuItems: MenuProps["items"] = [
     label: "Breakout Tracker",
     icon: <LineChartOutlined />,
   },
+  {
+    key: "netweb-cycle",
+    label: "NETWEB Cycle Tracker",
+    icon: <LineChartOutlined />,
+  },
   { key: "trade", label: "Trade Journal", icon: <BookOutlined /> },
   { key: "stock-history-download", label: "Stock History CSV", icon: <DownloadOutlined /> },
 ];
@@ -237,6 +244,7 @@ const validPages: PageKey[] = [
   "forward-accumulation",
   "breakout-tracker",
   "stock-history-download",
+  "netweb-cycle",
 ];
 
 const restoreFallbackRoute = (): void => {
@@ -481,6 +489,7 @@ export default function App() {
             )}
             {route === "breakout-tracker" && <BreakoutTrackerPage onOpenStockReview={openStockReview} />}
             {route === "stock-history-download" && <StockHistoryDownloadPage />}
+            {route === "netweb-cycle" && <NetwebCycleTrackerPage />}
             {typeof route !== "string" && route.page === "forward-accumulation-timeline" && (
               <ForwardAccumulationTimelinePage
                 runId={route.runId}

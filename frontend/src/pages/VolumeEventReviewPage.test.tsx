@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { VolumeEventReviewPage } from "./VolumeEventReviewPage";
 
@@ -57,9 +57,21 @@ describe("VolumeEventReviewPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Expand row" }));
     expect(screen.getByRole("columnheader", { name: "Volume / prior 10D avg" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "RSI 14" })).toBeInTheDocument();
+    expect(screen.getByText("65.00")).toBeInTheDocument();
     expect(screen.getByText("5.00×")).toBeInTheDocument();
     expect(screen.getByText("3.00×")).toBeInTheDocument();
     expect(screen.getByText("2.00×")).toBeInTheDocument();
+
+    const eventTable = screen.getByRole("columnheader", { name: "Rank" }).closest("table");
+    expect(eventTable).not.toBeNull();
+    const eventRows = within(eventTable as HTMLElement).getAllByRole("row");
+    expect(eventRows[1]).toHaveTextContent("3");
+    expect(eventRows[1]).toHaveTextContent("06 Aug");
+    expect(eventRows[2]).toHaveTextContent("2");
+    expect(eventRows[2]).toHaveTextContent("15 Jul");
+    expect(eventRows[3]).toHaveTextContent("1");
+    expect(eventRows[3]).toHaveTextContent("01 Jul");
   }, 10000);
 
   it("sorts stocks by the strongest event date", async () => {
@@ -116,6 +128,7 @@ function buildEvent(eventDate: string, volumeRatio: number, close: number) {
   return {
     event_date: eventDate,
     close,
+    rsi14: 40 + volumeRatio * 5,
     volume: 500_000,
     volume_ratio: volumeRatio,
     daily_return_pct: 2,
