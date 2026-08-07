@@ -27,6 +27,8 @@ class MomentumEvidenceCalculatorTest {
         assertEquals(320.0, evidence.fiftyTwoWeekHigh)
         assertEquals(-0.31, evidence.distanceFromFiftyTwoWeekHighPct)
         assertEquals(4, evidence.weeklyReturns.size)
+        assertTrue((evidence.weeklyRoc?.currentRocPct ?: 0.0) > 0.0)
+        assertTrue(evidence.weeklyRoc?.changePctPoints != null)
         assertEquals(1, evidence.participationEvents.size)
         assertEquals(310.0, evidence.participationEvents.single().close)
         assertEquals(2_500L, evidence.participationEvents.single().volume)
@@ -61,6 +63,18 @@ class MomentumEvidenceCalculatorTest {
         assertTrue(evidence.participationEvents.all { it.eventDate <= asOfDate.toString() })
     }
 
+    @Test
+    fun `marks roc rising from negative when the latest three week speed improves`() {
+        val candles = buildWeeklyCloseCandles(listOf(100.0, 110.0, 100.0, 95.0, 90.0, 90.0, 120.0))
+
+        val evidence = calculateMomentumEvidence(candles, candles.last().candleDate)
+
+        assertEquals(MomentumRocState.RISING_FROM_NEGATIVE, evidence.weeklyRoc?.state)
+        assertEquals(26.32, evidence.weeklyRoc?.currentRocPct)
+        assertEquals(-10.0, evidence.weeklyRoc?.previousRocPct)
+        assertEquals(36.32, evidence.weeklyRoc?.changePctPoints)
+    }
+
     private fun buildWeekdayCandles(count: Int): List<DailyCandle> {
         val startDate = LocalDate.of(2025, 9, 1)
         return generateSequence(startDate) { it.plusDays(1) }
@@ -79,5 +93,24 @@ class MomentumEvidenceCalculatorTest {
                 )
             }
             .toList()
+    }
+
+    private fun buildWeeklyCloseCandles(weeklyCloses: List<Double>): List<DailyCandle> {
+        val startDate = LocalDate.of(2025, 9, 1)
+        return weeklyCloses.flatMapIndexed { weekIndex, close ->
+            (0..4).map { dayOffset ->
+                val date = startDate.plusWeeks(weekIndex.toLong()).plusDays(dayOffset.toLong())
+                DailyCandle(
+                    instrumentToken = 1L,
+                    symbol = "TEST",
+                    candleDate = date,
+                    open = close,
+                    high = close + 1.0,
+                    low = close - 1.0,
+                    close = close,
+                    volume = 1_000L,
+                )
+            }
+        }
     }
 }

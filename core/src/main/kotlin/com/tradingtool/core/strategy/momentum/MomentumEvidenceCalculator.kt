@@ -1,8 +1,13 @@
 package com.tradingtool.core.strategy.momentum
 
 import com.tradingtool.core.candle.DailyCandle
+import com.tradingtool.core.technical.getNullableDouble
+import org.ta4j.core.BaseBarSeriesBuilder
+import org.ta4j.core.indicators.ROCIndicator
+import org.ta4j.core.indicators.helpers.ClosePriceIndicator
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
 import kotlin.math.round
 
@@ -37,6 +42,7 @@ fun calculateMomentumEvidence(
             fiftyTwoWeekHigh = null,
             distanceFromFiftyTwoWeekHighPct = null,
             weeklyReturns = emptyList(),
+            weeklyRoc = null,
             participationEvents = emptyList(),
             participationThreshold = participationThreshold,
             participationLookbackDays = PARTICIPATION_LOOKBACK_CALENDAR_DAYS.toInt(),
@@ -70,6 +76,7 @@ fun calculateMomentumEvidence(
         fiftyTwoWeekHigh = fiftyTwoWeekHigh?.roundTo2(),
         distanceFromFiftyTwoWeekHighPct = distanceFromFiftyTwoWeekHighPct?.roundTo2(),
         weeklyReturns = buildWeeklyReturns(availableCandles, asOfDate),
+        weeklyRoc = buildWeeklyRoc(availableCandles, asOfDate),
         participationEvents = buildParticipationEvents(availableCandles, asOfDate, participationThreshold, deliveryPercentageByDate),
         participationThreshold = participationThreshold,
         participationLookbackDays = PARTICIPATION_LOOKBACK_CALENDAR_DAYS.toInt(),
@@ -78,11 +85,7 @@ fun calculateMomentumEvidence(
 }
 
 private fun buildWeeklyReturns(candles: List<DailyCandle>, asOfDate: LocalDate): List<MomentumWeeklyReturn> {
-    val weeklyCloses = candles
-        .groupBy { candle -> candle.candleDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)) }
-        .toSortedMap()
-        .filterKeys { weekStart -> !weekStart.plusDays(4).isAfter(asOfDate) }
-        .map { (weekStart, weekCandles) -> weekStart to weekCandles.maxBy(DailyCandle::candleDate) }
+    val weeklyCloses = completedWeeklyCloses(candles, asOfDate)
 
     return weeklyCloses
         .zipWithNext()
@@ -94,6 +97,57 @@ private fun buildWeeklyReturns(candles: List<DailyCandle>, asOfDate: LocalDate):
                 returnPct = percentageChange(previous.second.close, current.second.close).roundTo2(),
             )
         }
+}
+
+private fun buildWeeklyRoc(candles: List<DailyCandle>, asOfDate: LocalDate): MomentumWeeklyRoc {
+    val weeklyCloses = completedWeeklyCloses(candles, asOfDate)
+    if (weeklyCloses.size <= WEEKLY_ROC_LOOKBACK_WEEKS) {
+        return MomentumWeeklyRoc(
+            lookbackWeeks = WEEKLY_ROC_LOOKBACK_WEEKS,
+            currentRocPct = null,
+            previousRocPct = null,
+            changePctPoints = null,
+            state = MomentumRocState.INSUFFICIENT_HISTORY,
+        )
+    }
+
+    val series = BaseBarSeriesBuilder().withName("weekly-roc").build()
+    val ist = ZoneId.of("Asia/Kolkata")
+    weeklyCloses.forEach { (weekStart, candle) ->
+        val close = candle.close
+        series.addBar(weekStart.plusDays(4).atTime(15, 30).atZone(ist), close, close, close, close, 0.0)
+    }
+
+    val roc = ROCIndicator(ClosePriceIndicator(series), WEEKLY_ROC_LOOKBACK_WEEKS)
+    val currentIndex = series.endIndex
+    val previousIndex = currentIndex - 1
+    val currentRaw = roc.getNullableDouble(currentIndex)
+    val previousRaw = roc.getNullableDouble(previousIndex)
+    val changeRaw = if (currentRaw != null && previousRaw != null) currentRaw - previousRaw else null
+
+    return MomentumWeeklyRoc(
+        lookbackWeeks = WEEKLY_ROC_LOOKBACK_WEEKS,
+        currentRocPct = currentRaw?.roundTo2(),
+        previousRocPct = previousRaw?.roundTo2(),
+        changePctPoints = changeRaw?.roundTo2(),
+        state = determineRocState(currentRaw, previousRaw, changeRaw),
+    )
+}
+
+private fun completedWeeklyCloses(candles: List<DailyCandle>, asOfDate: LocalDate): List<Pair<LocalDate, DailyCandle>> = candles
+    .groupBy { candle -> candle.candleDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)) }
+    .toSortedMap()
+    .filterKeys { weekStart -> !weekStart.plusDays(4).isAfter(asOfDate) }
+    .map { (weekStart, weekCandles) -> weekStart to weekCandles.maxBy(DailyCandle::candleDate) }
+
+private fun determineRocState(current: Double?, previous: Double?, change: Double?): MomentumRocState {
+    if (current == null || previous == null || change == null) return MomentumRocState.INSUFFICIENT_HISTORY
+    return when {
+        change > 0.0 && previous < 0.0 -> MomentumRocState.RISING_FROM_NEGATIVE
+        change > 0.0 -> MomentumRocState.RISING_POSITIVE
+        change < 0.0 -> MomentumRocState.FALLING
+        else -> MomentumRocState.FLAT
+    }
 }
 
 private fun buildParticipationEvents(
@@ -142,4 +196,5 @@ const val PARTICIPATION_LOOKBACK_CALENDAR_DAYS = 90L
 const val PARTICIPATION_DELIVERY_HISTORY_SESSIONS = 120
 private const val FIFTY_TWO_WEEK_TRADING_SESSIONS = 252
 private const val WEEKLY_RETURNS_TO_DISPLAY = 4
+private const val WEEKLY_ROC_LOOKBACK_WEEKS = 3
 const val DEFAULT_PARTICIPATION_THRESHOLD = 2.0

@@ -115,6 +115,69 @@ export interface Sma200BacktestResponse {
   trades: Sma200BacktestTrade[];
 }
 
+// ==================== Two-Day Green Candle Backtest ====================
+
+export interface TwoDayGreenCandleBacktestRequest {
+  watchlistKey: string;
+}
+
+export interface TwoDayGreenCandleObservation {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  dailyChangePct: number | null;
+  greenDay: boolean;
+  openToClosePct: number | null;
+  lowToHighPct: number | null;
+  closeLocationPct: number | null;
+}
+
+export interface TwoDayGreenCandleBacktestTrade {
+  symbol: string;
+  instrumentToken: number;
+  setupDayOne: TwoDayGreenCandleObservation;
+  setupDayTwo: TwoDayGreenCandleObservation;
+  buyDay: TwoDayGreenCandleObservation;
+  setupVolumeRising: boolean;
+  setupMoveRising: boolean;
+  entryPrice: number;
+  targetPrice: number;
+  outcome: "TARGET_HIT" | "UNRESOLVED" | string;
+  exitDate: string | null;
+  exitPrice: number | null;
+  holdingTradingDays: number | null;
+  maximumHighSinceEntryPct: number;
+  unresolvedCloseReturnPct: number | null;
+}
+
+export interface TwoDayGreenCandleBacktestSummary {
+  setupCount: number;
+  targetHitCount: number;
+  unresolvedCount: number;
+  targetHitRatePct: number | null;
+  averageHoldingTradingDays: number | null;
+}
+
+export interface TwoDayGreenCandleSymbolReport {
+  symbol: string;
+  companyName: string | null;
+  testedFromDate: string;
+  testedToDate: string;
+  summary: TwoDayGreenCandleBacktestSummary;
+  trades: TwoDayGreenCandleBacktestTrade[];
+}
+
+export interface TwoDayGreenCandleBacktestReport {
+  watchlistKey: string;
+  testedFromDate: string;
+  testedToDate: string;
+  summary: TwoDayGreenCandleBacktestSummary;
+  symbols: TwoDayGreenCandleSymbolReport[];
+}
+
 // ==================== Silent Breakout Backtest ====================
 
 export type SilentBreakoutDataStatus = "AVAILABLE" | "MISSING_SIGNAL_CANDLE" | "PARTIAL_HISTORY";
@@ -479,6 +542,16 @@ export interface MomentumWeeklyReturn {
   return_pct: number;
 }
 
+export type MomentumRocState = "INSUFFICIENT_HISTORY" | "RISING_FROM_NEGATIVE" | "RISING_POSITIVE" | "FALLING" | "FLAT";
+
+export interface MomentumWeeklyRoc {
+  lookback_weeks: number;
+  current_roc_pct: number | null;
+  previous_roc_pct: number | null;
+  change_pct_points: number | null;
+  state: MomentumRocState;
+}
+
 export interface MomentumParticipationEvent {
   event_date: string;
   close: number;
@@ -500,6 +573,7 @@ export interface MomentumEvidence {
   fifty_two_week_high: number | null;
   distance_from_fifty_two_week_high_pct: number | null;
   weekly_returns: MomentumWeeklyReturn[];
+  weekly_roc?: MomentumWeeklyRoc | null;
   participation_events: MomentumParticipationEvent[];
   participation_threshold: number;
   participation_lookback_days: number;

@@ -26,3 +26,19 @@ The initial Classic Relative Momentum proposal was rejected as the first impleme
 - Automated execution or portfolio rebalancing.
 - Wyckoff phase classification inside the momentum scan.
 - 52-week-high triggers, portfolio exits, automated entries, and WIS rebalance rules in the first version.
+
+## Current discussion: attention-first ordering for the three-week watchlist
+
+The 20-stock watchlist should be ordered by explainable research priority, not by a hidden buy/sell score or raw return. The first stock should be the one with the freshest and strongest market evidence requiring manual review. Each priority must show its reason, such as a recent high-volume event, repeated participation during the 90-calendar-day lookback, supportive weekly structure, or a current volume expansion versus the prior 10-session average.
+
+The preferred v1 shape is now a watchlist summary table rather than a ranked queue. Each stock remains in watchlist order and receives independent, additive signal tags: near/at a 52-week high, recent 10-session volume anomaly, sustained weekly momentum around the 5% threshold, and higher-high/higher-low structure. A stock can satisfy multiple conditions simultaneously. The table is a navigation layer into the existing individual stock review, not a recommendation or a replacement for the raw evidence tables.
+
+The volume signal must remain neutral: it should say that unusual volume and delivery deserve review, not automatically call the activity accumulation, distribution, or “big money.” The individual review supplies the price response, delivery, range, and structure needed for that interpretation.
+
+The three-week review now also exposes completed-week ROC over a three-week lookback. ROC itself represents current momentum speed; the week-over-week change in ROC, shown in percentage points, represents acceleration. A rising ROC from negative is surfaced as `Rising from negative`, but ROC remains a separate sortable evidence field and does not replace the existing 5%-week, positive-week, 52-week-high, or structure signals.
+
+## Current discussion: simple volume-event scanner v1
+
+The separate v1 scanner is intentionally simpler than the momentum review. For each selected watchlist, look back 60 calendar days, use the prior 10 trading sessions as the volume baseline, and show the three largest qualifying volume events per stock where the event volume is at least 2× that baseline. The event review is evidence collection: date, age, event-day close, volume, multiplier, delivery percentage, current LTP, and price move since the event.
+
+Accumulation/distribution labels, cycle detection, “safe to buy” conclusions, and a composite score are explicitly deferred. The user will first use this raw event view and provide examples before we add interpretation rules.

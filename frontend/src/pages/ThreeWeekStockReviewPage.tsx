@@ -29,6 +29,7 @@ interface DailyPriceRow extends WeeklyPriceTimelineDay {
   key: string;
   day: string;
   deliveryPct: number | null;
+  volumeVsPrior10dAvgPct: number | null;
   lowFromOpenPct: number | null;
   highFromOpenPct: number | null;
   lowToHighPct: number | null;
@@ -56,6 +57,10 @@ function formatDeliveryPercentage(value: number | null): string {
   return value == null ? "—" : `${value.toFixed(2)}%`;
 }
 
+function formatVolumeVsPrior10dAverage(value: number | null): string {
+  return value == null ? "—" : `${value.toFixed(0)}%`;
+}
+
 function formatDistance(currentPrice: number, referencePrice: number | null): string {
   return referencePrice == null || referencePrice === 0 ? "—" : `${(((currentPrice - referencePrice) / referencePrice) * 100).toFixed(1)}%`;
 }
@@ -80,6 +85,17 @@ function calculatePercentChange(value: number, referenceValue: number): number |
 
 function calculateLowToHighPercent(low: number, high: number): number | null {
   return low === 0 ? null : ((high - low) / low) * 100;
+}
+
+function calculateVolumeVsPrior10dAverage(days: DayDetail[]): Map<string, number | null> {
+  const sortedDays = [...days].sort((left, right) => left.date.localeCompare(right.date));
+  return new Map(sortedDays.map((day, index) => {
+    const priorDays = sortedDays.slice(Math.max(0, index - 10), index);
+    if (priorDays.length < 10) return [day.date, null];
+
+    const priorAverage = priorDays.reduce((total, priorDay) => total + priorDay.volume, 0) / priorDays.length;
+    return [day.date, priorAverage > 0 ? (day.volume / priorAverage) * 100 : null];
+  }));
 }
 
 function formatPercent(value: number | null): ReactNode {
@@ -158,6 +174,10 @@ export function ThreeWeekStockReviewPage() {
     () => buildWeeklyPriceTimelines(data?.days ?? [], weeksToDisplay),
     [data?.days, weeksToDisplay],
   );
+  const volumeVsPrior10dAverageByDate = useMemo(
+    () => calculateVolumeVsPrior10dAverage(data?.days ?? []),
+    [data?.days],
+  );
   const dailyRows = useMemo<DailyPriceRow[]>(() => weeklyTimelines
     .flatMap((timeline) => timeline.days)
     .sort((left, right) => right.date.localeCompare(left.date))
@@ -166,10 +186,11 @@ export function ThreeWeekStockReviewPage() {
       key: day.date,
       day: formatDay(day.date),
       deliveryPct: deliveryByDate.get(day.date) ?? null,
+      volumeVsPrior10dAvgPct: volumeVsPrior10dAverageByDate.get(day.date) ?? null,
       lowFromOpenPct: calculatePercentChange(day.low, day.open),
       highFromOpenPct: calculatePercentChange(day.high, day.open),
       lowToHighPct: calculateLowToHighPercent(day.low, day.high),
-    })), [deliveryByDate, weeklyTimelines]);
+    })), [deliveryByDate, volumeVsPrior10dAverageByDate, weeklyTimelines]);
 
   const dailyColumns: ColumnsType<DailyPriceRow> = [
     { title: "Date", dataIndex: "date", key: "date", width: 92 },
@@ -182,6 +203,7 @@ export function ThreeWeekStockReviewPage() {
     { title: "Open → High %", dataIndex: "highFromOpenPct", key: "highFromOpenPct", width: 105, render: formatPercent },
     { title: "High %", dataIndex: "lowToHighPct", key: "lowToHighPct", width: 70, render: formatPercent },
     { title: "Vol", dataIndex: "volume", key: "volume", width: 72, render: formatCompactQuantity },
+    { title: "Vol % of prior 10D avg", dataIndex: "volumeVsPrior10dAvgPct", key: "volumeVsPrior10dAvgPct", width: 130, render: formatVolumeVsPrior10dAverage },
     { title: "Del %", dataIndex: "deliveryPct", key: "deliveryPct", width: 65, render: formatDeliveryPercentage },
     { title: "Daily %", dataIndex: "dailyMovePct", key: "dailyMovePct", width: 70, render: formatPercent },
     { title: "Week %", dataIndex: "accumulatedWeeklyPct", key: "accumulatedWeeklyPct", width: 70, render: formatPercent },
@@ -301,6 +323,9 @@ export function ThreeWeekStockReviewPage() {
             />
           </Card>
           <Card title={`${data.symbol}: ${showThreeMonths ? "last three months" : "daily data for three completed weeks + current week"}`}>
+            <Text type="secondary" style={{ display: "block", marginBottom: 8, fontSize: 12 }}>
+              Vol % of prior 10D avg = this day&apos;s volume ÷ average volume of the previous 10 trading days. Today is excluded.
+            </Text>
             <Table columns={dailyColumns} dataSource={dailyRows} pagination={false} scroll={{ x: true }} size="small" sticky onRow={(row) => ({ style: getWeeklyExtremeStyle(row) })} />
             <Button type="link" size="small" onClick={() => setShowThreeMonths((visible) => !visible)}>
               {showThreeMonths ? "Show 4 weeks" : "Show 3 months"}

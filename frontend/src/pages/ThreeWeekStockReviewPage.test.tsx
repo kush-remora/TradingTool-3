@@ -212,6 +212,31 @@ describe("ThreeWeekStockReviewPage", () => {
     expect(screen.getByText("+15.79%")).toHaveStyle({ color: "#389e0d" });
   });
 
+  it("shows each day's volume as a percentage of the previous 10 trading-day average", () => {
+    const priorTradingDates = ["2026-07-13", "2026-07-14", "2026-07-15", "2026-07-16", "2026-07-17", "2026-07-20", "2026-07-21", "2026-07-22", "2026-07-23", "2026-07-24"];
+    const days = priorTradingDates.map((date) => dayWithPrices(date, 100, 102));
+    days.push(dayWithPrices("2026-07-27", 100, 102, 100, 102, 200));
+    useStockDetailMock.mockReturnValue({
+      data: {
+        symbol: "INFY",
+        exchange: "NSE",
+        avg_volume_20d: null,
+        pivot_levels: null,
+        delivery_days: [],
+        days,
+      },
+      loading: false,
+      error: null,
+    });
+    render(<ThreeWeekStockReviewPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Select INFY" }));
+
+    expect(screen.getByRole("columnheader", { name: "Vol % of prior 10D avg" })).toBeInTheDocument();
+    expect(screen.getByText("200%")).toBeInTheDocument();
+    expect(screen.getByText(/Today is excluded/)).toBeInTheDocument();
+  });
+
   it("shows the low-day volume and delivery cue in the weekly summary", () => {
     useStockDetailMock.mockReturnValue({
       data: {
@@ -374,8 +399,8 @@ function day(date: string, low: number, high: number) {
   return { date, open: low + 2, close: high - 2, low, high, volume: 100, daily_change_pct: null, rsi14: null, vol_ratio: null };
 }
 
-function dayWithPrices(date: string, open: number, close: number, low: number = Math.min(open, close), high: number = Math.max(open, close)) {
-  return { date, open, close, low, high, volume: 100, daily_change_pct: null, rsi14: null, vol_ratio: null };
+function dayWithPrices(date: string, open: number, close: number, low: number = Math.min(open, close), high: number = Math.max(open, close), volume: number = 100) {
+  return { date, open, close, low, high, volume, daily_change_pct: null, rsi14: null, vol_ratio: null };
 }
 
 function dayWithEvidence(date: string, open: number, close: number, low: number, high: number, volume: number, deliveryPercentage: number | null) {

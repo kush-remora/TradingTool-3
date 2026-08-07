@@ -15,6 +15,7 @@ import { AbsoluteDeliveryBacktestPage } from "./pages/AbsoluteDeliveryBacktestPa
 import { DeliveryBreakoutScannerPage } from "./pages/DeliveryBreakoutScannerPage";
 import { HotSmaPage } from "./pages/HotSmaPage";
 import { Sma200BacktestPage } from "./pages/Sma200BacktestPage";
+import { TwoDayGreenCandleBacktestPage } from "./pages/TwoDayGreenCandleBacktestPage";
 import { WyckoffPhase1Page } from "./pages/WyckoffPhase1Page";
 import { TradePage } from "./pages/TradePage";
 import { PhaseDScannerPage } from "./pages/PhaseDScannerPage";
@@ -33,6 +34,7 @@ import { WeeklyBaseDefinitionPage } from "./pages/WeeklyBaseDefinitionPage";
 import { WeeklyBaseGroupBacktestPage } from "./pages/WeeklyBaseGroupBacktestPage";
 import { ThreeWeekStockReviewPage } from "./pages/ThreeWeekStockReviewPage";
 import { ThreeWeekWatchlistReviewPage } from "./pages/ThreeWeekWatchlistReviewPage";
+import { VolumeEventReviewPage } from "./pages/VolumeEventReviewPage";
 import { WeeklyPriceWatchlistScannerPage } from "./pages/WeeklyPriceWatchlistScannerPage";
 import { BreakoutTrackerPage } from "./pages/BreakoutTrackerPage";
 import { SilentBreakoutBacktestPage } from "./pages/SilentBreakoutBacktestPage";
@@ -48,6 +50,7 @@ type V1PageKey =
   | "delivery-breakout"
   | "hot-sma"
   | "sma200-backtest"
+  | "two-day-green-candle-backtest"
   | "phase-d"
   | "chartink-52w"
   | "trailing-stop"
@@ -62,6 +65,7 @@ type V1PageKey =
   | "weekly-base-group-backtest"
   | "three-week-stock-review"
   | "three-week-watchlist-review"
+  | "volume-event-review"
   | "weekly-price-watchlist-scanner"
   | "breakout-tracker"
   | "silent-breakout-backtest"
@@ -103,6 +107,7 @@ const menuItems: MenuProps["items"] = [
   },
   { key: "hot-sma", label: "SMA Buy Zone", icon: <HeatMapOutlined /> },
   { key: "sma200-backtest", label: "SMA200 Backtest", icon: <LineChartOutlined /> },
+  { key: "two-day-green-candle-backtest", label: "Two-Day Green Candle", icon: <LineChartOutlined /> },
   {
     key: "chartink-52w",
     label: "Chartink 52W Backtest",
@@ -141,6 +146,11 @@ const menuItems: MenuProps["items"] = [
   {
     key: "three-week-watchlist-review",
     label: "Three-Week Stock Review + Current Week",
+    icon: <LineChartOutlined />,
+  },
+  {
+    key: "volume-event-review",
+    label: "Volume Event Review",
     icon: <LineChartOutlined />,
   },
   {
@@ -206,6 +216,7 @@ const validPages: PageKey[] = [
   "delivery-breakout",
   "hot-sma",
   "sma200-backtest",
+  "two-day-green-candle-backtest",
   "phase-d",
   "chartink-52w",
   "trailing-stop",
@@ -215,6 +226,7 @@ const validPages: PageKey[] = [
   "weekly-base-group-backtest",
   "three-week-stock-review",
   "three-week-watchlist-review",
+  "volume-event-review",
   "weekly-price-watchlist-scanner",
   "price-acceptance",
   "52w-momentum-rule5",
@@ -429,6 +441,7 @@ export default function App() {
             {route === "delivery-breakout" && <DeliveryBreakoutScannerPage />}
             {route === "hot-sma" && <HotSmaPage />}
             {route === "sma200-backtest" && <Sma200BacktestPage />}
+            {route === "two-day-green-candle-backtest" && <TwoDayGreenCandleBacktestPage />}
             {route === "phase-d" && <PhaseDScannerPage />}
             {route === "chartink-52w" && <ChartinkFiftyTwoWeekHighPage />}
             {route === "trailing-stop" && <TrailingStopBacktestPage />}
@@ -451,6 +464,7 @@ export default function App() {
             {route === "three-week-watchlist-review" && (
               <ThreeWeekWatchlistReviewPage onOpenStockReview={openStockReview} />
             )}
+            {route === "volume-event-review" && <VolumeEventReviewPage onOpenStockReview={openStockReview} />}
             {route === "weekly-price-watchlist-scanner" && (
               <WeeklyPriceWatchlistScannerPage onOpenStockReview={openStockReview} />
             )}

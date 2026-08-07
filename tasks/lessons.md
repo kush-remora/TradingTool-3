@@ -72,3 +72,8 @@
 
 - When a user separates base discovery from trade execution, implement and label them as independent workflows. Do not carry entry, target, stop, or manual-zone assumptions into the base-definition calculation.
 - For a three-week base, use exactly one low from each completed week; never substitute a rolling daily-low range or include the evaluation week in its own support calculation.
+
+## 2026-08-08
+
+- For rolling daily backtests, fetch at least one candle before the visible test window so the first setup candle can still receive a valid close-to-close return.
+- Keep engine-facing fixture/member types at the same visibility as the engine method; Kotlin rejects public methods that expose internal parameter types.

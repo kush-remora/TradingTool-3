@@ -1,7 +1,7 @@
 import { Card, Space, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { ReactNode } from "react";
-import type { MomentumEvidence, MomentumParticipationEvent } from "../types";
+import type { MomentumEvidence, MomentumParticipationEvent, MomentumRocState, MomentumWeeklyRoc } from "../types";
 
 const { Text } = Typography;
 
@@ -49,21 +49,54 @@ function getTrendTag(evidence: MomentumEvidence): ReactNode {
   return evidence.above_sma200 ? <Tag color="green">Above 200 DMA</Tag> : <Tag color="default">Below 200 DMA</Tag>;
 }
 
+function getRocStateLabel(state: MomentumRocState): string {
+  switch (state) {
+    case "RISING_FROM_NEGATIVE": return "Rising from negative";
+    case "RISING_POSITIVE": return "Positive and rising";
+    case "FALLING": return "Falling";
+    case "FLAT": return "Flat";
+    default: return "Not enough weeks";
+  }
+}
+
+function getRocStateColor(state: MomentumRocState): string | undefined {
+  if (state === "RISING_FROM_NEGATIVE") return "gold";
+  if (state === "RISING_POSITIVE") return "green";
+  if (state === "FALLING") return "red";
+  return undefined;
+}
+
+export function MomentumRocSummary({ roc }: { roc: MomentumWeeklyRoc | null | undefined }) {
+  if (!roc) return <Text type="secondary">ROC unavailable</Text>;
+
+  return (
+    <Space orientation="vertical" size={0} aria-label="Weekly ROC">
+      <Space size={4}>
+        <Tag color={getRocStateColor(roc.state)} style={{ marginInlineEnd: 0 }}>{getRocStateLabel(roc.state)}</Tag>
+        <Text>ROC {formatSignedPercent(roc.current_roc_pct)}</Text>
+      </Space>
+      <Text type="secondary">Δ ROC {roc.change_pct_points == null ? "—" : `${roc.change_pct_points >= 0 ? "+" : ""}${roc.change_pct_points.toFixed(2)} pp`} · {roc.lookback_weeks}W</Text>
+    </Space>
+  );
+}
+
 export function MomentumEvidenceSummary({ evidence }: { evidence: MomentumEvidence | null | undefined }) {
   if (!evidence) return <Text type="secondary">Momentum evidence unavailable.</Text>;
+  const recentFirstWeeklyReturns = [...evidence.weekly_returns].reverse();
 
   return (
     <div data-testid="momentum-evidence-summary" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
       {getTrendTag(evidence)}
       {evidence.distance_from_sma200_pct != null && <Text type="secondary">{formatSignedPercent(evidence.distance_from_sma200_pct)} vs 200 DMA</Text>}
       {evidence.distance_from_fifty_two_week_high_pct != null && <Text type="secondary">{formatSignedPercent(evidence.distance_from_fifty_two_week_high_pct)} from 52-week high</Text>}
+      <MomentumRocSummary roc={evidence.weekly_roc} />
       <div style={{ flexBasis: "100%", display: "flex", flexDirection: "column", gap: 2 }}>
         <Text type="secondary">High-volume days: {evidence.participation_events.length} · lookback: {evidence.participation_lookback_days} days</Text>
         {evidence.participation_events.length > 0 && <Text type="secondary">Dates: {evidence.participation_events.map((event) => formatDate(event.event_date)).join(", ")}</Text>}
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4 }} aria-label="Four weekly returns">
-        <Text type="secondary" style={{ fontSize: 11 }}>4 completed weeks</Text>
-        {evidence.weekly_returns.map((weeklyReturn, index) => (
+        <Text type="secondary" style={{ fontSize: 11 }}>4 completed weeks · latest first</Text>
+        {recentFirstWeeklyReturns.map((weeklyReturn, index) => (
           <Tag key={weeklyReturn.week_start} style={{ marginInlineEnd: 0, color: getPercentColor(weeklyReturn.return_pct) }}>
             W{index + 1} {formatSignedPercent(weeklyReturn.return_pct)}
           </Tag>
