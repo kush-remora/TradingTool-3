@@ -5,6 +5,7 @@ import { InstrumentSearch } from "../components/InstrumentSearch";
 import { LiveMarketWidget } from "../components/LiveMarketWidget";
 import { BuySellChangeCalculator } from "../components/BuySellChangeCalculator";
 import { FloatingInstrumentNotes } from "../components/FloatingInstrumentNotes";
+import { WeeklyStructureIndicator } from "../components/WeeklyStructureIndicator";
 import { useInstrumentSearch } from "../hooks/useInstrumentSearch";
 import { useInstrumentNotes } from "../hooks/useInstrumentNotes";
 import { useStockDetail } from "../hooks/useStockDetail";
@@ -141,8 +142,14 @@ export function ThreeWeekStockReviewPage() {
     [data?.days],
   );
   const weeklySummaries = useMemo(
-    () => [...buildWeeklyPriceSummaries(data?.days ?? [], WEEKS_TO_DISPLAY)].reverse(),
-    [data?.days],
+    () => [...buildWeeklyPriceSummaries(
+      data?.days.map((day) => ({
+        ...day,
+        deliveryPercentage: deliveryByDate.get(day.date) ?? null,
+      })) ?? [],
+      WEEKS_TO_DISPLAY,
+    )].reverse(),
+    [data?.days, deliveryByDate],
   );
   const weeklyTimelines = useMemo(
     () => buildWeeklyPriceTimelines(data?.days ?? [], weeksToDisplay),
@@ -184,6 +191,8 @@ export function ThreeWeekStockReviewPage() {
     { title: "High", key: "high", width: 85, render: (_, row) => formatPrice(row.high) },
     { title: "High day · Del / Vol", key: "highDate", width: 180, render: (_, row) => <>{formatDateWithDay(row.highDate)} · {formatDeliveryPercentage(deliveryByDate.get(row.highDate) ?? null)} / {formatCompactQuantity(volumeByDate.get(row.highDate) ?? null)}</> },
     { title: "Range", key: "rangePct", width: 65, render: (_, row) => `${row.rangePct.toFixed(2)}%` },
+    { title: "Structure", key: "structure", width: 105, render: (_, row) => <WeeklyStructureIndicator structure={row.weekOnWeekStructure} /> },
+    { title: "Cue", key: "cue", width: 150, render: (_, row) => row.lowDayHasHigherVolumeAndDelivery ? <Text type="success" strong>Low-day D/V higher</Text> : "—" },
   ];
   const deliveryColumns: ColumnsType<DeliveryDayDetail> = [
     { title: "Date", dataIndex: "date", key: "date", width: 72, render: (date: string) => date.slice(5) },
@@ -276,7 +285,16 @@ export function ThreeWeekStockReviewPage() {
         {loading && <Spin />}
         {data && !loading && <>
           <Card title={`${data.symbol}: weekly high, low, and range`}>
-            <Table rowKey="weekLabel" columns={weeklyColumns} dataSource={weeklySummaries} pagination={false} scroll={{ x: true }} size="small" />
+            <Text type="secondary" style={{ display: "block", marginBottom: 8, fontSize: 12 }}>Structure compares each week with the preceding week: ↑ higher high + higher low, ↓ lower high + lower low, → mixed or unchanged.</Text>
+            <Table
+              rowKey="weekLabel"
+              columns={weeklyColumns}
+              dataSource={weeklySummaries}
+              pagination={false}
+              scroll={{ x: true }}
+              size="small"
+              onRow={(row) => ({ style: row.lowDayHasHigherVolumeAndDelivery ? { backgroundColor: "#f6ffed" } : undefined })}
+            />
           </Card>
           <Card title={`${data.symbol}: ${showThreeMonths ? "last three months" : "daily data for three completed weeks + current week"}`}>
             <Table columns={dailyColumns} dataSource={dailyRows} pagination={false} scroll={{ x: true }} size="small" sticky onRow={(row) => ({ style: getWeeklyExtremeStyle(row) })} />

@@ -23,7 +23,8 @@ describe("ThreeWeekWatchlistReviewPage", () => {
           instrumentToken: 408065,
           days: [
             buildDay("2026-06-01", 100, 110),
-            buildDay("2026-06-08", 101, 111),
+            buildDay("2026-06-08", 100, 110, 200, 70),
+            buildDay("2026-06-09", 101, 111, 100, 50),
             buildDay("2026-06-15", 102, 112),
             buildDay("2026-06-22", 103, 113),
             buildDay("2026-06-29", 104, 114),
@@ -41,19 +42,22 @@ describe("ThreeWeekWatchlistReviewPage", () => {
     expect(await screen.findByRole("columnheader", { name: "Week" })).toBeInTheDocument();
     expect(screen.getAllByText(/Week of 2026-/)).toHaveLength(4);
     expect(screen.getByRole("columnheader", { name: "Low day · Del / Vol" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Structure" })).toBeInTheDocument();
+    expect(screen.getAllByRole("img", { name: "Uptrend: higher high and higher low" })).toHaveLength(3);
+    expect(screen.getByText("Low-day D/V higher")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open review" }));
     expect(onOpenStockReview).toHaveBeenCalledWith("INFY");
   });
 });
 
-function buildDay(date: string, low: number, high: number) {
+function buildDay(date: string, low: number, high: number, volume: number = 100_000, deliveryPercentage: number = 55) {
   return {
     date,
     open: low + 1,
     high,
     low,
     close: high - 1,
-    volume: 100_000,
-    deliveryPercentage: 55,
+    volume,
+    deliveryPercentage,
   };
 }

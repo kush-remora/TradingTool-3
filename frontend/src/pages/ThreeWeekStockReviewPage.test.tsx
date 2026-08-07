@@ -70,6 +70,45 @@ describe("ThreeWeekStockReviewPage", () => {
     expect(summaries[1].rangePct).toBeCloseTo(19.19, 2);
   });
 
+  it("classifies weekly structure from higher or lower lows and highs", () => {
+    const summaries = buildWeeklyPriceSummaries([
+      day("2026-07-06", 100, 110),
+      day("2026-07-13", 102, 115),
+      day("2026-07-20", 103, 114),
+      day("2026-07-27", 99, 112),
+    ], 4);
+
+    expect(summaries.map((summary) => summary.weekOnWeekStructure)).toEqual([null, "UP", "SIDEWAYS", "DOWN"]);
+  });
+
+  it("flags a week when the low-price day has higher volume and delivery than the high-price day", () => {
+    const [summary] = buildWeeklyPriceSummaries([
+      dayWithEvidence("2026-07-20", 100, 96, 95, 101, 200, 70),
+      dayWithEvidence("2026-07-21", 105, 109, 104, 110, 100, 50),
+    ]);
+
+    expect(summary.lowDayHasHigherVolumeAndDelivery).toBe(true);
+  });
+
+  it("does not flag a week when either comparison fails or delivery is missing", () => {
+    const [volumeDoesNotQualify] = buildWeeklyPriceSummaries([
+      dayWithEvidence("2026-07-20", 100, 96, 95, 101, 100, 70),
+      dayWithEvidence("2026-07-21", 105, 109, 104, 110, 200, 50),
+    ]);
+    const [deliveryDoesNotQualify] = buildWeeklyPriceSummaries([
+      dayWithEvidence("2026-07-20", 100, 96, 95, 101, 200, 50),
+      dayWithEvidence("2026-07-21", 105, 109, 104, 110, 100, 70),
+    ]);
+    const [deliveryMissing] = buildWeeklyPriceSummaries([
+      dayWithEvidence("2026-07-20", 100, 96, 95, 101, 200, null),
+      dayWithEvidence("2026-07-21", 105, 109, 104, 110, 100, 50),
+    ]);
+
+    expect(volumeDoesNotQualify.lowDayHasHigherVolumeAndDelivery).toBe(false);
+    expect(deliveryDoesNotQualify.lowDayHasHigherVolumeAndDelivery).toBe(false);
+    expect(deliveryMissing.lowDayHasHigherVolumeAndDelivery).toBe(false);
+  });
+
   it("loads enough history for three completed weeks plus the current week", () => {
     useStockDetailMock.mockReturnValue({
       data: { symbol: "INFY", exchange: "NSE", avg_volume_20d: null, pivot_levels: null, days: [] },
@@ -168,6 +207,32 @@ describe("ThreeWeekStockReviewPage", () => {
     expect(screen.getByText("+15.79%")).toHaveStyle({ color: "#389e0d" });
   });
 
+  it("shows the low-day volume and delivery cue in the weekly summary", () => {
+    useStockDetailMock.mockReturnValue({
+      data: {
+        symbol: "INFY",
+        exchange: "NSE",
+        avg_volume_20d: null,
+        pivot_levels: null,
+        days: [
+          dayWithEvidence("2026-07-27", 100, 96, 95, 101, 200, 70),
+          dayWithEvidence("2026-07-28", 105, 109, 104, 110, 100, 50),
+        ],
+        delivery_days: [
+          { date: "2026-07-27", delivery_percentage: 70, delivered_quantity: null, traded_quantity: null },
+          { date: "2026-07-28", delivery_percentage: 50, delivered_quantity: null, traded_quantity: null },
+        ],
+      },
+      loading: false,
+      error: null,
+    });
+    render(<ThreeWeekStockReviewPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Select INFY" }));
+
+    expect(screen.getByText("Low-day D/V higher")).toBeInTheDocument();
+  });
+
   it("shows existing stock notes with a number, text, and created date beside fundamentals", () => {
     useInstrumentNotesMock.mockReturnValue({
       notes: [{
@@ -263,4 +328,8 @@ function day(date: string, low: number, high: number) {
 
 function dayWithPrices(date: string, open: number, close: number, low: number = Math.min(open, close), high: number = Math.max(open, close)) {
   return { date, open, close, low, high, volume: 100, daily_change_pct: null, rsi14: null, vol_ratio: null };
+}
+
+function dayWithEvidence(date: string, open: number, close: number, low: number, high: number, volume: number, deliveryPercentage: number | null) {
+  return { date, open, close, low, high, volume, deliveryPercentage, daily_change_pct: null, rsi14: null, vol_ratio: null };
 }

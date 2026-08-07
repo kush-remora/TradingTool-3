@@ -1,5 +1,11 @@
 import type { DayDetail } from "../types";
 
+export interface WeeklyPriceDay extends DayDetail {
+  deliveryPercentage?: number | null;
+}
+
+export type WeeklyStructure = "UP" | "DOWN" | "SIDEWAYS";
+
 export interface WeeklyPriceSummary {
   weekLabel: string;
   low: number;
@@ -7,6 +13,8 @@ export interface WeeklyPriceSummary {
   high: number;
   highDate: string;
   rangePct: number;
+  lowDayHasHigherVolumeAndDelivery: boolean;
+  weekOnWeekStructure: WeeklyStructure | null;
 }
 
 export interface WeeklyPriceTimeline {
@@ -27,11 +35,15 @@ function getWeekStart(date: string): string {
   return value.toISOString().slice(0, 10);
 }
 
-export function buildWeeklyPriceSummaries(days: DayDetail[], weeksToDisplay: number = 3): WeeklyPriceSummary[] {
-  return latestWeekGroups(days, weeksToDisplay).map(([weekStart, weekDays]) => {
+export function buildWeeklyPriceSummaries(days: WeeklyPriceDay[], weeksToDisplay: number = 3): WeeklyPriceSummary[] {
+  const summaries = latestWeekGroups(days, weeksToDisplay).map(([weekStart, weekDays]) => {
     const lowDay = weekDays.reduce((lowest, day) => day.low < lowest.low ? day : lowest);
     const highDay = weekDays.reduce((highest, day) => day.high > highest.high ? day : highest);
     const range = highDay.high - lowDay.low;
+    const lowDayHasHigherVolumeAndDelivery = lowDay.volume > highDay.volume
+      && lowDay.deliveryPercentage != null
+      && highDay.deliveryPercentage != null
+      && lowDay.deliveryPercentage > highDay.deliveryPercentage;
 
     return {
       weekLabel: `Week of ${weekStart}`,
@@ -40,8 +52,15 @@ export function buildWeeklyPriceSummaries(days: DayDetail[], weeksToDisplay: num
       high: highDay.high,
       highDate: highDay.date,
       rangePct: lowDay.low > 0 ? (range / lowDay.low) * 100 : 0,
+      lowDayHasHigherVolumeAndDelivery,
+      weekOnWeekStructure: null,
     };
   });
+
+  return summaries.map((summary, index) => ({
+    ...summary,
+    weekOnWeekStructure: index === 0 ? null : compareWeeklyStructure(summaries[index - 1], summary),
+  }));
 }
 
 export function getWeekStartLabel(date: string): string {
@@ -67,14 +86,24 @@ export function buildWeeklyPriceTimelines(days: DayDetail[], weeksToDisplay: num
   });
 }
 
-function latestWeekGroups(days: DayDetail[], weeksToDisplay: number): [string, DayDetail[]][] {
-  const groupedDays = new Map<string, DayDetail[]>();
+function latestWeekGroups(days: WeeklyPriceDay[], weeksToDisplay: number): [string, WeeklyPriceDay[]][] {
+  const groupedDays = new Map<string, WeeklyPriceDay[]>();
   for (const day of [...days].sort((left, right) => left.date.localeCompare(right.date))) {
     const weekStart = getWeekStart(day.date);
     groupedDays.set(weekStart, [...(groupedDays.get(weekStart) ?? []), day]);
   }
 
   return [...groupedDays.entries()].slice(-weeksToDisplay);
+}
+
+function compareWeeklyStructure(previousWeek: WeeklyPriceSummary, currentWeek: WeeklyPriceSummary): WeeklyStructure {
+  if (currentWeek.low > previousWeek.low && currentWeek.high > previousWeek.high) {
+    return "UP";
+  }
+  if (currentWeek.low < previousWeek.low && currentWeek.high < previousWeek.high) {
+    return "DOWN";
+  }
+  return "SIDEWAYS";
 }
 
 function percentageChange(currentValue: number, previousValue: number): number {

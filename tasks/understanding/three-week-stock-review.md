@@ -65,3 +65,15 @@ The compact review must continue to show the three preceding completed trading w
 Plan: retain the existing four-week grouping, make the `High %` calculation explicit with the low as denominator, update the focused assertion, then run the page test suite and production frontend build. The Kotlin review gate will confirm that no Kotlin code is affected.
 
 Implemented and validated: the compact four-week grouping remains unchanged, and `High %` now shows `+15.79%` for a ₹95 low to ₹110 high session. The focused review-page suite passed all 12 tests, and the production frontend build passed on 2026-07-31. The Kotlin review gate found no Kotlin changes or Kotlin-specific concerns. The frontend build continues to emit its existing, unrelated duplicate-`title` and bundle-size warnings.
+
+## Same-week low-day effort and delivery cue — 2026-08-06
+
+For each displayed week, compare the session that made the weekly low with the session that made the weekly high. Highlight the week only when the low-price day has both higher traded volume and higher delivery percentage than the high-price day. This is an observation cue for possible absorption/accumulation; it is not an automatic accumulation label.
+
+Implemented in the shared weekly-summary utility and shown in both the single-stock and watchlist review tables. The cue requires strict `>` comparisons and both delivery values; missing or equal values remain neutral. Focused frontend tests passed (16 tests), and the production frontend build passed.
+
+## Week-over-week price structure arrows — 2026-08-06
+
+For each displayed week after the first, compare its weekly low and high with the immediately preceding week. Mark `↑ Up` only when both the low and high rise, `↓ Down` only when both fall, and `→ Sideways` for mixed or unchanged structure. The first displayed week has no prior comparison and remains neutral.
+
+Implemented as a shared `WeeklyStructure` summary field and accessible `Structure` indicator in both review tables. Four displayed weeks therefore show three week-over-week comparisons. Focused frontend tests passed (17 tests), and the production frontend build passed.

@@ -1,9 +1,10 @@
 import { Alert, Button, Card, Empty, Select, Space, Spin, Table, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState } from "react";
-import type { DayDetail, UniverseOptionsResponse, WeeklyPriceWatchlistScannerResponse } from "../types";
+import type { UniverseOptionsResponse, WeeklyPriceWatchlistScannerResponse } from "../types";
+import { WeeklyStructureIndicator } from "../components/WeeklyStructureIndicator";
 import { getJson } from "../utils/api";
-import { buildWeeklyPriceSummaries, type WeeklyPriceSummary } from "../utils/threeWeekStockReview";
+import { buildWeeklyPriceSummaries, type WeeklyPriceDay, type WeeklyPriceSummary, type WeeklyStructure } from "../utils/threeWeekStockReview";
 
 const { Text, Title } = Typography;
 
@@ -19,6 +20,8 @@ interface WatchlistWeeklyRow {
   high: number;
   highDay: string;
   range: string;
+  weekOnWeekStructure: WeeklyStructure | null;
+  hasLowDayAccumulationCue: boolean;
 }
 
 interface WatchlistReviewCard {
@@ -47,12 +50,13 @@ function formatCompactQuantity(value: number | null): string {
   return `${(value / 1_000).toFixed(1)} K`;
 }
 
-function toDayDetails(days: WeeklyPriceWatchlistScannerResponse["rows"][number]["days"]): DayDetail[] {
+function toDayDetails(days: WeeklyPriceWatchlistScannerResponse["rows"][number]["days"]): WeeklyPriceDay[] {
   return days.map((day) => ({
     ...day,
     daily_change_pct: null,
     rsi14: null,
     vol_ratio: null,
+    deliveryPercentage: day.deliveryPercentage,
   }));
 }
 
@@ -123,6 +127,8 @@ export function ThreeWeekWatchlistReviewPage({ onOpenStockReview }: ThreeWeekWat
     { title: "High", dataIndex: "high", key: "high", width: 85, render: formatPrice },
     { title: "High day · Del / Vol", dataIndex: "highDay", key: "highDay", width: 190 },
     { title: "Range", dataIndex: "range", key: "range", width: 65 },
+    { title: "Structure", key: "structure", width: 105, render: (_, row) => <WeeklyStructureIndicator structure={row.weekOnWeekStructure} /> },
+    { title: "Cue", key: "cue", width: 150, render: (_, row) => row.hasLowDayAccumulationCue ? <Text type="success" strong>Low-day D/V higher</Text> : "—" },
   ];
 
   return (
@@ -155,7 +161,8 @@ export function ThreeWeekWatchlistReviewPage({ onOpenStockReview }: ThreeWeekWat
             title={<Space size={8}><Text strong>{card.symbol}</Text><Text type="secondary">{card.companyName}</Text></Space>}
             extra={<Button size="small" onClick={() => onOpenStockReview(card.symbol)}>Open review</Button>}
           >
-            {card.summaries.length === 0 ? <Text type="secondary">No recent daily history.</Text> : (
+            {card.summaries.length === 0 ? <Text type="secondary">No recent daily history.</Text> : <>
+              <Text type="secondary" style={{ display: "block", marginBottom: 8, fontSize: 12 }}>Structure: ↑ higher high + higher low, ↓ lower high + lower low, → mixed or unchanged.</Text>
               <Table<WatchlistWeeklyRow>
                 size="small"
                 pagination={false}
@@ -169,9 +176,12 @@ export function ThreeWeekWatchlistReviewPage({ onOpenStockReview }: ThreeWeekWat
                   high: summary.high,
                   highDay: `${formatDateWithDay(summary.highDate)} · ${formatDeliveryPercentage(card.dayByDate.get(summary.highDate)?.deliveryPercentage ?? null)} / ${formatCompactQuantity(card.dayByDate.get(summary.highDate)?.volume ?? null)}`,
                   range: `${summary.rangePct.toFixed(2)}%`,
+                  weekOnWeekStructure: summary.weekOnWeekStructure,
+                  hasLowDayAccumulationCue: summary.lowDayHasHigherVolumeAndDelivery,
                 }))}
+                onRow={(row) => ({ style: row.hasLowDayAccumulationCue ? { backgroundColor: "#f6ffed" } : undefined })}
               />
-            )}
+            </>}
           </Card>
         ))}
       </Space>
