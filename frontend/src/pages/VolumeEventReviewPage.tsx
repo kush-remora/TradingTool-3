@@ -140,7 +140,7 @@ const eventColumns: ColumnsType<VolumeEventRow> = [
   { title: "Event close", dataIndex: "close", key: "close", width: 100, render: formatPrice },
   { title: "RSI 14", dataIndex: "rsi14", key: "rsi14", width: 75, render: formatRsi },
   { title: "Volume", dataIndex: "volume", key: "volume", width: 90, render: formatVolume },
-  { title: "Volume / prior 10D avg", dataIndex: "volumeRatio", key: "volumeRatio", width: 150, render: (value: number) => `${value.toFixed(2)}×` },
+  { title: "Volume / prior 5D avg", dataIndex: "volumeRatio", key: "volumeRatio", width: 150, render: (value: number) => `${value.toFixed(2)}×` },
   { title: "Delivery", dataIndex: "deliveryPercentage", key: "deliveryPercentage", width: 90, render: formatDelivery },
   { title: "Move since event", dataIndex: "moveSinceEventPct", key: "moveSinceEventPct", width: 120, render: formatSignedPercent },
 ];
@@ -214,7 +214,7 @@ export function VolumeEventReviewPage({ onOpenStockReview }: { onOpenStockReview
               options={options.map((option) => ({ value: option.value, label: `${option.label} (${option.count})` }))}
             />
             {data && <Text type="secondary" style={{ fontSize: 12 }}>
-              Lookback: {LOOKBACK_CALENDAR_DAYS} calendar days · minimum event: {MIN_VOLUME_RATIO.toFixed(1)}× prior 10-trading-day average · top {TOP_EVENT_COUNT} by multiplier.
+              Lookback: {LOOKBACK_CALENDAR_DAYS} calendar days · minimum event: {MIN_VOLUME_RATIO.toFixed(1)}× prior 5-trading-day average · top {TOP_EVENT_COUNT} by multiplier.
             </Text>}
           </Space>
         </Card>

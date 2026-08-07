@@ -42,3 +42,9 @@ The three-week review now also exposes completed-week ROC over a three-week look
 The separate v1 scanner is intentionally simpler than the momentum review. For each selected watchlist, look back 60 calendar days, use the prior 10 trading sessions as the volume baseline, and show the three largest qualifying volume events per stock where the event volume is at least 2× that baseline. The event review is evidence collection: date, age, event-day close, volume, multiplier, delivery percentage, current LTP, and price move since the event.
 
 Accumulation/distribution labels, cycle detection, “safe to buy” conclusions, and a composite score are explicitly deferred. The user will first use this raw event view and provide examples before we add interpretation rules.
+
+## Current decision: volume-event confirmation backtest
+
+The next implementation is a single reusable backtest engine that supports both a selected stock and an entire maintained watchlist. The selected-stock mode is for inspecting each event and its five-session RSI confirmation; the watchlist mode applies the exact same fixed rules to every member and reports both pooled and per-symbol results. Stock-specific parameter tuning is out of scope.
+
+The initial fixed rule is: event-day volume must be at least 2× the prior 5 trading-session average and RSI(14) must be at or below 35. If RSI is higher after five completed sessions, enter at the following session open and evaluate a 5% target for up to 15 holding sessions. There is no stop-loss in this first research version; unresolved trades are closed at the evaluation-window close so downside remains visible. Events are kept non-overlapping per stock, and no future candles are used to form an event or entry decision.

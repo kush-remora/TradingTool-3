@@ -14,7 +14,14 @@ class MomentumEvidenceCalculatorTest {
         val candles = buildWeekdayCandles(220)
         val eventIndex = 210
         val eventCandle = candles[eventIndex].copy(volume = 2_500L)
-        val testCandles = candles.mapIndexed { index, candle -> if (index == eventIndex) eventCandle else candle }
+        val testCandles = candles.mapIndexed { index, candle ->
+            when {
+                index == eventIndex -> eventCandle
+                index in (eventIndex - 10) until (eventIndex - 5) -> candle.copy(volume = 1_200L)
+                index in (eventIndex - 5) until eventIndex -> candle.copy(volume = 800L)
+                else -> candle
+            }
+        }
 
         val evidence = calculateMomentumEvidence(
             candles = testCandles,
@@ -34,7 +41,7 @@ class MomentumEvidenceCalculatorTest {
         assertEquals(1, evidence.participationEvents.size)
         assertEquals(310.0, evidence.participationEvents.single().close)
         assertEquals(2_500L, evidence.participationEvents.single().volume)
-        assertEquals(2.5, evidence.participationEvents.single().volumeRatio)
+        assertEquals(3.12, evidence.participationEvents.single().volumeRatio)
         assertEquals(58.4, evidence.participationEvents.single().deliveryPercentage)
         assertTrue(evidence.participationEvents.single().rsi14 != null)
         assertEquals(90, evidence.participationLookbackDays)

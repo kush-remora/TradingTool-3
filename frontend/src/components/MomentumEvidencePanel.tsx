@@ -112,7 +112,7 @@ function participationColumns(evidence: MomentumEvidence, currentPrice: number |
     { title: "Age", dataIndex: "event_date", key: "age", width: 58, render: (value: string) => formatAgeInDays(value, evidence.as_of_date) },
     { title: "Close", dataIndex: "close", key: "close", width: 90, render: formatPrice },
     { title: "Volume", dataIndex: "volume", key: "volume", width: 90, render: formatVolume },
-    { title: "Vol / prior 10D avg", dataIndex: "volume_ratio", key: "volume_ratio", width: 135, render: (value: number) => `${value.toFixed(2)}×` },
+    { title: "Vol / prior 5D avg", dataIndex: "volume_ratio", key: "volume_ratio", width: 135, render: (value: number) => `${value.toFixed(2)}×` },
     { title: "Delivery", dataIndex: "delivery_percentage", key: "delivery_percentage", width: 90, render: formatDelivery },
     {
       title: currentLtp != null ? "LTP vs day" : "Close vs day",
@@ -156,7 +156,7 @@ export function MomentumParticipationTable({ evidence, currentLtp }: MomentumPar
         <span><Text type="secondary">Price reference</Text><br /><Text strong>{currentLtp != null ? "Live market price" : `As of ${formatDate(evidence.as_of_date)}`}</Text></span>
       </div>
       <Text type="secondary" style={{ display: "block", marginBottom: 4, fontSize: 12 }}>
-        High-volume days · last {evidence.participation_lookback_days} days · rule: volume ≥ {evidence.participation_threshold.toFixed(1)}× prior 10D average · exact multiple and delivery shown below
+        High-volume days · last {evidence.participation_lookback_days} days · rule: volume ≥ {evidence.participation_threshold.toFixed(1)}× prior 5D average · exact multiple and delivery shown below
       </Text>
       <Table<MomentumParticipationEvent>
         size="small"

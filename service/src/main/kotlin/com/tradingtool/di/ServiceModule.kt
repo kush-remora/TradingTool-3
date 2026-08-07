@@ -38,6 +38,8 @@ import com.tradingtool.core.strategy.hotsma.HotSmaScannerService
 import com.tradingtool.core.strategy.sma200backtest.Sma200BacktestService
 import com.tradingtool.core.strategy.twodaygreen.TwoDayGreenCandleBacktestEngine
 import com.tradingtool.core.strategy.twodaygreen.TwoDayGreenCandleBacktestService
+import com.tradingtool.core.strategy.volumeeventbacktest.VolumeEventConfirmationBacktestEngine
+import com.tradingtool.core.strategy.volumeeventbacktest.VolumeEventConfirmationBacktestService
 import com.tradingtool.core.strategy.weeklylowlimit.WeeklyLowLimitBacktestEngine
 import com.tradingtool.core.strategy.weeklylowlimit.WeeklyLowLimitBacktestService
 import com.tradingtool.core.volumeshocker.groww.dao.GrowwVolumeShockerReadDao
@@ -313,6 +315,20 @@ class ServiceModule(
         candleCacheService: CandleCacheService,
         engine: TwoDayGreenCandleBacktestEngine,
     ): TwoDayGreenCandleBacktestService = TwoDayGreenCandleBacktestService(
+        indexConstituentHandler = indexConstituentHandler,
+        candleCacheService = candleCacheService,
+        engine = engine,
+    )
+
+    @Provides @Singleton
+    fun provideVolumeEventConfirmationBacktestEngine(): VolumeEventConfirmationBacktestEngine = VolumeEventConfirmationBacktestEngine()
+
+    @Provides @Singleton
+    fun provideVolumeEventConfirmationBacktestService(
+        indexConstituentHandler: IndexConstituentJdbiHandler,
+        candleCacheService: CandleCacheService,
+        engine: VolumeEventConfirmationBacktestEngine,
+    ): VolumeEventConfirmationBacktestService = VolumeEventConfirmationBacktestService(
         indexConstituentHandler = indexConstituentHandler,
         candleCacheService = candleCacheService,
         engine = engine,

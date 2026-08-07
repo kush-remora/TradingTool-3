@@ -35,6 +35,7 @@ import { WeeklyBaseGroupBacktestPage } from "./pages/WeeklyBaseGroupBacktestPage
 import { ThreeWeekStockReviewPage } from "./pages/ThreeWeekStockReviewPage";
 import { ThreeWeekWatchlistReviewPage } from "./pages/ThreeWeekWatchlistReviewPage";
 import { VolumeEventReviewPage } from "./pages/VolumeEventReviewPage";
+import { VolumeEventConfirmationBacktestPage } from "./pages/VolumeEventConfirmationBacktestPage";
 import { WeeklyPriceWatchlistScannerPage } from "./pages/WeeklyPriceWatchlistScannerPage";
 import { BreakoutTrackerPage } from "./pages/BreakoutTrackerPage";
 import { SilentBreakoutBacktestPage } from "./pages/SilentBreakoutBacktestPage";
@@ -67,6 +68,7 @@ type V1PageKey =
   | "three-week-stock-review"
   | "three-week-watchlist-review"
   | "volume-event-review"
+  | "volume-event-confirmation-backtest"
   | "weekly-price-watchlist-scanner"
   | "breakout-tracker"
   | "silent-breakout-backtest"
@@ -156,6 +158,11 @@ const menuItems: MenuProps["items"] = [
     icon: <LineChartOutlined />,
   },
   {
+    key: "volume-event-confirmation-backtest",
+    label: "Volume Event Confirmation Backtest",
+    icon: <LineChartOutlined />,
+  },
+  {
     key: "weekly-price-watchlist-scanner",
     label: "Base Consolidation Scanner",
     icon: <LineChartOutlined />,
@@ -234,6 +241,7 @@ const validPages: PageKey[] = [
   "three-week-stock-review",
   "three-week-watchlist-review",
   "volume-event-review",
+  "volume-event-confirmation-backtest",
   "weekly-price-watchlist-scanner",
   "price-acceptance",
   "52w-momentum-rule5",
@@ -473,6 +481,7 @@ export default function App() {
               <ThreeWeekWatchlistReviewPage onOpenStockReview={openStockReview} />
             )}
             {route === "volume-event-review" && <VolumeEventReviewPage onOpenStockReview={openStockReview} />}
+            {route === "volume-event-confirmation-backtest" && <VolumeEventConfirmationBacktestPage />}
             {route === "weekly-price-watchlist-scanner" && (
               <WeeklyPriceWatchlistScannerPage onOpenStockReview={openStockReview} />
             )}

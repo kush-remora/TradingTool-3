@@ -218,7 +218,7 @@ private fun percentageChange(previous: Double, current: Double): Double =
 private fun Double.roundTo2(): Double = round(this * 100.0) / 100.0
 
 private const val SMA200_WINDOW = 200
-private const val VOLUME_BASELINE_DAYS = 10
+private const val VOLUME_BASELINE_DAYS = 5
 const val PARTICIPATION_LOOKBACK_CALENDAR_DAYS = 90L
 const val PARTICIPATION_DELIVERY_HISTORY_SESSIONS = 120
 private const val FIFTY_TWO_WEEK_TRADING_SESSIONS = 252

@@ -12,6 +12,8 @@ import com.tradingtool.core.strategy.sma200backtest.Sma200BacktestRequest
 import com.tradingtool.core.strategy.sma200backtest.Sma200BacktestService
 import com.tradingtool.core.strategy.twodaygreen.TwoDayGreenCandleBacktestRequest
 import com.tradingtool.core.strategy.twodaygreen.TwoDayGreenCandleBacktestService
+import com.tradingtool.core.strategy.volumeeventbacktest.VolumeEventConfirmationBacktestRequest
+import com.tradingtool.core.strategy.volumeeventbacktest.VolumeEventConfirmationBacktestService
 import com.tradingtool.core.strategy.deliverybreakout.DeliveryBreakoutScannerService
 import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1ConfigService
 import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1RunConfig
@@ -61,6 +63,7 @@ class StrategyResource @Inject constructor(
     private val hotSmaScannerService: HotSmaScannerService,
     private val sma200BacktestService: Sma200BacktestService,
     private val twoDayGreenCandleBacktestService: TwoDayGreenCandleBacktestService,
+    private val volumeEventConfirmationBacktestService: VolumeEventConfirmationBacktestService,
     private val absoluteDeliveryBacktestService: AbsoluteDeliveryBacktestService,
     private val deliveryBreakoutScannerService: DeliveryBreakoutScannerService,
     private val wyckoffPhase1ScannerService: WyckoffPhase1ScannerService,
@@ -231,6 +234,18 @@ class StrategyResource @Inject constructor(
             ok(twoDayGreenCandleBacktestService.run(body))
         } catch (error: IllegalArgumentException) {
             badRequest(error.message ?: "Invalid two-day green candle backtest request.")
+        }
+    }
+
+    @POST
+    @Path("/volume-event-confirmation-backtest/run")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runVolumeEventConfirmationBacktest(request: VolumeEventConfirmationBacktestRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        try {
+            ok(volumeEventConfirmationBacktestService.run(body))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid volume-event confirmation backtest request.")
         }
     }
 

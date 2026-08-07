@@ -1639,6 +1639,86 @@ export interface SimpleMomentumPrepareRequest {
   toDate: string;
 }
 
+export interface VolumeEventConfirmationBacktestRequest {
+  watchlistKey: string;
+  symbol?: string;
+  fromDate?: string;
+  toDate?: string;
+}
+
+export interface VolumeEventConfirmationBacktestConfig {
+  volumeBaselineDays: number;
+  volumeShockMultiplier: number;
+  lowRsiThreshold: number;
+  confirmationDays: number;
+  targetPct: number;
+  maxHoldingDays: number;
+  rsiPeriod: number;
+}
+
+export type VolumeEventConfirmationStatus =
+  | "TARGET_HIT"
+  | "UNRESOLVED"
+  | "NO_CONFIRMATION"
+  | "SKIPPED_WHILE_IN_POSITION"
+  | "INSUFFICIENT_FORWARD_DATA";
+
+export interface VolumeEventConfirmationObservation {
+  symbol: string;
+  eventDate: string;
+  eventClose: number;
+  eventVolume: number;
+  priorVolumeAverage: number;
+  volumeRatio: number;
+  eventRsi: number;
+  confirmationDate: string | null;
+  confirmationRsi: number | null;
+  rsiChangePoints: number | null;
+  entryDate: string | null;
+  entryPrice: number | null;
+  targetPrice: number | null;
+  status: VolumeEventConfirmationStatus;
+  exitDate: string | null;
+  exitPrice: number | null;
+  holdingTradingDays: number | null;
+  maximumHighSinceEntryPct: number | null;
+  unresolvedCloseReturnPct: number | null;
+}
+
+export interface VolumeEventConfirmationBacktestSummary {
+  setupCount: number;
+  confirmedSignalCount: number;
+  targetHitCount: number;
+  unresolvedCount: number;
+  noConfirmationCount: number;
+  skippedWhileInPositionCount: number;
+  insufficientForwardDataCount: number;
+  confirmationRatePct: number | null;
+  targetHitRatePct: number | null;
+  averageHoldingTradingDays: number | null;
+}
+
+export interface VolumeEventConfirmationSymbolReport {
+  symbol: string;
+  companyName: string;
+  instrumentToken: number;
+  dataStatus: "AVAILABLE" | "INSUFFICIENT_HISTORY" | "NO_CANDLES";
+  testedFromDate: string | null;
+  testedToDate: string | null;
+  summary: VolumeEventConfirmationBacktestSummary;
+  observations: VolumeEventConfirmationObservation[];
+}
+
+export interface VolumeEventConfirmationBacktestReport {
+  watchlistKey: string;
+  selectedSymbol: string | null;
+  testedFromDate: string | null;
+  testedToDate: string | null;
+  config: VolumeEventConfirmationBacktestConfig;
+  summary: VolumeEventConfirmationBacktestSummary;
+  symbols: VolumeEventConfirmationSymbolReport[];
+}
+
 export interface DailyCandleSyncResult {
   fromDate: string;
   toDate: string;

@@ -50,13 +50,13 @@ describe("VolumeEventReviewPage", () => {
     fireEvent.click(await screen.findByText("watchlist (1)"));
 
     expect(await screen.findByTestId("volume-event-review-table")).toBeInTheDocument();
-    expect(screen.getByText("Lookback: 60 calendar days · minimum event: 2.0× prior 10-trading-day average · top 3 by multiplier.")).toBeInTheDocument();
+    expect(screen.getByText("Lookback: 60 calendar days · minimum event: 2.0× prior 5-trading-day average · top 3 by multiplier.")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("5.00× · 01 Jul · +19.05%")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open INFY in Kite" })).toHaveAttribute("target", "_blank");
 
     fireEvent.click(screen.getByRole("button", { name: "Expand row" }));
-    expect(screen.getByRole("columnheader", { name: "Volume / prior 10D avg" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Volume / prior 5D avg" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "RSI 14" })).toBeInTheDocument();
     expect(screen.getByText("65.00")).toBeInTheDocument();
     expect(screen.getByText("5.00×")).toBeInTheDocument();
