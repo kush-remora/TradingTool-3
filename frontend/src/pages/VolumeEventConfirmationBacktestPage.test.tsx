@@ -27,7 +27,11 @@ describe("VolumeEventConfirmationBacktestPage", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Stock symbol" }), { target: { value: "BHEL" } });
     fireEvent.click(screen.getByRole("button", { name: "Run backtest" }));
 
-    expect(run).toHaveBeenCalledWith({ watchlistKey: "watchlist", symbol: "BHEL" });
+    expect(run).toHaveBeenCalledWith({
+      watchlistKey: "watchlist",
+      entryMode: "FIVE_DAY_PAST_RSI_EARLY_ENTRY",
+      symbol: "BHEL",
+    });
   });
 
   it("describes the fixed confirmation rules before a run", async () => {

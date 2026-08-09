@@ -1,0 +1,15 @@
+# Summary Console — Current Understanding
+
+The Summary Console is a daily, watchlist-driven triage surface. Kush can select one or more watchlists and inspect only the stocks that passed at least one objective market-event test for the selected trading day. Its purpose is to answer “what deserves my attention today?” and route the user to deeper Wyckoff consoles; it is not a buy/sell signal or a replacement for structural context analysis.
+
+The initial event tests are: price crossed the 200-day SMA during the day; absolute price move exceeded 3%; today’s volume was at least 2x the previous five completed sessions’ average volume; and today’s high exceeded the highest close from the prior 20, 40, or 60 sessions. The table should show one row per stock, visible pass/fail event columns, the supporting values (move, volume ratio, SMA/price, breakout lookback, delivery percentage), and a clear as-of date/data status.
+
+Recommended product decisions: use prior completed sessions for rolling baselines; define the SMA cross using today’s intraday high/low against yesterday’s SMA or an explicit daily-bar crossing rule; keep all event rules independent; show a “reason”/evidence summary rather than ranking by the number of flags; and keep delivery percentage as context, not a gate. Wyckoff-specific interpretation remains in the deep-dive consoles, with optional lightweight alerts for possible effort/result divergence and range expansion only after the base console is working.
+
+Implementation outcome: the Summary Console now unions selected watchlists, returns event-only rows, exposes both intraday high crossing and close confirmation for the 20/40/60-day highest-prior-close levels, links each stock to Kite, and opens the existing Three-Week Stock Review + Current Week page through a Detail action. Validation passed for the focused Kotlin engine test, service compilation, focused React page test, and frontend production build.
+
+The console now also exports the visible event rows as an AI-friendly CSV with explicit snake_case headers and provides a companion Markdown column guide. The guide explains the rules, warns that delivery is context-only, and gives an analysis instruction to return up to five research candidates based on independent evidence rather than simply counting true flags.
+
+The scan window is now the latest five completed trading sessions instead of one requested date. Each stock/session is evaluated separately using that session's preceding baselines, and the table/CSV may contain multiple rows for the same stock when it triggered on multiple dates.
+
+The console now has a client-side filter builder. The user can select one or more signals, match `Any` or `All`, and apply the filter to the same session or across the full five-session window. In `All + Across 5 sessions`, each required signal may occur on a different date, and all event rows for a qualifying stock remain visible so the user can inspect the sequence. CSV export follows the current filtered table.

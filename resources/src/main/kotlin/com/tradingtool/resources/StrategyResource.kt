@@ -38,6 +38,7 @@ import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionService
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseGroupBacktestRequest
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseGroupBacktestService
 import com.tradingtool.core.strategy.weeklyreview.WeeklyPriceWatchlistScannerService
+import com.tradingtool.core.strategy.summaryconsole.SummaryConsoleService
 import com.tradingtool.core.strategy.netwebcycle.NetwebCycleRequest
 import com.tradingtool.core.strategy.netwebcycle.NetwebCycleRunConfig
 import com.tradingtool.core.strategy.netwebcycle.NetwebCycleService
@@ -83,6 +84,7 @@ class StrategyResource @Inject constructor(
     private val weeklyBaseDefinitionService: WeeklyBaseDefinitionService,
     private val weeklyBaseGroupBacktestService: WeeklyBaseGroupBacktestService,
     private val weeklyPriceWatchlistScannerService: WeeklyPriceWatchlistScannerService,
+    private val summaryConsoleService: SummaryConsoleService,
     private val priceAcceptanceScannerService: PriceAcceptanceScannerService,
     private val netwebCycleService: NetwebCycleService,
 ) {
@@ -259,6 +261,34 @@ class StrategyResource @Inject constructor(
     @Path("/weekly-price-review/watchlists")
     fun getWeeklyPriceReviewWatchlists(): CompletableFuture<Response> = ioScope.endpoint {
         ok(weeklyPriceWatchlistScannerService.listWatchlists())
+    }
+
+    @GET
+    @Path("/summary-console/watchlists")
+    fun getSummaryConsoleWatchlists(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(summaryConsoleService.listWatchlists())
+    }
+
+    @GET
+    @Path("/summary-console/scan")
+    fun getSummaryConsoleScan(
+        @QueryParam("watchlists") watchlists: String?,
+        @QueryParam("asOfDate") asOfDate: String?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val requestedWatchlists = watchlists.orEmpty().split(",").map(String::trim).filter(String::isNotEmpty)
+        if (requestedWatchlists.isEmpty()) {
+            return@endpoint badRequest("At least one watchlist is required.")
+        }
+        val parsedAsOfDate = try {
+            asOfDate?.takeIf(String::isNotBlank)?.let(LocalDate::parse) ?: LocalDate.now()
+        } catch (_: Exception) {
+            return@endpoint badRequest("asOfDate must be a valid ISO date in YYYY-MM-DD format.")
+        }
+        try {
+            ok(summaryConsoleService.scan(requestedWatchlists, parsedAsOfDate))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid summary-console request.")
+        }
     }
 
     @GET

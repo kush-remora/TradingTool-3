@@ -35,6 +35,12 @@ class VolumeEventConfirmationBacktestService @Inject constructor(
         val toDate = parseDate(request.toDate, today, "toDate")
         val fromDate = parseDate(request.fromDate, toDate.minusMonths(DEFAULT_TEST_MONTHS), "fromDate")
         require(!fromDate.isAfter(toDate)) { "fromDate must not be after toDate." }
+        val entryMode = request.entryMode
+            ?.trim()
+            ?.uppercase()
+            ?.takeIf { it.isNotBlank() }
+            ?: VolumeEventEntryModes.FIVE_DAY_FUTURE_RSI_CONFIRMATION
+        require(entryMode in VolumeEventEntryModes.all) { "Unknown entryMode: $entryMode" }
 
         val members = indexConstituentHandler.read { dao -> dao.listActiveByIndex(resolvedWatchlist) }
             .filter { member -> member.instrumentToken > 0 && member.symbol.isNotBlank() }
@@ -48,7 +54,7 @@ class VolumeEventConfirmationBacktestService @Inject constructor(
         } ?: members
         require(selectedMembers.isNotEmpty()) { "No stocks were found for watchlist $resolvedWatchlist." }
 
-        val config = VolumeEventConfirmationBacktestConfig()
+        val config = VolumeEventConfirmationBacktestConfig(entryMode = entryMode)
         val reports = coroutineScope {
             val semaphore = Semaphore(MAX_PARALLEL_CANDLE_READS)
             selectedMembers.map { member ->
@@ -57,7 +63,7 @@ class VolumeEventConfirmationBacktestService @Inject constructor(
                         val candles = candleCacheService.getDailyCandles(
                             token = member.instrumentToken,
                             symbol = member.symbol,
-                            from = fromDate.minusDays(CANDLE_WARMUP_CALENDAR_DAYS),
+                        from = fromDate.minusDays(CANDLE_WARMUP_CALENDAR_DAYS),
                             to = toDate,
                         )
                         engine.run(member, candles, fromDate, toDate, config)
@@ -73,7 +79,7 @@ class VolumeEventConfirmationBacktestService @Inject constructor(
             testedFromDate = reports.mapNotNull(VolumeEventConfirmationSymbolReport::testedFromDate).minOrNull(),
             testedToDate = reports.mapNotNull(VolumeEventConfirmationSymbolReport::testedToDate).maxOrNull(),
             config = config,
-            summary = summarizeVolumeEventObservations(allObservations),
+            summary = summarizeVolumeEventObservations(allObservations, entryMode),
             symbols = reports,
         )
     }
@@ -92,7 +98,7 @@ class VolumeEventConfirmationBacktestService @Inject constructor(
 
     private companion object {
         const val MAX_PARALLEL_CANDLE_READS = 12
-        const val CANDLE_WARMUP_CALENDAR_DAYS = 90L
+        const val CANDLE_WARMUP_CALENDAR_DAYS = 400L
         const val DEFAULT_TEST_MONTHS: Long = 6
     }
 }

@@ -1644,16 +1644,26 @@ export interface VolumeEventConfirmationBacktestRequest {
   symbol?: string;
   fromDate?: string;
   toDate?: string;
+  entryMode?: VolumeEventEntryMode;
 }
+
+export type VolumeEventEntryMode =
+  | "FIVE_DAY_FUTURE_RSI_CONFIRMATION"
+  | "FIVE_DAY_PAST_RSI_EARLY_ENTRY";
 
 export interface VolumeEventConfirmationBacktestConfig {
   volumeBaselineDays: number;
   volumeShockMultiplier: number;
-  lowRsiThreshold: number;
+  entryMode: VolumeEventEntryMode;
   confirmationDays: number;
   targetPct: number;
   maxHoldingDays: number;
   rsiPeriod: number;
+  maxLookbackDrawdownPct: number;
+  adaptiveRsiCalibrationDays: number;
+  adaptiveRsiBinSize: number;
+  adaptiveRsiMinimumSampleCount: number;
+  pastRsiLookbackDays: number;
 }
 
 export type VolumeEventConfirmationStatus =
@@ -1661,7 +1671,11 @@ export type VolumeEventConfirmationStatus =
   | "UNRESOLVED"
   | "NO_CONFIRMATION"
   | "SKIPPED_WHILE_IN_POSITION"
-  | "INSUFFICIENT_FORWARD_DATA";
+  | "INSUFFICIENT_FORWARD_DATA"
+  | "REJECTED_BEARISH_CONTEXT"
+  | "INSUFFICIENT_RSI_CALIBRATION"
+  | "RSI_ABOVE_ADAPTIVE_CEILING"
+  | "PAST_RSI_TREND_NOT_CONFIRMED";
 
 export interface VolumeEventConfirmationObservation {
   symbol: string;
@@ -1671,6 +1685,14 @@ export interface VolumeEventConfirmationObservation {
   priorVolumeAverage: number;
   volumeRatio: number;
   eventRsi: number;
+  lookbackReturnPct: number | null;
+  lookbackDrawdownPct: number | null;
+  adaptiveRsiThreshold: number | null;
+  rsiCalibrationSampleCount: number | null;
+  rsiCalibrationBaselineHitRatePct: number | null;
+  rsiCalibrationSelectedHitRatePct: number | null;
+  pastRsiChangePoints: number | null;
+  pastRsiTrendPassed: boolean | null;
   confirmationDate: string | null;
   confirmationRsi: number | null;
   rsiChangePoints: number | null;
@@ -1693,6 +1715,10 @@ export interface VolumeEventConfirmationBacktestSummary {
   noConfirmationCount: number;
   skippedWhileInPositionCount: number;
   insufficientForwardDataCount: number;
+  rejectedBearishContextCount: number;
+  insufficientRsiCalibrationCount: number;
+  rsiAboveAdaptiveCeilingCount: number;
+  pastRsiTrendRejectedCount: number;
   confirmationRatePct: number | null;
   targetHitRatePct: number | null;
   averageHoldingTradingDays: number | null;
@@ -2433,6 +2459,44 @@ export interface UniverseOption {
 
 export interface UniverseOptionsResponse {
   options: UniverseOption[];
+}
+
+export interface SummaryConsoleRow {
+  symbol: string;
+  companyName: string;
+  instrumentToken: number;
+  watchlists: string[];
+  asOfDate: string;
+  close: number;
+  previousClose: number | null;
+  dailyMovePct: number | null;
+  largeMove: boolean;
+  sma200: number | null;
+  sma200Crossed: boolean;
+  volume: number;
+  averageVolume5: number | null;
+  volumeRatio: number | null;
+  volumeAnomaly: boolean;
+  deliveryPercentage: number | null;
+  breakout20Level: number | null;
+  breakout20LevelCrossed: boolean;
+  breakout20CloseConfirmed: boolean;
+  breakout40Level: number | null;
+  breakout40LevelCrossed: boolean;
+  breakout40CloseConfirmed: boolean;
+  breakout60Level: number | null;
+  breakout60LevelCrossed: boolean;
+  breakout60CloseConfirmed: boolean;
+}
+
+export interface SummaryConsoleResponse {
+  requestedAsOfDate: string;
+  lookbackSessions: number;
+  watchlists: string[];
+  scannedCount: number;
+  eventCount: number;
+  uniqueStockCount: number;
+  rows: SummaryConsoleRow[];
 }
 
 export interface WeeklyPriceWatchlistDay {

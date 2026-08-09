@@ -42,9 +42,11 @@ import { SilentBreakoutBacktestPage } from "./pages/SilentBreakoutBacktestPage";
 import { PriceAcceptanceScannerPage } from "./pages/PriceAcceptanceScannerPage";
 import { StockHistoryDownloadPage } from "./pages/StockHistoryDownloadPage";
 import { NetwebCycleTrackerPage } from "./pages/NetwebCycleTrackerPage";
+import { SummaryConsolePage } from "./pages/SummaryConsolePage";
 import type { AccumulationCaseSnapshot } from "./types";
 
 type V1PageKey =
+  | "summary-console"
   | "trade"
   | "wyckoff-phase1"
   | "volume-shocker"
@@ -98,6 +100,7 @@ interface WeeklyLowLimitDailyValidationRoute {
 type Route = PageKey | ForwardAccumulationTimelineRoute | WeeklyLowLimitDailyValidationRoute;
 
 const menuItems: MenuProps["items"] = [
+  { key: "summary-console", label: "Summary Console", icon: <FundOutlined /> },
   { key: "volume-shocker", label: "Volume Shocker", icon: <FundOutlined /> },
   {
     key: "absolute-delivery",
@@ -223,6 +226,7 @@ const menuItems: MenuProps["items"] = [
 ];
 
 const validPages: PageKey[] = [
+  "summary-console",
   "trade",
   "wyckoff-phase1",
   "volume-shocker",
@@ -451,6 +455,7 @@ export default function App() {
           </Layout.Sider>
           <Layout.Content>
             {route === "trade" && <TradePage />}
+            {route === "summary-console" && <SummaryConsolePage onOpenStockReview={openStockReview} />}
             {route === "wyckoff-phase1" && <WyckoffPhase1Page />}
             {route === "volume-shocker" && <VolumeShockerDashboardPage />}
             {route === "absolute-delivery" && <AbsoluteDeliveryBacktestPage />}
