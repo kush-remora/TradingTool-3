@@ -36,12 +36,16 @@ import com.tradingtool.core.strategy.profitlookback.ProfitLookbackService
 import com.tradingtool.core.strategy.fiftytwohigh.ChartinkFiftyTwoWeekHighReportService
 import com.tradingtool.core.strategy.hotsma.HotSmaScannerService
 import com.tradingtool.core.strategy.sma200backtest.Sma200BacktestService
+import com.tradingtool.core.strategy.rsioversold.RsiOversoldScannerEngine
+import com.tradingtool.core.strategy.rsioversold.RsiOversoldScannerService
 import com.tradingtool.core.strategy.twodaygreen.TwoDayGreenCandleBacktestEngine
 import com.tradingtool.core.strategy.twodaygreen.TwoDayGreenCandleBacktestService
 import com.tradingtool.core.strategy.volumeeventbacktest.VolumeEventConfirmationBacktestEngine
 import com.tradingtool.core.strategy.volumeeventbacktest.VolumeEventConfirmationBacktestService
 import com.tradingtool.core.strategy.weeklylowlimit.WeeklyLowLimitBacktestEngine
 import com.tradingtool.core.strategy.weeklylowlimit.WeeklyLowLimitBacktestService
+import com.tradingtool.core.strategy.weeklylowalignmentbacktest.WeeklyLowAlignmentBacktestEngine
+import com.tradingtool.core.strategy.weeklylowalignmentbacktest.WeeklyLowAlignmentBacktestService
 import com.tradingtool.core.volumeshocker.groww.dao.GrowwVolumeShockerReadDao
 import com.tradingtool.core.volumeshocker.groww.dao.GrowwVolumeShockerWriteDao
 import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceJdbiHandler
@@ -307,6 +311,20 @@ class ServiceModule(
     )
 
     @Provides @Singleton
+    fun provideRsiOversoldScannerEngine(): RsiOversoldScannerEngine = RsiOversoldScannerEngine()
+
+    @Provides @Singleton
+    fun provideRsiOversoldScannerService(
+        indexConstituentHandler: IndexConstituentJdbiHandler,
+        candleCacheService: CandleCacheService,
+        engine: RsiOversoldScannerEngine,
+    ): RsiOversoldScannerService = RsiOversoldScannerService(
+        indexConstituentHandler = indexConstituentHandler,
+        candleCacheService = candleCacheService,
+        engine = engine,
+    )
+
+    @Provides @Singleton
     fun provideTwoDayGreenCandleBacktestEngine(): TwoDayGreenCandleBacktestEngine = TwoDayGreenCandleBacktestEngine()
 
     @Provides @Singleton
@@ -343,6 +361,20 @@ class ServiceModule(
         candleCacheService: CandleCacheService,
         engine: WeeklyLowLimitBacktestEngine,
     ): WeeklyLowLimitBacktestService = WeeklyLowLimitBacktestService(
+        indexConstituentHandler = indexConstituentHandler,
+        candleCacheService = candleCacheService,
+        engine = engine,
+    )
+
+    @Provides @Singleton
+    fun provideWeeklyLowAlignmentBacktestEngine(): WeeklyLowAlignmentBacktestEngine = WeeklyLowAlignmentBacktestEngine()
+
+    @Provides @Singleton
+    fun provideWeeklyLowAlignmentBacktestService(
+        indexConstituentHandler: IndexConstituentJdbiHandler,
+        candleCacheService: CandleCacheService,
+        engine: WeeklyLowAlignmentBacktestEngine,
+    ): WeeklyLowAlignmentBacktestService = WeeklyLowAlignmentBacktestService(
         indexConstituentHandler = indexConstituentHandler,
         candleCacheService = candleCacheService,
         engine = engine,

@@ -27,6 +27,16 @@ class VolumeEventConfirmationBacktestEngine(
         if (firstTestIndex < 0) return emptyReport(member, VolumeEventConfirmationDataStatuses.INSUFFICIENT_HISTORY)
 
         val rsiValues = sortedCandles.calculateRsiValues(period = config.rsiPeriod)
+        if (config.entryMode == VolumeEventEntryModes.VOLUME_SHOCKER_PRICE_CONFIRMATION) {
+            return runVolumeShockerPriceConfirmation(
+                member = member,
+                candles = sortedCandles,
+                firstTestIndex = firstTestIndex,
+                rsiValues = rsiValues,
+                config = config,
+            )
+        }
+
         val observations = mutableListOf<VolumeEventConfirmationObservation>()
         var nextEligibleEventIndex = firstTestIndex
 
@@ -171,16 +181,19 @@ class VolumeEventConfirmationBacktestEngine(
             val outcomeEndIndex = minOf(sortedCandles.lastIndex, entryIndex + config.maxHoldingDays - 1)
             val targetPrice = entryPrice * (1.0 + config.targetPct / 100.0)
             val targetIndex = (entryIndex..outcomeEndIndex).firstOrNull { index -> sortedCandles[index].high >= targetPrice }
-            val exitIndex = targetIndex ?: outcomeEndIndex
             val outcome = if (targetIndex != null) {
                 VolumeEventConfirmationStatuses.TARGET_HIT
             } else {
                 VolumeEventConfirmationStatuses.UNRESOLVED
             }
+            val currentLtp = sortedCandles.last().close
+            val currentIndex = sortedCandles.lastIndex
+            val measurementEndIndex = targetIndex ?: currentIndex
 
             observations += VolumeEventConfirmationObservation(
                 symbol = member.symbol,
                 eventDate = eventCandle.candleDate.toString(),
+                entrySignalDate = eventCandle.candleDate.toString(),
                 eventClose = eventCandle.close.roundTo2(),
                 eventVolume = eventCandle.volume,
                 priorVolumeAverage = priorVolumeAverage.roundTo2(),
@@ -201,17 +214,17 @@ class VolumeEventConfirmationBacktestEngine(
                 entryPrice = entryPrice.roundTo2(),
                 targetPrice = targetPrice.roundTo2(),
                 status = outcome,
-                exitDate = sortedCandles[exitIndex].candleDate.toString(),
-                exitPrice = if (targetIndex != null) targetPrice.roundTo2() else sortedCandles[exitIndex].close.roundTo2(),
-                holdingTradingDays = exitIndex - entryIndex + 1,
+                exitDate = targetIndex?.let { sortedCandles[it].candleDate.toString() },
+                exitPrice = targetIndex?.let { targetPrice.roundTo2() },
+                holdingTradingDays = measurementEndIndex - entryIndex + 1,
                 maximumHighSinceEntryPct = sortedCandles
-                    .subList(entryIndex, exitIndex + 1)
+                    .subList(entryIndex, measurementEndIndex + 1)
                     .maxOf { candle -> ((candle.high / entryPrice) - 1.0) * 100.0 }
                     .roundTo2(),
-                unresolvedCloseReturnPct = targetIndex?.let { null }
-                    ?: (((sortedCandles[exitIndex].close / entryPrice) - 1.0) * 100.0).roundTo2(),
+                currentLtp = currentLtp.roundTo2(),
+                currentLtpChangePct = (((currentLtp / entryPrice) - 1.0) * 100.0).roundTo2(),
             )
-            nextEligibleEventIndex = exitIndex + 1
+            nextEligibleEventIndex = (targetIndex ?: measurementEndIndex) + 1
         }
 
         val testedCandles = sortedCandles.drop(firstTestIndex)
@@ -225,6 +238,119 @@ class VolumeEventConfirmationBacktestEngine(
             summary = summarizeVolumeEventObservations(observations, config.entryMode),
             observations = observations,
         )
+    }
+
+    private fun runVolumeShockerPriceConfirmation(
+        member: VolumeEventConfirmationMember,
+        candles: List<DailyCandle>,
+        firstTestIndex: Int,
+        rsiValues: List<Double>,
+        config: VolumeEventConfirmationBacktestConfig,
+    ): VolumeEventConfirmationSymbolReport {
+        val observations = mutableListOf<VolumeEventConfirmationObservation>()
+        var nextEligibleSignalIndex = firstTestIndex
+        var lastConsumedReferenceIndex = -1
+
+        for (signalIndex in (firstTestIndex + MIN_VOLUME_REFERENCE_GAP_DAYS)..candles.lastIndex) {
+            val referenceIndex = findLatestVolumeShockerIndex(candles, signalIndex, config) ?: continue
+            if (referenceIndex <= lastConsumedReferenceIndex || signalIndex < nextEligibleSignalIndex) continue
+
+            val signalCandle = candles[signalIndex]
+            if (!isVolumeShocker(candles, signalIndex, config)) continue
+
+            val referenceCandle = candles[referenceIndex]
+            if (signalCandle.close >= referenceCandle.close) continue
+
+            val entryIndex = signalIndex + 1
+            if (entryIndex > candles.lastIndex) continue
+
+            val referencePriorCandles = candles.previousCandles(referenceIndex, config.volumeBaselineDays) ?: continue
+            val priorVolumeAverage = referencePriorCandles.map { candle -> candle.volume.toDouble() }.average()
+            val volumeRatio = referenceCandle.volume.toDouble() / priorVolumeAverage
+            val referenceRsi = rsiValues[referenceIndex].takeIf(Double::isFinite) ?: 0.0
+            val priceContext = calculateLookbackPriceContext(referencePriorCandles, referenceCandle)
+            val entryCandle = candles[entryIndex]
+            val entryPrice = entryCandle.open
+            if (entryPrice <= 0.0 || !entryPrice.isFinite()) continue
+
+            val outcomeEndIndex = candles.lastIndex
+            val targetPrice = entryPrice * (1.0 + config.targetPct / 100.0)
+            val targetIndex = (entryIndex..outcomeEndIndex).firstOrNull { index -> candles[index].high >= targetPrice }
+            val currentLtp = candles.last().close
+            val currentIndex = candles.lastIndex
+            val measurementEndIndex = targetIndex ?: currentIndex
+
+            observations += VolumeEventConfirmationObservation(
+                symbol = member.symbol,
+                eventDate = referenceCandle.candleDate.toString(),
+                entrySignalDate = signalCandle.candleDate.toString(),
+                eventClose = referenceCandle.close.roundTo2(),
+                eventVolume = referenceCandle.volume,
+                priorVolumeAverage = priorVolumeAverage.roundTo2(),
+                volumeRatio = volumeRatio.roundTo2(),
+                eventRsi = referenceRsi.roundTo2(),
+                lookbackReturnPct = priceContext.returnPct.roundTo2(),
+                lookbackDrawdownPct = priceContext.drawdownPct.roundTo2(),
+                adaptiveRsiThreshold = null,
+                rsiCalibrationSampleCount = null,
+                rsiCalibrationBaselineHitRatePct = null,
+                rsiCalibrationSelectedHitRatePct = null,
+                pastRsiChangePoints = null,
+                pastRsiTrendPassed = null,
+                confirmationDate = null,
+                confirmationRsi = null,
+                rsiChangePoints = null,
+                entryDate = entryCandle.candleDate.toString(),
+                entryPrice = entryPrice.roundTo2(),
+                targetPrice = targetPrice.roundTo2(),
+                status = if (targetIndex != null) VolumeEventConfirmationStatuses.TARGET_HIT else VolumeEventConfirmationStatuses.UNRESOLVED,
+                exitDate = targetIndex?.let { candles[it].candleDate.toString() },
+                exitPrice = targetIndex?.let { targetPrice.roundTo2() },
+                holdingTradingDays = measurementEndIndex - entryIndex + 1,
+                maximumHighSinceEntryPct = candles
+                    .subList(entryIndex, measurementEndIndex + 1)
+                    .maxOf { candle -> ((candle.high / entryPrice) - 1.0) * 100.0 }
+                    .roundTo2(),
+                currentLtp = currentLtp.roundTo2(),
+                currentLtpChangePct = (((currentLtp / entryPrice) - 1.0) * 100.0).roundTo2(),
+            )
+            lastConsumedReferenceIndex = referenceIndex
+            nextEligibleSignalIndex = (targetIndex ?: measurementEndIndex) + 1
+        }
+
+        val testedCandles = candles.drop(firstTestIndex)
+        return VolumeEventConfirmationSymbolReport(
+            symbol = member.symbol,
+            companyName = member.companyName,
+            instrumentToken = member.instrumentToken,
+            dataStatus = VolumeEventConfirmationDataStatuses.AVAILABLE,
+            testedFromDate = testedCandles.first().candleDate.toString(),
+            testedToDate = testedCandles.last().candleDate.toString(),
+            summary = summarizeVolumeEventObservations(observations, config.entryMode),
+            observations = observations,
+        )
+    }
+
+    private fun findLatestVolumeShockerIndex(
+        candles: List<DailyCandle>,
+        signalIndex: Int,
+        config: VolumeEventConfirmationBacktestConfig,
+    ): Int? {
+        val latestReferenceIndex = signalIndex - MIN_VOLUME_REFERENCE_GAP_DAYS
+        if (latestReferenceIndex < 0) return null
+        return (0..latestReferenceIndex).lastOrNull { index -> isVolumeShocker(candles, index, config) }
+    }
+
+    private fun isVolumeShocker(
+        candles: List<DailyCandle>,
+        index: Int,
+        config: VolumeEventConfirmationBacktestConfig,
+    ): Boolean {
+        val priorCandles = candles.previousCandles(index, config.volumeBaselineDays) ?: return false
+        val priorVolumeAverage = priorCandles.map { candle -> candle.volume.toDouble() }.average()
+        return priorVolumeAverage > 0.0 &&
+            priorVolumeAverage.isFinite() &&
+            candles[index].volume.toDouble() / priorVolumeAverage >= config.volumeShockMultiplier
     }
 
     private fun emptyReport(
@@ -388,6 +514,7 @@ class VolumeEventConfirmationBacktestEngine(
     ): VolumeEventConfirmationObservation = VolumeEventConfirmationObservation(
         symbol = eventCandle.symbol,
         eventDate = eventCandle.candleDate.toString(),
+        entrySignalDate = null,
         eventClose = eventCandle.close.roundTo2(),
         eventVolume = eventCandle.volume,
         priorVolumeAverage = priorVolumeAverage.roundTo2(),
@@ -412,7 +539,8 @@ class VolumeEventConfirmationBacktestEngine(
         exitPrice = null,
         holdingTradingDays = null,
         maximumHighSinceEntryPct = null,
-        unresolvedCloseReturnPct = null,
+        currentLtp = null,
+        currentLtpChangePct = null,
     )
 
     private fun VolumeEventConfirmationObservation.withCalibration(
@@ -481,3 +609,5 @@ internal fun summarizeVolumeEventObservations(
 }
 
 private fun Double.roundTo2(): Double = round(this * 100.0) / 100.0
+
+private const val MIN_VOLUME_REFERENCE_GAP_DAYS = 5

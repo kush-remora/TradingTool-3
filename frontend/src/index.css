@@ -1,5 +1,29 @@
 /* Groww-Inspired UI Density Overrides */
 
+.app-header-calculator {
+  position: fixed;
+  top: 12px;
+  right: 20px;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 4px 6px;
+  background: #fff;
+  border: 1px solid #e4e7ec;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.08);
+}
+
+@media (max-width: 640px) {
+  .app-header-calculator {
+    top: 8px;
+    right: 8px;
+    max-width: calc(100vw - 96px);
+    overflow: hidden;
+  }
+}
+
 /* Make Ant Design small tables even more compact */
 .ant-table-small .ant-table-thead > tr > th,
 .ant-table-small .ant-table-tbody > tr > td {

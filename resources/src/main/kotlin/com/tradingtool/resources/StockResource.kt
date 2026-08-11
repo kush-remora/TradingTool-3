@@ -12,6 +12,10 @@ import com.tradingtool.core.model.stock.StockQuoteSnapshot
 import com.tradingtool.core.strategy.momentum.PARTICIPATION_DELIVERY_HISTORY_SESSIONS
 import com.tradingtool.core.strategy.momentum.MOMENTUM_RSI_WARMUP_CALENDAR_DAYS
 import com.tradingtool.core.strategy.momentum.calculateMomentumEvidence
+import com.tradingtool.core.strategy.simplevolume.calculateSimpleVolumeSignals
+import com.tradingtool.core.technical.calculateRsiValues
+import com.tradingtool.core.technical.calculateRocValues
+import com.tradingtool.core.technical.calculateFreshBreakoutDates
 import com.tradingtool.resources.common.badRequest
 import com.tradingtool.resources.common.endpoint
 import com.tradingtool.resources.common.notFound
@@ -33,6 +37,7 @@ import java.util.concurrent.CompletableFuture
 import kotlin.math.round
 
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
+import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.kite.InstrumentCache
@@ -49,6 +54,7 @@ class StockResource @Inject constructor(
     private val resourceScope: ResourceScope,
     private val candleCacheService: CandleCacheService,
     private val deliveryDb: StockDeliveryJdbiHandler,
+    private val indexConstituentDb: IndexConstituentJdbiHandler,
     private val instrumentCache: InstrumentCache,
     private val tickStore: TickStore,
     private val tickerSubscriptions: TickerSubscriptions,
@@ -67,6 +73,32 @@ class StockResource @Inject constructor(
     @GET
     @Path("/notes/{instrumentToken}")
     fun getNotes(@PathParam("instrumentToken") instrumentToken: Long): CompletableFuture<Response> = ioScope.endpoint { ok(noteService.list(instrumentToken)) }
+
+    @GET
+    @Path("/watchlists/{watchlistKey}/members")
+    fun getWatchlistMembers(@PathParam("watchlistKey") watchlistKey: String): CompletableFuture<Response> = ioScope.endpoint {
+        val requestedKey = watchlistKey.trim()
+        if (requestedKey.isBlank()) return@endpoint badRequest("watchlistKey is required.")
+
+        val resolvedKey = indexConstituentDb.read { dao ->
+            dao.listUniqueIndices()
+                .firstOrNull { summary -> summary.indexKey.equals(requestedKey, ignoreCase = true) }
+                ?.indexKey
+        } ?: return@endpoint notFound("Unknown watchlist: $watchlistKey")
+
+        val members = indexConstituentDb.read { dao -> dao.listActiveByIndex(resolvedKey) }
+            .distinctBy { member -> member.symbol }
+            .map { member ->
+                InstrumentSearchResult(
+                    instrumentToken = member.instrumentToken,
+                    tradingSymbol = member.symbol,
+                    companyName = member.companyName,
+                    exchange = "NSE",
+                    instrumentType = "EQ",
+                )
+            }
+        ok(members)
+    }
 
     @POST
     @Path("/notes")
@@ -226,9 +258,12 @@ class StockResource @Inject constructor(
 
         val daysToDisplay = recentCandles.takeLast(requestedDays)
         val displayStartIndex = recentCandles.size - daysToDisplay.size
+        val simpleVolumeSignals = calculateSimpleVolumeSignals(recentCandles)
+        val allRsiValues = recentCandles.calculateRsiValues(period = 14, fallback = 50.0)
         val detailDays = daysToDisplay.mapIndexed { index, candle ->
             val sourceIndex = displayStartIndex + index
             val previousCandle = recentCandles.getOrNull(sourceIndex - 1)
+            val volumeSignal = simpleVolumeSignals.getOrNull(sourceIndex)
             val prior20 = recentCandles.subList(maxOf(0, sourceIndex - 20), sourceIndex)
             val avgPrior20Volume = prior20
                 .takeIf { it.isNotEmpty() }
@@ -246,8 +281,15 @@ class StockResource @Inject constructor(
                 dailyChangePct = previousCandle
                     ?.takeIf { previous -> previous.close > 0.0 }
                     ?.let { previous -> roundTo2(((candle.close - previous.close) / previous.close) * 100) },
-                rsi14 = null,
+                rsi14 = allRsiValues.getOrNull(sourceIndex)
+                    ?.takeIf { value -> value.isFinite() }
+                    ?.let(::roundTo2),
                 volRatio = avgPrior20Volume?.let { average -> roundTo2(candle.volume / average) },
+                volumeSignal = volumeSignal?.classification?.name,
+                volumeAverage50 = volumeSignal?.averageVolume?.let(::roundTo2),
+                relativeVolume50 = volumeSignal?.relativeVolume?.let(::roundTo2),
+                pocketPivot = volumeSignal?.pocketPivot ?: false,
+                bullSnort = volumeSignal?.bullSnort ?: false,
             )
         }
 
@@ -266,6 +308,7 @@ class StockResource @Inject constructor(
             fiftyTwoWeekLow = last252.minOfOrNull { it.low },
             fiftyTwoWeekHigh = last252.maxOfOrNull { it.high },
             sma200 = recentCandles.takeLast(200).takeIf { it.size == 200 }?.map { it.close }?.average()?.let(::roundTo2),
+            sma100 = recentCandles.takeLast(100).takeIf { it.size == 100 }?.map { it.close }?.average()?.let(::roundTo2),
         )
         val deliveryRecords = deliveryDb.read { dao ->
             dao.findRecentByInstrumentToken(
@@ -284,6 +327,27 @@ class StockResource @Inject constructor(
             )
         }
 
+        // RSI14 range — last-60-session window for context, 3-day direction for trend
+        val last60RsiValues = allRsiValues.takeLast(60).filter { it.isFinite() }
+        val rsiCurrent     = allRsiValues.lastOrNull()?.takeIf { it.isFinite() }
+        val rsiThreeDaysAgo = allRsiValues.getOrNull(allRsiValues.size - 4)?.takeIf { it.isFinite() }
+        val rsi14Range = com.tradingtool.core.model.stock.Rsi14Range(
+            current     = rsiCurrent?.let(::roundTo2),
+            min60d      = last60RsiValues.minOrNull()?.let(::roundTo2),
+            max60d      = last60RsiValues.maxOrNull()?.let(::roundTo2),
+            direction3d = direction3d(rsiCurrent, rsiThreeDaysAgo, threshold = 0.5),
+        )
+
+        // ROC-9 via ta4j ROCIndicator + 3-day direction
+        val allRocValues    = recentCandles.calculateRocValues(period = 9, fallback = 0.0)
+        val rocCurrent      = allRocValues.lastOrNull()?.takeIf { it.isFinite() }
+        val rocThreeDaysAgo = allRocValues.getOrNull(allRocValues.size - 4)?.takeIf { it.isFinite() }
+        val roc9 = com.tradingtool.core.model.stock.Roc9(
+            current     = rocCurrent?.let(::roundTo2),
+            direction3d = direction3d(rocCurrent, rocThreeDaysAgo, threshold = 0.3),
+        )
+        val breakoutDates = calculateFreshBreakoutDates(recentCandles)
+
         ok(
             StockDetailResponse(
                 symbol = normalizedSymbol,
@@ -298,8 +362,22 @@ class StockResource @Inject constructor(
                     asOfDate = today,
                     deliveryPercentageByDate = deliveryByDate,
                 ),
+                rsi14Range = rsi14Range,
+                roc9 = roc9,
+                breakoutDates = breakoutDates,
             )
         )
+    }
+
+    /** Returns "UP", "DOWN", or "FLAT" comparing current vs 3-session-ago value. */
+    private fun direction3d(current: Double?, threeDaysAgo: Double?, threshold: Double): String? {
+        if (current == null || threeDaysAgo == null) return null
+        val delta = current - threeDaysAgo
+        return when {
+            delta > threshold  -> "UP"
+            delta < -threshold -> "DOWN"
+            else               -> "FLAT"
+        }
     }
 
     private fun loadLatestLiveCandle(symbol: String, token: Long): DailyCandle? {

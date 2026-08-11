@@ -240,14 +240,17 @@ function toDayDetails(days: WeeklyPriceWatchlistScannerResponse["rows"][number][
 function buildCards(response: WeeklyPriceWatchlistScannerResponse | null): WatchlistReviewCard[] {
   if (!response) return [];
 
-  return response.rows.map((row) => ({
-    symbol: row.symbol,
-    companyName: row.companyName,
-    instrumentToken: row.instrumentToken,
-    summaries: [...buildWeeklyPriceSummaries(toDayDetails(row.days), 4)].reverse(),
-    dayByDate: new Map(row.days.map((day) => [day.date, day])),
-    momentumEvidence: row.momentum_evidence,
-  }));
+  return response.rows.map((row) => {
+    const chronologicalSummaries = buildWeeklyPriceSummaries(toDayDetails(row.days), 4);
+    return {
+      symbol: row.symbol,
+      companyName: row.companyName,
+      instrumentToken: row.instrumentToken,
+      summaries: [...chronologicalSummaries].reverse(),
+      dayByDate: new Map(row.days.map((day) => [day.date, day])),
+      momentumEvidence: row.momentum_evidence,
+    };
+  });
 }
 
 export function ThreeWeekWatchlistReviewPage({ onOpenStockReview }: ThreeWeekWatchlistReviewPageProps) {
@@ -414,7 +417,6 @@ export function ThreeWeekWatchlistReviewPage({ onOpenStockReview }: ThreeWeekWat
     { title: "Structure", key: "structure", width: 105, render: (_, row) => <WeeklyStructureIndicator structure={row.weekOnWeekStructure} /> },
     { title: "Cue", key: "cue", width: 150, render: (_, row) => row.hasLowDayAccumulationCue ? <Text type="success" strong>Low-day D/V higher</Text> : "—" },
   ];
-
   return (
     <div style={{ padding: "24px 24px 160px" }}>
       <Space orientation="vertical" size={16} style={{ width: "100%" }}>

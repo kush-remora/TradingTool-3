@@ -115,6 +115,42 @@ export interface Sma200BacktestResponse {
   trades: Sma200BacktestTrade[];
 }
 
+// ==================== RSI Low Scanner ====================
+
+export interface RsiOversoldScanRequest {
+  indexKeys: string[];
+}
+
+export interface RsiOversoldRow {
+  symbol: string;
+  companyName: string | null;
+  watchlistKeys: string[];
+  signalDate: string;
+  signalRsi: number;
+  signalPrice: number;
+  signalVolume: number;
+  baselineRsiLow: number;
+  latestDate: string;
+  latestClose: number;
+  latestVolume: number;
+}
+
+export interface RsiOversoldScanResponse {
+  selectedIndexKeys: string[];
+  config: {
+    rsiPeriod: number;
+    baselineSessions: number;
+    signalWindowSessions: number;
+    signalOffset: number;
+    asOfDate: string;
+  };
+  scannedStockCount: number;
+  resultCount: number;
+  insufficientDataSymbols: string[];
+  noSignalSymbols: string[];
+  rows: RsiOversoldRow[];
+}
+
 // ==================== Two-Day Green Candle Backtest ====================
 
 export interface TwoDayGreenCandleBacktestRequest {
@@ -375,6 +411,74 @@ export interface WeeklyLowLimitBacktestReport {
   symbols: WeeklyLowLimitBacktestSymbolReport[];
 }
 
+// ==================== Weekly Low Alignment Backtest ====================
+
+export interface WeeklyLowAlignmentBacktestRequest {
+  watchlistKey: string;
+  targetPct: number;
+  maxHoldingTradingDays: number;
+}
+
+export type WeeklyLowAlignmentBacktestOutcome =
+  | "NO_RETEST"
+  | "TOO_SOON_RETEST"
+  | "POSITION_OPEN_SKIP"
+  | "TARGET_HIT"
+  | "TIME_EXIT"
+  | string;
+
+export interface WeeklyLowAlignmentBacktestTrade {
+  symbol: string;
+  instrumentToken: number;
+  previousWeekStartDate: string;
+  entryWeekStartDate: string;
+  previousWeekLow: number;
+  previousWeekLowDate: string;
+  retestDate: string | null;
+  retestLow: number | null;
+  retestGapTradingDays: number | null;
+  entryPrice: number;
+  targetPrice: number;
+  outcome: WeeklyLowAlignmentBacktestOutcome;
+  entryDate: string | null;
+  exitDate: string | null;
+  exitPrice: number | null;
+  holdingTradingDays: number | null;
+  returnPct: number | null;
+}
+
+export interface WeeklyLowAlignmentBacktestSummary {
+  setupCount: number;
+  noRetestCount: number;
+  tooSoonRetestCount: number;
+  filledTradeCount: number;
+  targetHitCount: number;
+  timeExitCount: number;
+  positionOpenSkipCount: number;
+  averageReturnPct: number | null;
+}
+
+export interface WeeklyLowAlignmentBacktestSymbolReport {
+  symbol: string;
+  companyName: string | null;
+  testedFromDate: string;
+  testedToDate: string;
+  summary: WeeklyLowAlignmentBacktestSummary;
+  trades: WeeklyLowAlignmentBacktestTrade[];
+}
+
+export interface WeeklyLowAlignmentBacktestReport {
+  watchlistKey: string;
+  testedFromDate: string;
+  testedToDate: string;
+  targetPct: number;
+  maxHoldingTradingDays: number;
+  minimumRetestGapTradingDays: number;
+  retestTolerancePct: number;
+  summary: WeeklyLowAlignmentBacktestSummary;
+  symbols: WeeklyLowAlignmentBacktestSymbolReport[];
+}
+
 export interface WeeklyBaseDefinitionRequest {
   symbol: string;
 }
@@ -554,6 +658,11 @@ export interface DayDetail {
   daily_change_pct: number | null;
   rsi14: number | null;
   vol_ratio: number | null;
+  volume_signal?: "POCKET_PIVOT" | "HIGH_VOLUME_UP" | "HIGH_VOLUME_DOWN" | "DRY" | "NORMAL" | "INSUFFICIENT_DATA" | string | null;
+  volume_average_50?: number | null;
+  relative_volume_50?: number | null;
+  pocket_pivot?: boolean;
+  bull_snort?: boolean;
 }
 
 export interface DeliveryDayDetail {
@@ -573,6 +682,29 @@ export interface PivotLevels {
   s3: number;
 }
 
+export interface Rsi14Range {
+  current: number | null;
+  min_60d: number | null;
+  max_60d: number | null;
+  direction_3d: "UP" | "DOWN" | "FLAT" | null;
+}
+
+export interface Roc9 {
+  current: number | null;
+  direction_3d: "UP" | "DOWN" | "FLAT" | null;
+}
+
+export interface FreshBreakoutDates {
+  breakout_20d: string | null;
+  breakout_50d: string | null;
+  breakout_52d: string | null;
+  breakout_100d: string | null;
+  breakout_20d_level?: number | null;
+  breakout_50d_level?: number | null;
+  breakout_52d_level?: number | null;
+  breakout_100d_level?: number | null;
+}
+
 export interface StockDetailResponse {
   symbol: string;
   exchange: string;
@@ -582,6 +714,9 @@ export interface StockDetailResponse {
   days: DayDetail[];
   delivery_days: DeliveryDayDetail[];
   momentum_evidence?: MomentumEvidence | null;
+  rsi14_range?: Rsi14Range | null;
+  roc9?: Roc9 | null;
+  breakout_dates?: FreshBreakoutDates | null;
 }
 
 export interface MomentumWeeklyReturn {
@@ -636,6 +771,7 @@ export interface StockFundamentals {
   fiftyTwoWeekLow: number | null;
   fiftyTwoWeekHigh: number | null;
   sma200: number | null;
+  sma100: number | null;
 }
 
 export interface StockQuoteSnapshot {
@@ -1640,16 +1776,13 @@ export interface SimpleMomentumPrepareRequest {
 }
 
 export interface VolumeEventConfirmationBacktestRequest {
-  watchlistKey: string;
-  symbol?: string;
+  watchlists: string[];
+  targetPct: number;
   fromDate?: string;
   toDate?: string;
-  entryMode?: VolumeEventEntryMode;
 }
 
-export type VolumeEventEntryMode =
-  | "FIVE_DAY_FUTURE_RSI_CONFIRMATION"
-  | "FIVE_DAY_PAST_RSI_EARLY_ENTRY";
+export type VolumeEventEntryMode = "VOLUME_SHOCKER_PRICE_CONFIRMATION";
 
 export interface VolumeEventConfirmationBacktestConfig {
   volumeBaselineDays: number;
@@ -1680,6 +1813,7 @@ export type VolumeEventConfirmationStatus =
 export interface VolumeEventConfirmationObservation {
   symbol: string;
   eventDate: string;
+  entrySignalDate: string | null;
   eventClose: number;
   eventVolume: number;
   priorVolumeAverage: number;
@@ -1704,7 +1838,8 @@ export interface VolumeEventConfirmationObservation {
   exitPrice: number | null;
   holdingTradingDays: number | null;
   maximumHighSinceEntryPct: number | null;
-  unresolvedCloseReturnPct: number | null;
+  currentLtp: number | null;
+  currentLtpChangePct: number | null;
 }
 
 export interface VolumeEventConfirmationBacktestSummary {
@@ -1736,8 +1871,7 @@ export interface VolumeEventConfirmationSymbolReport {
 }
 
 export interface VolumeEventConfirmationBacktestReport {
-  watchlistKey: string;
-  selectedSymbol: string | null;
+  watchlists: string[];
   testedFromDate: string | null;
   testedToDate: string | null;
   config: VolumeEventConfirmationBacktestConfig;
@@ -3105,38 +3239,83 @@ export interface TrailingStopBacktestReport {
   aggregations: TrailingStopAggregateResult[];
 }
 
-export interface Rule5ApiRequest {
-  csvContent: string;
-}
-
-export interface Rule5DailyDetail {
+export interface Rule5BreakoutDay {
   date: string;
-  closePrice: number;
-  sma200: number;
-  in2Pct: boolean;
-  in3Pct: boolean;
-  in4Pct: boolean;
+  high: number;
+  close: number;
+  referenceHigh: number;
+  referenceHighDaysAgo: number;
+  closeVsReferenceHighPct: number;
 }
 
 export interface Rule5SymbolResult {
-  date: string;
   symbol: string;
-  marketCapName: string;
-  sector: string;
-  closePrice: number;
-  sma200: number;
-  fiftyTwoWeekHigh: number;
-  fiftyTwoWeekLow: number;
-  distTo52wHighPct: number;
-  distTo52wLowPct: number;
-  daysIn2Pct: number;
-  daysIn3Pct: number;
-  daysIn4Pct: number;
-  dailyBreakdown: Rule5DailyDetail[];
+  companyName: string;
+  instrumentToken: number;
+  watchlists: string[];
+  latestBreakoutDate: string;
+  latestHigh: number;
+  latestClose: number;
+  latestReferenceHigh: number;
+  latestReferenceHighDaysAgo: number;
+  latestCloseVsReferenceHighPct: number;
+  freshBreakoutDays: Rule5BreakoutDay[];
 }
 
 export interface Rule5ApiResponse {
+  requestedAsOfDate: string;
+  lookbackSessions: number;
+  breakoutPeriodSessions: number;
+  nearHighTolerancePct: number;
+  watchlists: string[];
+  scannedCount: number;
+  breakoutStockCount: number;
   results: Rule5SymbolResult[];
+}
+
+export interface Rule5BacktestSignal {
+  symbol: string;
+  companyName: string;
+  signalDate: string;
+  breakoutHigh: number;
+  breakoutClose: number;
+  referenceHigh: number;
+  referenceHighDaysAgo: number;
+  closeVsReferenceHighPct: number;
+  outcome: "ENTERED" | "SKIPPED_OPEN_POSITION";
+  entryPrice: number | null;
+  targetPrice: number | null;
+  tradeStatus: "TARGET_HIT" | "OPEN" | null;
+}
+
+export interface Rule5BacktestTrade {
+  symbol: string;
+  companyName: string;
+  instrumentToken: number;
+  entryDate: string;
+  entryPrice: number;
+  targetPrice: number;
+  exitDate: string | null;
+  exitPrice: number | null;
+  latestPrice: number;
+  changeFromEntryPct: number;
+  status: "TARGET_HIT" | "OPEN";
+  holdingTradingDays: number;
+}
+
+export interface Rule5BacktestResponse {
+  requestedAsOfDate: string;
+  periodStartDate: string;
+  breakoutPeriodSessions: number;
+  nearHighTolerancePct: number;
+  targetPct: number;
+  scannedCount: number;
+  signalCount: number;
+  enteredTradeCount: number;
+  targetHitCount: number;
+  openTradeCount: number;
+  signals: Rule5BacktestSignal[];
+  trades: Rule5BacktestTrade[];
 }
 
 export interface TrailingStopBacktestApiRequest {

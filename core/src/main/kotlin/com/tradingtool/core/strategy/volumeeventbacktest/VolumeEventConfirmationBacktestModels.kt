@@ -3,19 +3,18 @@ package com.tradingtool.core.strategy.volumeeventbacktest
 import com.tradingtool.core.candle.DailyCandle
 
 data class VolumeEventConfirmationBacktestRequest(
-    val watchlistKey: String? = null,
-    val symbol: String? = null,
+    val watchlists: List<String> = emptyList(),
+    val targetPct: Double = 10.0,
     val fromDate: String? = null,
     val toDate: String? = null,
-    val entryMode: String? = null,
 )
 
 data class VolumeEventConfirmationBacktestConfig(
     val volumeBaselineDays: Int = 5,
     val volumeShockMultiplier: Double = 2.0,
-    val entryMode: String = VolumeEventEntryModes.FIVE_DAY_FUTURE_RSI_CONFIRMATION,
+    val entryMode: String = VolumeEventEntryModes.VOLUME_SHOCKER_PRICE_CONFIRMATION,
     val confirmationDays: Int = 5,
-    val targetPct: Double = 5.0,
+    val targetPct: Double = 10.0,
     val maxHoldingDays: Int = 15,
     val rsiPeriod: Int = 14,
     val maxLookbackDrawdownPct: Double = 5.0,
@@ -28,6 +27,7 @@ data class VolumeEventConfirmationBacktestConfig(
 data class VolumeEventConfirmationObservation(
     val symbol: String,
     val eventDate: String,
+    val entrySignalDate: String?,
     val eventClose: Double,
     val eventVolume: Long,
     val priorVolumeAverage: Double,
@@ -52,7 +52,8 @@ data class VolumeEventConfirmationObservation(
     val exitPrice: Double?,
     val holdingTradingDays: Int?,
     val maximumHighSinceEntryPct: Double?,
-    val unresolvedCloseReturnPct: Double?,
+    val currentLtp: Double?,
+    val currentLtpChangePct: Double?,
 )
 
 data class VolumeEventConfirmationBacktestSummary(
@@ -84,8 +85,7 @@ data class VolumeEventConfirmationSymbolReport(
 )
 
 data class VolumeEventConfirmationBacktestReport(
-    val watchlistKey: String,
-    val selectedSymbol: String?,
+    val watchlists: List<String>,
     val testedFromDate: String?,
     val testedToDate: String?,
     val config: VolumeEventConfirmationBacktestConfig,
@@ -96,10 +96,12 @@ data class VolumeEventConfirmationBacktestReport(
 object VolumeEventEntryModes {
     const val FIVE_DAY_FUTURE_RSI_CONFIRMATION = "FIVE_DAY_FUTURE_RSI_CONFIRMATION"
     const val FIVE_DAY_PAST_RSI_EARLY_ENTRY = "FIVE_DAY_PAST_RSI_EARLY_ENTRY"
+    const val VOLUME_SHOCKER_PRICE_CONFIRMATION = "VOLUME_SHOCKER_PRICE_CONFIRMATION"
 
     val all: Set<String> = setOf(
         FIVE_DAY_FUTURE_RSI_CONFIRMATION,
         FIVE_DAY_PAST_RSI_EARLY_ENTRY,
+        VOLUME_SHOCKER_PRICE_CONFIRMATION,
     )
 }
 

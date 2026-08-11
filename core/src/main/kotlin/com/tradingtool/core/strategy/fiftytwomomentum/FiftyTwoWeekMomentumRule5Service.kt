@@ -1,160 +1,219 @@
 package com.tradingtool.core.strategy.fiftytwomomentum
 
 import com.google.inject.Inject
-import com.tradingtool.core.candle.DailyCandle
+import com.google.inject.Singleton
 import com.tradingtool.core.candle.CandleCacheService
+import com.tradingtool.core.database.IndexConstituentJdbiHandler
+import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
+import com.tradingtool.core.model.screener.UniverseOption
+import com.tradingtool.core.model.screener.UniverseOptionsResponse
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import org.slf4j.LoggerFactory
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import kotlin.math.abs
 
-import org.apache.commons.csv.CSVFormat
-import org.apache.commons.csv.CSVParser
-import java.io.StringReader
-
+@Singleton
 class FiftyTwoWeekMomentumRule5Service @Inject constructor(
+    private val indexConstituentHandler: IndexConstituentJdbiHandler,
     private val candleCacheService: CandleCacheService,
 ) {
-    private val log = LoggerFactory.getLogger(FiftyTwoWeekMomentumRule5Service::class.java)
-    private val dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
-
-    suspend fun runRule5Analysis(csvContent: String): Rule5ApiResponse = withContext(Dispatchers.IO) {
-        if (csvContent.isBlank()) return@withContext Rule5ApiResponse(emptyList())
-
-        val parser = CSVParser(
-            StringReader(csvContent),
-            CSVFormat.DEFAULT.builder()
-                .setHeader()
-                .setSkipHeaderRecord(true)
-                .setIgnoreHeaderCase(true)
-                .setTrim(true)
-                .build()
-        )
-
-        val headerMap = parser.headerMap.mapKeys { it.key.lowercase().replace(" ", "") }
-        
-        val dateHeader = headerMap.keys.firstOrNull { it.contains("date") }
-        val symbolHeader = headerMap.keys.firstOrNull { it == "symbol" }
-        val marketCapHeader = headerMap.keys.firstOrNull { it.contains("marketcap") }
-        val sectorHeader = headerMap.keys.firstOrNull { it.contains("sector") }
-
-        if (symbolHeader == null) {
-            log.error("No 'symbol' column found in CSV. Headers: {}", headerMap.keys)
-            return@withContext Rule5ApiResponse(emptyList())
-        }
-
-        val results = mutableListOf<Rule5SymbolResult>()
-        for (row in parser) {
-            try {
-                val symbolIndex = headerMap[symbolHeader]!!
-                val symbol = row.get(symbolIndex)?.trim()?.uppercase()
-                
-                if (symbol.isNullOrBlank()) {
-                    continue
-                }
-
-                val dateStr = if (dateHeader != null) row.get(headerMap[dateHeader]!!)?.trim() else null
-                val endDate = if (!dateStr.isNullOrBlank()) {
-                    LocalDate.parse(dateStr, dateFormatter)
-                } else {
-                    LocalDate.now()
-                }
-
-                val marketCap = if (marketCapHeader != null) row.get(headerMap[marketCapHeader]!!)?.trim() else "Unknown"
-                val sector = if (sectorHeader != null) row.get(headerMap[sectorHeader]!!)?.trim() else "Unknown"
-                
-                val res = processSymbol(symbol, endDate, marketCap ?: "Unknown", sector ?: "Unknown")
-                if (res != null) {
-                    results.add(res)
-                }
-            } catch (e: Exception) {
-                log.error("Failed to parse or process row: {}", row.toMap(), e)
-            }
-        }
-        
-        Rule5ApiResponse(results = results)
+    suspend fun listWatchlists(): UniverseOptionsResponse {
+        val options = indexConstituentHandler.read { dao -> dao.listUniqueIndices() }
+            .map { summary -> UniverseOption(summary.indexKey, summary.indexKey, summary.count) }
+            .sortedBy(UniverseOption::label)
+        return UniverseOptionsResponse(options)
     }
 
-    private suspend fun processSymbol(
-        symbol: String, 
-        endDate: LocalDate, 
-        marketCapName: String, 
-        sector: String
-    ): Rule5SymbolResult? {
-        val fromDate = endDate.minusDays(400) // Ensure enough history for 200 SMA + 30 days
-        
-        val candles = candleCacheService.getDailyCandles(symbol, fromDate, endDate)
-            .distinctBy(DailyCandle::candleDate)
-            .sortedBy(DailyCandle::candleDate)
-        
-        if (candles.size < 230) {
-            log.warn("Not enough data for symbol {} to calculate 200 SMA over 30 days (found {} candles)", symbol, candles.size)
-            return null
+    suspend fun scan(
+        requestedWatchlists: List<String>,
+        requestedAsOfDate: LocalDate,
+        breakoutPeriodSessions: Int,
+        nearHighTolerancePct: Double,
+    ): Rule5ApiResponse {
+        require(breakoutPeriodSessions in SUPPORTED_BREAKOUT_PERIODS) {
+            "breakoutPeriodSessions must be one of: ${SUPPORTED_BREAKOUT_PERIODS.joinToString()}"
         }
-        
-        // Find the index of the end date (or the closest preceding trading day)
-        val endIndex = candles.indexOfLast { !it.candleDate.isAfter(endDate) }
-        if (endIndex == -1 || endIndex < 229) {
-            log.warn("Not enough history before endDate {} for symbol {}", endDate, symbol)
-            return null
+        validateNearHighTolerance(nearHighTolerancePct)
+        val normalizedWatchlists = requestedWatchlists.map(String::trim).filter(String::isNotEmpty).distinct()
+        require(normalizedWatchlists.isNotEmpty()) { "At least one watchlist is required." }
+
+        val resolvedWatchlists = resolveWatchlists(normalizedWatchlists)
+        val members = resolveMembers(resolvedWatchlists)
+        val results = coroutineScope {
+            val semaphore = Semaphore(MAX_PARALLEL_CANDLE_READS)
+            members.map { member ->
+                async(Dispatchers.IO) {
+                    semaphore.withPermit {
+                        scanMember(member, requestedAsOfDate, breakoutPeriodSessions, nearHighTolerancePct)
+                    }
+                }
+            }.awaitAll().filterNotNull()
+        }.sortedWith(compareByDescending<Rule5SymbolResult> { it.latestBreakoutDate }.thenBy { it.symbol })
+
+        return Rule5ApiResponse(
+            requestedAsOfDate = requestedAsOfDate.toString(),
+            lookbackSessions = LOOKBACK_SESSIONS,
+            breakoutPeriodSessions = breakoutPeriodSessions,
+            nearHighTolerancePct = nearHighTolerancePct,
+            watchlists = resolvedWatchlists,
+            scannedCount = members.size,
+            breakoutStockCount = results.size,
+            results = results,
+        )
+    }
+
+    suspend fun backtest(
+        requestedWatchlists: List<String>,
+        requestedAsOfDate: LocalDate,
+        breakoutPeriodSessions: Int,
+        nearHighTolerancePct: Double,
+        targetPct: Double,
+    ): Rule5BacktestResponse {
+        require(breakoutPeriodSessions in SUPPORTED_BREAKOUT_PERIODS) {
+            "breakoutPeriodSessions must be one of: ${SUPPORTED_BREAKOUT_PERIODS.joinToString()}"
         }
-        
-        // Take the last 30 trading days ending at endIndex
-        val windowStartIndex = maxOf(200 - 1, endIndex - 30 + 1)
-        val windowCandles = candles.subList(windowStartIndex, endIndex + 1)
-        
-        val dailyDetails = windowCandles.mapIndexed { index, dailyCandle ->
-            val currentIndexInFullList = windowStartIndex + index
-            
-            // Calculate 200 SMA ending on this day
-            val smaCandles = candles.subList(currentIndexInFullList - 200 + 1, currentIndexInFullList + 1)
-            val sma200 = smaCandles.map { it.close }.average()
-            
-            val pctDiff = ((dailyCandle.close - sma200) / sma200) * 100
-            val absPctDiff = abs(pctDiff)
-            
-            Rule5DailyDetail(
-                date = dailyCandle.candleDate.format(DateTimeFormatter.ISO_DATE),
-                closePrice = dailyCandle.close,
-                sma200 = sma200,
-                in2Pct = absPctDiff <= 2.0,
-                in3Pct = absPctDiff <= 3.0,
-                in4Pct = absPctDiff <= 4.0
+        validateNearHighTolerance(nearHighTolerancePct)
+        require(targetPct.isFinite() && targetPct > 0.0) { "targetPct must be a positive number." }
+        val normalizedWatchlists = requestedWatchlists.map(String::trim).filter(String::isNotEmpty).distinct()
+        require(normalizedWatchlists.isNotEmpty()) { "At least one watchlist is required." }
+
+        val resolvedWatchlists = resolveWatchlists(normalizedWatchlists)
+        val members = resolveMembers(resolvedWatchlists)
+        val periodStartDate = requestedAsOfDate.minusMonths(BACKTEST_MONTHS)
+        val evaluations = coroutineScope {
+            val semaphore = Semaphore(MAX_PARALLEL_CANDLE_READS)
+            members.map { member ->
+                async(Dispatchers.IO) {
+                    semaphore.withPermit {
+                        val candles = loadCandles(member, requestedAsOfDate, BACKTEST_HISTORY_CALENDAR_DAYS)
+                        FiftyTwoWeekMomentumRule5BacktestEngine.evaluate(
+                            symbol = member.symbol,
+                            companyName = member.companyName,
+                            candles = candles,
+                            periodStartDate = periodStartDate,
+                            requestedAsOfDate = requestedAsOfDate,
+                            breakoutPeriodSessions = breakoutPeriodSessions,
+                            nearHighTolerancePct = nearHighTolerancePct,
+                            targetPct = targetPct,
+                        )
+                    }
+                }
+            }.awaitAll()
+        }
+        val signals = evaluations.flatMap(Rule5BacktestSymbolEvaluation::signals)
+            .sortedWith(compareByDescending<Rule5BacktestSignal> { it.signalDate }.thenBy { it.symbol })
+        val trades = evaluations.flatMap(Rule5BacktestSymbolEvaluation::trades)
+            .sortedWith(compareByDescending<Rule5BacktestTrade> { it.entryDate }.thenBy { it.symbol })
+
+        return Rule5BacktestResponse(
+            requestedAsOfDate = requestedAsOfDate.toString(),
+            periodStartDate = periodStartDate.toString(),
+            breakoutPeriodSessions = breakoutPeriodSessions,
+            nearHighTolerancePct = nearHighTolerancePct,
+            targetPct = targetPct,
+            scannedCount = members.size,
+            signalCount = signals.size,
+            enteredTradeCount = trades.size,
+            targetHitCount = trades.count { trade -> trade.status == TARGET_HIT },
+            openTradeCount = trades.count { trade -> trade.status == OPEN },
+            signals = signals,
+            trades = trades,
+        )
+    }
+
+    private suspend fun resolveWatchlists(requestedWatchlists: List<String>): List<String> {
+        val available = indexConstituentHandler.read { dao -> dao.listUniqueIndices() }
+        return requestedWatchlists.map { requested ->
+            available.firstOrNull { summary -> summary.indexKey.equals(requested, ignoreCase = true) }?.indexKey
+                ?: throw IllegalArgumentException("Unknown watchlist: $requested")
+        }.distinct()
+    }
+
+    private suspend fun resolveMembers(watchlists: List<String>): List<Rule5Member> {
+        val membersBySymbol = linkedMapOf<String, MutableList<IndexConstituentUpsertRow>>()
+        watchlists.forEach { watchlist ->
+            indexConstituentHandler.read { dao -> dao.listActiveByIndex(watchlist) }
+                .forEach { member -> membersBySymbol.getOrPut(member.symbol.uppercase()) { mutableListOf() }.add(member) }
+        }
+
+        return membersBySymbol.values.map { members ->
+            val primary = members.first()
+            Rule5Member(
+                symbol = primary.symbol,
+                companyName = primary.companyName,
+                instrumentToken = primary.instrumentToken,
+                watchlists = members.map(IndexConstituentUpsertRow::indexKey).distinct().sorted(),
             )
         }
-        
-        val totalDays = dailyDetails.size
-        val in2PctCount = dailyDetails.count { it.in2Pct }
-        val in3PctCount = dailyDetails.count { it.in3Pct }
-        val in4PctCount = dailyDetails.count { it.in4Pct }
-        
-        val latestDay = dailyDetails.last()
-        
-        val oneYearAgoIndex = maxOf(0, endIndex - 252)
-        val oneYearCandles = candles.subList(oneYearAgoIndex, endIndex + 1)
-        val fiftyTwoWeekHigh = oneYearCandles.maxOf { it.high }
-        val fiftyTwoWeekLow = oneYearCandles.minOf { it.low }
+    }
 
-        val distTo52wHighPct = ((latestDay.closePrice - fiftyTwoWeekHigh) / fiftyTwoWeekHigh) * 100
-        val distTo52wLowPct = ((latestDay.closePrice - fiftyTwoWeekLow) / fiftyTwoWeekLow) * 100
-        
-        return Rule5SymbolResult(
-            date = endDate.format(dateFormatter),
-            symbol = symbol,
-            marketCapName = marketCapName,
-            sector = sector,
-            closePrice = latestDay.closePrice,
-            sma200 = latestDay.sma200,
-            fiftyTwoWeekHigh = fiftyTwoWeekHigh,
-            fiftyTwoWeekLow = fiftyTwoWeekLow,
-            distTo52wHighPct = distTo52wHighPct,
-            distTo52wLowPct = distTo52wLowPct,
-            daysIn2Pct = in2PctCount,
-            daysIn3Pct = in3PctCount,
-            daysIn4Pct = in4PctCount,
-            dailyBreakdown = dailyDetails.reversed() // newest first for UI
+    private suspend fun scanMember(
+        member: Rule5Member,
+        requestedAsOfDate: LocalDate,
+        breakoutPeriodSessions: Int,
+        nearHighTolerancePct: Double,
+    ): Rule5SymbolResult? {
+        val candles = loadCandles(member, requestedAsOfDate, SCAN_HISTORY_CALENDAR_DAYS)
+        val freshBreakoutDays = FiftyTwoWeekMomentumRule5Engine.findRecentFreshBreakouts(
+            candles = candles,
+            requestedAsOfDate = requestedAsOfDate,
+            lookbackSessions = LOOKBACK_SESSIONS,
+            breakoutPeriodSessions = breakoutPeriodSessions,
+            nearHighTolerancePct = nearHighTolerancePct,
         )
+        val latestBreakout = freshBreakoutDays.firstOrNull() ?: return null
+
+        return Rule5SymbolResult(
+            symbol = member.symbol,
+            companyName = member.companyName,
+            instrumentToken = member.instrumentToken,
+            watchlists = member.watchlists,
+            latestBreakoutDate = latestBreakout.date,
+            latestHigh = latestBreakout.high,
+            latestClose = latestBreakout.close,
+            latestReferenceHigh = latestBreakout.referenceHigh,
+            latestReferenceHighDaysAgo = latestBreakout.referenceHighDaysAgo,
+            latestCloseVsReferenceHighPct = latestBreakout.closeVsReferenceHighPct,
+            freshBreakoutDays = freshBreakoutDays,
+        )
+    }
+
+    private suspend fun loadCandles(
+        member: Rule5Member,
+        requestedAsOfDate: LocalDate,
+        historyCalendarDays: Long,
+    ) =
+        candleCacheService.getDailyCandles(
+            token = member.instrumentToken,
+            symbol = member.symbol,
+            from = requestedAsOfDate.minusDays(historyCalendarDays),
+            to = requestedAsOfDate,
+        )
+
+    private data class Rule5Member(
+        val symbol: String,
+        val companyName: String,
+        val instrumentToken: Long,
+        val watchlists: List<String>,
+    )
+
+    private fun validateNearHighTolerance(nearHighTolerancePct: Double) {
+        require(nearHighTolerancePct.isFinite() && nearHighTolerancePct in 0.0..100.0) {
+            "nearHighTolerancePct must be between 0 and 100."
+        }
+    }
+
+    private companion object {
+        const val SCAN_HISTORY_CALENDAR_DAYS = 420L
+        const val BACKTEST_HISTORY_CALENDAR_DAYS = 720L
+        const val LOOKBACK_SESSIONS = 5
+        const val MAX_PARALLEL_CANDLE_READS = 12
+        const val BACKTEST_MONTHS = 6L
+        const val TARGET_HIT = "TARGET_HIT"
+        const val OPEN = "OPEN"
+        val SUPPORTED_BREAKOUT_PERIODS = setOf(20, 40, 60, 100, 200)
     }
 }

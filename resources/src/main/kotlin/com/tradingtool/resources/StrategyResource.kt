@@ -10,6 +10,8 @@ import com.tradingtool.core.strategy.hotsma.HotSmaScannerService
 import com.tradingtool.core.strategy.hotsma.HotSmaTelegramRequest
 import com.tradingtool.core.strategy.sma200backtest.Sma200BacktestRequest
 import com.tradingtool.core.strategy.sma200backtest.Sma200BacktestService
+import com.tradingtool.core.strategy.rsioversold.RsiOversoldScanRequest
+import com.tradingtool.core.strategy.rsioversold.RsiOversoldScannerService
 import com.tradingtool.core.strategy.twodaygreen.TwoDayGreenCandleBacktestRequest
 import com.tradingtool.core.strategy.twodaygreen.TwoDayGreenCandleBacktestService
 import com.tradingtool.core.strategy.volumeeventbacktest.VolumeEventConfirmationBacktestRequest
@@ -32,6 +34,9 @@ import com.tradingtool.core.strategy.weeklylowlimit.WeeklyLowLimitBacktestReques
 import com.tradingtool.core.strategy.weeklylowlimit.WeeklyLowLimitBacktestRunConfig
 import com.tradingtool.core.strategy.weeklylowlimit.WeeklyLowLimitBacktestService
 import com.tradingtool.core.strategy.weeklylowlimit.WeeklyLowLimitDailyValidationRequest
+import com.tradingtool.core.strategy.weeklylowalignmentbacktest.WeeklyLowAlignmentBacktestRequest
+import com.tradingtool.core.strategy.weeklylowalignmentbacktest.WeeklyLowAlignmentBacktestRunConfig
+import com.tradingtool.core.strategy.weeklylowalignmentbacktest.WeeklyLowAlignmentBacktestService
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionRequest
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionRunConfig
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionService
@@ -63,6 +68,7 @@ class StrategyResource @Inject constructor(
     resourceScope: ResourceScope,
     private val hotSmaScannerService: HotSmaScannerService,
     private val sma200BacktestService: Sma200BacktestService,
+    private val rsiOversoldScannerService: RsiOversoldScannerService,
     private val twoDayGreenCandleBacktestService: TwoDayGreenCandleBacktestService,
     private val volumeEventConfirmationBacktestService: VolumeEventConfirmationBacktestService,
     private val absoluteDeliveryBacktestService: AbsoluteDeliveryBacktestService,
@@ -81,6 +87,7 @@ class StrategyResource @Inject constructor(
     private val accumulationAnalysisService: AccumulationAnalysisService,
     private val weeklyFloorReboundService: WeeklyFloorReboundService,
     private val weeklyLowLimitBacktestService: WeeklyLowLimitBacktestService,
+    private val weeklyLowAlignmentBacktestService: WeeklyLowAlignmentBacktestService,
     private val weeklyBaseDefinitionService: WeeklyBaseDefinitionService,
     private val weeklyBaseGroupBacktestService: WeeklyBaseGroupBacktestService,
     private val weeklyPriceWatchlistScannerService: WeeklyPriceWatchlistScannerService,
@@ -224,6 +231,24 @@ class StrategyResource @Inject constructor(
             ok(sma200BacktestService.run(body.copy(symbol = body.symbol.trim().uppercase())))
         } catch (error: IllegalArgumentException) {
             badRequest(error.message ?: "Invalid SMA200 backtest request.")
+        }
+    }
+
+    @GET
+    @Path("/rsi-oversold/watchlists")
+    fun getRsiOversoldWatchlists(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(rsiOversoldScannerService.listWatchlists())
+    }
+
+    @POST
+    @Path("/rsi-oversold/scan")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun scanRsiOversold(request: RsiOversoldScanRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        try {
+            ok(rsiOversoldScannerService.scan(body))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid RSI oversold scan request.")
         }
     }
 
@@ -448,15 +473,75 @@ class StrategyResource @Inject constructor(
         }
     }
 
-    @POST
-    @Path("/52w-momentum/rule5/csv")
-    @Consumes(MediaType.APPLICATION_JSON)
-    fun run52wMomentumRule5(
-        request: com.tradingtool.core.strategy.fiftytwomomentum.Rule5ApiRequest?
+    @GET
+    @Path("/52w-momentum/rule5/watchlists")
+    fun get52wMomentumRule5Watchlists(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(fiftyTwoWeekMomentumRule5Service.listWatchlists())
+    }
+
+    @GET
+    @Path("/52w-momentum/rule5/scan")
+    fun scan52wMomentumRule5(
+        @QueryParam("watchlists") watchlists: String?,
+        @QueryParam("asOfDate") asOfDate: String?,
+        @QueryParam("breakoutPeriodSessions") breakoutPeriodSessions: Int?,
+        @QueryParam("nearHighTolerancePct") nearHighTolerancePct: Double?,
     ): CompletableFuture<Response> = ioScope.endpoint {
-        val body = request ?: return@endpoint badRequest("Request body is required.")
-        val report = fiftyTwoWeekMomentumRule5Service.runRule5Analysis(body.csvContent)
-        ok(report)
+        val requestedWatchlists = watchlists.orEmpty().split(",").map(String::trim).filter(String::isNotEmpty)
+        if (requestedWatchlists.isEmpty()) {
+            return@endpoint badRequest("At least one watchlist is required.")
+        }
+        val parsedAsOfDate = try {
+            asOfDate?.takeIf(String::isNotBlank)?.let(LocalDate::parse) ?: LocalDate.now()
+        } catch (_: Exception) {
+            return@endpoint badRequest("asOfDate must be a valid ISO date in YYYY-MM-DD format.")
+        }
+        val selectedBreakoutPeriod = breakoutPeriodSessions ?: 200
+        try {
+            ok(
+                fiftyTwoWeekMomentumRule5Service.scan(
+                    requestedWatchlists = requestedWatchlists,
+                    requestedAsOfDate = parsedAsOfDate,
+                    breakoutPeriodSessions = selectedBreakoutPeriod,
+                    nearHighTolerancePct = nearHighTolerancePct ?: 0.0,
+                ),
+            )
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid 52-week breakout request.")
+        }
+    }
+
+    @GET
+    @Path("/52w-momentum/rule5/backtest")
+    fun backtest52wMomentumRule5(
+        @QueryParam("watchlists") watchlists: String?,
+        @QueryParam("asOfDate") asOfDate: String?,
+        @QueryParam("breakoutPeriodSessions") breakoutPeriodSessions: Int?,
+        @QueryParam("nearHighTolerancePct") nearHighTolerancePct: Double?,
+        @QueryParam("targetPct") targetPct: Double?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val requestedWatchlists = watchlists.orEmpty().split(",").map(String::trim).filter(String::isNotEmpty)
+        if (requestedWatchlists.isEmpty()) {
+            return@endpoint badRequest("At least one watchlist is required.")
+        }
+        val parsedAsOfDate = try {
+            asOfDate?.takeIf(String::isNotBlank)?.let(LocalDate::parse) ?: LocalDate.now()
+        } catch (_: Exception) {
+            return@endpoint badRequest("asOfDate must be a valid ISO date in YYYY-MM-DD format.")
+        }
+        try {
+            ok(
+                fiftyTwoWeekMomentumRule5Service.backtest(
+                    requestedWatchlists = requestedWatchlists,
+                    requestedAsOfDate = parsedAsOfDate,
+                    breakoutPeriodSessions = breakoutPeriodSessions ?: 200,
+                    nearHighTolerancePct = nearHighTolerancePct ?: 0.0,
+                    targetPct = targetPct ?: 10.0,
+                ),
+            )
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid 52-week breakout backtest request.")
+        }
     }
 
     @POST
@@ -505,6 +590,29 @@ class StrategyResource @Inject constructor(
             )
         } catch (error: IllegalArgumentException) {
             badRequest(error.message ?: "Invalid weekly low limit backtest request.")
+        }
+    }
+
+    @POST
+    @Path("/weekly-low-alignment-backtest/run")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runWeeklyLowAlignmentBacktest(
+        request: WeeklyLowAlignmentBacktestRequest?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        try {
+            ok(
+                weeklyLowAlignmentBacktestService.run(
+                    WeeklyLowAlignmentBacktestRunConfig(
+                        watchlistKey = body.watchlistKey,
+                        targetPct = body.targetPct,
+                        maxHoldingTradingDays = body.maxHoldingTradingDays,
+                        toDate = LocalDate.now(),
+                    ),
+                ),
+            )
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid weekly low alignment backtest request.")
         }
     }
 

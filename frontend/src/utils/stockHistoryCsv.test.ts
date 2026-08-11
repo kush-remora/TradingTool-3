@@ -7,7 +7,7 @@ const detail: StockDetailResponse = {
   exchange: "NSE",
   avg_volume_20d: null,
   pivot_levels: null,
-  fundamentals: { currentPrice: 102, fiftyTwoWeekLow: null, fiftyTwoWeekHigh: null, sma200: null },
+  fundamentals: { currentPrice: 102, fiftyTwoWeekLow: null, fiftyTwoWeekHigh: null, sma200: null, sma100: null },
   days: [{ date: "2026-08-05", open: 100, high: 105, low: 98, close: 102, volume: 1000, daily_change_pct: null, rsi14: null, vol_ratio: null }],
   delivery_days: [{ date: "2026-08-05", delivery_percentage: 52.5, delivered_quantity: 525, traded_quantity: 1000 }],
 };

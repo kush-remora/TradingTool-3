@@ -6,6 +6,7 @@ import com.tradingtool.core.candle.CandleSource
 import com.tradingtool.core.kite.InstrumentCache
 import com.tradingtool.core.kite.InstrumentTokenResolverService
 import com.tradingtool.core.kite.KiteConnectClient
+import com.zerodhatech.kiteconnect.kitehttp.exceptions.KiteException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
@@ -38,18 +39,14 @@ class CandleDataService(
         val resolvedToken = resolveInstrumentToken(normalizedSymbol, token)
             ?: error("No Kite instrument token available for $normalizedSymbol.")
 
-        val history = callKite {
-            kiteClient.client().getHistoricalData(
-                fromDate.toJavaDate(),
-                toDate.toJavaDate(),
-                resolvedToken.toString(),
-                "day",
-                false,
-                false,
-            )
-        }
+        val history = fetchDailyHistory(
+            token = resolvedToken,
+            symbol = normalizedSymbol,
+            fromDate = fromDate,
+            toDate = toDate,
+        )
 
-        return history.dataArrayList
+        return history
             .mapNotNull { bar -> parseDailyCandle(bar, resolvedToken, normalizedSymbol) }
             .distinctBy(DailyCandle::candleDate)
             .sortedBy(DailyCandle::candleDate)
@@ -89,6 +86,41 @@ class CandleDataService(
             withContext(Dispatchers.IO) { request() }
         } finally {
             delay(KITE_REQUEST_DELAY_MS)
+        }
+    }
+
+    private suspend fun fetchDailyHistory(
+        token: Long,
+        symbol: String,
+        fromDate: LocalDate,
+        toDate: LocalDate,
+    ): List<com.zerodhatech.models.HistoricalData> {
+        val now = LocalDateTime.now(ist)
+        require(!toDate.isAfter(now.toLocalDate())) { "toDate cannot be in the future." }
+
+        return buildList {
+            for (range in dailyCandleRequestRanges(fromDate, toDate)) {
+                try {
+                    addAll(
+                        callKite {
+                            kiteClient.client().getHistoricalData(
+                                range.from.toJavaDate(),
+                                range.to.toKiteEndDate(now),
+                                token.toString(),
+                                "day",
+                                false,
+                                false,
+                            ).dataArrayList
+                        },
+                    )
+                } catch (error: KiteException) {
+                    throw IllegalArgumentException(
+                        "Kite rejected daily candles for $symbol (token=$token, " +
+                            "from=${range.from}, to=${range.to}): ${error.message ?: "input rejected"}",
+                        error,
+                    )
+                }
+            }
         }
     }
 
@@ -153,7 +185,35 @@ class CandleDataService(
 
     private fun LocalDate.toJavaDate(): Date = Date.from(atStartOfDay(ist).toInstant())
 
+    private fun LocalDate.toKiteEndDate(now: LocalDateTime): Date {
+        val end = dailyCandleRequestEnd(this, now)
+        return Date.from(end.atZone(ist).toInstant())
+    }
+
     private companion object {
         const val KITE_REQUEST_DELAY_MS = 350L
     }
 }
+
+internal data class DailyCandleRequestRange(
+    val from: LocalDate,
+    val to: LocalDate,
+)
+
+internal fun dailyCandleRequestRanges(fromDate: LocalDate, toDate: LocalDate): List<DailyCandleRequestRange> {
+    require(!fromDate.isAfter(toDate)) { "fromDate must be on or before toDate." }
+
+    val ranges = mutableListOf<DailyCandleRequestRange>()
+    var rangeFrom = fromDate
+    while (!rangeFrom.isAfter(toDate)) {
+        val rangeTo = minOf(rangeFrom.plusDays(MAX_DAILY_REQUEST_DAYS - 1), toDate)
+        ranges += DailyCandleRequestRange(rangeFrom, rangeTo)
+        rangeFrom = rangeTo.plusDays(1)
+    }
+    return ranges
+}
+
+internal fun dailyCandleRequestEnd(toDate: LocalDate, now: LocalDateTime): LocalDateTime =
+    if (toDate.isBefore(now.toLocalDate())) toDate.plusDays(1).atStartOfDay() else now
+
+internal const val MAX_DAILY_REQUEST_DAYS: Long = 1_800L

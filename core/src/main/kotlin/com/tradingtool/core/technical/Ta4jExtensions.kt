@@ -8,6 +8,7 @@ import org.ta4j.core.Indicator
 import org.ta4j.core.indicators.ATRIndicator
 import org.ta4j.core.indicators.EMAIndicator
 import org.ta4j.core.indicators.MACDIndicator
+import org.ta4j.core.indicators.ROCIndicator
 import org.ta4j.core.indicators.RSIIndicator
 import org.ta4j.core.indicators.SMAIndicator
 import org.ta4j.core.indicators.bollinger.BollingerBandsLowerIndicator
@@ -47,6 +48,10 @@ fun List<HistoricalData>.toTa4jSeriesFromKite(
 
 fun BarSeries.calculateRsi(period: Int = 14): RSIIndicator {
     return RSIIndicator(ClosePriceIndicator(this), period)
+}
+
+fun BarSeries.calculateRoc(period: Int = 9): ROCIndicator {
+    return ROCIndicator(ClosePriceIndicator(this), period)
 }
 
 fun BarSeries.calculateSma(period: Int): SMAIndicator {
@@ -94,6 +99,17 @@ fun BarSeries.calculateRsiValues(period: Int = 14, fallback: Double = 50.0): Lis
 fun List<DailyCandle>.calculateRsiValues(period: Int = 14, fallback: Double = 50.0): List<Double> {
     if (isEmpty()) return emptyList()
     return toTa4jSeries().calculateRsiValues(period, fallback)
+}
+
+fun BarSeries.calculateRocValues(period: Int = 9, fallback: Double = 0.0): List<Double> {
+    if (barCount == 0) return emptyList()
+    val roc = calculateRoc(period)
+    return (0..endIndex).map { index -> roc.getDoubleValue(index, fallback) }
+}
+
+fun List<DailyCandle>.calculateRocValues(period: Int = 9, fallback: Double = 0.0): List<Double> {
+    if (isEmpty()) return emptyList()
+    return toTa4jSeries().calculateRocValues(period, fallback)
 }
 
 /**

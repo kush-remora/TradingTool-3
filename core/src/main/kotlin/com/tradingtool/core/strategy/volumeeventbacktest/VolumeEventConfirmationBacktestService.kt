@@ -23,47 +23,42 @@ class VolumeEventConfirmationBacktestService @Inject constructor(
         request: VolumeEventConfirmationBacktestRequest,
         today: LocalDate = LocalDate.now(),
     ): VolumeEventConfirmationBacktestReport {
-        val requestedWatchlist = request.watchlistKey?.trim().orEmpty()
-        require(requestedWatchlist.isNotBlank()) { "watchlistKey is required." }
+        val requestedWatchlists = request.watchlists.map(String::trim).filter(String::isNotEmpty).distinct()
+        require(requestedWatchlists.isNotEmpty()) { "At least one watchlist is required." }
+        require(request.targetPct.isFinite() && request.targetPct > 0.0) { "targetPct must be a positive number." }
 
-        val resolvedWatchlist = indexConstituentHandler.read { dao ->
-            dao.listUniqueIndices()
-                .firstOrNull { summary -> summary.indexKey.equals(requestedWatchlist, ignoreCase = true) }
-                ?.indexKey
-        } ?: throw IllegalArgumentException("Unknown watchlist: $requestedWatchlist")
+        val resolvedWatchlists = indexConstituentHandler.read { dao ->
+            val availableWatchlists = dao.listUniqueIndices()
+            requestedWatchlists.map { requestedWatchlist ->
+                availableWatchlists.firstOrNull { summary -> summary.indexKey.equals(requestedWatchlist, ignoreCase = true) }?.indexKey
+                    ?: throw IllegalArgumentException("Unknown watchlist: $requestedWatchlist")
+            }
+        }
 
         val toDate = parseDate(request.toDate, today, "toDate")
         val fromDate = parseDate(request.fromDate, toDate.minusMonths(DEFAULT_TEST_MONTHS), "fromDate")
         require(!fromDate.isAfter(toDate)) { "fromDate must not be after toDate." }
-        val entryMode = request.entryMode
-            ?.trim()
-            ?.uppercase()
-            ?.takeIf { it.isNotBlank() }
-            ?: VolumeEventEntryModes.FIVE_DAY_FUTURE_RSI_CONFIRMATION
-        require(entryMode in VolumeEventEntryModes.all) { "Unknown entryMode: $entryMode" }
-
-        val members = indexConstituentHandler.read { dao -> dao.listActiveByIndex(resolvedWatchlist) }
+        val members = indexConstituentHandler.read { dao ->
+            resolvedWatchlists.flatMap { watchlist -> dao.listActiveByIndex(watchlist) }
+        }
             .filter { member -> member.instrumentToken > 0 && member.symbol.isNotBlank() }
             .distinctBy { member -> member.symbol.trim().uppercase() }
             .map(::toMember)
-        val selectedSymbol = request.symbol?.trim()?.uppercase()?.takeIf { it.isNotBlank() }
-        val selectedMembers = selectedSymbol?.let { symbol ->
-            members.filter { member -> member.symbol == symbol }
-                .takeIf { it.isNotEmpty() }
-                ?: throw IllegalArgumentException("Symbol $symbol is not in watchlist $resolvedWatchlist.")
-        } ?: members
-        require(selectedMembers.isNotEmpty()) { "No stocks were found for watchlist $resolvedWatchlist." }
+        require(members.isNotEmpty()) { "No stocks were found for the selected watchlists." }
 
-        val config = VolumeEventConfirmationBacktestConfig(entryMode = entryMode)
+        val config = VolumeEventConfirmationBacktestConfig(
+            entryMode = VolumeEventEntryModes.VOLUME_SHOCKER_PRICE_CONFIRMATION,
+            targetPct = request.targetPct,
+        )
         val reports = coroutineScope {
             val semaphore = Semaphore(MAX_PARALLEL_CANDLE_READS)
-            selectedMembers.map { member ->
+            members.map { member ->
                 async(Dispatchers.IO) {
                     semaphore.withPermit {
                         val candles = candleCacheService.getDailyCandles(
                             token = member.instrumentToken,
                             symbol = member.symbol,
-                        from = fromDate.minusDays(CANDLE_WARMUP_CALENDAR_DAYS),
+                            from = fromDate.minusDays(CANDLE_WARMUP_CALENDAR_DAYS),
                             to = toDate,
                         )
                         engine.run(member, candles, fromDate, toDate, config)
@@ -74,12 +69,11 @@ class VolumeEventConfirmationBacktestService @Inject constructor(
 
         val allObservations = reports.flatMap(VolumeEventConfirmationSymbolReport::observations)
         return VolumeEventConfirmationBacktestReport(
-            watchlistKey = resolvedWatchlist,
-            selectedSymbol = selectedSymbol,
+            watchlists = resolvedWatchlists,
             testedFromDate = reports.mapNotNull(VolumeEventConfirmationSymbolReport::testedFromDate).minOrNull(),
             testedToDate = reports.mapNotNull(VolumeEventConfirmationSymbolReport::testedToDate).maxOrNull(),
             config = config,
-            summary = summarizeVolumeEventObservations(allObservations, entryMode),
+            summary = summarizeVolumeEventObservations(allObservations, config.entryMode),
             symbols = reports,
         )
     }

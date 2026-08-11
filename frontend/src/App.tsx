@@ -9,12 +9,14 @@ import {
 import { ConfigProvider, Layout, Menu } from "antd";
 import type { MenuProps } from "antd";
 import { useState } from "react";
+import { BuySellChangeCalculator } from "./components/BuySellChangeCalculator";
 
 import { VolumeShockerDashboardPage } from "./pages/VolumeShockerDashboardPage";
 import { AbsoluteDeliveryBacktestPage } from "./pages/AbsoluteDeliveryBacktestPage";
 import { DeliveryBreakoutScannerPage } from "./pages/DeliveryBreakoutScannerPage";
 import { HotSmaPage } from "./pages/HotSmaPage";
 import { Sma200BacktestPage } from "./pages/Sma200BacktestPage";
+import { RsiOversoldPage } from "./pages/RsiOversoldPage";
 import { TwoDayGreenCandleBacktestPage } from "./pages/TwoDayGreenCandleBacktestPage";
 import { WyckoffPhase1Page } from "./pages/WyckoffPhase1Page";
 import { TradePage } from "./pages/TradePage";
@@ -34,6 +36,9 @@ import { WeeklyBaseDefinitionPage } from "./pages/WeeklyBaseDefinitionPage";
 import { WeeklyBaseGroupBacktestPage } from "./pages/WeeklyBaseGroupBacktestPage";
 import { ThreeWeekStockReviewPage } from "./pages/ThreeWeekStockReviewPage";
 import { ThreeWeekWatchlistReviewPage } from "./pages/ThreeWeekWatchlistReviewPage";
+import { CompactStockReviewPage } from "./pages/compactStockReview/CompactStockReviewPage";
+import { WeeklyLowAlignmentSummaryPage } from "./pages/WeeklyLowAlignmentSummaryPage";
+import { WeeklyLowAlignmentBacktestPage } from "./pages/WeeklyLowAlignmentBacktestPage";
 import { VolumeEventReviewPage } from "./pages/VolumeEventReviewPage";
 import { VolumeEventConfirmationBacktestPage } from "./pages/VolumeEventConfirmationBacktestPage";
 import { WeeklyPriceWatchlistScannerPage } from "./pages/WeeklyPriceWatchlistScannerPage";
@@ -54,6 +59,7 @@ type V1PageKey =
   | "delivery-breakout"
   | "hot-sma"
   | "sma200-backtest"
+  | "rsi-oversold"
   | "two-day-green-candle-backtest"
   | "phase-d"
   | "chartink-52w"
@@ -68,7 +74,10 @@ type V1PageKey =
   | "weekly-base-definition"
   | "weekly-base-group-backtest"
   | "three-week-stock-review"
+  | "compact-stock-review"
   | "three-week-watchlist-review"
+  | "weekly-low-alignment"
+  | "weekly-low-alignment-backtest"
   | "volume-event-review"
   | "volume-event-confirmation-backtest"
   | "weekly-price-watchlist-scanner"
@@ -114,6 +123,7 @@ const menuItems: MenuProps["items"] = [
   },
   { key: "hot-sma", label: "SMA Buy Zone", icon: <HeatMapOutlined /> },
   { key: "sma200-backtest", label: "SMA200 Backtest", icon: <LineChartOutlined /> },
+  { key: "rsi-oversold", label: "RSI Low Scanner", icon: <LineChartOutlined /> },
   { key: "two-day-green-candle-backtest", label: "Two-Day Green Candle", icon: <LineChartOutlined /> },
   {
     key: "chartink-52w",
@@ -136,6 +146,11 @@ const menuItems: MenuProps["items"] = [
     icon: <LineChartOutlined />,
   },
   {
+    key: "weekly-low-alignment-backtest",
+    label: "Weekly Low Alignment Backtest",
+    icon: <LineChartOutlined />,
+  },
+  {
     key: "weekly-base-definition",
     label: "Weekly Base Definition",
     icon: <LineChartOutlined />,
@@ -151,8 +166,18 @@ const menuItems: MenuProps["items"] = [
     icon: <LineChartOutlined />,
   },
   {
+    key: "compact-stock-review",
+    label: "Compact Stock Review (New)",
+    icon: <LineChartOutlined />,
+  },
+  {
     key: "three-week-watchlist-review",
     label: "Three-Week Stock Review + Current Week",
+    icon: <LineChartOutlined />,
+  },
+  {
+    key: "weekly-low-alignment",
+    label: "Weekly Low Alignment Summary",
     icon: <LineChartOutlined />,
   },
   {
@@ -234,16 +259,20 @@ const validPages: PageKey[] = [
   "delivery-breakout",
   "hot-sma",
   "sma200-backtest",
+  "rsi-oversold",
   "two-day-green-candle-backtest",
   "phase-d",
   "chartink-52w",
   "trailing-stop",
   "weekly-floor-rebound",
   "weekly-low-limit-backtest",
+  "weekly-low-alignment-backtest",
   "weekly-base-definition",
   "weekly-base-group-backtest",
   "three-week-stock-review",
+  "compact-stock-review",
   "three-week-watchlist-review",
+  "weekly-low-alignment",
   "volume-event-review",
   "volume-event-confirmation-backtest",
   "weekly-price-watchlist-scanner",
@@ -431,6 +460,9 @@ export default function App() {
           >
             TradingTool
           </div>
+          <div className="app-header-calculator" data-testid="global-buy-sell-calculator">
+            <BuySellChangeCalculator />
+          </div>
         </Layout.Header>
         <Layout>
           <Layout.Sider
@@ -462,12 +494,14 @@ export default function App() {
             {route === "delivery-breakout" && <DeliveryBreakoutScannerPage />}
             {route === "hot-sma" && <HotSmaPage />}
             {route === "sma200-backtest" && <Sma200BacktestPage />}
+            {route === "rsi-oversold" && <RsiOversoldPage />}
             {route === "two-day-green-candle-backtest" && <TwoDayGreenCandleBacktestPage />}
             {route === "phase-d" && <PhaseDScannerPage />}
             {route === "chartink-52w" && <ChartinkFiftyTwoWeekHighPage />}
             {route === "trailing-stop" && <TrailingStopBacktestPage />}
             {route === "weekly-floor-rebound" && <WeeklyFloorReboundPage />}
             {route === "weekly-low-limit-backtest" && <WeeklyLowLimitBacktestPage />}
+            {route === "weekly-low-alignment-backtest" && <WeeklyLowAlignmentBacktestPage />}
             {typeof route !== "string" && route.page === "weekly-low-limit-validation" && (
               <WeeklyLowLimitDailyValidationPage
                 symbol={route.symbol}
@@ -482,8 +516,12 @@ export default function App() {
               <WeeklyBaseGroupBacktestPage />
             )}
             {route === "three-week-stock-review" && <ThreeWeekStockReviewPage />}
+            {route === "compact-stock-review" && <CompactStockReviewPage />}
             {route === "three-week-watchlist-review" && (
               <ThreeWeekWatchlistReviewPage onOpenStockReview={openStockReview} />
+            )}
+            {route === "weekly-low-alignment" && (
+              <WeeklyLowAlignmentSummaryPage onOpenStockReview={openStockReview} />
             )}
             {route === "volume-event-review" && <VolumeEventReviewPage onOpenStockReview={openStockReview} />}
             {route === "volume-event-confirmation-backtest" && <VolumeEventConfirmationBacktestPage />}

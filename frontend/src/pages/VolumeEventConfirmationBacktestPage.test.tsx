@@ -14,7 +14,18 @@ vi.mock("../utils/api", () => ({
 }));
 
 describe("VolumeEventConfirmationBacktestPage", () => {
-  it("runs the selected-stock mode with the chosen watchlist and symbol", async () => {
+  it("shows one volume-shocker rule without RSI controls", async () => {
+    useBacktestMock.mockReturnValue({ data: null, loading: false, error: null, run: vi.fn() });
+    getJsonMock.mockResolvedValue({ options: [] });
+
+    render(<VolumeEventConfirmationBacktestPage />);
+
+    expect(await screen.findByText(/today must be a new volume shocker/)).toBeInTheDocument();
+    expect(screen.queryByText(/RSI/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+  });
+
+  it("runs the six-month backtest for selected watchlists and target", async () => {
     const run = vi.fn();
     useBacktestMock.mockReturnValue({ data: null, loading: false, error: null, run });
     getJsonMock.mockResolvedValue({ options: [{ value: "watchlist", label: "Watchlist", count: 3 }] });
@@ -22,25 +33,13 @@ describe("VolumeEventConfirmationBacktestPage", () => {
     render(<VolumeEventConfirmationBacktestPage />);
 
     await waitFor(() => expect(screen.getByText("Volume Event Confirmation Backtest")).toBeInTheDocument());
-    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Watchlist" }));
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Watchlists" }));
     fireEvent.click(await screen.findByText("Watchlist (3)"));
-    fireEvent.change(screen.getByRole("textbox", { name: "Stock symbol" }), { target: { value: "BHEL" } });
     fireEvent.click(screen.getByRole("button", { name: "Run backtest" }));
 
     expect(run).toHaveBeenCalledWith({
-      watchlistKey: "watchlist",
-      entryMode: "FIVE_DAY_PAST_RSI_EARLY_ENTRY",
-      symbol: "BHEL",
+      watchlists: ["watchlist"],
+      targetPct: 10,
     });
-  });
-
-  it("describes the fixed confirmation rules before a run", async () => {
-    useBacktestMock.mockReturnValue({ data: null, loading: false, error: null, run: vi.fn() });
-    getJsonMock.mockResolvedValue({ options: [] });
-
-    render(<VolumeEventConfirmationBacktestPage />);
-
-    expect(await screen.findByText(/volume ≥ 2× prior 5-session average/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Run backtest" })).toBeDisabled();
   });
 });

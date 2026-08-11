@@ -3,7 +3,6 @@ import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { InstrumentSearch } from "../components/InstrumentSearch";
 import { LiveMarketWidget } from "../components/LiveMarketWidget";
-import { BuySellChangeCalculator } from "../components/BuySellChangeCalculator";
 import { FloatingInstrumentNotes } from "../components/FloatingInstrumentNotes";
 import { WeeklyStructureIndicator } from "../components/WeeklyStructureIndicator";
 import { MomentumEvidencePanel } from "../components/MomentumEvidencePanel";
@@ -341,9 +340,6 @@ export function ThreeWeekStockReviewPage() {
         onAddNote={instrumentNotes.addNote}
         onRemoveNote={instrumentNotes.removeNote}
       />}
-      <div data-testid="floating-change-calculator" style={{ position: "fixed", right: 20, bottom: 20, zIndex: 1000, maxWidth: "calc(100vw - 32px)", background: "#fff", border: "1px solid #f0f0f0", borderRadius: 8, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)", padding: 6 }}>
-        <BuySellChangeCalculator />
-      </div>
     </div>
   );
 }

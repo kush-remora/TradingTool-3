@@ -10,6 +10,7 @@
 
 - For freshness-critical trading snapshots, do not use broad stale grace windows in the sync trigger path; they silently hide missing latest sessions.
 - When calling historical day APIs, avoid using today's `00:00` as the end boundary; use next-day start (or current time) so today's published day candle can be included.
+- Kite daily-history requests have an approximately 1,900-calendar-day limit; split longer warm-up ranges into smaller inclusive chunks before calling the API.
 
 ## 2026-04-18
 
@@ -77,3 +78,13 @@
 
 - For rolling daily backtests, fetch at least one candle before the visible test window so the first setup candle can still receive a valid close-to-close return.
 - Keep engine-facing fixture/member types at the same visibility as the engine method; Kotlin rejects public methods that expose internal parameter types.
+
+## 2026-08-10
+
+- When a trading rule says "the second green candle," confirm whether consecutive candles are intended before implementing the trigger; once specified, keep RSI evaluation separate from the post-signal candle confirmation.
+- Treat RSI oversold as a setup, not an entry: define "RSI improved" as a later close above the fixed oversold threshold so the backtest has one clear, reproducible recovery trigger.
+
+## 2026-08-11
+
+- For the single-stock daily review console, optimize for one-viewport information density and simultaneous context, not progressive disclosure or navigation. Keep chart, recent tape, multi-week structure, evolving story, and note entry visible together; highlight exceptions instead of hiding raw context behind tabs.
+- For trading charts with a hover readout, explicitly use a free crosshair mode. The selected date may snap horizontally to a candle, but the price guide must remain vertically movable for normal chart inspection.

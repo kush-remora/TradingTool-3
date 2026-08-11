@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ThreeWeekStockReviewPage } from "./ThreeWeekStockReviewPage";
-import { buildWeeklyPriceSummaries, buildWeeklyPriceTimelines } from "../utils/threeWeekStockReview";
+import { BuySellChangeCalculator } from "../components/BuySellChangeCalculator";
+import { buildWeeklyPriceSummaries, buildWeeklyPriceTimelines, findConsecutiveWeeklyLowAlignments, findCurrentWeekLowAlignment } from "../utils/threeWeekStockReview";
 
 const useStockDetailMock = vi.fn();
 const useLiveMarketDataMock = vi.fn(() => null);
@@ -84,6 +85,56 @@ describe("ThreeWeekStockReviewPage", () => {
     ], 4);
 
     expect(summaries.map((summary) => summary.weekOnWeekStructure)).toEqual([null, "UP", "SIDEWAYS", "DOWN"]);
+  });
+
+  it("finds only adjacent weekly lows within the one percent limit", () => {
+    const summaries = buildWeeklyPriceSummaries([
+      day("2026-07-06", 100, 110),
+      day("2026-07-13", 101, 111),
+      day("2026-07-20", 105, 115),
+      day("2026-07-27", 106, 116),
+    ], 4);
+
+    expect(findConsecutiveWeeklyLowAlignments(summaries)).toEqual([
+      expect.objectContaining({
+        earlierWeekLabel: "Week of 2026-07-06",
+        laterWeekLabel: "Week of 2026-07-13",
+        differencePct: 1,
+      }),
+      expect.objectContaining({
+        earlierWeekLabel: "Week of 2026-07-20",
+        laterWeekLabel: "Week of 2026-07-27",
+        differencePct: expect.closeTo(0.95, 2),
+      }),
+    ]);
+  });
+
+  it("finds the latest week's aligned floor with three-week context", () => {
+    const alignment = findCurrentWeekLowAlignment([
+      day("2026-07-13", 680, 710),
+      day("2026-07-20", 700, 730),
+      day("2026-07-24", 705, 735),
+      day("2026-07-27", 704, 740),
+      day("2026-07-28", 707, 742),
+    ]);
+
+    expect(alignment).toEqual(expect.objectContaining({
+      earlierWeekLow: 680,
+      previousWeekLow: 700,
+      previousWeekLowDate: "2026-07-20",
+      currentWeekLow: 704,
+      currentWeekLowDate: "2026-07-27",
+      currentWeekDifferencePct: expect.closeTo(0.57, 2),
+      currentVsPreviousWeekPct: expect.closeTo(0.57, 2),
+      previousVsEarlierWeekPct: expect.closeTo(2.94, 2),
+    }));
+  });
+
+  it("does not create a current-week floor watch without three observed weeks", () => {
+    expect(findCurrentWeekLowAlignment([
+      day("2026-07-20", 700, 730),
+      day("2026-07-27", 704, 740),
+    ])).toBeNull();
   });
 
   it("flags a week when the low-price day has higher volume and delivery than the high-price day", () => {
@@ -338,19 +389,8 @@ describe("ThreeWeekStockReviewPage", () => {
     expect(screen.getByText("Live market: NSE:STLTECH-BE (wide)")).toBeInTheDocument();
   });
 
-  it("keeps the calculator fixed to the lower-right viewport", () => {
-    render(<ThreeWeekStockReviewPage />);
-
-    expect(screen.getByTestId("floating-change-calculator")).toHaveStyle({
-      position: "fixed",
-      right: "20px",
-      bottom: "20px",
-    });
-    expect(screen.queryByText("BUY / SELL CALCULATOR")).not.toBeInTheDocument();
-  });
-
   it("calculates the third buy, sell, or percentage value from the other two", () => {
-    render(<ThreeWeekStockReviewPage />);
+    render(<BuySellChangeCalculator />);
 
     fireEvent.change(screen.getByRole("spinbutton", { name: "Buy price" }), { target: { value: "100" } });
     fireEvent.change(screen.getByRole("spinbutton", { name: "Sell price" }), { target: { value: "110" } });

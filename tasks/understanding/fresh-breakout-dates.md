@@ -1,0 +1,5 @@
+# Fresh breakout dates
+
+The stock-detail API should expose the latest fresh, close-confirmed breakout date for four retail breakout horizons: 20, 50, 52, and 100 trading sessions. A fresh breakout is the first close above the prior N-session high after the stock has been at or below that rolling high. Subsequent closes above the rolling high do not create new dates; a later pullback below the rolling high followed by a new close above it is a new event.
+
+This is an evidence field for the compact console, not a buy signal. The implementation keeps four nullable ISO dates in a `breakout_dates` object, calculated from the full candle history already loaded by the stock-detail endpoint. The reset rule uses each day’s rolling N-session high; anchoring reset to the original breakout level incorrectly kept NETWEB’s 2023 breakout active into 2026. Core tests cover first crossing, continuation suppression, rolling-high reset/re-breakout, and insufficient history. After the fix, live NETWEB returns 20D `2026-08-04`, 50D/52D/100D `2026-06-18`.
