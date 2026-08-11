@@ -1,9 +1,19 @@
-import { LeftOutlined, RightOutlined, StockOutlined } from "@ant-design/icons";
-import { Button, Select, Spin, Typography } from "antd";
+import { DeleteOutlined, LeftOutlined, RightOutlined, StockOutlined } from "@ant-design/icons";
+import { Button, Select, Spin, Tooltip, Typography } from "antd";
 import { InstrumentSearch } from "../../components/InstrumentSearch";
 import type { FreshBreakoutDates, InstrumentSearchResult, LiveMarketUpdate, Roc9, Rsi14Range, StockDetailResponse, UniverseOption } from "../../types";
 import type { CompactDailyRow } from "./compactStockReview";
 import { buildCompactDeliveryContext, buildCompactThreeWeekFlow, formatPrice, formatQuantity, type CompactDeliveryContext, type CompactThreeWeekFlow } from "./compactStockReview";
+
+export interface CompactPaperPosition {
+  symbol: string;
+  entryDate: string;
+  entryPrice: number;
+  pnlPct: number | null;
+  pnlAmount: number | null;
+  isProfit: boolean | null;
+  holdingDays: number;
+}
 
 const { Text } = Typography;
 
@@ -24,6 +34,8 @@ interface CompactReviewHeaderProps {
   watchlistError: string | null;
   onSelectWatchlist: (watchlist: string | null) => void;
   onNavigateWatchlist: (direction: -1 | 1) => void;
+  paperPosition: CompactPaperPosition | null;
+  onDeletePaperTrade: () => void;
 }
 
 const pos = (v: number | null) => v == null || v === 0 ? "" : v > 0 ? "crh-up" : "crh-dn";
@@ -64,6 +76,8 @@ export function CompactReviewHeader({
   watchlistError,
   onSelectWatchlist,
   onNavigateWatchlist,
+  paperPosition,
+  onDeletePaperTrade,
 }: CompactReviewHeaderProps) {
   const f = data?.fundamentals ?? null;
   const currentPrice = liveData?.ltp ?? latestDay?.close ?? f?.currentPrice ?? null;
@@ -296,6 +310,37 @@ export function CompactReviewHeader({
             <span className="crh-col-label">Last fresh breakout</span>
             <BreakoutDatesRow dates={breakoutDates} currentPrice={currentPrice} />
           </div>
+          {paperPosition && (
+            <div className="crh-col crh-paper-position-col" role="region" aria-label="Open paper trade">
+              <span className="crh-col-label">Paper position · {paperPosition.symbol}</span>
+              <span className="crh-paper-position-line">
+                <strong>₹{paperPosition.entryPrice.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                <span className="crh-muted">·</span>
+                <strong className={paperPosition.isProfit == null ? "crh-muted" : paperPosition.isProfit ? "crh-up" : "crh-dn"}>
+                  {paperPosition.pnlPct == null ? "Waiting…" : (paperPosition.pnlPct >= 0 ? "+" : "") + paperPosition.pnlPct.toFixed(2) + "%"}
+                </strong>
+                {paperPosition.pnlAmount != null && (
+                  <span className="crh-paper-position-amount">
+                    ({paperPosition.pnlAmount >= 0 ? "+" : "−"}₹{Math.abs(paperPosition.pnlAmount).toLocaleString("en-IN", { maximumFractionDigits: 2 })})
+                  </span>
+                )}
+              </span>
+              <span className="crh-paper-position-meta">
+                Entered {paperPosition.entryDate} · {paperPosition.holdingDays}d old
+              </span>
+              <Tooltip title="Delete paper trade">
+                <Button
+                  type="text"
+                  size="small"
+                  danger
+                  className="crh-paper-position-delete"
+                  aria-label={"Delete paper trade for " + paperPosition.symbol}
+                  icon={<DeleteOutlined />}
+                  onClick={onDeletePaperTrade}
+                />
+              </Tooltip>
+            </div>
+          )}
         </div>
       )}
 

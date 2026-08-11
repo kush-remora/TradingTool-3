@@ -15,6 +15,17 @@
   box-shadow: 0 2px 8px rgba(16, 24, 40, 0.08);
 }
 
+.app-sidebar-toggle {
+  flex: 0 0 auto;
+  margin-right: 8px;
+  color: #475467;
+}
+
+.app-sidebar-toggle:hover {
+  color: #1677ff !important;
+  background: #f2f7ff !important;
+}
+
 @media (max-width: 640px) {
   .app-header-calculator {
     top: 8px;
@@ -61,4 +72,278 @@
 .danger-text {
   color: #ff4d4f !important;
   font-weight: 500;
+}
+
+/* Compact paper Trade Book */
+.paper-trade-page {
+  min-height: calc(100vh - 48px);
+  padding: 28px 32px 48px;
+  background: #f7f8fa;
+  color: #172033;
+}
+
+.paper-trade-header,
+.paper-trade-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.paper-trade-header {
+  max-width: 1100px;
+  margin: 0 auto 22px;
+}
+
+.paper-trade-title h1 {
+  margin: 5px 0 4px;
+  font-size: 28px;
+  letter-spacing: -0.5px;
+}
+
+.paper-trade-title p {
+  margin: 0;
+  color: #667085;
+  font-size: 13px;
+}
+
+.paper-trade-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #00a878;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.paper-trade-header .ant-btn-primary {
+  background: #00a878;
+  border-color: #00a878;
+  box-shadow: none;
+  font-weight: 600;
+}
+
+.paper-trade-card,
+.paper-trade-closed {
+  max-width: 1100px;
+  margin: 0 auto;
+  border: 1px solid #e6e9ef;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.04);
+}
+
+.paper-trade-card-header {
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.paper-trade-card-header h2 {
+  margin: 0 0 3px;
+  font-size: 16px;
+}
+
+.paper-trade-card-header span {
+  color: #667085;
+  font-size: 12px;
+}
+
+.paper-trade-card-header > span {
+  white-space: nowrap;
+}
+
+.paper-trade-table .ant-table {
+  border-radius: 0 0 12px 12px;
+}
+
+.paper-trade-table .ant-table-thead > tr > th {
+  padding: 10px 16px;
+  color: #98a2b3;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  background: #fff;
+}
+
+.paper-trade-table .ant-table-tbody > tr > td {
+  padding: 14px 16px;
+  color: #172033;
+  font-size: 13px;
+}
+
+.paper-trade-stock-cell,
+.paper-trade-pnl {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.paper-trade-stock-cell span,
+.paper-trade-pnl span {
+  color: #98a2b3;
+  font-size: 11px;
+}
+
+.paper-trade-pnl strong {
+  font-size: 13px;
+}
+
+.paper-trade-pnl.is-profit strong,
+.paper-trade-pnl.is-profit span,
+.paper-trade-closed-row .is-profit {
+  color: #07885e;
+}
+
+.paper-trade-pnl.is-loss strong,
+.paper-trade-pnl.is-loss span,
+.paper-trade-closed-row .is-loss {
+  color: #d14343;
+}
+
+.paper-trade-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.paper-trade-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 20px 52px;
+}
+
+.paper-trade-empty .ant-empty {
+  margin: 0 0 6px;
+}
+
+.paper-trade-closed {
+  margin-top: 14px;
+  overflow: hidden;
+}
+
+.paper-trade-closed summary {
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 18px;
+  color: #344054;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  list-style: none;
+}
+
+.paper-trade-closed summary::-webkit-details-marker {
+  display: none;
+}
+
+.paper-trade-closed-list {
+  border-top: 1px solid #eef0f3;
+}
+
+.paper-trade-closed-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 0.55fr 0.35fr;
+  align-items: center;
+  gap: 16px;
+  padding: 11px 18px;
+  border-bottom: 1px solid #f1f2f4;
+  color: #475467;
+  font-size: 12px;
+}
+
+.paper-trade-closed-row:last-child {
+  border-bottom: 0;
+}
+
+.paper-trade-closed-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.paper-trade-closed-row > div span {
+  color: #98a2b3;
+  font-size: 11px;
+}
+
+.paper-trade-entry-form {
+  padding-top: 8px;
+}
+
+.paper-trade-form-fields {
+  display: grid;
+  gap: 18px;
+}
+
+.paper-trade-field,
+.paper-trade-close-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.paper-trade-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.paper-trade-form-footer .ant-btn-primary {
+  background: #00a878;
+  border-color: #00a878;
+}
+
+.paper-trade-close-field {
+  margin-bottom: 14px;
+}
+
+.paper-trade-drawer-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .paper-trade-page {
+    padding: 20px 14px 36px;
+  }
+
+  .paper-trade-header,
+  .paper-trade-card-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .paper-trade-header {
+    margin-bottom: 16px;
+  }
+
+  .paper-trade-header .ant-btn {
+    width: 100%;
+  }
+
+  .paper-trade-card-header > span {
+    white-space: normal;
+  }
+
+  .paper-trade-table {
+    overflow-x: auto;
+  }
+
+  .paper-trade-table .ant-table {
+    min-width: 680px;
+  }
+
+  .paper-trade-closed-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
 }

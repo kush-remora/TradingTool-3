@@ -1,10 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DayDetail, StockDetailResponse } from "../../types";
+import type { DayDetail, StockDetailResponse, TradeWithTargets } from "../../types";
 import { CompactStockReviewPage } from "./CompactStockReviewPage";
 
 const getJsonMock = vi.hoisted(() => vi.fn());
 const useStockDetailMock = vi.fn();
+const useTradeDataMock = vi.hoisted(() => vi.fn());
 const addNoteMock = vi.fn(async () => true);
 
 vi.mock("../../utils/api", () => ({ getJson: getJsonMock }));
@@ -25,6 +26,9 @@ vi.mock("../../hooks/useInstrumentSearch", () => ({
 
 vi.mock("../../hooks/useStockDetail", () => ({
   useStockDetail: (symbol: string | null, days: number) => useStockDetailMock(symbol, days),
+}));
+vi.mock("../../hooks/useTradeData", () => ({
+  useTradeData: () => useTradeDataMock(),
 }));
 
 vi.mock("../../hooks/useLiveMarketData", () => ({ useLiveMarketData: () => null }));
@@ -111,10 +115,40 @@ const detail: StockDetailResponse = {
   },
 };
 
+const paperTradeFixture: TradeWithTargets = {
+  trade: {
+    id: 12,
+    instrument_token: 4462849,
+    nse_symbol: "NETWEB",
+    quantity: 1,
+    avg_buy_price: "4800",
+    today_low: null,
+    stop_loss_percent: "5",
+    stop_loss_price: "4560",
+    notes: null,
+    trade_date: "2026-08-01",
+    close_price: null,
+    close_date: null,
+    created_at: "2026-08-01T10:00:00Z",
+    updated_at: "2026-08-01T10:00:00Z",
+  },
+  gtt_targets: [],
+  total_invested: "4800",
+};
+
 describe("CompactStockReviewPage", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/TradingTool-3/console/compact-stock-review?symbol=NETWEB");
     addNoteMock.mockClear();
+    useTradeDataMock.mockReturnValue({
+      trades: [paperTradeFixture],
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+      createTrade: vi.fn(async () => paperTradeFixture),
+      closeTrade: vi.fn(async () => undefined),
+      deleteTrade: vi.fn(async () => undefined),
+    });
     getJsonMock.mockImplementation((path: string) => {
       if (path === "/api/strategy/weekly-price-review/watchlists") {
         return Promise.resolve({ options: [{ label: "review", value: "review", count: 2 }] });
@@ -138,6 +172,11 @@ describe("CompactStockReviewPage", () => {
     render(<CompactStockReviewPage />);
 
     expect(await screen.findByText("Netweb Technologies India")).toBeInTheDocument();
+    const paperPosition = screen.getByRole("region", { name: "Open paper trade" });
+    expect(paperPosition).toHaveTextContent("01 Aug 2026");
+    expect(paperPosition).toHaveTextContent("₹4,800.00");
+    expect(paperPosition).toHaveTextContent("+1.15%");
+    expect(paperPosition).toHaveTextContent("11d old");
     expect(screen.getByRole("button", { name: "Export compact review as Markdown" })).toBeEnabled();
     expect(screen.getByText("Close Tue, 11 Aug 2026")).toBeInTheDocument();
     expect(screen.getByText("as of 10 Aug 2026")).toBeInTheDocument();
@@ -174,6 +213,11 @@ describe("CompactStockReviewPage", () => {
     expect(screen.getByText("Demand improved above the prior low.")).toBeInTheDocument();
     expect(screen.getAllByText("O / H / L / C")).toHaveLength(2);
     expect(useStockDetailMock).toHaveBeenLastCalledWith("NETWEB", 150);
+    const paperTradeButton = screen.getByRole("button", { name: "Add paper trade for current stock" });
+    expect(paperTradeButton).toBeEnabled();
+    fireEvent.click(paperTradeButton);
+    expect(screen.getAllByDisplayValue("NETWEB")).toHaveLength(2);
+    expect(screen.getByDisplayValue("4855.00")).toBeInTheDocument();
   });
 
   it("moves through the selected watchlist while keeping independent search available", async () => {

@@ -13,6 +13,7 @@ The daily review loop should stay on one screen: select a watchlist, read the cu
 - Made freshness explicit: the identity block labels the latest completed candle as `Close …`, while Delivery shows its own `as of …` date.
 - Added `Effort → result` to Top volume days: the 10D volume multiple points directly to that session’s close-to-close move without assigning an accumulation/distribution verdict.
 - Added an `Export .md` action that downloads the current snapshot, four-week structure, breakout context, top-volume table, observation log, and latest 60 daily sessions for AI-assisted review.
+- Added a shared app-shell sidebar toggle; collapsed mode uses a 72px icon rail so dense review pages can reclaim horizontal space without changing routes.
 - Added a compact watchlist selector and previous/next arrows below the stock identity.
 - Shows the current position as `n/total`; an independent search is shown as `Independent` or `—` while a watchlist is selected.
 - Keeps `symbol` and `watchlist` in the URL for refresh-safe review context.

@@ -1,4 +1,5 @@
-import { Button, Input } from "antd";
+import { LineChartOutlined } from "@ant-design/icons";
+import { Button, Input, Tooltip } from "antd";
 import { useState } from "react";
 import type { StockNote } from "../../types";
 import type { CompactDailyRow } from "./compactStockReview";
@@ -12,6 +13,7 @@ interface CompactReviewStoryProps {
   notesLoading: boolean;
   notesError: string | null;
   onAddNote: (note: string) => Promise<boolean>;
+  onPaperTrade: () => void;
 }
 
 const istDate = (createdAt: string): string =>
@@ -34,7 +36,14 @@ const formatNoteTime = (createdAt: string): string =>
     timeZone: "Asia/Kolkata",
   }).format(new Date(createdAt));
 
-export function CompactReviewStory({ days, notes, notesLoading, notesError, onAddNote }: CompactReviewStoryProps) {
+export function CompactReviewStory({
+  days,
+  notes,
+  notesLoading,
+  notesError,
+  onAddNote,
+  onPaperTrade,
+}: CompactReviewStoryProps) {
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [saving, setSaving] = useState(false);
@@ -54,9 +63,20 @@ export function CompactReviewStory({ days, notes, notesLoading, notesError, onAd
     <aside className="compact-review-story" aria-label="Observation log">
       <div className="compact-review-section-heading compact-observation-heading">
         <strong>Observation log</strong>
-        <Button type="link" size="small" onClick={() => setIsComposerOpen((open) => !open)}>
-          {isComposerOpen ? "Close" : "Take note"}
-        </Button>
+        <span className="compact-observation-actions">
+          <Tooltip title="Add paper trade">
+            <Button
+              type="link"
+              size="small"
+              aria-label="Add paper trade for current stock"
+              icon={<LineChartOutlined />}
+              onClick={onPaperTrade}
+            />
+          </Tooltip>
+          <Button type="link" size="small" onClick={() => setIsComposerOpen((open) => !open)}>
+            {isComposerOpen ? "Close" : "Take note"}
+          </Button>
+        </span>
       </div>
 
       {isComposerOpen && (

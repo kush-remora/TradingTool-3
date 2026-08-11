@@ -20,6 +20,7 @@
 .compact-review-toolbar {
   display: flex;
   justify-content: flex-end;
+  gap: 4px;
   padding: 4px 8px;
   border-bottom: 1px solid #e4e7ec;
   background: #fff;
@@ -29,6 +30,12 @@
   height: 24px;
   padding: 0 8px;
   font-size: 10px;
+}
+
+.compact-review-toolbar .ant-btn-primary {
+  background: #00a878;
+  border-color: #00a878;
+  box-shadow: none;
 }
 
 /* ── Compound header row ─────────────────────────────────── */
@@ -52,7 +59,7 @@
 }
 
 .crh-secondary-wrap {
-  min-height: 31px;
+  min-height: 38px;
   border-bottom: 1px solid #e4e7ec;
 }
 
@@ -75,6 +82,44 @@
   gap: 2px;
   padding-top: 4px;
   padding-bottom: 4px;
+}
+
+.crh-paper-position-col {
+  position: relative;
+  flex: 0 0 190px;
+  min-width: 190px;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 4px 28px 4px 8px;
+}
+
+.crh-paper-position-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+}
+
+.crh-paper-position-meta {
+  color: #667085;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.crh-paper-position-amount {
+  color: inherit;
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.crh-paper-position-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  font-size: 10px;
 }
 
 .crh-breakout-dates {
@@ -874,6 +919,16 @@
   height: 20px;
   padding: 0;
   font-size: 10px;
+}
+
+.compact-observation-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.compact-observation-actions .ant-btn {
+  min-width: 20px;
 }
 
 .compact-observation-composer {

@@ -5,8 +5,10 @@ import {
   FundOutlined,
   HeatMapOutlined,
   LineChartOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
 } from "@ant-design/icons";
-import { ConfigProvider, Layout, Menu } from "antd";
+import { Button, ConfigProvider, Layout, Menu } from "antd";
 import type { MenuProps } from "antd";
 import { useState } from "react";
 import { BuySellChangeCalculator } from "./components/BuySellChangeCalculator";
@@ -246,7 +248,7 @@ const menuItems: MenuProps["items"] = [
     label: "NETWEB Cycle Tracker",
     icon: <LineChartOutlined />,
   },
-  { key: "trade", label: "Trade Journal", icon: <BookOutlined /> },
+  { key: "trade", label: "Trade Book", icon: <BookOutlined /> },
   { key: "stock-history-download", label: "Stock History CSV", icon: <DownloadOutlined /> },
 ];
 
@@ -395,6 +397,7 @@ export default function App() {
   };
 
   const [route, setRoute] = useState<Route>(getInitialRoute());
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const handleMenuClick: MenuProps["onClick"] = (e) => {
     const page = String(e.key) as PageKey;
@@ -450,7 +453,16 @@ export default function App() {
             borderBottom: "1px solid #f0f0f0",
           }}
         >
+          <Button
+            className="app-sidebar-toggle"
+            type="text"
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            icon={sidebarCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+          />
           <div
+            className="app-brand"
             style={{
               color: "#000",
               fontSize: "1.2rem",
@@ -467,6 +479,9 @@ export default function App() {
         <Layout>
           <Layout.Sider
             width={260}
+            collapsed={sidebarCollapsed}
+            collapsedWidth={72}
+            trigger={null}
             theme="light"
             style={{
               borderRight: "1px solid #f0f0f0",

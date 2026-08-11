@@ -1,12 +1,20 @@
-import { Alert, Button, Spin } from "antd";
+import { Alert, Button, Drawer, Modal, Spin, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
+import { PaperTradeEntryForm } from "../../components/PaperTradeEntryForm";
 import { useInstrumentNotes } from "../../hooks/useInstrumentNotes";
 import { useInstrumentSearch } from "../../hooks/useInstrumentSearch";
 import { useLiveMarketData } from "../../hooks/useLiveMarketData";
 import { useStockDetail } from "../../hooks/useStockDetail";
+import { useTradeData } from "../../hooks/useTradeData";
 import { getJson } from "../../utils/api";
-import type { InstrumentSearchResult, UniverseOption, UniverseOptionsResponse } from "../../types";
-import { CompactReviewHeader } from "./CompactReviewHeader";
+import type {
+  CreateTradeInput,
+  InstrumentSearchResult,
+  UniverseOption,
+  UniverseOptionsResponse,
+} from "../../types";
+import { calculatePnL } from "../../utils/pnlUtils";
+import { CompactReviewHeader, type CompactPaperPosition } from "./CompactReviewHeader";
 import { CompactReviewStory } from "./CompactReviewStory";
 import { CompactReviewTables } from "./CompactReviewTables";
 import { CompactStockChart } from "./CompactStockChart";
@@ -16,6 +24,7 @@ import {
   participationEventDates,
 } from "./compactStockReview";
 import { downloadCompactReviewMarkdown } from "./compactReviewExport";
+import { formatTradeDate, getDaysSinceTrade } from "../paperTradeBook/paperTradeBookUtils";
 import "./compactStockReview.css";
 
 const HISTORY_DAYS = 150;
@@ -31,6 +40,8 @@ export function CompactStockReviewPage() {
   const [watchlistMembers, setWatchlistMembers] = useState<InstrumentSearchResult[]>([]);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
   const [watchlistError, setWatchlistError] = useState<string | null>(null);
+  const [paperTradeOpen, setPaperTradeOpen] = useState(false);
+  const [paperTradeSubmitting, setPaperTradeSubmitting] = useState(false);
   const { allInstruments, loading: instrumentsLoading, error: instrumentsError } = useInstrumentSearch();
   const nseEquities = useMemo(
     () => allInstruments.filter((instrument) => instrument.exchange === "NSE" && instrument.instrument_type === "EQ"),
@@ -39,6 +50,7 @@ export function CompactStockReviewPage() {
   const { data, loading, error } = useStockDetail(selectedInstrument?.trading_symbol ?? null, HISTORY_DAYS);
   const liveData = useLiveMarketData(selectedInstrument ? `NSE:${selectedInstrument.trading_symbol}` : "");
   const instrumentNotes = useInstrumentNotes(selectedInstrument?.instrument_token ?? null);
+  const { trades, createTrade: createPaperTrade, deleteTrade } = useTradeData();
 
   useEffect(() => {
     let active = true;
@@ -94,6 +106,7 @@ export function CompactStockReviewPage() {
 
   const selectInstrument = (instrument: InstrumentSearchResult | null): void => {
     setSelectedInstrument(instrument);
+    setPaperTradeOpen(false);
     const url = new URL(window.location.href);
     if (instrument) url.searchParams.set("symbol", instrument.trading_symbol);
     else url.searchParams.delete("symbol");
@@ -137,6 +150,27 @@ export function CompactStockReviewPage() {
     () => participationEventDates(data?.momentum_evidence?.participation_events ?? []),
     [data?.momentum_evidence?.participation_events],
   );
+  const paperTradePrice = liveData?.ltp ?? dailyRows.at(-1)?.close ?? data?.fundamentals.currentPrice ?? null;
+  const activePaperTrade = selectedInstrument
+    ? trades.find((row) =>
+        row.trade.nse_symbol.toUpperCase() === selectedInstrument.trading_symbol.toUpperCase()
+        && row.trade.close_price == null,
+      ) ?? null
+    : null;
+  const activePaperPnl = activePaperTrade && paperTradePrice != null
+    ? calculatePnL(activePaperTrade.trade.avg_buy_price, paperTradePrice, activePaperTrade.trade.quantity)
+    : null;
+  const compactPaperPosition: CompactPaperPosition | null = activePaperTrade
+    ? {
+        symbol: activePaperTrade.trade.nse_symbol,
+        entryDate: formatTradeDate(activePaperTrade.trade.trade_date),
+        entryPrice: Number.parseFloat(activePaperTrade.trade.avg_buy_price),
+        pnlPct: activePaperPnl?.pnlPct ?? null,
+        pnlAmount: activePaperPnl?.pnl ?? null,
+        isProfit: activePaperPnl?.isProfit ?? null,
+        holdingDays: getDaysSinceTrade(activePaperTrade.trade.trade_date),
+      }
+    : null;
 
   const exportMarkdown = (): void => {
     if (!selectedInstrument || !data || loading) return;
@@ -147,6 +181,33 @@ export function CompactStockReviewPage() {
       dailyRows,
       weeklyRows,
       notes: instrumentNotes.notes,
+    });
+  };
+
+  const addPaperTrade = async (payload: CreateTradeInput): Promise<void> => {
+    setPaperTradeSubmitting(true);
+    try {
+      await createPaperTrade(payload);
+      setPaperTradeOpen(false);
+    } catch (requestError) {
+      message.error(requestError instanceof Error ? requestError.message : "Failed to add paper trade");
+      throw requestError;
+    } finally {
+      setPaperTradeSubmitting(false);
+    }
+  };
+
+  const deleteActivePaperTrade = (): void => {
+    if (!activePaperTrade) return;
+    Modal.confirm({
+      title: "Delete paper trade?",
+      content: activePaperTrade.trade.nse_symbol + " will be removed from the Trade Book.",
+      okText: "Delete",
+      okType: "danger",
+      onOk: async () => {
+        await deleteTrade(activePaperTrade.trade.id);
+        message.success(activePaperTrade.trade.nse_symbol + " paper trade deleted");
+      },
     });
   };
 
@@ -180,6 +241,8 @@ export function CompactStockReviewPage() {
           watchlistError={watchlistError}
           onSelectWatchlist={selectWatchlist}
           onNavigateWatchlist={moveWithinWatchlist}
+          paperPosition={compactPaperPosition}
+          onDeletePaperTrade={deleteActivePaperTrade}
         />
 
         {error && <Alert className="compact-review-alert" type="error" title={error} showIcon />}
@@ -206,6 +269,7 @@ export function CompactStockReviewPage() {
               notesLoading={instrumentNotes.loading}
               notesError={instrumentNotes.error}
               onAddNote={instrumentNotes.addNote}
+              onPaperTrade={() => setPaperTradeOpen(true)}
             />
           </div>
           <CompactReviewTables
@@ -219,6 +283,22 @@ export function CompactStockReviewPage() {
           </footer>
         </>}
       </div>
+      {paperTradeOpen && selectedInstrument && paperTradePrice != null && (
+        <Drawer
+          title={<span className="paper-trade-drawer-title">Add paper trade</span>}
+          placement="right"
+          open
+          onClose={() => setPaperTradeOpen(false)}
+          size={390}
+        >
+          <PaperTradeEntryForm
+            initialInstrument={selectedInstrument}
+            initialEntryPrice={paperTradePrice.toFixed(2)}
+            onSubmit={addPaperTrade}
+            loading={paperTradeSubmitting}
+          />
+        </Drawer>
+      )}
     </div>
   );
 }
