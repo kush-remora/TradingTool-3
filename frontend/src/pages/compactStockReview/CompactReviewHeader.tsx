@@ -220,12 +220,6 @@ export function CompactReviewHeader({
           </span>
         </div>
 
-        {/* Three-week flow: weekly low alignment + higher/lower low and high sequence */}
-        <div className="crh-col crh-flow-col" title="W−3, W−2, and W−1 are completed weeks; WTD is the current week. Floor aligned means adjacent weekly lows are within 1%.">
-          <span className="crh-col-label">4W flow</span>
-          {threeWeekFlow ? <CompactFlowCol flow={threeWeekFlow} currentPrice={currentPrice} /> : <span className="crh-muted">—</span>}
-        </div>
-
         {/* Volume */}
         <div className={`crh-col${volAnomaly ? " crh-col-signal" : ""}`}
              title={volAnomaly ? "Volume ≥ 150% of 10-day avg" : undefined}>
@@ -368,6 +362,11 @@ export function CompactReviewHeader({
           >
             <span className="crh-col-label">Last fresh breakout</span>
             <BreakoutDatesRow dates={breakoutDates} currentPrice={currentPrice} />
+          </div>
+          {/* Three-week flow: weekly low alignment + higher/lower low and high sequence */}
+          <div className="crh-col crh-flow-col" title="W−3, W−2, and W−1 are completed weeks; WTD is the current week. Floor aligned means adjacent weekly lows are within 1%.">
+            <span className="crh-col-label">4W flow</span>
+            {threeWeekFlow ? <CompactFlowCol flow={threeWeekFlow} currentPrice={currentPrice} /> : <span className="crh-muted">—</span>}
           </div>
           {paperPosition && (
             <div className="crh-col crh-paper-position-col" role="region" aria-label="Open paper trade">
