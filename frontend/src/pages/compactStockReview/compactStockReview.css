@@ -59,13 +59,39 @@
 }
 
 .crh-secondary-wrap {
-  min-height: 38px;
+  min-height: 44px;
   border-bottom: 1px solid #e4e7ec;
 }
 
+.crh-primary-wrap .crh-identity-main {
+  display: none;
+}
+
+.crh-secondary-stock {
+  display: flex;
+  flex: 0 0 280px;
+  min-width: 280px;
+  align-items: center;
+  padding: 6px 10px;
+  border-right: 1px solid #edf0f2;
+}
+
+.crh-primary-stock-search {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.crh-secondary-stock .crh-search {
+  display: none;
+}
+
+.crh-secondary-stock .crh-identity-main {
+  display: flex;
+}
+
 .crh-secondary-spacer {
-  flex: 0 0 250px;
-  min-width: 250px;
+  flex: 0 0 280px;
+  min-width: 280px;
   border-right: 1px solid #edf0f2;
 }
 
@@ -166,8 +192,8 @@
   align-items: center;
   gap: 4px;
   padding: 6px 10px;
-  min-width: 250px;
-  flex: 0 0 250px;
+  min-width: 280px;
+  flex: 0 0 280px;
   border-right: 1px solid #e4e7ec;
 }
 
@@ -181,8 +207,8 @@
 }
 
 .crh-search {
-  width: 110px;
-  flex: 0 0 110px;
+  width: 100px;
+  flex: 0 0 100px;
 }
 
 .crh-name {

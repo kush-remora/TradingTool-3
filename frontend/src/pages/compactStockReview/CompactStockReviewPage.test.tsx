@@ -171,16 +171,16 @@ describe("CompactStockReviewPage", () => {
   it("shows the complete stock story on one page while using the 150-session detail source", async () => {
     render(<CompactStockReviewPage />);
 
-    expect(await screen.findByText("Netweb Technologies India")).toBeInTheDocument();
+    expect(await screen.findAllByText("Netweb Technologies India")).toHaveLength(2);
     const paperPosition = screen.getByRole("region", { name: "Open paper trade" });
     expect(paperPosition).toHaveTextContent("01 Aug 2026");
     expect(paperPosition).toHaveTextContent("₹4,800.00");
     expect(paperPosition).toHaveTextContent("+1.15%");
     expect(paperPosition).toHaveTextContent("11d old");
     expect(screen.getByRole("button", { name: "Export compact review as Markdown" })).toBeEnabled();
-    expect(screen.getByText("Close Tue, 11 Aug 2026")).toBeInTheDocument();
+    expect(screen.getAllByText("Close Tue, 11 Aug 2026")).toHaveLength(2);
     expect(screen.getByText("as of 10 Aug 2026")).toBeInTheDocument();
-    const kiteLink = screen.getByRole("link", { name: "Open NETWEB in Kite" });
+    const kiteLink = screen.getAllByRole("link", { name: "Open NETWEB in Kite" })[0];
     expect(kiteLink).toHaveAttribute("href", "https://kite.zerodha.com/chart/web/tvc/NSE/NETWEB/4462849");
     expect(kiteLink).toHaveAttribute("target", "_blank");
     expect(screen.getByTestId("compact-price-chart")).toBeInTheDocument();
@@ -216,7 +216,7 @@ describe("CompactStockReviewPage", () => {
     const paperTradeButton = screen.getByRole("button", { name: "Add paper trade for current stock" });
     expect(paperTradeButton).toBeEnabled();
     fireEvent.click(paperTradeButton);
-    expect(screen.getAllByDisplayValue("NETWEB")).toHaveLength(2);
+    expect(screen.getAllByDisplayValue("NETWEB")).toHaveLength(4);
     expect(screen.getByDisplayValue("4855.00")).toBeInTheDocument();
   });
 

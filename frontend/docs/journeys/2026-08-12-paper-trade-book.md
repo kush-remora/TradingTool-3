@@ -17,6 +17,9 @@ Provide a separate paper-trading screen that lets the user record a chart convic
 - Added a narrow stacked open-position block beside Last fresh breakout in Compact Stock Review showing entry date, entry price, current P&L, and holding days.
 - Moved the Paper trade action beside Take note in the Observation log and reduced it to an icon action.
 - Added a small delete icon to the stacked open-position block with confirmation before removal.
+- Widened the compact-review identity column and matched the secondary-row spacer so long company names remain readable without compressing the metrics.
+- Split the first header column by row: the upper cell is watchlist navigation only, while the lower cell carries stock search, company name, exchange/date, and Kite link.
+- Refined the split again: upper cell stacks watchlist navigation and stock selector; lower cell shows only stock identity details. The first-column width is now 280px, and stock search popups use a wider 300px menu so option labels remain readable.
 
 ## Decisions
 

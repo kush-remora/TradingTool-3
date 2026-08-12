@@ -161,6 +161,7 @@ function InstrumentSearchCore({
       size="small"
       notFoundContent={availableInstruments.length === 0 && existingStockTokens.size > 0 ? "All stocks already added" : "No stocks found"}
       filterOption={false}
+      popupMatchSelectWidth={300}
     />
   );
 }

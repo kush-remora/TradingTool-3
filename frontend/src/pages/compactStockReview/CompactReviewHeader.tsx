@@ -113,7 +113,7 @@ export function CompactReviewHeader({
 
       {/* ── identity ── */}
       <div className="crh-identity">
-        <div className="crh-identity-main">
+        <div className="crh-identity-main" aria-hidden="true">
           <div className="crh-search">
             {instrumentsLoading
               ? <Spin size="small" />
@@ -154,6 +154,15 @@ export function CompactReviewHeader({
           onSelectWatchlist={onSelectWatchlist}
           onNavigate={onNavigateWatchlist}
         />
+        <div className="crh-primary-stock-search">
+          <InstrumentSearch
+            instruments={instruments}
+            value={instrument}
+            onSelect={onSelect}
+            placeholder="Search stock"
+            maxOptions={20}
+          />
+        </div>
       </div>
 
       {latestDay ? (<>
@@ -290,7 +299,39 @@ export function CompactReviewHeader({
 
       {latestDay && (
         <div className="crh-wrap crh-secondary-wrap">
-          <div className="crh-secondary-spacer" aria-hidden="true" />
+          <div className="crh-secondary-stock">
+            <div className="crh-identity-main">
+              <div className="crh-search">
+                {instrumentsLoading
+                  ? <Spin size="small" />
+                  : <InstrumentSearch
+                      instruments={instruments}
+                      value={instrument}
+                      onSelect={onSelect}
+                      placeholder="Search NSE stock"
+                      maxOptions={20}
+                    />}
+              </div>
+              <div className="crh-name">
+                <strong>{instrument?.company_name ?? "Select a stock"}</strong>
+                <span>{instrument ? "NSE · " + instrument.trading_symbol : "Compact Stock Review"}</span>
+                {dataDate && <span className="crh-data-date" title="Latest completed daily candle">Close {formatHeaderDate(dataDate)}</span>}
+              </div>
+              {instrument && (
+                <a
+                  className="crh-kite-link"
+                  aria-label={"Open " + instrument.trading_symbol + " in Kite"}
+                  title={"Open " + instrument.trading_symbol + " in Kite"}
+                  href={buildKiteChartUrl(instrument.trading_symbol, instrument.instrument_token)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <StockOutlined />
+                </a>
+              )}
+              {instrumentsError && <Text type="danger" className="crh-err">{instrumentsError}</Text>}
+            </div>
+          </div>
           {/* Reserved secondary row for momentum and future compact data points */}
           <div className="crh-col crh-move-col" title="Price change from the close N trading sessions ago to the current price">
             <span className="crh-col-label">Move</span>
