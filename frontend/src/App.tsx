@@ -50,10 +50,12 @@ import { PriceAcceptanceScannerPage } from "./pages/PriceAcceptanceScannerPage";
 import { StockHistoryDownloadPage } from "./pages/StockHistoryDownloadPage";
 import { NetwebCycleTrackerPage } from "./pages/NetwebCycleTrackerPage";
 import { SummaryConsolePage } from "./pages/SummaryConsolePage";
+import { ShortHorizonSelectorPage } from "./pages/ShortHorizonSelectorPage";
 import type { AccumulationCaseSnapshot } from "./types";
 
 type V1PageKey =
   | "summary-console"
+  | "short-horizon-selector"
   | "trade"
   | "wyckoff-phase1"
   | "volume-shocker"
@@ -112,6 +114,7 @@ type Route = PageKey | ForwardAccumulationTimelineRoute | WeeklyLowLimitDailyVal
 
 const menuItems: MenuProps["items"] = [
   { key: "summary-console", label: "Summary Console", icon: <FundOutlined /> },
+  { key: "short-horizon-selector", label: "5-Day Stock Selector", icon: <LineChartOutlined /> },
   { key: "volume-shocker", label: "Volume Shocker", icon: <FundOutlined /> },
   {
     key: "absolute-delivery",
@@ -254,6 +257,7 @@ const menuItems: MenuProps["items"] = [
 
 const validPages: PageKey[] = [
   "summary-console",
+  "short-horizon-selector",
   "trade",
   "wyckoff-phase1",
   "volume-shocker",
@@ -437,6 +441,14 @@ export default function App() {
     );
   };
 
+  const openCompactStockReview = (symbol: string) => {
+    window.open(
+      `${import.meta.env.BASE_URL}console/compact-stock-review?symbol=${encodeURIComponent(symbol)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
+
   const selectedKeys = [
     typeof route === "string" ? route : "forward-accumulation",
   ];
@@ -503,6 +515,7 @@ export default function App() {
           <Layout.Content>
             {route === "trade" && <TradePage />}
             {route === "summary-console" && <SummaryConsolePage onOpenStockReview={openStockReview} />}
+            {route === "short-horizon-selector" && <ShortHorizonSelectorPage onOpenCompactStockReview={openCompactStockReview} />}
             {route === "wyckoff-phase1" && <WyckoffPhase1Page />}
             {route === "volume-shocker" && <VolumeShockerDashboardPage />}
             {route === "absolute-delivery" && <AbsoluteDeliveryBacktestPage />}
