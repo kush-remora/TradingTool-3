@@ -131,6 +131,7 @@ export function CompactReviewHeader({
           <div className="crh-name">
             <strong>{instrument?.company_name ?? "Select a stock"}</strong>
             <span>{instrument ? `NSE · ${instrument.trading_symbol}` : "Compact Stock Review"}</span>
+            <span className="crh-inline-ltp"><span className="crh-inline-ltp-label">LTP</span> <strong>{formatPrice(currentPrice)}</strong></span>
             {dataDate && <span className="crh-data-date" title="Latest completed daily candle">Close {formatHeaderDate(dataDate)}</span>}
           </div>
           {instrument && (
@@ -169,13 +170,6 @@ export function CompactReviewHeader({
       </div>
 
       {latestDay ? (<>
-
-        {/* Current tradable reference price */}
-        <div className="crh-col crh-ltp-col" title={liveData ? "Latest traded price from the live market feed" : "Latest available closing price; live feed is not connected"}>
-          <span className="crh-col-label">LTP</span>
-          <strong className="crh-ltp-value">{formatPrice(currentPrice)}</strong>
-          <span className="crh-ltp-source">{liveData ? "Live feed" : "Latest close"}</span>
-        </div>
 
         {/* Range: Low → High + spread % */}
         <div className={`crh-col${rangeAnomaly ? " crh-col-alert" : ""}`}
@@ -338,6 +332,7 @@ export function CompactReviewHeader({
               <div className="crh-name">
                 <strong>{instrument?.company_name ?? "Select a stock"}</strong>
                 <span>{instrument ? "NSE · " + instrument.trading_symbol : "Compact Stock Review"}</span>
+                <span className="crh-inline-ltp"><span className="crh-inline-ltp-label">LTP</span> <strong>{formatPrice(currentPrice)}</strong></span>
                 {dataDate && <span className="crh-data-date" title="Latest completed daily candle">Close {formatHeaderDate(dataDate)}</span>}
               </div>
               {instrument && (
@@ -552,10 +547,16 @@ function CompactFlowCol({ flow, currentPrice }: { flow: CompactThreeWeekFlow; cu
           <span className="crh-floor-gap" title="Current price distance from the upper edge of the low band">Gap {fmtPct(floorGapPct)}</span>
           <span className="crh-muted">·</span>
         </>}
-        <strong>{flow.lowStructure} + {flow.highStructure}</strong>
+        <strong title={`${flow.lowStructure} + ${flow.highStructure}`}>
+          {formatFlowStructure(flow.lowStructure)}+{formatFlowStructure(flow.highStructure)}
+        </strong>
       </span>
     </span>
   );
+}
+
+function formatFlowStructure(structure: string): string {
+  return structure === "MIXED" ? "MIX" : structure;
 }
 
 function formatFlowLowDate(date: string): string {

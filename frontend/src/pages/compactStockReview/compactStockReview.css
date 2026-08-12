@@ -69,8 +69,8 @@
 
 .crh-secondary-stock {
   display: flex;
-  flex: 0 0 280px;
-  min-width: 280px;
+  flex: 0 0 220px;
+  min-width: 220px;
   align-items: center;
   padding: 6px 10px;
   border-right: 1px solid #edf0f2;
@@ -90,8 +90,8 @@
 }
 
 .crh-secondary-spacer {
-  flex: 0 0 280px;
-  min-width: 280px;
+  flex: 0 0 220px;
+  min-width: 220px;
   border-right: 1px solid #edf0f2;
 }
 
@@ -192,8 +192,8 @@
   align-items: center;
   gap: 4px;
   padding: 6px 10px;
-  min-width: 280px;
-  flex: 0 0 280px;
+  min-width: 220px;
+  flex: 0 0 220px;
   border-right: 1px solid #e4e7ec;
 }
 
@@ -235,7 +235,28 @@
 
 .crh-name .crh-data-date {
   color: #98a2b3;
-  font-size: 9px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.crh-inline-ltp {
+  color: #101828;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.crh-inline-ltp-label {
+  color: #667085;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.crh-inline-ltp strong {
+  color: #101828;
+  font-size: 17px;
+  font-weight: 800;
 }
 
 .crh-kite-link {
@@ -315,23 +336,6 @@
   white-space: nowrap;
 }
 
-.crh-ltp-col {
-  min-width: 104px;
-}
-
-.crh-ltp-value {
-  color: #101828;
-  font-size: 15px;
-  line-height: 1.15;
-  white-space: nowrap;
-}
-
-.crh-ltp-source {
-  color: #98a2b3;
-  font-size: 9px;
-  white-space: nowrap;
-}
-
 .crh-col-main {
   display: flex;
   align-items: center;
@@ -374,8 +378,9 @@
 
 .crh-col-sub {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
 }
 
 .crh-vs10d {
@@ -522,7 +527,9 @@
 }
 
 .crh-open-low-col {
-  min-width: 148px;
+  min-width: 116px;
+  padding-left: 6px;
+  padding-right: 6px;
 }
 
 .crh-flow {
@@ -584,9 +591,9 @@
 .crh-flow-summary {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: 29px;
-  font-size: 10px;
+  gap: 3px;
+  margin-left: 0;
+  font-size: 9px;
   white-space: nowrap;
 }
 
