@@ -32,7 +32,10 @@ class AdaptiveRsiCalibrationCalculatorTest {
             candles = candles,
             rsiValues = rsiValues,
             currentEventIndex = 73,
-            config = VolumeEventConfirmationBacktestConfig(adaptiveRsiMinimumSampleCount = 2),
+            config = VolumeEventConfirmationBacktestConfig(
+                targetPct = 5.0,
+                adaptiveRsiMinimumSampleCount = 2,
+            ),
         )
 
         assertEquals(3, calibration.sampleCount)
