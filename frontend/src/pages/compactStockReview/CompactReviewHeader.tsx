@@ -49,16 +49,6 @@ const fmtPct = (v: number | null, digits = 1): string =>
 const buildKiteChartUrl = (symbol: string, instrumentToken: number): string =>
   `https://kite.zerodha.com/chart/web/tvc/NSE/${encodeURIComponent(symbol)}/${instrumentToken}`;
 
-const priceMoveFromSessionsAgo = (
-  currentPrice: number | null,
-  days: CompactDailyRow[],
-  lookback: number,
-): number | null => {
-  const priorDay = days.at(-(lookback + 1));
-  if (currentPrice == null || priorDay == null || priorDay.close === 0) return null;
-  return ((currentPrice - priorDay.close) / priorDay.close) * 100;
-};
-
 export function CompactReviewHeader({
   instrument,
   instruments,
@@ -88,6 +78,10 @@ export function CompactReviewHeader({
   const breakoutDates: FreshBreakoutDates | null = data?.breakout_dates ?? null;
   const threeWeekFlow: CompactThreeWeekFlow | null = buildCompactThreeWeekFlow(dailyRows);
   const deliveryContext: CompactDeliveryContext = buildCompactDeliveryContext(dailyRows);
+  const recentHighs = [20, 40].map((lookback) => ({
+    lookback,
+    high: findRecentHigh(dailyRows, lookback),
+  }));
   const periodMoves = [5, 20, 40, 60].map((lookback) => ({
     lookback,
     movePct: priceMoveFromSessionsAgo(currentPrice, dailyRows, lookback),
@@ -344,7 +338,6 @@ export function CompactReviewHeader({
               {instrumentsError && <Text type="danger" className="crh-err">{instrumentsError}</Text>}
             </div>
           </div>
-          {/* Reserved secondary row for momentum and future compact data points */}
           <div className="crh-col crh-move-col" title="Price change from the close N trading sessions ago to the current price">
             <span className="crh-col-label">Move</span>
             <span className="crh-col-main crh-col-stack">
@@ -352,6 +345,18 @@ export function CompactReviewHeader({
                 <span className="crh-dma-row" key={lookback}>
                   <span className="crh-muted">{lookback}D</span>
                   <span className={`crh-col-pct ${pos(movePct)}`}>{fmtPct(movePct)}</span>
+                </span>
+              ))}
+            </span>
+          </div>
+          <div className="crh-col crh-recent-highs-col" title="Highest traded price in the recent 20- and 40-session windows">
+            <span className="crh-col-label">Recent highs</span>
+            <span className="crh-col-main crh-col-stack">
+              {recentHighs.map(({ lookback, high }) => (
+                <span className="crh-dma-row" key={lookback}>
+                  <span className="crh-muted">{lookback}D</span>
+                  <span className="crh-muted">{high ? formatPrice(high.price) : "—"}</span>
+                  <span className="crh-muted">{high ? `${formatShortDate(high.date)} · ${high.daysBack}d` : "—"}</span>
                 </span>
               ))}
             </span>
@@ -406,6 +411,27 @@ export function CompactReviewHeader({
   );
 }
 
+function findRecentHigh(days: CompactDailyRow[], lookback: number): { price: number; date: string; daysBack: number } | null {
+  const window = days.slice(-lookback);
+  if (window.length === 0) return null;
+  const highIndex = window.reduce((bestIndex, day, index) => day.high > window[bestIndex].high ? index : bestIndex, 0);
+  return {
+    price: window[highIndex].high,
+    date: window[highIndex].date,
+    daysBack: window.length - 1 - highIndex,
+  };
+}
+
+const priceMoveFromSessionsAgo = (
+  currentPrice: number | null,
+  days: CompactDailyRow[],
+  lookback: number,
+): number | null => {
+  const priorDay = days.at(-(lookback + 1));
+  if (currentPrice == null || priorDay == null || priorDay.close === 0) return null;
+  return ((currentPrice - priorDay.close) / priorDay.close) * 100;
+};
+
 function formatHeaderDate(date: string): string {
   return new Intl.DateTimeFormat("en-IN", {
     weekday: "short",
@@ -413,6 +439,14 @@ function formatHeaderDate(date: string): string {
     month: "short",
     timeZone: "UTC",
   }).format(new Date(`${date}T00:00:00Z`)) + ` ${date.slice(0, 4)}`;
+}
+
+function formatShortDate(date: string): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(`${date}T00:00:00Z`));
 }
 
 function formatCompactDate(date: string | null): string {
