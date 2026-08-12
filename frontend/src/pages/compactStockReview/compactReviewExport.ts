@@ -10,6 +10,7 @@ import {
   buildCompactThreeWeekFlow,
   formatPrice,
   formatQuantity,
+  formatSignedPrice,
   formatSignedPercent,
 } from "./compactStockReview";
 
@@ -92,6 +93,7 @@ const buildSnapshot = (input: CompactReviewExportInput, latestDay: CompactDailyR
     ["Latest delivery", `${latestDay?.deliveryPct == null ? "—" : `${latestDay.deliveryPct.toFixed(1)}%`} · as of ${formatDate(deliveryDate)}`],
     ["Today OHLC", latestDay == null ? "—" : `${formatPrice(latestDay.open)} / ${formatPrice(latestDay.high)} / ${formatPrice(latestDay.low)} / ${formatPrice(latestDay.close)}`],
     ["Today move", formatSignedPercent(latestDay?.daily_change_pct ?? null, 2)],
+    ["Open → low", latestDay == null ? "—" : `${formatSignedPrice(latestDay.low - latestDay.open)} · ${formatSignedPercent(latestDay.openToLowPct, 2)}`],
     ["Today range", formatSignedPercent(latestDay?.spreadPct ?? null, 2)],
     ["Close position", latestDay?.closePositionPct == null ? "—" : `${latestDay.closePositionPct.toFixed(1)}% of low-to-high range`],
     ["Volume", latestDay == null ? "—" : `${formatQuantity(latestDay.volume)} · ${latestDay.volumeVsPrior10dPct == null ? "—" : `${(latestDay.volumeVsPrior10dPct / 100).toFixed(2)}× vs prior 10D`}`],
@@ -131,13 +133,14 @@ const buildWeeklySection = (weeks: CompactWeeklyRow[]): string => markdownTable(
 );
 
 const buildDailySection = (dailyRows: CompactDailyRow[]): string => markdownTable(
-  ["Date", "Open", "High", "Low", "Close", "Day %", "RSI14", "ROC9", "Volume", "Vol vs 10D", "Delivery"],
+  ["Date", "Open", "High", "Low", "Close", "Open → Low", "Day %", "RSI14", "ROC9", "Volume", "Vol vs 10D", "Delivery"],
   dailyRows.slice(-60).map((day) => [
     formatDay(day),
     formatPrice(day.open),
     formatPrice(day.high),
     formatPrice(day.low),
     formatPrice(day.close),
+    `${formatSignedPrice(day.low - day.open)} · ${formatSignedPercent(day.openToLowPct, 2)}`,
     formatSignedPercent(day.daily_change_pct, 2),
     day.rsi14 == null ? "—" : day.rsi14.toFixed(1),
     formatSignedPercent(day.roc9Pct, 2),

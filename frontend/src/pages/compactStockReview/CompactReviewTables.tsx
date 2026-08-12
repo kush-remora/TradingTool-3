@@ -1,5 +1,5 @@
 import type { CompactDailyRow, CompactWeeklyRow } from "./compactStockReview";
-import { formatPrice, formatQuantity, formatShortDate, formatSignedPercent, formatWeekdayDate } from "./compactStockReview";
+import { formatPrice, formatQuantity, formatShortDate, formatSignedPercent, formatSignedPrice, formatWeekdayDate } from "./compactStockReview";
 import { useEffect, useState } from "react";
 
 interface CompactReviewTablesProps {
@@ -130,7 +130,7 @@ export function CompactReviewTables({ weeks, recentDays, allDays }: CompactRevie
         <div className="compact-review-table-wrap">
           <table className="compact-tape-table">
             <thead>
-              <tr><th>Date / day</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Day % / L→H %</th><th>Volume / vs 10D</th><th>Delivery</th></tr>
+              <tr><th>Date / day</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Open → Low</th><th>Day % / L→H %</th><th>Volume / vs 10D</th><th>Delivery</th></tr>
             </thead>
             <tbody>
               {visibleDays.map((day, index) => (
@@ -151,6 +151,12 @@ export function CompactReviewTables({ weeks, recentDays, allDays }: CompactRevie
                   <td>{formatPrice(day.high)}</td>
                   <td>{formatPrice(day.low)}</td>
                   <td>{formatPrice(day.close)}</td>
+                  <td className={`compact-open-low-cell ${toneClass(day.openToLowPct)}`} title="Maximum downside from the session open to the session low">
+                    <span className="compact-tape-pair">
+                      <strong>{formatSignedPrice(day.low - day.open)}</strong>
+                      <small>{formatSignedPercent(day.openToLowPct, 1)}</small>
+                    </span>
+                  </td>
                   <td>
                     <span className="compact-tape-pair">
                       <strong className={toneClass(day.daily_change_pct)}>{formatSignedPercent(day.daily_change_pct, 1)}</strong>

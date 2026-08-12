@@ -1,11 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DayDetail, StockDetailResponse, TradeWithTargets } from "../../types";
+import type { DayDetail, LiveMarketUpdate, StockDetailResponse, TradeWithTargets } from "../../types";
 import { CompactStockReviewPage } from "./CompactStockReviewPage";
 
 const getJsonMock = vi.hoisted(() => vi.fn());
 const useStockDetailMock = vi.fn();
 const useTradeDataMock = vi.hoisted(() => vi.fn());
+const liveMarketDataMock = vi.hoisted(() => vi.fn());
 const addNoteMock = vi.fn(async () => true);
 
 vi.mock("../../utils/api", () => ({ getJson: getJsonMock }));
@@ -31,7 +32,7 @@ vi.mock("../../hooks/useTradeData", () => ({
   useTradeData: () => useTradeDataMock(),
 }));
 
-vi.mock("../../hooks/useLiveMarketData", () => ({ useLiveMarketData: () => null }));
+vi.mock("../../hooks/useLiveMarketData", () => ({ useLiveMarketData: () => liveMarketDataMock() }));
 vi.mock("../../hooks/useInstrumentNotes", () => ({
   useInstrumentNotes: () => ({
     notes: [{ id: 1, instrumentToken: 4462849, notes: "Demand improved above the prior low.", createdAt: "2026-08-10T18:30:00Z", updatedAt: "2026-08-10T18:30:00Z" }],
@@ -140,6 +141,7 @@ describe("CompactStockReviewPage", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/TradingTool-3/console/compact-stock-review?symbol=NETWEB");
     addNoteMock.mockClear();
+    liveMarketDataMock.mockReturnValue(null);
     useTradeDataMock.mockReturnValue({
       trades: [paperTradeFixture],
       loading: false,
@@ -185,6 +187,9 @@ describe("CompactStockReviewPage", () => {
     expect(kiteLink).toHaveAttribute("target", "_blank");
     expect(screen.getByTestId("compact-price-chart")).toBeInTheDocument();
     expect(screen.getByText("Move")).toBeInTheDocument();
+    expect(document.querySelector(".crh-ltp-col")).toHaveTextContent("LTP₹4,855Latest close");
+    expect(document.querySelector(".crh-open-low-col")).toHaveTextContent("−₹110.5");
+    expect(document.querySelector(".crh-open-low-col")).toHaveTextContent("-2.3%");
     expect(document.querySelector(".crh-move-col")).toHaveTextContent("5D");
     expect(screen.getByRole("combobox", { name: "Review watchlist" })).toBeInTheDocument();
     expect(screen.getByText("Last fresh breakout")).toBeInTheDocument();
@@ -200,6 +205,7 @@ describe("CompactStockReviewPage", () => {
     expect(screen.getByRole("button", { name: "Take note" })).toBeInTheDocument();
     expect(screen.getByText("Four-week structure")).toBeInTheDocument();
     expect(screen.getByText("Recent tape")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Open → Low" })).toBeInTheDocument();
     expect(screen.getByText("Top volume days · 40 sessions")).toBeInTheDocument();
     expect(screen.getByText("Effort → result")).toBeInTheDocument();
     expect(screen.getAllByText("W low").length).toBeGreaterThan(0);
@@ -229,6 +235,37 @@ describe("CompactStockReviewPage", () => {
 
     expect(await screen.findByText("2/2")).toBeInTheDocument();
     expect(useStockDetailMock).toHaveBeenLastCalledWith("TCS", 150);
+  });
+
+  it("uses live session open and low for the main dip metric", async () => {
+    const liveUpdate: LiveMarketUpdate = {
+      symbol: "NSE:NETWEB",
+      instrumentToken: 4462849,
+      ltp: 4800,
+      averagePrice: null,
+      changePercent: -1.2,
+      open: 4866,
+      high: 4900,
+      low: 4753,
+      volume: 900_000,
+      buyQuantity: 1,
+      sellQuantity: 1,
+      buyPressurePct: null,
+      sellPressurePct: null,
+      buyerDominancePass: null,
+      pressureSide: "NEUTRAL",
+      avgVol20d: null,
+      volumeHeat: null,
+      updatedAt: 0,
+    };
+    liveMarketDataMock.mockReturnValue(liveUpdate);
+
+    render(<CompactStockReviewPage />);
+
+    expect(await screen.findAllByText("Netweb Technologies India")).toHaveLength(2);
+    expect(document.querySelector(".crh-ltp-col")).toHaveTextContent("LTP₹4,800Live feed");
+    expect(document.querySelector(".crh-open-low-col")).toHaveTextContent("−₹113");
+    expect(document.querySelector(".crh-open-low-col")).toHaveTextContent("-2.3%");
   });
 
   it("saves today's observation without leaving the compact console", async () => {

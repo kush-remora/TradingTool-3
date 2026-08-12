@@ -3,7 +3,7 @@ import { Button, Select, Spin, Tooltip, Typography } from "antd";
 import { InstrumentSearch } from "../../components/InstrumentSearch";
 import type { FreshBreakoutDates, InstrumentSearchResult, LiveMarketUpdate, Roc9, Rsi14Range, StockDetailResponse, UniverseOption } from "../../types";
 import type { CompactDailyRow } from "./compactStockReview";
-import { buildCompactDeliveryContext, buildCompactThreeWeekFlow, formatPrice, formatQuantity, type CompactDeliveryContext, type CompactThreeWeekFlow } from "./compactStockReview";
+import { buildCompactDeliveryContext, buildCompactThreeWeekFlow, formatPrice, formatQuantity, formatSignedPrice, type CompactDeliveryContext, type CompactThreeWeekFlow } from "./compactStockReview";
 
 export interface CompactPaperPosition {
   symbol: string;
@@ -93,6 +93,9 @@ export function CompactReviewHeader({
     movePct: priceMoveFromSessionsAgo(currentPrice, dailyRows, lookback),
   }));
 
+  const sessionOpen = liveData?.open ?? latestDay?.open ?? null;
+  const sessionLow = liveData?.low ?? latestDay?.low ?? null;
+  const sessionOpenToLowPct = distPct(sessionLow, sessionOpen);
   const rangeSpreadPct  = latestDay?.spreadPct;
   const openClosePct    = latestDay?.openToClosePct;
   const volVs10d        = latestDay?.volumeVsPrior10dPct;
@@ -167,6 +170,13 @@ export function CompactReviewHeader({
 
       {latestDay ? (<>
 
+        {/* Current tradable reference price */}
+        <div className="crh-col crh-ltp-col" title={liveData ? "Latest traded price from the live market feed" : "Latest available closing price; live feed is not connected"}>
+          <span className="crh-col-label">LTP</span>
+          <strong className="crh-ltp-value">{formatPrice(currentPrice)}</strong>
+          <span className="crh-ltp-source">{liveData ? "Live feed" : "Latest close"}</span>
+        </div>
+
         {/* Range: Low → High + spread % */}
         <div className={`crh-col${rangeAnomaly ? " crh-col-alert" : ""}`}
              title={rangeAnomaly ? "Wide intraday range (≥5%)" : undefined}>
@@ -191,6 +201,19 @@ export function CompactReviewHeader({
           </span>
           <span className={`crh-col-pct ${pos(openClosePct ?? null)}`}>
             {fmtPct(openClosePct ?? null)}
+          </span>
+        </div>
+
+        {/* Maximum downside from the session open to the session low */}
+        <div className="crh-col crh-open-low-col" title="Maximum downside from today's open to today's low">
+          <span className="crh-col-label">Dip O → L</span>
+          <span className="crh-col-main">
+            <span className="crh-muted">{formatPrice(sessionOpen)}</span>
+            <span className="crh-arrow">→</span>
+            <span className="crh-muted">{formatPrice(sessionLow)}</span>
+          </span>
+          <span className={`crh-col-pct ${pos(sessionOpenToLowPct)}`}>
+            {formatSignedPrice(sessionLow != null && sessionOpen != null ? sessionLow - sessionOpen : null)} · {fmtPct(sessionOpenToLowPct)}
           </span>
         </div>
 

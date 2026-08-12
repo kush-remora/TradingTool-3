@@ -64,6 +64,14 @@ describe("buildCompactWeeklyRows", () => {
     expect(week.lowDayPct).toBe(-2);
     expect(week.highDayPct).toBe(5);
   });
+
+  it("calculates the maximum downside from the session open to the low", () => {
+    const [latest] = buildCompactDailyRows([
+      { ...day("2026-08-12", 4753, 4866, 4800), open: 4866 },
+    ], []);
+
+    expect(latest.openToLowPct).toBeCloseTo(((4753 - 4866) / 4866) * 100);
+  });
 });
 
 describe("buildCompactDeliveryContext", () => {

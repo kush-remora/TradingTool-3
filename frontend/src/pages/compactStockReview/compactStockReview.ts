@@ -6,6 +6,7 @@ export interface CompactDailyRow extends DayDetail {
   volumeVsPrior5dPct: number | null;
   volumeVsPrior10dPct: number | null;
   openToClosePct: number | null;
+  openToLowPct: number | null;
   roc9Pct: number | null;
   spreadPct: number | null;
   closePositionPct: number | null;
@@ -117,6 +118,7 @@ export const buildCompactDailyRows = (
         ? (day.volume / priorTenDayVolumeAverage) * 100
         : null,
       openToClosePct: percentageChange(day.close, day.open),
+      openToLowPct: percentageChange(day.low, day.open),
       roc9Pct: index >= 9 ? percentageChange(day.close, chronologicalDays[index - 9].close) : null,
       spreadPct: percentageChange(day.high, day.low),
       closePositionPct: spread > 0 ? ((day.close - day.low) / spread) * 100 : null,
@@ -302,6 +304,12 @@ export const participationEventDates = (events: MomentumParticipationEvent[]): S
 export const formatPrice = (value: number | null): string => (
   value == null ? "—" : `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`
 );
+
+export const formatSignedPrice = (value: number | null): string => {
+  if (value == null) return "—";
+  const sign = value > 0 ? "+" : value < 0 ? "−" : "";
+  return `${sign}₹${Math.abs(value).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+};
 
 export const formatQuantity = (value: number | null): string => {
   if (value == null) return "—";

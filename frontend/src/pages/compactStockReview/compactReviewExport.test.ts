@@ -62,6 +62,7 @@ describe("buildCompactReviewMarkdown", () => {
     expect(markdown).toContain("## Last fresh breakout");
     expect(markdown).toContain("₹4,800");
     expect(markdown).toContain("## Daily candles · latest 60 sessions");
+    expect(markdown).toContain("Open → low");
     expect(markdown).toContain("2026-08-12");
     expect(markdown).toContain("Evidence: O/H/L/C");
     expect(markdown).toContain("Watch the prior high.");
