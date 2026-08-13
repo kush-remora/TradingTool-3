@@ -6,6 +6,7 @@ export const SHORT_HORIZON_LOOKBACK_SESSIONS = 20;
 export const SHORT_HORIZON_RECENT_SUCCESS_SESSIONS = 6;
 export const SHORT_HORIZON_RECENT_HIGH_SESSIONS = 20;
 export const SHORT_HORIZON_RECENT_VOLUME_SESSIONS = 5;
+export const SHORT_HORIZON_VOLUME_AVERAGE_SESSIONS = 10;
 export const SHORT_HORIZON_VOLUME_BASELINE_SESSIONS = 20;
 export const SHORT_HORIZON_SHORTLIST_FRACTION = 0.2;
 export const SHORT_HORIZON_MAX_SHORTLIST_COUNT = 20;
@@ -15,10 +16,28 @@ export const SHORT_HORIZON_MAX_PULLBACK_FROM_HIGH_PCT = -10;
 export const SHORT_HORIZON_DECLINING_CLOSE_SESSIONS = 3;
 export const SHORT_HORIZON_SUPPORT_LOOKBACK_SESSIONS = 5;
 export const SHORT_HORIZON_CURRENT_MOVE_SESSIONS = 5;
+export const SHORT_HORIZON_CURRENT_INTERMEDIATE_MOVE_SESSIONS = 10;
 export const SHORT_HORIZON_CURRENT_TREND_SESSIONS = 20;
+export const SHORT_HORIZON_MOVE_ACCELERATION_TOLERANCE_PCT = 1;
+export const SHORT_HORIZON_OVEREXTENDED_TWENTY_DAY_MOVE_PCT = 25;
+export const SHORT_HORIZON_EXIT_PRESSURE_LOOKBACK_SESSIONS = 3;
+export const SHORT_HORIZON_EXIT_PRESSURE_VOLUME_BASELINE_SESSIONS = 10;
+export const SHORT_HORIZON_EXIT_PRESSURE_VOLUME_SPIKE_MULTIPLE = 1.5;
+export const SHORT_HORIZON_EXIT_PRESSURE_WEAK_CLOSE_POSITION_PCT = 40;
+export const SHORT_HORIZON_EXIT_PRESSURE_MIN_FAILURE_MOVE_PCT = -1;
+export const SHORT_HORIZON_STRONG_FINISH_LOOKBACK_SESSIONS = 5;
+export const SHORT_HORIZON_STRONG_FINISH_MIN_CLOSE_POSITION_PCT = 60;
+export const SHORT_HORIZON_MOVE_QUALITY_LOOKBACK_SESSIONS = 5;
+export const SHORT_HORIZON_MOVE_QUALITY_MIN_UP_CLOSES = 3;
+export const SHORT_HORIZON_MOVE_QUALITY_MAX_CLEAN_DIRECTION_CHANGES = 1;
+export const SHORT_HORIZON_MOVE_QUALITY_MIN_CLEAN_EFFICIENCY = 0.6;
+export const SHORT_HORIZON_MOVE_QUALITY_WILD_DIRECTION_CHANGES = 3;
+export const SHORT_HORIZON_MOVE_QUALITY_MAX_WILD_EFFICIENCY = 0.35;
 
 export type ClosePositionBucket = "HIGH" | "MIDDLE" | "LOW";
 export type PriceDirection = "UP" | "FLAT" | "DOWN";
+export type MoveQuality = "CLEAN" | "MIXED" | "WILD";
+export type ExitPressure = "QUIET" | "WATCH" | "CAUTION";
 
 export interface ShortHorizonSuccessDay {
   key: string;
@@ -29,6 +48,22 @@ export interface ShortHorizonSuccessDay {
   closePositionPct: number;
   closePositionBucket: ClosePositionBucket;
   direction: PriceDirection;
+}
+
+export interface ShortHorizonDailyEvidence {
+  key: string;
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  changePct: number | null;
+  closePositionPct: number;
+  closePositionBucket: ClosePositionBucket;
+  direction: PriceDirection;
+  closeFromHighPct: number | null;
+  volumeMultiple: number | null;
+  isStrongFinish: boolean;
 }
 
 export interface ShortHorizonStockRow {
@@ -47,8 +82,18 @@ export interface ShortHorizonStockRow {
   recentVolumeMultiple: number | null;
   recentVolumeDate: string | null;
   recentVolumeDirection: PriceDirection | null;
+  exitPressure: ExitPressure | null;
+  exitPressureVolumeMultiple: number | null;
+  exitPressureDate: string | null;
+  exitPressureDirection: PriceDirection | null;
   currentFiveDayMovePct: number | null;
+  currentPreviousFiveDayMovePct: number | null;
+  currentPreviousTenDayMovePct: number | null;
   currentTwentyDayMovePct: number | null;
+  recentStrongFinishCount: number;
+  recentStrongFinishSessionCount: number;
+  recentMoveQuality: MoveQuality | null;
+  recentDailyEvidence: ShortHorizonDailyEvidence[];
   fiftyTwoWeekHigh: number | null;
   distanceFromFiftyTwoWeekHighPct: number | null;
   lastThreeClosesDeclining: boolean | null;
@@ -149,6 +194,10 @@ export function calculateShortHorizonShortlistSize(stockCount: number): number {
   );
 }
 
+export function isShortHorizonMoveExtended(movePct: number | null): boolean {
+  return movePct != null && movePct > SHORT_HORIZON_OVEREXTENDED_TWENTY_DAY_MOVE_PCT;
+}
+
 export function passesShortHorizonEvidenceGate(row: ShortHorizonStockRow): boolean {
   return row.eligibleDayCount >= SHORT_HORIZON_LOOKBACK_SESSIONS
     && row.successfulDayCount >= SHORT_HORIZON_MIN_SUCCESSFUL_DAYS
@@ -200,12 +249,208 @@ function calculateRecentVolumeEvidence(days: WeeklyPriceWatchlistDay[]): {
   };
 }
 
+function calculateRecentExitPressureEvidence(
+  days: WeeklyPriceWatchlistDay[],
+  currentTwentyDayMovePct: number | null,
+): {
+  exitPressure: ExitPressure | null;
+  exitPressureVolumeMultiple: number | null;
+  exitPressureDate: string | null;
+  exitPressureDirection: PriceDirection | null;
+} {
+  const recentStart = Math.max(0, days.length - SHORT_HORIZON_EXIT_PRESSURE_LOOKBACK_SESSIONS);
+  const recentDays = days.slice(recentStart);
+  const pushCandidates = recentDays.slice(0, -1).map((pushDay, index) => {
+    const pushDayIndex = recentStart + index;
+    const failureDay = recentDays[index + 1];
+    const volumeMultiple = calculateVolumeMultiple(
+      pushDay,
+      days.slice(Math.max(0, pushDayIndex - SHORT_HORIZON_EXIT_PRESSURE_VOLUME_BASELINE_SESSIONS), pushDayIndex),
+    );
+    const closePositionPct = calculateClosePositionPct(pushDay);
+    const previousClose = days[pushDayIndex - 1]?.close ?? null;
+    const isStrongClosePush = closePositionPct > SHORT_HORIZON_STRONG_FINISH_MIN_CLOSE_POSITION_PCT
+      && previousClose != null
+      && pushDay.close > previousClose;
+    const isStrongPush = volumeMultiple != null
+      && volumeMultiple >= SHORT_HORIZON_EXIT_PRESSURE_VOLUME_SPIKE_MULTIPLE
+      && isStrongClosePush;
+    const failureMovePct = pushDay.close <= 0
+      ? null
+      : ((failureDay.close - pushDay.close) / pushDay.close) * 100;
+    const failedFollowThrough = isStrongClosePush
+      && failureDay.close < pushDay.close
+      && (
+        calculateClosePositionPct(failureDay) <= SHORT_HORIZON_EXIT_PRESSURE_WEAK_CLOSE_POSITION_PCT
+        || failureDay.close < pushDay.low
+        || (failureMovePct != null && failureMovePct <= SHORT_HORIZON_EXIT_PRESSURE_MIN_FAILURE_MOVE_PCT)
+      );
+
+    return {
+      pushDay,
+      failureDay,
+      volumeMultiple,
+      isStrongClosePush,
+      isStrongPush,
+      failedFollowThrough,
+    };
+  }).filter((candidate) => candidate.volumeMultiple != null);
+
+  const hasRecentRun = currentTwentyDayMovePct != null && currentTwentyDayMovePct > 0;
+  const strongCloseCandidates = pushCandidates.filter((candidate) => candidate.isStrongClosePush);
+  const strongestCandidate = strongCloseCandidates.reduce<typeof strongCloseCandidates[number] | null>(
+    (currentCandidate, candidate) => currentCandidate == null || (candidate.volumeMultiple ?? 0) > (currentCandidate.volumeMultiple ?? 0)
+      ? candidate
+      : currentCandidate,
+    null,
+  );
+  const failedStrongPush = pushCandidates.find((candidate) => candidate.isStrongPush && candidate.failedFollowThrough);
+  const strongPush = strongCloseCandidates.find((candidate) => candidate.isStrongPush);
+  const anyFailedFollowThrough = strongCloseCandidates.find((candidate) => candidate.failedFollowThrough);
+
+  if (!hasRecentRun || strongestCandidate == null) {
+    return {
+      exitPressure: "QUIET",
+      exitPressureVolumeMultiple: strongestCandidate?.volumeMultiple ?? null,
+      exitPressureDate: strongestCandidate?.pushDay.date ?? null,
+      exitPressureDirection: strongestCandidate == null ? null : classifyPriceDirection(strongestCandidate.pushDay),
+    };
+  }
+
+  return {
+    exitPressure: failedStrongPush != null || anyFailedFollowThrough != null
+      ? failedStrongPush != null ? "CAUTION" : "WATCH"
+      : strongPush != null ? "WATCH" : "QUIET",
+    exitPressureVolumeMultiple: strongestCandidate.volumeMultiple,
+    exitPressureDate: strongestCandidate.pushDay.date,
+    exitPressureDirection: classifyPriceDirection(strongestCandidate.pushDay),
+  };
+}
+
 function calculateMoveFromPastClose(days: WeeklyPriceWatchlistDay[], lookbackSessions: number): number | null {
   const latestClose = days.at(-1)?.close ?? null;
   const pastClose = days.at(-1 - lookbackSessions)?.close ?? null;
   return latestClose == null || pastClose == null || pastClose <= 0
     ? null
     : ((latestClose - pastClose) / pastClose) * 100;
+}
+
+function calculateMoveBetweenPastCloses(
+  days: WeeklyPriceWatchlistDay[],
+  newerLookbackSessions: number,
+  olderLookbackSessions: number,
+): number | null {
+  const newerClose = days.at(-1 - newerLookbackSessions)?.close ?? null;
+  const olderClose = days.at(-1 - olderLookbackSessions)?.close ?? null;
+  return newerClose == null || olderClose == null || olderClose <= 0
+    ? null
+    : ((newerClose - olderClose) / olderClose) * 100;
+}
+
+function calculateRecentStrongFinishEvidence(days: WeeklyPriceWatchlistDay[]): {
+  recentStrongFinishCount: number;
+  recentStrongFinishSessionCount: number;
+} {
+  const recentDays = days.slice(-SHORT_HORIZON_STRONG_FINISH_LOOKBACK_SESSIONS);
+  const recentStrongFinishCount = recentDays.filter((day) =>
+    isStrongFinishPosition(calculateClosePositionPct(day)),
+  ).length;
+
+  return {
+    recentStrongFinishCount,
+    recentStrongFinishSessionCount: recentDays.length,
+  };
+}
+
+function isStrongFinishPosition(positionPct: number): boolean {
+  return positionPct > SHORT_HORIZON_STRONG_FINISH_MIN_CLOSE_POSITION_PCT;
+}
+
+function calculateRecentMoveQuality(days: WeeklyPriceWatchlistDay[]): MoveQuality | null {
+  const recentDays = days.slice(-SHORT_HORIZON_MOVE_QUALITY_LOOKBACK_SESSIONS);
+  if (recentDays.length < SHORT_HORIZON_MOVE_QUALITY_LOOKBACK_SESSIONS) return null;
+
+  const closeReturns = recentDays.slice(1).map((day, index) => {
+    const previousClose = recentDays[index].close;
+    return previousClose <= 0 ? 0 : (day.close - previousClose) / previousClose;
+  });
+  const upCloseCount = closeReturns.filter((move) => move > 0).length;
+  const startingClose = recentDays[0].close;
+  const endingClose = recentDays.at(-1)?.close ?? startingClose;
+  const netMove = startingClose <= 0 ? 0 : (endingClose - startingClose) / startingClose;
+  const pathMovement = closeReturns.reduce((total, move) => total + Math.abs(move), 0);
+  const pathEfficiency = pathMovement === 0 ? 0 : Math.abs(netMove) / pathMovement;
+  const directionChanges = closeReturns.slice(1).reduce((count, move, index) => {
+    const previousMove = closeReturns[index];
+    return move !== 0 && previousMove !== 0 && Math.sign(move) !== Math.sign(previousMove)
+      ? count + 1
+      : count;
+  }, 0);
+  const recentStrongFinishCount = calculateRecentStrongFinishEvidence(recentDays).recentStrongFinishCount;
+
+  if (
+    netMove > 0
+    && upCloseCount >= SHORT_HORIZON_MOVE_QUALITY_MIN_UP_CLOSES
+    && recentStrongFinishCount >= SHORT_HORIZON_MOVE_QUALITY_MIN_UP_CLOSES
+    && directionChanges <= SHORT_HORIZON_MOVE_QUALITY_MAX_CLEAN_DIRECTION_CHANGES
+    && pathEfficiency >= SHORT_HORIZON_MOVE_QUALITY_MIN_CLEAN_EFFICIENCY
+  ) {
+    return "CLEAN";
+  }
+
+  if (
+    directionChanges >= SHORT_HORIZON_MOVE_QUALITY_WILD_DIRECTION_CHANGES
+    || pathEfficiency < SHORT_HORIZON_MOVE_QUALITY_MAX_WILD_EFFICIENCY
+  ) {
+    return "WILD";
+  }
+
+  return "MIXED";
+}
+
+function calculateVolumeMultiple(
+  day: WeeklyPriceWatchlistDay,
+  previousDays: WeeklyPriceWatchlistDay[],
+): number | null {
+  const baselineDays = previousDays.filter((previousDay) => previousDay.volume > 0);
+  if (day.volume <= 0 || baselineDays.length < SHORT_HORIZON_VOLUME_AVERAGE_SESSIONS) return null;
+
+  const averageVolume = baselineDays.reduce((total, previousDay) => total + previousDay.volume, 0) / baselineDays.length;
+  return averageVolume <= 0 ? null : day.volume / averageVolume;
+}
+
+function calculateRecentDailyEvidence(days: WeeklyPriceWatchlistDay[]): ShortHorizonDailyEvidence[] {
+  const recentStartIndex = Math.max(0, days.length - SHORT_HORIZON_RECENT_HIGH_SESSIONS);
+
+  return days
+    .slice(recentStartIndex)
+    .map((day, index) => {
+      const absoluteDayIndex = recentStartIndex + index;
+      const previousClose = days[absoluteDayIndex - 1]?.close ?? null;
+      const closePositionPct = calculateClosePositionPct(day);
+
+      return {
+        key: day.date,
+        date: day.date,
+        open: day.open,
+        high: day.high,
+        low: day.low,
+        close: day.close,
+        changePct: previousClose == null || previousClose <= 0
+          ? null
+          : ((day.close - previousClose) / previousClose) * 100,
+        closePositionPct,
+        closePositionBucket: classifyClosePosition(closePositionPct),
+        direction: classifyPriceDirection(day),
+        closeFromHighPct: day.high <= 0 ? null : ((day.close - day.high) / day.high) * 100,
+        volumeMultiple: calculateVolumeMultiple(
+          day,
+          days.slice(Math.max(0, absoluteDayIndex - SHORT_HORIZON_VOLUME_AVERAGE_SESSIONS), absoluteDayIndex),
+        ),
+        isStrongFinish: isStrongFinishPosition(closePositionPct),
+      };
+    })
+    .reverse();
 }
 
 function buildSuccessfulDay(
@@ -234,7 +479,10 @@ export function buildShortHorizonStockRow(row: WeeklyPriceWatchlistRow): ShortHo
   const referenceDays = getEligibleReferenceDays(sortedDays);
   const recentHighEvidence = calculateRecentHighEvidence(sortedDays);
   const recentVolumeEvidence = calculateRecentVolumeEvidence(sortedDays);
+  const currentTwentyDayMovePct = calculateMoveFromPastClose(sortedDays, SHORT_HORIZON_CURRENT_TREND_SESSIONS);
+  const recentExitPressureEvidence = calculateRecentExitPressureEvidence(sortedDays, currentTwentyDayMovePct);
   const recentWeaknessEvidence = calculateRecentWeaknessEvidence(sortedDays);
+  const recentStrongFinishEvidence = calculateRecentStrongFinishEvidence(sortedDays);
   const evaluatedDays = referenceDays
     .map((referenceDay) => {
       const referenceIndex = sortedDays.findIndex((day) => day.date === referenceDay.date);
@@ -271,7 +519,21 @@ export function buildShortHorizonStockRow(row: WeeklyPriceWatchlistRow): ShortHo
     ...recentHighEvidence,
     ...recentVolumeEvidence,
     currentFiveDayMovePct: calculateMoveFromPastClose(sortedDays, SHORT_HORIZON_CURRENT_MOVE_SESSIONS),
-    currentTwentyDayMovePct: calculateMoveFromPastClose(sortedDays, SHORT_HORIZON_CURRENT_TREND_SESSIONS),
+    currentPreviousFiveDayMovePct: calculateMoveBetweenPastCloses(
+      sortedDays,
+      SHORT_HORIZON_CURRENT_MOVE_SESSIONS,
+      SHORT_HORIZON_CURRENT_INTERMEDIATE_MOVE_SESSIONS,
+    ),
+    currentPreviousTenDayMovePct: calculateMoveBetweenPastCloses(
+      sortedDays,
+      SHORT_HORIZON_CURRENT_INTERMEDIATE_MOVE_SESSIONS,
+      SHORT_HORIZON_CURRENT_TREND_SESSIONS,
+    ),
+    currentTwentyDayMovePct,
+    ...recentExitPressureEvidence,
+    ...recentStrongFinishEvidence,
+    recentMoveQuality: calculateRecentMoveQuality(sortedDays),
+    recentDailyEvidence: calculateRecentDailyEvidence(sortedDays),
     fiftyTwoWeekHigh: row.momentum_evidence?.fifty_two_week_high ?? null,
     distanceFromFiftyTwoWeekHighPct: row.momentum_evidence?.distance_from_fifty_two_week_high_pct ?? null,
     ...recentWeaknessEvidence,
@@ -287,7 +549,7 @@ export function buildShortHorizonStockRow(row: WeeklyPriceWatchlistRow): ShortHo
 }
 
 export function getShortHorizonShortlistRuleDescription(): string {
-  return `Pass ${SHORT_HORIZON_MIN_SUCCESSFUL_DAYS}/${SHORT_HORIZON_LOOKBACK_SESSIONS} and ${SHORT_HORIZON_MIN_RECENT_SUCCESSFUL_DAYS}/${SHORT_HORIZON_RECENT_SUCCESS_SESSIONS}; stay within ${Math.abs(SHORT_HORIZON_MAX_PULLBACK_FROM_HIGH_PCT)}% of the recent ${SHORT_HORIZON_RECENT_HIGH_SESSIONS}-session high; reject only if the last ${SHORT_HORIZON_DECLINING_CLOSE_SESSIONS} closes fall in a row and today's close breaks below the previous ${SHORT_HORIZON_SUPPORT_LOOKBACK_SESSIONS}-session low.`;
+  return `Require 5D reach of at least ${SHORT_HORIZON_MIN_SUCCESSFUL_DAYS}/${SHORT_HORIZON_LOOKBACK_SESSIONS} and Recent tested 6D reach of at least ${SHORT_HORIZON_MIN_RECENT_SUCCESSFUL_DAYS}/${SHORT_HORIZON_RECENT_SUCCESS_SESSIONS}; stay within ${Math.abs(SHORT_HORIZON_MAX_PULLBACK_FROM_HIGH_PCT)}% of the recent ${SHORT_HORIZON_RECENT_HIGH_SESSIONS}-session high; reject only if the last ${SHORT_HORIZON_DECLINING_CLOSE_SESSIONS} closes fall in a row and today's close breaks below the previous ${SHORT_HORIZON_SUPPORT_LOOKBACK_SESSIONS}-session low.`;
 }
 
 export function buildShortHorizonRows(rows: WeeklyPriceWatchlistRow[]): ShortHorizonStockRow[] {

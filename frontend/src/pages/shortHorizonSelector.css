@@ -143,6 +143,149 @@
   color: #667085;
 }
 
+.short-horizon-move-now {
+  min-width: 160px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.short-horizon-move-now-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.short-horizon-move-period {
+  min-width: 62px;
+  color: #98a2b3;
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.short-horizon-move-acceleration {
+  margin-left: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.short-horizon-move-acceleration-accelerating {
+  color: #237804;
+}
+
+.short-horizon-move-acceleration-slowing {
+  color: #ad6800;
+}
+
+.short-horizon-move-acceleration-steady,
+.short-horizon-move-acceleration-unknown {
+  color: #98a2b3;
+}
+
+.short-horizon-latest-close-context {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+.short-horizon-latest-close-from-high {
+  color: #667085;
+}
+
+.short-horizon-latest-close-warning {
+  margin-left: 4px;
+  color: #ad6800;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.short-horizon-daily-change-up {
+  color: #237804;
+  font-weight: 600;
+}
+
+.short-horizon-daily-change-down {
+  color: #a8071a;
+  font-weight: 600;
+}
+
+.short-horizon-daily-change-flat,
+.short-horizon-daily-change-unknown,
+.short-horizon-daily-from-high {
+  color: #667085;
+}
+
+.short-horizon-move-quality {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.short-horizon-move-quality-clean {
+  color: #237804;
+}
+
+.short-horizon-move-quality-mixed {
+  color: #ad6800;
+}
+
+.short-horizon-move-quality-wild {
+  color: #a8071a;
+}
+
+.short-horizon-move-quality-unknown {
+  color: #667085;
+}
+
+.short-horizon-exit-pressure {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.short-horizon-exit-pressure-quiet,
+.short-horizon-exit-pressure-unknown {
+  color: #667085;
+}
+
+.short-horizon-exit-pressure-watch {
+  color: #ad6800;
+}
+
+.short-horizon-exit-pressure-caution {
+  color: #a8071a;
+}
+
+.short-horizon-strong-finish-dots {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin-top: 3px;
+  color: #98a2b3;
+  font-size: 8px;
+  line-height: 1;
+}
+
+.short-horizon-strong-finish-day {
+  display: inline-flex;
+}
+
+.short-horizon-strong-finish-dot {
+  width: 7px;
+  height: 7px;
+  border: 1px solid #98a2b3;
+  border-radius: 50%;
+}
+
+.short-horizon-strong-finish-dot-filled {
+  border-color: #237804;
+  background: #237804;
+}
+
+.short-horizon-strong-finish-dot-empty {
+  background: #fff;
+}
+
 .short-horizon-volume-value {
   display: inline-flex;
   align-items: center;

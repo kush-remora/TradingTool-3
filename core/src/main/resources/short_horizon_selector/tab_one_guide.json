@@ -1,0 +1,73 @@
+{
+  "title": "How to read Tab 1 · All Stocks",
+  "description": "Read current behaviour first. Use 5D reach as historical context, not as a claim that a trade captured five percent.",
+  "readingOrder": [
+    "Move now (Now 5D / Prior 5D / Earlier 10D)",
+    "Strong finishes",
+    "Latest finish",
+    "Move quality",
+    "Exit pressure",
+    "Latest close",
+    "5D reach"
+  ],
+  "columns": [
+    {
+      "column": "Move now (Now 5D / Prior 5D / Earlier 10D)",
+      "whatItShows": "Non-overlapping close-to-close movement buckets: the latest 5 sessions, the 5 sessions before that, and the 10 sessions before those.",
+      "whyImportant": "Shows whether the current move is continuing, accelerating, slowing, or recovering without requiring mental subtraction from overlapping windows.",
+      "howToRead": "Green means that bucket moved up; red means it moved down. The arrow compares Now 5D with Prior 5D using a 1 percentage-point tolerance. For example, Now 5D +6.8% versus Prior 5D +11.2% means the recent pace is slowing, while Earlier 10D -9.9% shows the broader 20D picture is a recovery.",
+      "caution": "The amber warning appears in Latest close when the 20D move is above +25%; it is not an automatic rejection. Check Strong finishes, Move quality, Latest finish, and Exit pressure."
+    },
+    {
+      "column": "Strong finishes",
+      "whatItShows": "How many of the latest five sessions closed above 60% of that day's low-to-high range, with a dot for each day.",
+      "whyImportant": "Repeated high-range closes suggest buyers controlled the close across several sessions.",
+      "howToRead": "4 / 5 with four filled dots means four strong finishes. Dots are ordered newest first.",
+      "caution": "A strong close is evidence of demand, not proof that the next move must continue. Read it beside Latest finish for the most recent candle."
+    },
+    {
+      "column": "Move quality",
+      "whatItShows": "Whether the latest five-session move is Clean, Mixed, or Wild.",
+      "whyImportant": "Separates a controlled upward move from a choppy or inefficient move.",
+      "howToRead": "Clean means steady upward movement; Mixed means usable but imperfect; Wild means sharp reversals or inefficient movement.",
+      "caution": "This is descriptive context and does not filter or rank stocks."
+    },
+    {
+      "column": "Exit pressure",
+      "whatItShows": "A sequence warning across the latest three sessions: a recent strong-close push, its volume versus the preceding 10-session average, and whether the next session failed to follow through.",
+      "whyImportant": "Separates a high-volume bullish-looking push that may attract buyers from the later failure that can indicate possible supply.",
+      "howToRead": "Quiet means no relevant pattern. Watch means a strong push or a strong close followed by weak follow-through without enough volume confirmation. Caution means volume was at least 1.5x the preceding 10-session average, the push closed above 60% of its range, and the next session closed below the push close with a weak finish, a 1% decline, or a break below the push low.",
+      "caution": "This is a possible supply sequence, not confirmed distribution. A strong close alone is not exit pressure, and the warning does not change membership."
+    },
+    {
+      "column": "Latest close",
+      "whatItShows": "The latest completed closing price and date, the total 20D close-to-close move, and the latest close's distance from the recent 20-session high.",
+      "whyImportant": "Anchors every other signal to the current price observation.",
+      "howToRead": "Read `20D +7.1% · -3.2% from high` as a positive 20D move with the latest close 3.2% below the recent high. The amber ⚠ means the 20D move is above +25% and needs extension caution.",
+      "caution": "The warning is context, not a rejection. A strong move can still be valid, but do not chase it without a good entry location."
+    },
+    {
+      "column": "5D reach",
+      "whatItShows": "How often the price touched at least +5% within the next five sessions from each tested starting close.",
+      "whyImportant": "Shows whether the stock has historically offered short-horizon upside range.",
+      "howToRead": "12 / 20 means 12 tested starting points later reached +5% within five sessions.",
+      "caution": "It does not mean twelve profitable trades, twelve captured targets, or that the stock is moving 5% every five days."
+    },
+    {
+      "column": "Latest finish",
+      "whatItShows": "Where the latest close finished between that day's low and high, with candle direction.",
+      "whyImportant": "Shows the strength or weakness of the most recent completed candle.",
+      "howToRead": "HIGH means the close was at least 75% of the range; MID is between; LOW means it was at most 25%.",
+      "caution": "One candle should be read with the five-session Strong finishes sequence."
+    },
+    {
+      "column": "Volume vs 10D avg (popup)",
+      "whatItShows": "The day's volume as a multiple of the preceding ten completed sessions' average volume.",
+      "whyImportant": "Uses a responsive short-horizon baseline that matches the Exit pressure sequence.",
+      "howToRead": "1.5x means 50% above the average volume of the preceding ten sessions; 0.5x means half.",
+      "caution": "Volume alone does not identify accumulation or distribution; combine it with price and close position."
+    }
+  ],
+  "bestCombination": "A useful current-condition combination is a positive Now 5D and Prior 5D, repeated Strong finishes, Clean move quality, and Quiet or Watch exit pressure.",
+  "importantNote": "Tab 1 is an observation screen. It does not create a buy signal, and Tab 2 filtering rules are separate."
+}

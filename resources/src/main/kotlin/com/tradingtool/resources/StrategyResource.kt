@@ -43,6 +43,7 @@ import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionService
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseGroupBacktestRequest
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseGroupBacktestService
 import com.tradingtool.core.strategy.weeklyreview.WeeklyPriceWatchlistScannerService
+import com.tradingtool.core.strategy.weeklyreview.ShortHorizonSelectorGuideService
 import com.tradingtool.core.strategy.summaryconsole.SummaryConsoleService
 import com.tradingtool.core.strategy.netwebcycle.NetwebCycleRequest
 import com.tradingtool.core.strategy.netwebcycle.NetwebCycleRunConfig
@@ -91,6 +92,7 @@ class StrategyResource @Inject constructor(
     private val weeklyBaseDefinitionService: WeeklyBaseDefinitionService,
     private val weeklyBaseGroupBacktestService: WeeklyBaseGroupBacktestService,
     private val weeklyPriceWatchlistScannerService: WeeklyPriceWatchlistScannerService,
+    private val shortHorizonSelectorGuideService: ShortHorizonSelectorGuideService,
     private val summaryConsoleService: SummaryConsoleService,
     private val priceAcceptanceScannerService: PriceAcceptanceScannerService,
     private val netwebCycleService: NetwebCycleService,
@@ -286,6 +288,12 @@ class StrategyResource @Inject constructor(
     @Path("/weekly-price-review/watchlists")
     fun getWeeklyPriceReviewWatchlists(): CompletableFuture<Response> = ioScope.endpoint {
         ok(weeklyPriceWatchlistScannerService.listWatchlists())
+    }
+
+    @GET
+    @Path("/short-horizon-selector/tab-one-guide")
+    fun getShortHorizonSelectorTabOneGuide(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(shortHorizonSelectorGuideService.loadTabOneGuide())
     }
 
     @GET

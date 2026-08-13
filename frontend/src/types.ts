@@ -59,6 +59,23 @@ export interface WatchlistSymbolOption {
   company_name: string;
 }
 
+export interface ShortHorizonGuideColumn {
+  column: string;
+  whatItShows: string;
+  whyImportant: string;
+  howToRead: string;
+  caution: string;
+}
+
+export interface ShortHorizonTabOneGuide {
+  title: string;
+  description: string;
+  readingOrder: string[];
+  columns: ShortHorizonGuideColumn[];
+  bestCombination: string;
+  importantNote: string;
+}
+
 // ==================== Kite Instruments ====================
 
 export interface InstrumentSearchResult {

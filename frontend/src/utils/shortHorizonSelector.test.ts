@@ -9,6 +9,7 @@ import {
   classifyClosePosition,
   filterShortHorizonRowsByEvidenceGate,
   filterShortHorizonRowsByShortlistGuards,
+  isShortHorizonMoveExtended,
 } from "./shortHorizonSelector";
 
 describe("shortHorizonSelector", () => {
@@ -58,6 +59,32 @@ describe("shortHorizonSelector", () => {
     expect(result.recentVolumeDirection).toBe("DOWN");
   });
 
+  it("classifies a volume push and failed follow-through as exit pressure", () => {
+    const buildSequenceRow = (
+      pushVolume: number,
+      failureClose: number,
+      failureHigh = 103,
+      failureLow = 99,
+    ) => buildRow(30, (index) => {
+      if (index === 9) return { close: 90, volume: 100 };
+      if (index === 28) return { open: 100, high: 103, low: 99, close: 102, volume: pushVolume };
+      if (index === 29) return { open: 102, high: failureHigh, low: failureLow, close: failureClose, volume: 100 };
+      return { volume: 100 };
+    });
+
+    const quiet = buildShortHorizonStockRow(buildSequenceRow(100, 101));
+    const watchPush = buildShortHorizonStockRow(buildSequenceRow(160, 103));
+    const watchFailure = buildShortHorizonStockRow(buildSequenceRow(140, 99));
+    const caution = buildShortHorizonStockRow(buildSequenceRow(160, 99));
+
+    expect(quiet.exitPressure).toBe("QUIET");
+    expect(watchPush.exitPressure).toBe("WATCH");
+    expect(watchFailure.exitPressure).toBe("WATCH");
+    expect(caution.exitPressure).toBe("CAUTION");
+    expect(caution.exitPressureVolumeMultiple).toBe(1.6);
+    expect(caution.exitPressureDate).toBe("2026-07-29");
+  });
+
   it("calculates current five-day and twenty-day moves from prior closes", () => {
     const row = buildRow(30, (index) => {
       if (index === 9) return { low: 80, close: 90 };
@@ -69,7 +96,87 @@ describe("shortHorizonSelector", () => {
     const result = buildShortHorizonStockRow(row);
 
     expect(result.currentFiveDayMovePct).toBeCloseTo(20, 5);
+    expect(result.currentPreviousFiveDayMovePct).toBeCloseTo(-0.9901, 4);
+    expect(result.currentPreviousTenDayMovePct).toBeCloseTo(12.2222, 4);
     expect(result.currentTwentyDayMovePct).toBeCloseTo(33.333, 2);
+  });
+
+  it("warns only when the twenty-day move is above the extension threshold", () => {
+    expect(isShortHorizonMoveExtended(25)).toBe(false);
+    expect(isShortHorizonMoveExtended(25.01)).toBe(true);
+    expect(isShortHorizonMoveExtended(null)).toBe(false);
+  });
+
+  it("builds the latest twenty daily evidence rows newest first", () => {
+    const row = buildRow(25, (index) => ({
+      open: 100 + index,
+      high: 103 + index,
+      low: 98 + index,
+      close: 101 + index,
+      volume: index === 24 ? 200 : 100,
+    }));
+
+    const result = buildShortHorizonStockRow(row);
+
+    expect(result.recentDailyEvidence).toHaveLength(20);
+    expect(result.recentDailyEvidence[0]).toMatchObject({
+      date: "2026-07-25",
+      open: 124,
+      high: 127,
+      low: 122,
+      close: 125,
+    });
+    expect(result.recentDailyEvidence.at(-1)).toMatchObject({ date: "2026-07-06" });
+    expect(result.recentDailyEvidence[0].changePct).toBeCloseTo(0.80645, 3);
+    expect(result.recentDailyEvidence[0].closeFromHighPct).toBeCloseTo(-1.5748, 3);
+    expect(result.recentDailyEvidence[0].volumeMultiple).toBe(2);
+  });
+
+  it("counts strong finishes only across the latest five sessions", () => {
+    const row = buildRow(7, (index) => {
+      if (index === 0 || index === 1) return { high: 110, low: 90, close: 109 };
+      if (index === 2) return { high: 110, low: 90, close: 101 };
+      if (index === 3) return { high: 110, low: 90, close: 103 };
+      if (index === 4) return { high: 110, low: 90, close: 108 };
+      if (index === 5) return { high: 100, low: 100, close: 100 };
+      return { high: 110, low: 90, close: 102 };
+    });
+
+    const result = buildShortHorizonStockRow(row);
+
+    expect(result.recentStrongFinishCount).toBe(2);
+    expect(result.recentStrongFinishSessionCount).toBe(5);
+    expect(result.recentDailyEvidence.slice(0, 5).map((day) => day.isStrongFinish)).toEqual([false, false, true, true, false]);
+  });
+
+  it("classifies a controlled upward five-session move as clean", () => {
+    const row = buildRow(5, (index) => ({
+      close: [100, 102, 103, 105, 106][index],
+      high: [101, 103, 104, 106, 107][index],
+      low: [98, 100, 101, 103, 104][index],
+    }));
+
+    expect(buildShortHorizonStockRow(row).recentMoveQuality).toBe("CLEAN");
+  });
+
+  it("classifies a violent alternating five-session move as wild", () => {
+    const row = buildRow(5, (index) => ({
+      close: [100, 106, 101, 108, 103][index],
+      high: [106, 108, 108, 110, 105][index],
+      low: [99, 100, 100, 101, 100][index],
+    }));
+
+    expect(buildShortHorizonStockRow(row).recentMoveQuality).toBe("WILD");
+  });
+
+  it("classifies an upward move with one meaningful give-back as mixed", () => {
+    const row = buildRow(5, (index) => ({
+      close: [100, 104, 102, 105, 106][index],
+      high: [105, 105, 104, 106, 107][index],
+      low: [99, 100, 100, 101, 102][index],
+    }));
+
+    expect(buildShortHorizonStockRow(row).recentMoveQuality).toBe("MIXED");
   });
 
   it("counts target successes in the most recent six eligible days", () => {

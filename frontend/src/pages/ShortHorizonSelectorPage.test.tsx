@@ -9,10 +9,27 @@ vi.mock("../utils/api", () => ({
 }));
 
 describe("ShortHorizonSelectorPage", () => {
-  it("shows compact success evidence and opens the successful-day details", async () => {
+  it("shows compact reach evidence and opens recent daily details", async () => {
     getJsonMock.mockImplementation((path: string) => {
       if (path === "/api/strategy/weekly-price-review/watchlists") {
         return Promise.resolve({ options: [{ label: "watchlist", value: "watchlist", count: 1 }] });
+      }
+
+      if (path === "/api/strategy/short-horizon-selector/tab-one-guide") {
+        return Promise.resolve({
+          title: "How to read Tab 1 · All Stocks",
+          description: "Read current behaviour first.",
+          readingOrder: ["Move now (Now 5D / Prior 5D / Earlier 10D)", "Strong finishes"],
+          columns: [{
+            column: "Move now (Now 5D / Prior 5D / Earlier 10D)",
+            whatItShows: "Current movement.",
+            whyImportant: "Shows activity.",
+            howToRead: "Positive is rising.",
+            caution: "Not enough alone.",
+          }],
+          bestCombination: "Positive movement and strong finishes.",
+          importantNote: "Context only.",
+        });
       }
 
       return Promise.resolve({
@@ -34,26 +51,61 @@ describe("ShortHorizonSelectorPage", () => {
 
     expect(await screen.findByTestId("short-horizon-selector-table")).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "No." })).toBeInTheDocument();
-    expect(screen.getByText("20D 20 / 20")).toBeInTheDocument();
-    expect(screen.getByText("6D 6 / 6")).toBeInTheDocument();
+    expect(screen.getByText("5D reach 20 / 20")).toBeInTheDocument();
+    expect(screen.getByText("Recent tested 6D 6 / 6")).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "Strong finishes" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-selector-table")).getByText("0 / 5")).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-selector-table")).getByLabelText("Strong finish sequence, newest day first")).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-selector-table")).queryByText("T-1", { exact: true })).not.toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "Move now" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "Move quality" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "Exit pressure" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-selector-table")).getByText("20D +0.0%", { exact: true })).toBeInTheDocument();
+    const moveTable = screen.getByTestId("short-horizon-selector-table");
+    const headerLabels = within(moveTable).getAllByRole("columnheader").map((header) => header.getAttribute("aria-label") ?? header.textContent);
+    expect(headerLabels.indexOf("Latest finish")).toBe(headerLabels.indexOf("Strong finishes") + 1);
+    expect(within(moveTable).getAllByText("+0.0%", { exact: true })).toHaveLength(3);
+    expect(Array.from(moveTable.querySelectorAll(".short-horizon-move-period")).map((label) => label.textContent)).toEqual(["Now 5D", "Prior 5D", "Earlier 10D"]);
+    const moveCell = within(screen.getByTestId("short-horizon-selector-table")).getByLabelText(/Now 5D \+0\.0%/);
+    const moveText = moveCell.textContent ?? "";
+    expect(moveText.indexOf("Now 5D")).toBeLessThan(moveText.indexOf("Prior 5D"));
+    expect(moveText.indexOf("Prior 5D")).toBeLessThan(moveText.indexOf("Earlier 10D"));
+    expect(screen.getByText(/5D reach: for each tested starting close, price touched \+5% within the next 5 trading sessions/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "How to read Tab 1" }));
+    const guideDialog = await screen.findByRole("dialog");
+    expect(within(guideDialog).getByText("Read current behaviour first.")).toBeInTheDocument();
+    expect(within(guideDialog).getByRole("columnheader", { name: "What it shows" })).toBeInTheDocument();
+    fireEvent.click(within(guideDialog).getByRole("button", { name: "Close" }));
 
     fireEvent.click(screen.getByRole("tab", { name: "Shortlist · 1" }));
     expect(await screen.findByTestId("short-horizon-shortlist-table")).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-shortlist-table")).queryByText(/Strong finishes/)).not.toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-shortlist-table")).getByRole("columnheader", { name: "Exit pressure" })).toBeInTheDocument();
     expect(screen.getByText(/Passed 1 \/ 1 · Best 1 by each history/)).toBeInTheDocument();
     expect(screen.getByText(/reject only if the last 3 closes fall in a row and today's close breaks below the previous 5-session low/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Core · 1" }));
     expect(await screen.findByTestId("short-horizon-core-table")).toBeInTheDocument();
-    expect(screen.getByText(/A stock must be in the top 1 by both 20-day success count and recent 6-day success count/)).toBeInTheDocument();
+    expect(screen.getByText(/A stock must be in the top 1 by both 5D reach count and Recent tested 6D reach count/)).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-core-table")).getByRole("columnheader", { name: "5D move" })).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-core-table")).getByRole("columnheader", { name: "20D move" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-core-table")).getByRole("columnheader", { name: "Strong finishes" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-core-table")).getByRole("columnheader", { name: "Move quality" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-core-table")).getByRole("columnheader", { name: "Exit pressure" })).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-core-table")).getByRole("columnheader", { name: "52W high" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Details" }));
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toBeInTheDocument();
-    expect(within(dialog).getByText("successful starting days out of 20")).toBeInTheDocument();
-    expect(within(dialog).getByText("MID 20")).toBeInTheDocument();
+    expect(document.querySelector(".ant-modal-mask")).not.toBeInTheDocument();
+    expect(within(dialog).getByText("20")).toBeInTheDocument();
+    expect(within(dialog).getByText("recent completed sessions")).toBeInTheDocument();
+    expect(within(dialog).getByRole("columnheader", { name: "Open" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("columnheader", { name: "Volume vs 10D avg" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("columnheader", { name: "Change %" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("columnheader", { name: "Close position" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("columnheader", { name: "From high" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Review" }));
     await waitFor(() => expect(onOpenCompactStockReview).toHaveBeenCalledWith("ABC"));
