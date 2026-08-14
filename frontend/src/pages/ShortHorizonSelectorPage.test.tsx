@@ -50,6 +50,8 @@ describe("ShortHorizonSelectorPage", () => {
     fireEvent.click(await screen.findByText("watchlist (1)"));
 
     expect(await screen.findByTestId("short-horizon-selector-table")).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-selector-table")).getByText("First seen 21 Jul")).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-selector-table")).getByText("Close +4.0% · High +10.0%")).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "No." })).toBeInTheDocument();
     expect(screen.getByText("5D reach 20 / 20")).toBeInTheDocument();
     expect(screen.getByText("Recent tested 6D 6 / 6")).toBeInTheDocument();
@@ -62,6 +64,7 @@ describe("ShortHorizonSelectorPage", () => {
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "Volume activity" })).toBeInTheDocument();
     expect(screen.getByText("No abnormal volume in latest 3 sessions")).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-selector-table")).getAllByLabelText("filter").length).toBeGreaterThanOrEqual(6);
+    expect(within(screen.getByTestId("short-horizon-selector-table")).getByText("Day +4.0%", { exact: true })).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByText("20D +4.0%", { exact: true })).toBeInTheDocument();
     const moveTable = screen.getByTestId("short-horizon-selector-table");
     const headerLabels = within(moveTable).getAllByRole("columnheader").map((header) => header.getAttribute("aria-label") ?? header.textContent);
@@ -97,6 +100,15 @@ describe("ShortHorizonSelectorPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Best aligned · 0" }));
     expect(await screen.findByTestId("short-horizon-best-aligned-table")).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-best-aligned-table")).getByRole("columnheader", { name: "52W high" })).toBeInTheDocument();
+    expect(screen.getByText(/Then require accelerating Move now and at least 2 \/ 5 Strong finishes/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Latest 2-day finish · 0" }));
+    expect(await screen.findByTestId("short-horizon-latest-two-finish-table")).toBeInTheDocument();
+    expect(screen.getByText(/Recent tested 6D must be at least 1 \/ 6/)).toBeInTheDocument();
+    expect(screen.getByText(/at least one of the latest two completed candles must close at least 75%/)).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-latest-two-finish-table")).getByRole("columnheader", { name: "Move quality" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-latest-two-finish-table")).getByRole("columnheader", { name: "Volume activity" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-latest-two-finish-table")).getAllByLabelText("filter").length).toBeGreaterThanOrEqual(2);
 
     expect(screen.queryByRole("tab", { name: /Best aligned · Quiet/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /Core/ })).not.toBeInTheDocument();

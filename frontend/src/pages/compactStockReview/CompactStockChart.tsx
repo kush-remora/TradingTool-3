@@ -1,13 +1,15 @@
 import {
-  CandlestickSeries,
+  BarSeries,
   ColorType,
   CrosshairMode,
   HistogramSeries,
+  LineSeries,
   LineStyle,
   createChart,
   createSeriesMarkers,
-  type CandlestickData,
+  type BarData,
   type HistogramData,
+  type LineData,
   type SeriesMarker,
   type Time,
 } from "lightweight-charts";
@@ -29,6 +31,8 @@ interface CompactStockChartProps {
 
 const CHART_HEIGHT = 344;
 const DEFAULT_VISIBLE_SESSIONS = 60;
+type ChartView = "bar" | "line";
+
 type VolumeSignalVisibility = {
   pocketPivot: boolean;
   highVolume: boolean;
@@ -73,6 +77,7 @@ export function CompactStockChart({ days, eventDates, sma100, sma200 }: CompactS
   const containerRef = useRef<HTMLDivElement>(null);
   const latestDay = days.at(-1) ?? null;
   const [selectedDay, setSelectedDay] = useState<CompactDailyRow | null>(latestDay);
+  const [chartView, setChartView] = useState<ChartView>("bar");
   const [visibility, setVisibility] = useState<VolumeSignalVisibility>(DEFAULT_VOLUME_SIGNAL_VISIBILITY);
 
   useEffect(() => {
@@ -106,21 +111,33 @@ export function CompactStockChart({ days, eventDates, sma100, sma200 }: CompactS
       },
     });
 
-    const candles = chart.addSeries(CandlestickSeries, {
-      upColor: "#16a34a",
-      downColor: "#dc2626",
-      borderUpColor: "#16a34a",
-      borderDownColor: "#dc2626",
-      wickUpColor: "#16a34a",
-      wickDownColor: "#dc2626",
-    });
-    candles.setData(days.map((day): CandlestickData<Time> => ({
-      time: day.date,
-      open: day.open,
-      high: day.high,
-      low: day.low,
-      close: day.close,
-    })));
+    const priceSeries = chartView === "bar"
+      ? chart.addSeries(BarSeries, {
+          upColor: "#16a34a",
+          downColor: "#dc2626",
+          openVisible: true,
+          thinBars: false,
+        })
+      : chart.addSeries(LineSeries, {
+          color: "#2563eb",
+          lineWidth: 2,
+          crosshairMarkerVisible: true,
+        });
+
+    if (chartView === "bar") {
+      priceSeries.setData(days.map((day): BarData<Time> => ({
+        time: day.date,
+        open: day.open,
+        high: day.high,
+        low: day.low,
+        close: day.close,
+      })));
+    } else {
+      priceSeries.setData(days.map((day): LineData<Time> => ({
+        time: day.date,
+        value: day.close,
+      })));
+    }
 
     const volume = chart.addSeries(HistogramSeries, {
       priceFormat: { type: "volume" },
@@ -155,10 +172,10 @@ export function CompactStockChart({ days, eventDates, sma100, sma200 }: CompactS
         text: "BS",
         size: 1,
       }));
-    createSeriesMarkers(candles, [...eventMarkers, ...bullSnortMarkers]);
+    createSeriesMarkers(priceSeries, [...eventMarkers, ...bullSnortMarkers]);
 
     if (sma200 != null) {
-      candles.createPriceLine({
+      priceSeries.createPriceLine({
         price: sma200,
         color: "#7c3aed",
         lineWidth: 1,
@@ -169,7 +186,7 @@ export function CompactStockChart({ days, eventDates, sma100, sma200 }: CompactS
     }
 
     if (sma100 != null) {
-      candles.createPriceLine({
+      priceSeries.createPriceLine({
         price: sma100,
         color: "#0284c7",
         lineWidth: 1,
@@ -202,7 +219,7 @@ export function CompactStockChart({ days, eventDates, sma100, sma200 }: CompactS
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [days, eventDates, sma100, sma200, visibility]);
+  }, [days, eventDates, sma100, sma200, chartView, visibility]);
 
   if (days.length === 0) {
     return <div className="compact-review-chart-empty">No chart data available.</div>;
@@ -210,7 +227,11 @@ export function CompactStockChart({ days, eventDates, sma100, sma200 }: CompactS
 
   return (
     <div className="compact-review-chart-frame">
-      <div className="compact-review-chart-controls" aria-label="Volume signal display controls">
+      <div className="compact-review-chart-controls" aria-label="Chart display controls">
+        <span className="compact-review-chart-controls-label">View</span>
+        <ChartViewToggle label="Bar" active={chartView === "bar"} onClick={() => setChartView("bar")} />
+        <ChartViewToggle label="Line" active={chartView === "line"} onClick={() => setChartView("line")} />
+        <span className="compact-review-chart-controls-divider" aria-hidden="true">·</span>
         <span className="compact-review-chart-controls-label">Signals</span>
         <SignalToggle label="PPV" active={visibility.pocketPivot} onClick={() => setVisibility((current) => ({ ...current, pocketPivot: !current.pocketPivot }))} tone="blue" />
         <SignalToggle label="High vol" active={visibility.highVolume} onClick={() => setVisibility((current) => ({ ...current, highVolume: !current.highVolume }))} tone="green" />
@@ -220,6 +241,25 @@ export function CompactStockChart({ days, eventDates, sma100, sma200 }: CompactS
       {selectedDay && <ChartSessionReadout day={selectedDay} />}
       <div ref={containerRef} className="compact-review-chart" aria-label="Price and volume chart" />
     </div>
+  );
+}
+
+interface ChartViewToggleProps {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}
+
+function ChartViewToggle({ label, active, onClick }: ChartViewToggleProps) {
+  return (
+    <button
+      type="button"
+      className={`compact-chart-view-toggle${active ? " compact-chart-view-toggle-active" : ""}`}
+      aria-pressed={active}
+      onClick={onClick}
+    >
+      {label}
+    </button>
   );
 }
 

@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { WeeklyPriceWatchlistRow } from "../types";
 import {
   buildShortHorizonBestAlignedRows,
+  buildShortHorizonFirstSeenDates,
+  buildShortHorizonFirstSeenPerformance,
+  buildShortHorizonLatestTwoFinishRows,
   buildShortHorizonStockRow,
   buildShortHorizonShortlistRows,
   buildShortHorizonTabTwoShortlistRows,
@@ -359,7 +362,7 @@ describe("shortHorizonSelector", () => {
     })).toHaveLength(0);
   });
 
-  it("builds Best aligned from acceleration and strong finishes only", () => {
+  it("builds Best aligned from the evidence floor, acceleration, and strong finishes", () => {
     const baseRow = buildShortHorizonStockRow(buildRow(30));
     const qualifying = {
       ...baseRow,
@@ -368,6 +371,10 @@ describe("shortHorizonSelector", () => {
       currentPreviousFiveDayMovePct: 2,
       recentStrongFinishCount: 2,
       recentStrongFinishSessionCount: 5,
+      eligibleDayCount: 20,
+      successfulDayCount: 3,
+      recentEligibleDayCount: 6,
+      recentSuccessfulDayCount: 0,
       recentMoveQuality: "CLEAN" as const,
       volumeActivity: "WATCH" as const,
       lastThreeClosesDeclining: true,
@@ -379,6 +386,64 @@ describe("shortHorizonSelector", () => {
 
     expect(buildShortHorizonBestAlignedRows([qualifying, notAccelerating, notStrongEnough, notClean]).map((row) => row.key))
       .toEqual(["QUALIFYING", "MIXED"]);
+  });
+
+  it("accepts Best aligned rows with one recent reach even when broader reach is below three", () => {
+    const baseRow = buildShortHorizonStockRow(buildRow(30));
+    const recentOnly = {
+      ...baseRow,
+      currentFiveDayMovePct: 8,
+      currentPreviousFiveDayMovePct: 2,
+      eligibleDayCount: 20,
+      successfulDayCount: 0,
+      recentEligibleDayCount: 6,
+      recentSuccessfulDayCount: 1,
+      recentStrongFinishCount: 2,
+      recentStrongFinishSessionCount: 5,
+    };
+    const noHistoricalSpeed = { ...recentOnly, recentSuccessfulDayCount: 0 };
+
+    expect(buildShortHorizonBestAlignedRows([recentOnly, noHistoricalSpeed])).toHaveLength(1);
+  });
+
+  it("keeps old winners out of latest-two-finish without recent reach", () => {
+    const baseRow = buildShortHorizonStockRow(buildRow(30));
+    const qualifying = {
+      ...baseRow,
+      currentFiveDayMovePct: 8,
+      currentPreviousFiveDayMovePct: 2,
+      eligibleDayCount: 20,
+      successfulDayCount: 3,
+      recentEligibleDayCount: 6,
+      recentSuccessfulDayCount: 1,
+      recentStrongFinishCount: 2,
+      recentStrongFinishSessionCount: 5,
+    };
+    const staleHistoricalWinner = {
+      ...qualifying,
+      key: "STALE-HISTORICAL-WINNER",
+      successfulDayCount: 6,
+      recentSuccessfulDayCount: 0,
+    };
+    const oneWeakLatestFinish = {
+      ...qualifying,
+      recentDailyEvidence: qualifying.recentDailyEvidence.map((day, index) => index === 1
+        ? { ...day, closePositionPct: 74 }
+        : day),
+    };
+
+    expect(buildShortHorizonBestAlignedRows([qualifying])).toHaveLength(1);
+    expect(buildShortHorizonBestAlignedRows([staleHistoricalWinner])).toHaveLength(1);
+    expect(buildShortHorizonBestAlignedRows([oneWeakLatestFinish])).toHaveLength(1);
+    expect(buildShortHorizonLatestTwoFinishRows([staleHistoricalWinner])).toHaveLength(0);
+    expect(buildShortHorizonLatestTwoFinishRows([qualifying])).toHaveLength(1);
+    expect(buildShortHorizonLatestTwoFinishRows([oneWeakLatestFinish])).toHaveLength(1);
+    expect(buildShortHorizonLatestTwoFinishRows([{
+      ...oneWeakLatestFinish,
+      recentDailyEvidence: oneWeakLatestFinish.recentDailyEvidence.map((day, index) => index < 2
+        ? { ...day, closePositionPct: 74 }
+        : day),
+    }])).toHaveLength(0);
   });
 
   it("filters Tab 2 before historical reach ranking instead of applying old reach gates first", () => {
@@ -434,6 +499,36 @@ describe("shortHorizonSelector", () => {
     const shortlistRows = buildShortHorizonShortlistRows(rows);
 
     expect(shortlistRows).toHaveLength(36);
+  });
+
+  it("records the first date a row enters each tab during the recent five-session window", () => {
+    const row = buildRow(32, (index) => {
+      if (index === 20) return { close: 100 };
+      if (index === 21) return { high: 106 };
+      if (index === 19 || index === 24) return { high: 105, low: 98, close: 101 };
+      if (index === 27) return { high: 110, low: 90, close: 109 };
+      if (index === 29) return { high: 120, low: 90, close: 120 };
+      if (index === 30) return { high: 125, low: 98, close: 101 };
+      if (index === 31) return { high: 102, low: 98, close: 101 };
+      return { high: 102, low: 98, close: 99 };
+    });
+
+    const filters = {
+      acceleration: "ACCELERATING",
+      minimumStrongFinishCount: 0,
+    } as const;
+    const firstSeenDates = buildShortHorizonFirstSeenDates([row], filters);
+    const firstSeenPerformance = buildShortHorizonFirstSeenPerformance([row], filters);
+
+    expect(firstSeenDates.all.ABC).toBe("2026-07-28");
+    expect(firstSeenDates["best-aligned"].ABC).toBe("2026-07-30");
+    expect(firstSeenDates["latest-two-finish"].ABC).toBe("2026-07-30");
+    expect(firstSeenPerformance["latest-two-finish"].ABC).toMatchObject({
+      date: "2026-07-30",
+      closeReturnPct: expect.closeTo(-15.8333, 3),
+      highReturnPct: expect.closeTo(4.1667, 3),
+      highDate: "2026-07-31",
+    });
   });
 
 });

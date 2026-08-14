@@ -7,6 +7,9 @@ import { CompactStockChart } from "./CompactStockChart";
 const chartMocks = vi.hoisted(() => ({
   crosshairHandler: null as ((parameter: { time?: string }) => void) | null,
   chartOptions: null as { crosshair?: { mode?: number } } | null,
+  barSeries: {},
+  lineSeries: {},
+  seriesTypes: [] as string[],
   priceLines: [] as Array<{ price: number; title: string }>,
   seriesDataCalls: [] as unknown[][],
   markerCalls: [] as Array<unknown[]>,
@@ -23,16 +26,20 @@ vi.mock("lightweight-charts", () => {
   };
 
   return {
-    CandlestickSeries: {},
+    BarSeries: chartMocks.barSeries,
     ColorType: { Solid: "solid" },
     CrosshairMode: { Normal: 0 },
     HistogramSeries: {},
+    LineSeries: chartMocks.lineSeries,
     LineStyle: { Dashed: 2 },
     createSeriesMarkers: (_series: unknown, markers: unknown[]) => chartMocks.markerCalls.push(markers),
     createChart: (_container: HTMLElement, options: { crosshair?: { mode?: number } }) => {
       chartMocks.chartOptions = options;
       return {
-        addSeries: () => series,
+        addSeries: (seriesType: unknown) => {
+          chartMocks.seriesTypes.push(seriesType === chartMocks.barSeries ? "bar" : seriesType === chartMocks.lineSeries ? "line" : "volume");
+          return series;
+        },
         applyOptions: vi.fn(),
         remove: vi.fn(),
         subscribeCrosshairMove: (handler: (parameter: { time?: string }) => void) => {
@@ -51,6 +58,7 @@ vi.mock("lightweight-charts", () => {
 beforeEach(() => {
   chartMocks.crosshairHandler = null;
   chartMocks.chartOptions = null;
+  chartMocks.seriesTypes = [];
   chartMocks.priceLines = [];
   chartMocks.seriesDataCalls = [];
   chartMocks.markerCalls = [];
@@ -94,6 +102,7 @@ describe("CompactStockChart", () => {
     expect(chartMocks.priceLines).toEqual(expect.arrayContaining([
       expect.objectContaining({ price: 101, title: "100 DMA" }),
     ]));
+    expect(chartMocks.seriesTypes).toEqual(["bar", "volume"]);
     expect(screen.getByText("12 Aug")).toBeInTheDocument();
     expect(screen.getByText("50%")).toBeInTheDocument();
     expect(screen.getByText("22.50%")).toBeInTheDocument();
@@ -157,6 +166,33 @@ describe("CompactStockChart", () => {
     ]));
     expect(chartMocks.markerCalls[0]).toEqual(expect.arrayContaining([
       expect.objectContaining({ text: "BS", color: "#7c3aed" }),
+    ]));
+  });
+
+  it("switches the price pane between bar and line views", async () => {
+    const days = buildCompactDailyRows(
+      [day("2026-08-04", 1_000_000), day("2026-08-05", 2_000_000, 100, 108)],
+      [],
+    );
+
+    render(<CompactStockChart days={days} eventDates={new Set()} sma100={null} sma200={null} />);
+
+    expect(screen.getByRole("button", { name: "Bar" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Line" })).toHaveAttribute("aria-pressed", "false");
+    expect(chartMocks.seriesTypes).toEqual(["bar", "volume"]);
+    expect(chartMocks.seriesDataCalls[0]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ open: 100, high: 110, low: 95, close: 108 }),
+    ]));
+
+    await act(async () => {
+      screen.getByRole("button", { name: "Line" }).click();
+    });
+
+    expect(screen.getByRole("button", { name: "Bar" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Line" })).toHaveAttribute("aria-pressed", "true");
+    expect(chartMocks.seriesTypes.slice(-2)).toEqual(["line", "volume"]);
+    expect(chartMocks.seriesDataCalls.at(-2)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ value: 108 }),
     ]));
   });
 });

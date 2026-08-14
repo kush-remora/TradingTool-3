@@ -7,6 +7,8 @@ import { ShortHorizonTabOneGuide } from "../components/ShortHorizonTabOneGuide";
 import { getJson } from "../utils/api";
 import {
   buildShortHorizonBestAlignedRows,
+  buildShortHorizonFirstSeenPerformance,
+  buildShortHorizonLatestTwoFinishRows,
   buildShortHorizonRows,
   buildShortHorizonTabTwoShortlistRows,
   getShortHorizonMoveAccelerationState,
@@ -17,6 +19,8 @@ import {
   type MoveQuality,
   type PriceDirection,
   type ShortHorizonDailyEvidence,
+  type ShortHorizonFirstSeenPerformance,
+  type ShortHorizonFirstSeenPerformanceByTab,
   type ShortHorizonStockRow,
   type ShortHorizonTabTwoFilters,
   type VolumeActivity,
@@ -50,6 +54,19 @@ function formatDeliveryPercentage(value: number | null): string {
 function formatSignedPercent(value: number | null): string {
   if (value == null) return "—";
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
+function addFirstSeenPerformance(
+  rows: ShortHorizonStockRow[],
+  firstSeenPerformance: Record<string, ShortHorizonFirstSeenPerformance>,
+): ShortHorizonStockRow[] {
+  return rows.map((row) => ({
+    ...row,
+    firstSeenDate: firstSeenPerformance[row.key]?.date ?? null,
+    firstSeenCloseReturnPct: firstSeenPerformance[row.key]?.closeReturnPct ?? null,
+    firstSeenHighReturnPct: firstSeenPerformance[row.key]?.highReturnPct ?? null,
+    firstSeenHighDate: firstSeenPerformance[row.key]?.highDate ?? null,
+  }));
 }
 
 function formatMultiple(value: number | null): string {
@@ -239,11 +256,17 @@ function VolumeActivityCell({ row }: { row: ShortHorizonStockRow }): ReactNode {
 
 function LatestCloseCell({ row }: { row: ShortHorizonStockRow }): ReactNode {
   const isExtended = isShortHorizonMoveExtended(row.currentTwentyDayMovePct);
-  const contextTitle = `20D ${formatSignedPercent(row.currentTwentyDayMovePct)}${row.pullbackFromRecentHighPct == null ? "" : ` · ${formatSignedPercent(row.pullbackFromRecentHighPct)} from recent high`}${isExtended ? ` · Extension watch above ${SHORT_HORIZON_OVEREXTENDED_TWENTY_DAY_MOVE_PCT}%` : ""}`;
+  const latestDayChangePct = row.recentDailyEvidence[0]?.changePct ?? null;
+  const contextTitle = `Day ${formatSignedPercent(latestDayChangePct)} · 20D ${formatSignedPercent(row.currentTwentyDayMovePct)}${row.pullbackFromRecentHighPct == null ? "" : ` · ${formatSignedPercent(row.pullbackFromRecentHighPct)} from recent high`}${isExtended ? ` · Extension watch above ${SHORT_HORIZON_OVEREXTENDED_TWENTY_DAY_MOVE_PCT}%` : ""}`;
 
   return (
     <Space orientation="vertical" size={0}>
-      <Text>{formatPrice(row.latestClose)}</Text>
+      <Space size={6}>
+        <Text>{formatPrice(row.latestClose)}</Text>
+        <span className={`short-horizon-current-move short-horizon-current-move-${getMoveDirection(latestDayChangePct)?.toLowerCase() ?? "unknown"}`}>
+          Day {formatSignedPercent(latestDayChangePct)}
+        </span>
+      </Space>
       <Text type="secondary" className="short-horizon-date">{formatDate(row.latestDate)}</Text>
       <span className="short-horizon-latest-close-context" title={contextTitle} aria-label={contextTitle}>
         <span className={`short-horizon-current-move short-horizon-current-move-${getMoveDirection(row.currentTwentyDayMovePct)?.toLowerCase() ?? "unknown"}`}>
@@ -365,6 +388,7 @@ function buildStockColumns(
   showTenTwentyMoveSummary: boolean,
   showCurrentConditionEvidence: boolean,
   showTabOneFilters: boolean,
+  showCurrentConditionFilters: boolean,
   onDetails: (row: ShortHorizonStockRow) => void,
   onReview: (symbol: string) => void,
 ): ColumnsType<ShortHorizonStockRow> {
@@ -382,6 +406,18 @@ function buildStockColumns(
       width: 170,
       render: (_, row) => (
         <Space orientation="vertical" size={0}>
+          <Text type="secondary" className="short-horizon-first-seen">
+            {row.firstSeenDate ? `First seen ${formatDate(row.firstSeenDate)}` : "Not seen in last 5 sessions"}
+          </Text>
+          {row.firstSeenDate && (
+            <Text
+              type="secondary"
+              className="short-horizon-first-seen-performance"
+              title={row.firstSeenHighDate ? `Highest post-signal high on ${formatDate(row.firstSeenHighDate)}` : "No later session high yet"}
+            >
+              Close {formatSignedPercent(row.firstSeenCloseReturnPct)} · High {formatSignedPercent(row.firstSeenHighReturnPct)}
+            </Text>
+          )}
           <Text strong>{row.symbol}</Text>
           <Text type="secondary" className="short-horizon-company">{row.companyName}</Text>
         </Space>
@@ -502,14 +538,14 @@ function buildStockColumns(
       key: "recentMoveQuality",
       width: 125,
       sorter: (left, right) => (left.recentMoveQuality ?? "").localeCompare(right.recentMoveQuality ?? ""),
-      filters: showTabOneFilters ? [
+      filters: showCurrentConditionFilters ? [
         { text: "Clean", value: "CLEAN" },
         { text: "Mixed", value: "MIXED" },
         { text: "Wild", value: "WILD" },
         { text: "Unavailable", value: "UNKNOWN" },
       ] : undefined,
       filterMultiple: false,
-      onFilter: showTabOneFilters
+      onFilter: showCurrentConditionFilters
         ? (value, row) => (row.recentMoveQuality ?? "UNKNOWN") === value
         : undefined,
       render: (_, row) => (
@@ -526,13 +562,13 @@ function buildStockColumns(
       key: "volumeActivity",
       width: 145,
       sorter: (left, right) => getVolumeActivitySortValue(left.volumeActivity) - getVolumeActivitySortValue(right.volumeActivity),
-      filters: showTabOneFilters ? [
+      filters: showCurrentConditionFilters ? [
         { text: "Quiet", value: "QUIET" },
         { text: "Watch", value: "WATCH" },
         { text: "Unavailable", value: "UNKNOWN" },
       ] : undefined,
       filterMultiple: false,
-      onFilter: showTabOneFilters
+      onFilter: showCurrentConditionFilters
         ? (value, row) => (row.volumeActivity ?? "UNKNOWN") === value
         : undefined,
       render: (_, row) => <VolumeActivityCell row={row} />,
@@ -703,11 +739,32 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
   }, [selectedWatchlist]);
 
   const rows = useMemo(() => buildShortHorizonRows(data?.rows ?? []), [data?.rows]);
+  const firstSeenPerformance = useMemo<ShortHorizonFirstSeenPerformanceByTab>(
+    () => buildShortHorizonFirstSeenPerformance(data?.rows ?? [], tabTwoFilters),
+    [data?.rows, tabTwoFilters],
+  );
+  const rowsWithFirstSeenDates = useMemo(
+    () => addFirstSeenPerformance(rows, firstSeenPerformance.all),
+    [rows, firstSeenPerformance.all],
+  );
   const shortlistRows = useMemo(
     () => buildShortHorizonTabTwoShortlistRows(rows, tabTwoFilters),
     [rows, tabTwoFilters],
   );
+  const shortlistRowsWithFirstSeenDates = useMemo(
+    () => addFirstSeenPerformance(shortlistRows, firstSeenPerformance.shortlist),
+    [shortlistRows, firstSeenPerformance.shortlist],
+  );
   const bestAlignedRows = useMemo(() => buildShortHorizonBestAlignedRows(rows), [rows]);
+  const bestAlignedRowsWithFirstSeenDates = useMemo(
+    () => addFirstSeenPerformance(bestAlignedRows, firstSeenPerformance["best-aligned"]),
+    [bestAlignedRows, firstSeenPerformance],
+  );
+  const latestTwoFinishRows = useMemo(() => buildShortHorizonLatestTwoFinishRows(rows), [rows]);
+  const latestTwoFinishRowsWithFirstSeenDates = useMemo(
+    () => addFirstSeenPerformance(latestTwoFinishRows, firstSeenPerformance["latest-two-finish"]),
+    [latestTwoFinishRows, firstSeenPerformance],
+  );
 
   return (
     <div className="short-horizon-selector-page">
@@ -754,8 +811,8 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
                     size="small"
                     pagination={false}
                     scroll={{ x: true }}
-                    columns={buildStockColumns(false, false, false, true, true, true, true, setSelectedDetails, onOpenCompactStockReview)}
-                    dataSource={rows}
+                    columns={buildStockColumns(false, false, false, true, true, true, true, true, setSelectedDetails, onOpenCompactStockReview)}
+                    dataSource={rowsWithFirstSeenDates}
                   />
                 ),
               },
@@ -794,8 +851,8 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
                       size="small"
                       pagination={false}
                       scroll={{ x: true }}
-                      columns={buildStockColumns(false, false, true, true, true, true, false, setSelectedDetails, onOpenCompactStockReview)}
-                      dataSource={shortlistRows}
+                      columns={buildStockColumns(false, false, true, true, true, true, false, false, setSelectedDetails, onOpenCompactStockReview)}
+                      dataSource={shortlistRowsWithFirstSeenDates}
                     />
                   </div>
                 ),
@@ -805,15 +862,33 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
                 label: `Best aligned · ${bestAlignedRows.length}`,
                 children: (
                   <div>
-                    <Text type="secondary" className="short-horizon-tab-note">Strict two-rule view: accelerating Move now and at least 2 / 5 Strong finishes. Move quality remains visible context; the 52W high remains context only.</Text>
+                    <Text type="secondary" className="short-horizon-tab-note">Evidence floor: at least 3 / 20 5D reach or 1 / 6 Recent tested 6D reach. Then require accelerating Move now and at least 2 / 5 Strong finishes. Move quality and Volume activity remain context.</Text>
                     <Table<ShortHorizonStockRow>
                       data-testid="short-horizon-best-aligned-table"
                       rowKey="key"
                       size="small"
                       pagination={false}
                       scroll={{ x: true }}
-                      columns={buildStockColumns(false, false, true, true, true, true, false, setSelectedDetails, onOpenCompactStockReview)}
-                      dataSource={bestAlignedRows}
+                      columns={buildStockColumns(false, false, true, true, true, true, false, false, setSelectedDetails, onOpenCompactStockReview)}
+                      dataSource={bestAlignedRowsWithFirstSeenDates}
+                    />
+                  </div>
+                ),
+              },
+              {
+                key: "latest-two-finish",
+                label: `Latest 2-day finish · ${latestTwoFinishRows.length}`,
+                children: (
+                  <div>
+                    <Text type="secondary" className="short-horizon-tab-note">Best aligned rules plus recent proof and latest finish: Recent tested 6D must be at least 1 / 6, and at least one of the latest two completed candles must close at least 75% up its daily range.</Text>
+                    <Table<ShortHorizonStockRow>
+                      data-testid="short-horizon-latest-two-finish-table"
+                      rowKey="key"
+                      size="small"
+                      pagination={false}
+                      scroll={{ x: true }}
+                      columns={buildStockColumns(false, false, true, true, true, true, false, true, setSelectedDetails, onOpenCompactStockReview)}
+                      dataSource={latestTwoFinishRowsWithFirstSeenDates}
                     />
                   </div>
                 ),

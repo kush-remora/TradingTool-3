@@ -61,7 +61,7 @@ This creates the useful connection between **the stock eventually reaching the t
 
 The first frontend slice is now available as **5-Day Stock Selector**. It reuses the existing watchlist daily-history endpoint and adds a sidebar route at `console/short-horizon-selector`. The table shows the latest close, historical `+5% in 5D` count/rate, a low-to-high close-position marker with direction, and `Details` / `Review` actions. Details opens the latest 20 completed sessions with OHLC, close-to-close change, close position within the daily range, and distance from the day's high.
 
-The page now has three tabs: **All Stocks**, which keeps the full watchlist visible; **Shortlist**, which applies the current Tab 1 filters and then orders all passing stocks by two historical rankings; and **Best aligned**, which keeps the strict current-condition subset. The former Core overlap tab and Best aligned · Quiet tab were removed while the next filtering stage is redesigned. Tab 1 and Shortlist keep volume activity as neutral evidence; no entry or exit conclusion is applied.
+The page now has four tabs: **All Stocks**, which keeps the full watchlist visible; **Shortlist**, which applies the current Tab 1 filters and then orders all passing stocks by two historical rankings; **Best aligned**, which keeps the strict current-condition subset; and **Latest 2-day finish**, which applies one additional latest-candle condition. The former Core overlap tab and Best aligned · Quiet tab were removed while the next filtering stage is redesigned. Tab 1 and Shortlist keep volume activity as neutral evidence; no entry or exit conclusion is applied.
 
 The calculation uses only completed five-session windows. It reports the actual usable reference-day count, so sparse history is visible rather than silently presented as a full 20-day sample. No backend contract, score, buy label, rejection metric, or intraday logic was added.
 
@@ -160,7 +160,9 @@ Tab 2 also shows the sortable `52W high` distance context column. It is informat
 
 ## Best aligned tab
 
-The current `Best aligned` tab is a strict current-condition subset of the full computed rows. It uses only two rules: `Move now = Accelerating` and at least `2 / 5` Strong finishes. Move quality and Volume activity remain visible context and do not filter membership. It intentionally does not apply Shortlist's structural-weakness rule. The 52W-high column remains context and now shows the high price, distance from the high, high date, and trading sessions ago.
+The current `Best aligned` tab is a strict subset of the full computed rows. It requires a minimum historical speed floor: `5D reach >= 3 / 20 OR Recent tested 6D reach >= 1 / 6`, then `Move now = Accelerating` and at least `2 / 5` Strong finishes. Move quality and Volume activity remain visible context and do not filter membership. It intentionally does not apply Shortlist's structural-weakness rule. The 52W-high column remains context and now shows the high price, distance from the high, high date, and trading sessions ago.
+
+The separate `Latest 2-day finish` tab applies all Best aligned rules, but it now requires fresh proof before the latest candle check: `Recent tested 6D >= 1 / 6`. This prevents an old winner such as `5D reach 6 / 20` with `Recent tested 6D 0 / 6` from entering the final tab. After that recent-proof gate, at least one of the latest two completed candles must close at least 75% up its daily range. Closes in the 80–90% area are stronger evidence, but 75% is the minimum filter threshold.
 
 The Recent 20D details popup also shows each session's delivery percentage beside the volume-vs-10D-average multiple. This is evidence for review only and does not affect tab membership.
 
@@ -168,6 +170,10 @@ The former `Best aligned · Quiet` tab was a stricter subset of Best aligned, bu
 
 ## Current next-level filtering direction
 
-The obsolete `Best aligned · Quiet` and `Core` tabs have been removed. `Best aligned` remains as the current next-level filter starting point: accelerating Move now plus at least `2 / 5` Strong finishes. Its rules will be revisited separately before adding more filters.
+The obsolete `Best aligned · Quiet` and `Core` tabs have been removed. `Best aligned` is the next-level filter: minimum historical speed (`3 / 20` broader reach or `1 / 6` recent reach), accelerating Move now, and at least `2 / 5` Strong finishes. The separate Latest 2-day finish tab adds the latest-two-candles condition. These rules remain open for later review.
 
 The former `Exit pressure` signal is now neutral `Volume activity`. `Quiet` means no session in the latest three reached `1.5×` its preceding 10-session average; `Watch` means at least one did. It deliberately does not infer entry, exit, accumulation, or distribution. Tab 2 no longer excludes a supposed `Caution` state; volume activity stays visible for the user to interpret beside price and finish evidence.
+
+The final `Latest 2-day finish` tab now exposes table filters for `Move quality` and `Volume activity`. These are presentation filters only: they help reduce the final review list to names like Clean/Quiet or Clean/Watch, but they do not change the tab's base membership rules.
+
+The `Latest close` cell now also shows the latest completed candle's close-to-close percentage change as `Day +x.x%` beside the price. This is current-day context only and does not affect sorting, filtering, or membership.

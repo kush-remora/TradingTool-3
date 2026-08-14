@@ -25,6 +25,10 @@ export const SHORT_HORIZON_VOLUME_ACTIVITY_VOLUME_BASELINE_SESSIONS = 10;
 export const SHORT_HORIZON_VOLUME_ACTIVITY_WATCH_MULTIPLE = 1.5;
 export const SHORT_HORIZON_STRONG_FINISH_LOOKBACK_SESSIONS = 5;
 export const SHORT_HORIZON_STRONG_FINISH_MIN_CLOSE_POSITION_PCT = 60;
+export const SHORT_HORIZON_BEST_ALIGNED_MIN_SUCCESSFUL_DAYS = 3;
+export const SHORT_HORIZON_BEST_ALIGNED_MIN_RECENT_SUCCESSFUL_DAYS = 1;
+export const SHORT_HORIZON_BEST_ALIGNED_LATEST_FINISH_LOOKBACK_SESSIONS = 2;
+export const SHORT_HORIZON_BEST_ALIGNED_MIN_LATEST_FINISH_POSITION_PCT = 75;
 export const SHORT_HORIZON_BEST_ALIGNED_MIN_STRONG_FINISHES = 2;
 export const SHORT_HORIZON_MOVE_QUALITY_LOOKBACK_SESSIONS = 5;
 export const SHORT_HORIZON_MOVE_QUALITY_MIN_UP_CLOSES = 3;
@@ -32,6 +36,7 @@ export const SHORT_HORIZON_MOVE_QUALITY_MAX_CLEAN_DIRECTION_CHANGES = 1;
 export const SHORT_HORIZON_MOVE_QUALITY_MIN_CLEAN_EFFICIENCY = 0.6;
 export const SHORT_HORIZON_MOVE_QUALITY_WILD_DIRECTION_CHANGES = 3;
 export const SHORT_HORIZON_MOVE_QUALITY_MAX_WILD_EFFICIENCY = 0.35;
+export const SHORT_HORIZON_FIRST_SEEN_LOOKBACK_SESSIONS = 5;
 
 export type ClosePositionBucket = "HIGH" | "MIDDLE" | "LOW";
 export type PriceDirection = "UP" | "FLAT" | "DOWN";
@@ -39,6 +44,7 @@ export type MoveQuality = "CLEAN" | "MIXED" | "WILD";
 export type VolumeActivity = "QUIET" | "WATCH";
 export type MoveAccelerationState = "ACCELERATING" | "RECOVERING" | "WEAKENING" | "STEADY" | "UNKNOWN";
 export type ShortHorizonTabTwoAccelerationFilter = MoveAccelerationState | "ANY";
+export type ShortHorizonTab = "all" | "shortlist" | "best-aligned" | "latest-two-finish";
 
 export interface ShortHorizonTabTwoFilters {
   acceleration: ShortHorizonTabTwoAccelerationFilter;
@@ -116,7 +122,22 @@ export interface ShortHorizonStockRow {
   recentSuccessRatePct: number | null;
   successfulDays: ShortHorizonSuccessDay[];
   successCloseBuckets: Record<ClosePositionBucket, number>;
+  firstSeenDate?: string | null;
+  firstSeenCloseReturnPct?: number | null;
+  firstSeenHighReturnPct?: number | null;
+  firstSeenHighDate?: string | null;
 }
+
+export type ShortHorizonFirstSeenDates = Record<ShortHorizonTab, Record<string, string>>;
+
+export interface ShortHorizonFirstSeenPerformance {
+  date: string;
+  closeReturnPct: number | null;
+  highReturnPct: number | null;
+  highDate: string | null;
+}
+
+export type ShortHorizonFirstSeenPerformanceByTab = Record<ShortHorizonTab, Record<string, ShortHorizonFirstSeenPerformance>>;
 
 function sortDays(days: WeeklyPriceWatchlistDay[]): WeeklyPriceWatchlistDay[] {
   return [...days].sort((left, right) => left.date.localeCompare(right.date));
@@ -241,15 +262,35 @@ export function filterShortHorizonRowsByTabTwoFilters(
 }
 
 export function filterShortHorizonRowsByBestAlignedFilters(rows: ShortHorizonStockRow[]): ShortHorizonStockRow[] {
-  return rows.filter((row) =>
-    getShortHorizonMoveAccelerationState(row) === "ACCELERATING"
-    && row.recentStrongFinishSessionCount >= SHORT_HORIZON_STRONG_FINISH_LOOKBACK_SESSIONS
-    && row.recentStrongFinishCount >= SHORT_HORIZON_BEST_ALIGNED_MIN_STRONG_FINISHES,
-  );
+  return rows.filter((row) => {
+    const hasHistoricalSpeed = (
+      row.eligibleDayCount >= SHORT_HORIZON_LOOKBACK_SESSIONS
+      && row.successfulDayCount >= SHORT_HORIZON_BEST_ALIGNED_MIN_SUCCESSFUL_DAYS
+    ) || (
+      row.recentEligibleDayCount >= SHORT_HORIZON_RECENT_SUCCESS_SESSIONS
+      && row.recentSuccessfulDayCount >= SHORT_HORIZON_BEST_ALIGNED_MIN_RECENT_SUCCESSFUL_DAYS
+    );
+
+    return hasHistoricalSpeed
+      && getShortHorizonMoveAccelerationState(row) === "ACCELERATING"
+      && row.recentStrongFinishSessionCount >= SHORT_HORIZON_STRONG_FINISH_LOOKBACK_SESSIONS
+      && row.recentStrongFinishCount >= SHORT_HORIZON_BEST_ALIGNED_MIN_STRONG_FINISHES;
+  });
 }
 
 export function buildShortHorizonBestAlignedRows(rows: ShortHorizonStockRow[]): ShortHorizonStockRow[] {
   return filterShortHorizonRowsByBestAlignedFilters(rows);
+}
+
+export function buildShortHorizonLatestTwoFinishRows(rows: ShortHorizonStockRow[]): ShortHorizonStockRow[] {
+  return buildShortHorizonBestAlignedRows(rows).filter((row) => {
+    const hasRecentReach = row.recentEligibleDayCount >= SHORT_HORIZON_RECENT_SUCCESS_SESSIONS
+      && row.recentSuccessfulDayCount >= SHORT_HORIZON_BEST_ALIGNED_MIN_RECENT_SUCCESSFUL_DAYS;
+    const latestTwoDays = row.recentDailyEvidence.slice(0, SHORT_HORIZON_BEST_ALIGNED_LATEST_FINISH_LOOKBACK_SESSIONS);
+    return hasRecentReach
+      && latestTwoDays.length === SHORT_HORIZON_BEST_ALIGNED_LATEST_FINISH_LOOKBACK_SESSIONS
+      && latestTwoDays.some((day) => day.closePositionPct >= SHORT_HORIZON_BEST_ALIGNED_MIN_LATEST_FINISH_POSITION_PCT);
+  });
 }
 
 export function passesShortHorizonEvidenceGate(row: ShortHorizonStockRow): boolean {
@@ -581,6 +622,115 @@ export function buildShortHorizonRows(rows: WeeklyPriceWatchlistRow[]): ShortHor
       || (right.latestClosePositionPct ?? -1) - (left.latestClosePositionPct ?? -1)
       || left.symbol.localeCompare(right.symbol),
     );
+}
+
+function buildShortHorizonRowsThroughDate(
+  rows: WeeklyPriceWatchlistRow[],
+  asOfDate: string,
+): ShortHorizonStockRow[] {
+  return buildShortHorizonRows(rows.map((row) => ({
+    ...row,
+    days: row.days.filter((day) => day.date <= asOfDate),
+  })));
+}
+
+function getRecentSessionDates(rows: WeeklyPriceWatchlistRow[]): string[] {
+  return [...new Set(rows.flatMap((row) => row.days.map((day) => day.date)))]
+    .sort()
+    .slice(-SHORT_HORIZON_FIRST_SEEN_LOOKBACK_SESSIONS);
+}
+
+function recordFirstSeenDates(
+  target: Record<string, string>,
+  rows: ShortHorizonStockRow[],
+  date: string,
+): void {
+  rows.forEach((row) => {
+    if (!(row.key in target)) target[row.key] = date;
+  });
+}
+
+export function buildShortHorizonFirstSeenDates(
+  rows: WeeklyPriceWatchlistRow[],
+  filters: ShortHorizonTabTwoFilters,
+): ShortHorizonFirstSeenDates {
+  const firstSeenDates: ShortHorizonFirstSeenDates = {
+    all: {},
+    shortlist: {},
+    "best-aligned": {},
+    "latest-two-finish": {},
+  };
+
+  getRecentSessionDates(rows).forEach((asOfDate) => {
+    const historicalRows = buildShortHorizonRowsThroughDate(rows, asOfDate);
+    recordFirstSeenDates(firstSeenDates.all, historicalRows, asOfDate);
+    recordFirstSeenDates(
+      firstSeenDates.shortlist,
+      buildShortHorizonTabTwoShortlistRows(historicalRows, filters),
+      asOfDate,
+    );
+    recordFirstSeenDates(
+      firstSeenDates["best-aligned"],
+      buildShortHorizonBestAlignedRows(historicalRows),
+      asOfDate,
+    );
+    recordFirstSeenDates(
+      firstSeenDates["latest-two-finish"],
+      buildShortHorizonLatestTwoFinishRows(historicalRows),
+      asOfDate,
+    );
+  });
+
+  return firstSeenDates;
+}
+
+function calculateFirstSeenPerformance(
+  row: WeeklyPriceWatchlistRow,
+  firstSeenDate: string,
+): ShortHorizonFirstSeenPerformance | null {
+  const sortedDays = sortDays(row.days);
+  const firstSeenIndex = sortedDays.findIndex((day) => day.date === firstSeenDate);
+  const firstSeenDay = firstSeenIndex >= 0 ? sortedDays[firstSeenIndex] : null;
+  const latestDay = sortedDays.at(-1) ?? null;
+  if (firstSeenDay == null || latestDay == null || firstSeenDay.close <= 0) return null;
+
+  const highestDay = sortedDays
+    .slice(firstSeenIndex + 1)
+    .reduce<WeeklyPriceWatchlistRow["days"][number] | null>(
+      (currentHighestDay, day) => currentHighestDay == null || day.high > currentHighestDay.high ? day : currentHighestDay,
+      null,
+    );
+
+  return {
+    date: firstSeenDate,
+    closeReturnPct: ((latestDay.close - firstSeenDay.close) / firstSeenDay.close) * 100,
+    highReturnPct: highestDay == null ? null : ((highestDay.high - firstSeenDay.close) / firstSeenDay.close) * 100,
+    highDate: highestDay?.date ?? null,
+  };
+}
+
+export function buildShortHorizonFirstSeenPerformance(
+  rows: WeeklyPriceWatchlistRow[],
+  filters: ShortHorizonTabTwoFilters,
+): ShortHorizonFirstSeenPerformanceByTab {
+  const firstSeenDates = buildShortHorizonFirstSeenDates(rows, filters);
+  const performanceByTab: ShortHorizonFirstSeenPerformanceByTab = {
+    all: {},
+    shortlist: {},
+    "best-aligned": {},
+    "latest-two-finish": {},
+  };
+
+  (Object.keys(performanceByTab) as ShortHorizonTab[]).forEach((tab) => {
+    rows.forEach((row) => {
+      const firstSeenDate = firstSeenDates[tab][row.symbol];
+      if (!firstSeenDate) return;
+      const performance = calculateFirstSeenPerformance(row, firstSeenDate);
+      if (performance != null) performanceByTab[tab][row.symbol] = performance;
+    });
+  });
+
+  return performanceByTab;
 }
 
 function rankShortHorizonRowsByLongWindow(rows: ShortHorizonStockRow[]): ShortHorizonStockRow[] {
