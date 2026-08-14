@@ -19,11 +19,35 @@
 
 .compact-review-toolbar {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
   gap: 4px;
   padding: 4px 8px;
   border-bottom: 1px solid #e4e7ec;
   background: #fff;
+}
+
+.compact-review-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.compact-review-tab {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 4px 8px 3px;
+  background: transparent;
+  color: #667085;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.compact-review-tab:hover,
+.compact-review-tab-active {
+  border-bottom-color: #00a878;
+  color: #007f5f;
 }
 
 .compact-review-toolbar .ant-btn {
@@ -1375,6 +1399,46 @@
   font-size: 11px;
 }
 
+.compact-four-week-summary {
+  min-height: 420px;
+  padding: 16px;
+}
+
+.compact-four-week-summary-heading,
+.compact-four-week-summary-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.compact-four-week-summary-heading {
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.compact-four-week-summary-controls {
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.compact-four-week-summary .ant-table {
+  font-size: 12px;
+}
+
+.compact-four-week-summary .ant-table-cell {
+  padding: 8px 10px !important;
+}
+
+.compact-four-week-summary-state {
+  min-height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #667085;
+  font-size: 11px;
+}
+
 @media (max-width: 900px) {
   .compact-review-main-grid,
   .compact-review-lower-grid {
@@ -1400,5 +1464,10 @@
     flex: 1 1 100%;
     border-right: none;
     border-bottom: 1px solid #edf0f2;
+  }
+
+  .compact-four-week-summary-heading {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

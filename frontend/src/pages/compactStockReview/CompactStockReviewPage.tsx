@@ -18,6 +18,7 @@ import { CompactReviewHeader, type CompactPaperPosition } from "./CompactReviewH
 import { CompactReviewStory } from "./CompactReviewStory";
 import { CompactReviewTables } from "./CompactReviewTables";
 import { CompactStockChart } from "./CompactStockChart";
+import { CompactFourWeekSummary } from "./CompactFourWeekSummary";
 import {
   buildCompactDailyRows,
   buildCompactWeeklyRows,
@@ -30,6 +31,7 @@ import "./compactStockReview.css";
 const HISTORY_DAYS = 150;
 const CHART_DAYS = 150;
 const RECENT_TAPE_DAYS = 10;
+type CompactReviewTab = "review" | "summary";
 
 export function CompactStockReviewPage() {
   const [selectedInstrument, setSelectedInstrument] = useState<InstrumentSearchResult | null>(null);
@@ -37,7 +39,12 @@ export function CompactStockReviewPage() {
   const [selectedWatchlist, setSelectedWatchlist] = useState<string | null>(() => (
     new URLSearchParams(window.location.search).get("watchlist")
   ));
+  const [activeTab, setActiveTab] = useState<CompactReviewTab>(() => (
+    new URLSearchParams(window.location.search).get("view") === "summary" ? "summary" : "review"
+  ));
   const [watchlistMembers, setWatchlistMembers] = useState<InstrumentSearchResult[]>([]);
+  const [watchlistOptionsLoading, setWatchlistOptionsLoading] = useState(true);
+  const [watchlistOptionsError, setWatchlistOptionsError] = useState<string | null>(null);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
   const [watchlistError, setWatchlistError] = useState<string | null>(null);
   const [paperTradeOpen, setPaperTradeOpen] = useState(false);
@@ -56,10 +63,20 @@ export function CompactStockReviewPage() {
     let active = true;
     void getJson<UniverseOptionsResponse>("/api/strategy/weekly-price-review/watchlists")
       .then((response) => {
-        if (active) setWatchlistOptions(response.options);
+        if (active) {
+          setWatchlistOptions(response.options);
+          setWatchlistOptionsError(null);
+        }
       })
       .catch((requestError: unknown) => {
-        if (active) setWatchlistError(requestError instanceof Error ? requestError.message : "Failed to load watchlists");
+        if (active) {
+          const errorMessage = requestError instanceof Error ? requestError.message : "Failed to load watchlists";
+          setWatchlistOptionsError(errorMessage);
+          setWatchlistError(errorMessage);
+        }
+      })
+      .finally(() => {
+        if (active) setWatchlistOptionsLoading(false);
       });
     return () => { active = false; };
   }, []);
@@ -119,6 +136,14 @@ export function CompactStockReviewPage() {
     const url = new URL(window.location.href);
     if (watchlist) url.searchParams.set("watchlist", watchlist);
     else url.searchParams.delete("watchlist");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+  };
+
+  const selectTab = (tab: CompactReviewTab): void => {
+    setActiveTab(tab);
+    const url = new URL(window.location.href);
+    if (tab === "summary") url.searchParams.set("view", "summary");
+    else url.searchParams.delete("view");
     window.history.replaceState({}, "", `${url.pathname}${url.search}`);
   };
 
@@ -215,16 +240,36 @@ export function CompactStockReviewPage() {
     <div className="compact-review-page" data-testid="compact-stock-review-page">
       <div className="compact-review-shell">
         <div className="compact-review-toolbar">
-          <Button
+          <div className="compact-review-tabs" role="tablist" aria-label="Compact review views">
+            <button
+              type="button"
+              className={`compact-review-tab ${activeTab === "review" ? "compact-review-tab-active" : ""}`}
+              role="tab"
+              aria-selected={activeTab === "review"}
+              onClick={() => selectTab("review")}
+            >
+              Stock review
+            </button>
+            <button
+              type="button"
+              className={`compact-review-tab ${activeTab === "summary" ? "compact-review-tab-active" : ""}`}
+              role="tab"
+              aria-selected={activeTab === "summary"}
+              onClick={() => selectTab("summary")}
+            >
+              4W Summary
+            </button>
+          </div>
+          {activeTab === "review" && <Button
             size="small"
             aria-label="Export compact review as Markdown"
             disabled={!selectedInstrument || !data || loading}
             onClick={exportMarkdown}
           >
             Export .md
-          </Button>
+          </Button>}
         </div>
-        <CompactReviewHeader
+        {activeTab === "review" && <CompactReviewHeader
           instrument={selectedInstrument}
           instruments={nseEquities}
           instrumentsLoading={instrumentsLoading}
@@ -243,13 +288,25 @@ export function CompactStockReviewPage() {
           onNavigateWatchlist={moveWithinWatchlist}
           paperPosition={compactPaperPosition}
           onDeletePaperTrade={deleteActivePaperTrade}
-        />
+        />}
 
-        {error && <Alert className="compact-review-alert" type="error" title={error} showIcon />}
-        {!selectedInstrument && <div className="compact-review-empty">Select a stock to open the compact review.</div>}
-        {selectedInstrument && loading && <div className="compact-review-loading"><Spin /><span>Loading stock evidence…</span></div>}
+        {activeTab === "summary" && <CompactFourWeekSummary
+          watchlistOptions={watchlistOptions}
+          watchlistOptionsLoading={watchlistOptionsLoading}
+          watchlistOptionsError={watchlistOptionsError}
+          onOpenStockReview={(symbol) => {
+            const instrument = nseEquities.find((candidate) => candidate.trading_symbol === symbol);
+            if (instrument) selectInstrument(instrument);
+            selectTab("review");
+          }}
+        />}
 
-        {data && !loading && <>
+        {activeTab === "review" && <>
+          {error && <Alert className="compact-review-alert" type="error" title={error} showIcon />}
+          {!selectedInstrument && <div className="compact-review-empty">Select a stock to open the compact review.</div>}
+          {selectedInstrument && loading && <div className="compact-review-loading"><Spin /><span>Loading stock evidence…</span></div>}
+
+          {data && !loading && <>
           <div className="compact-review-main-grid">
             <section className="compact-review-chart-panel">
               <div className="compact-review-section-heading">
@@ -281,6 +338,7 @@ export function CompactStockReviewPage() {
             <span>Neutral values remain visible; only exceptions are highlighted.</span>
             <span>Delivery: {dailyRows.at(-1)?.deliveryPct == null ? "latest session pending / unavailable" : `updated ${dailyRows.at(-1)!.date}`}</span>
           </footer>
+          </>}
         </>}
       </div>
       {paperTradeOpen && selectedInstrument && paperTradePrice != null && (

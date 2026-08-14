@@ -18,6 +18,8 @@ export const SHORT_HORIZON_SUPPORT_LOOKBACK_SESSIONS = 5;
 export const SHORT_HORIZON_CURRENT_MOVE_SESSIONS = 5;
 export const SHORT_HORIZON_CURRENT_INTERMEDIATE_MOVE_SESSIONS = 10;
 export const SHORT_HORIZON_CURRENT_TREND_SESSIONS = 20;
+export const SHORT_HORIZON_MIN_CURRENT_MOVE_PCT = 3;
+export const SHORT_HORIZON_MIN_CURRENT_GREEN_DAYS = 3;
 export const SHORT_HORIZON_MOVE_ACCELERATION_TOLERANCE_PCT = 1;
 export const SHORT_HORIZON_OVEREXTENDED_TWENTY_DAY_MOVE_PCT = 25;
 export const SHORT_HORIZON_REVIEW_TWENTY_DAY_LOW_DISTANCE_PCT = 10;
@@ -25,6 +27,7 @@ export const SHORT_HORIZON_EXTENDED_TWENTY_DAY_LOW_DISTANCE_PCT = 20;
 export const SHORT_HORIZON_VOLUME_ACTIVITY_LOOKBACK_SESSIONS = 5;
 export const SHORT_HORIZON_VOLUME_ACTIVITY_VOLUME_BASELINE_SESSIONS = 10;
 export const SHORT_HORIZON_VOLUME_ACTIVITY_WATCH_MULTIPLE = 1.5;
+export const SHORT_HORIZON_VOLUME_ACTIVITY_SUPPLY_CLOSE_POSITION_PCT = 30;
 export const SHORT_HORIZON_STRONG_FINISH_LOOKBACK_SESSIONS = 5;
 export const SHORT_HORIZON_STRONG_FINISH_MIN_CLOSE_POSITION_PCT = 60;
 export const SHORT_HORIZON_BEST_ALIGNED_MIN_SUCCESSFUL_DAYS = 3;
@@ -43,7 +46,7 @@ export const SHORT_HORIZON_FIRST_SEEN_LOOKBACK_SESSIONS = 5;
 export type ClosePositionBucket = "HIGH" | "MIDDLE" | "LOW";
 export type PriceDirection = "UP" | "FLAT" | "DOWN";
 export type MoveQuality = "CLEAN" | "MIXED" | "WILD";
-export type VolumeActivity = "QUIET" | "WATCH";
+export type VolumeActivity = "QUIET" | "WATCH" | "SUPPLY_RESPONSE";
 export type ShortHorizonMoveStage = "FRESH" | "REVIEW" | "EXTENDED" | "UNKNOWN";
 export type MoveAccelerationState = "ACCELERATING" | "RECOVERING" | "WEAKENING" | "STEADY" | "UNKNOWN";
 export type ShortHorizonTabTwoAccelerationFilter = MoveAccelerationState | "ANY";
@@ -276,21 +279,33 @@ export function filterShortHorizonRowsByTabTwoFilters(
   return rows.filter((row) => passesShortHorizonTabTwoFilters(row, filters));
 }
 
-export function filterShortHorizonRowsByBestAlignedFilters(rows: ShortHorizonStockRow[]): ShortHorizonStockRow[] {
-  return rows.filter((row) => {
-    const hasHistoricalSpeed = (
-      row.eligibleDayCount >= SHORT_HORIZON_LOOKBACK_SESSIONS
-      && row.successfulDayCount >= SHORT_HORIZON_BEST_ALIGNED_MIN_SUCCESSFUL_DAYS
-    ) || (
-      row.recentEligibleDayCount >= SHORT_HORIZON_RECENT_SUCCESS_SESSIONS
-      && row.recentSuccessfulDayCount >= SHORT_HORIZON_BEST_ALIGNED_MIN_RECENT_SUCCESSFUL_DAYS
-    );
+export function passesShortHorizonBasicReachFilter(row: ShortHorizonStockRow): boolean {
+  const passesLongWindow = row.eligibleDayCount >= SHORT_HORIZON_LOOKBACK_SESSIONS
+    && row.successfulDayCount >= SHORT_HORIZON_BEST_ALIGNED_MIN_SUCCESSFUL_DAYS;
+  const passesRecentWindow = row.recentEligibleDayCount >= SHORT_HORIZON_RECENT_SUCCESS_SESSIONS
+    && row.recentSuccessfulDayCount >= SHORT_HORIZON_BEST_ALIGNED_MIN_RECENT_SUCCESSFUL_DAYS;
 
-    return hasHistoricalSpeed
-      && getShortHorizonMoveAccelerationState(row) === "ACCELERATING"
-      && row.recentStrongFinishSessionCount >= SHORT_HORIZON_STRONG_FINISH_LOOKBACK_SESSIONS
-      && row.recentStrongFinishCount >= SHORT_HORIZON_BEST_ALIGNED_MIN_STRONG_FINISHES;
-  });
+  return passesLongWindow || passesRecentWindow;
+}
+
+export function passesShortHorizonFirstMoveFilter(row: ShortHorizonStockRow): boolean {
+  const latestFiveDays = row.recentDailyEvidence.slice(0, SHORT_HORIZON_CURRENT_MOVE_SESSIONS);
+  const greenDayCount = latestFiveDays.filter((day) => day.changePct != null && day.changePct > 0).length;
+
+  return latestFiveDays.length === SHORT_HORIZON_CURRENT_MOVE_SESSIONS
+    && passesShortHorizonBasicReachFilter(row)
+    && row.currentFiveDayMovePct != null
+    && row.currentFiveDayMovePct >= SHORT_HORIZON_MIN_CURRENT_MOVE_PCT
+    && greenDayCount >= SHORT_HORIZON_MIN_CURRENT_GREEN_DAYS;
+}
+
+export function filterShortHorizonRowsByBestAlignedFilters(rows: ShortHorizonStockRow[]): ShortHorizonStockRow[] {
+  return rows.filter((row) => passesShortHorizonFirstMoveFilter(row)
+    && passesShortHorizonTabTwoFilters(row, {
+      acceleration: "ANY",
+      minimumStrongFinishCount: SHORT_HORIZON_BEST_ALIGNED_MIN_STRONG_FINISHES,
+    })
+    && (row.volumeActivity === "QUIET" || row.volumeActivity === "WATCH"));
 }
 
 export function buildShortHorizonBestAlignedRows(rows: ShortHorizonStockRow[]): ShortHorizonStockRow[] {
@@ -386,6 +401,7 @@ function calculateRecentVolumeActivityEvidence(
     const dayIndex = recentStart + index;
     return {
       day,
+      dayIndex,
       volumeMultiple: calculateVolumeMultiple(
         day,
         days.slice(Math.max(0, dayIndex - SHORT_HORIZON_VOLUME_ACTIVITY_VOLUME_BASELINE_SESSIONS), dayIndex),
@@ -405,8 +421,13 @@ function calculateRecentVolumeActivityEvidence(
     };
   }
 
+  const nextDay = days[selectedEvent.dayIndex + 1] ?? null;
+  const hasSupplyResponse = nextDay != null
+    && nextDay.close < selectedEvent.day.close
+    && calculateClosePositionPct(nextDay) <= SHORT_HORIZON_VOLUME_ACTIVITY_SUPPLY_CLOSE_POSITION_PCT;
+
   return {
-    volumeActivity: "WATCH",
+    volumeActivity: hasSupplyResponse ? "SUPPLY_RESPONSE" : "WATCH",
     volumeActivityMultiple: selectedEvent.volumeMultiple,
     volumeActivityDate: selectedEvent.day.date,
     volumeActivityDirection: classifyPriceDirection(selectedEvent.day),
@@ -801,7 +822,8 @@ export function buildShortHorizonTabTwoShortlistRows(
   rows: ShortHorizonStockRow[],
   filters: ShortHorizonTabTwoFilters,
 ): ShortHorizonStockRow[] {
-  const currentCandidates = filterShortHorizonRowsByTabTwoFilters(rows, filters);
+  const firstMoveCandidates = rows.filter(passesShortHorizonFirstMoveFilter);
+  const currentCandidates = filterShortHorizonRowsByTabTwoFilters(firstMoveCandidates, filters);
   const longWindowRows = rankShortHorizonRowsByLongWindow(currentCandidates);
   const recentWindowRows = rankShortHorizonRowsByRecentWindow(currentCandidates);
   const longWindowKeys = new Set(longWindowRows.map((row) => row.key));

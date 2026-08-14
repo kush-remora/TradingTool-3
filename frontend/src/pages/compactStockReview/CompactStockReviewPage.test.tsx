@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DayDetail, LiveMarketUpdate, StockDetailResponse, TradeWithTargets } from "../../types";
 import { CompactStockReviewPage } from "./CompactStockReviewPage";
@@ -58,6 +58,18 @@ const day = (date: string, open: number, high: number, low: number, close: numbe
   rsi14: null,
   vol_ratio: null,
 });
+
+function weeklyDay(date: string, low: number) {
+  return {
+    date,
+    open: low + 1,
+    high: low + 30,
+    low,
+    close: low + 10,
+    volume: 100_000,
+    deliveryPercentage: null,
+  };
+}
 
 const detail: StockDetailResponse = {
   symbol: "NETWEB",
@@ -235,6 +247,60 @@ describe("CompactStockReviewPage", () => {
 
     expect(await screen.findByText("2/2")).toBeInTheDocument();
     expect(useStockDetailMock).toHaveBeenLastCalledWith("TCS", 150);
+  });
+
+  it("shows the 4W summary across all watchlists and opens a matching stock in review", async () => {
+    window.history.replaceState({}, "", "/TradingTool-3/console/compact-stock-review?view=summary");
+    getJsonMock.mockImplementation((path: string) => {
+      if (path === "/api/strategy/weekly-price-review/watchlists") {
+        return Promise.resolve({
+          options: [
+            { label: "leaders", value: "leaders", count: 2 },
+            { label: "growth", value: "growth", count: 2 },
+          ],
+        });
+      }
+      if (path.includes("watchlist=leaders")) {
+        return Promise.resolve({
+          watchlistKey: "leaders",
+          rows: [{
+            symbol: "NETWEB",
+            companyName: "Netweb Technologies India",
+            instrumentToken: 4462849,
+            days: [
+              weeklyDay("2026-07-27", 704),
+              weeklyDay("2026-08-03", 700),
+              weeklyDay("2026-08-07", 704),
+            ],
+          }],
+        });
+      }
+      if (path.includes("watchlist=growth")) {
+        return Promise.resolve({
+          watchlistKey: "growth",
+          rows: [{
+            symbol: "NETWEB",
+            companyName: "Netweb Technologies India",
+            instrumentToken: 4462849,
+            days: [weeklyDay("2026-07-27", 704), weeklyDay("2026-08-03", 720)],
+          }],
+        });
+      }
+      return Promise.reject(new Error(`Unexpected GET ${path}`));
+    });
+
+    render(<CompactStockReviewPage />);
+
+    expect(await screen.findByTestId("compact-four-week-summary-table")).toHaveTextContent("NETWEB");
+    const summaryTable = screen.getByTestId("compact-four-week-summary-table");
+    expect(summaryTable).toHaveTextContent("₹704.00");
+    expect(summaryTable).toHaveTextContent("₹700.00");
+    expect(summaryTable).toHaveTextContent("-0.57%");
+    expect(summaryTable).toHaveTextContent("Mon, 03 Aug");
+    expect(screen.getByText("All watchlists (2)")).toBeInTheDocument();
+
+    fireEvent.click(within(summaryTable).getByRole("link", { name: "Open NETWEB in compact review" }));
+    expect(screen.getByRole("tab", { name: "Stock review" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("uses live session open and low for the main dip metric", async () => {

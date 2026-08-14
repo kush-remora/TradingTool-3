@@ -37,9 +37,9 @@ import com.tradingtool.core.strategy.weeklylowlimit.WeeklyLowLimitDailyValidatio
 import com.tradingtool.core.strategy.weeklylowalignmentbacktest.WeeklyLowAlignmentBacktestRequest
 import com.tradingtool.core.strategy.weeklylowalignmentbacktest.WeeklyLowAlignmentBacktestRunConfig
 import com.tradingtool.core.strategy.weeklylowalignmentbacktest.WeeklyLowAlignmentBacktestService
-import com.tradingtool.core.strategy.fridaystrengthbacktest.FridayCloseStrengthBacktestRequest
-import com.tradingtool.core.strategy.fridaystrengthbacktest.FridayCloseStrengthBacktestRunConfig
-import com.tradingtool.core.strategy.fridaystrengthbacktest.FridayCloseStrengthBacktestService
+import com.tradingtool.core.strategy.twodayclosestrengthbacktest.TwoDayCloseStrengthBacktestRequest
+import com.tradingtool.core.strategy.twodayclosestrengthbacktest.TwoDayCloseStrengthBacktestRunConfig
+import com.tradingtool.core.strategy.twodayclosestrengthbacktest.TwoDayCloseStrengthBacktestService
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionRequest
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionRunConfig
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionService
@@ -92,7 +92,7 @@ class StrategyResource @Inject constructor(
     private val weeklyFloorReboundService: WeeklyFloorReboundService,
     private val weeklyLowLimitBacktestService: WeeklyLowLimitBacktestService,
     private val weeklyLowAlignmentBacktestService: WeeklyLowAlignmentBacktestService,
-    private val fridayCloseStrengthBacktestService: FridayCloseStrengthBacktestService,
+    private val twoDayCloseStrengthBacktestService: TwoDayCloseStrengthBacktestService,
     private val weeklyBaseDefinitionService: WeeklyBaseDefinitionService,
     private val weeklyBaseGroupBacktestService: WeeklyBaseGroupBacktestService,
     private val weeklyPriceWatchlistScannerService: WeeklyPriceWatchlistScannerService,
@@ -629,23 +629,23 @@ class StrategyResource @Inject constructor(
     }
 
     @POST
-    @Path("/friday-close-strength-backtest/run")
+    @Path("/two-day-close-strength-backtest/run")
     @Consumes(MediaType.APPLICATION_JSON)
-    fun runFridayCloseStrengthBacktest(
-        request: FridayCloseStrengthBacktestRequest?,
+    fun runTwoDayCloseStrengthBacktest(
+        request: TwoDayCloseStrengthBacktestRequest?,
     ): CompletableFuture<Response> = ioScope.endpoint {
         val body = request ?: return@endpoint badRequest("Request body is required.")
         try {
             ok(
-                fridayCloseStrengthBacktestService.run(
-                    FridayCloseStrengthBacktestRunConfig(
+                twoDayCloseStrengthBacktestService.run(
+                    TwoDayCloseStrengthBacktestRunConfig(
                         watchlistKey = body.watchlistKey,
                         toDate = LocalDate.now(),
                     ),
                 ),
             )
         } catch (error: IllegalArgumentException) {
-            badRequest(error.message ?: "Invalid Friday close-strength backtest request.")
+            badRequest(error.message ?: "Invalid two-day close-strength backtest request.")
         }
     }
 

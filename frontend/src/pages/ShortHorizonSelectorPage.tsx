@@ -7,6 +7,8 @@ import { AccumulationHeatmap } from "../components/AccumulationHeatmap";
 import { ShortHorizonTabOneGuide } from "../components/ShortHorizonTabOneGuide";
 import { getJson } from "../utils/api";
 import {
+  buildAccumulationFilterOneRows,
+  buildAccumulationFilterTwoRows,
   buildAccumulationRows,
   type AccumulationStockRow,
 } from "../utils/accumulationScanner";
@@ -19,6 +21,7 @@ import {
   buildShortHorizonTabTwoShortlistRows,
   getShortHorizonMoveAccelerationState,
   getShortHorizonMoveStage,
+  passesShortHorizonFirstMoveFilter,
   type ClosePositionBucket,
   type MoveAccelerationState,
   type MoveQuality,
@@ -117,10 +120,12 @@ function getMoveQualityLabel(quality: MoveQuality | null): string {
 function getVolumeActivityLabel(activity: VolumeActivity | null): string {
   if (activity === "QUIET") return "Quiet";
   if (activity === "WATCH") return "Watch";
+  if (activity === "SUPPLY_RESPONSE") return "Supply response";
   return "—";
 }
 
 function getVolumeActivitySortValue(activity: VolumeActivity | null): number {
+  if (activity === "SUPPLY_RESPONSE") return 2;
   if (activity === "WATCH") return 1;
   if (activity === "QUIET") return 0;
   return -1;
@@ -267,7 +272,7 @@ function VolumeActivityCell({ row }: { row: ShortHorizonStockRow }): ReactNode {
   const state = row.volumeActivity?.toLowerCase() ?? "unknown";
   const detail = row.volumeActivityMultiple == null
     ? "No abnormal volume in latest 5 sessions"
-    : `${formatMultiple(row.volumeActivityMultiple)} · event ${formatDate(row.volumeActivityDate)}`;
+    : `${formatMultiple(row.volumeActivityMultiple)} · event ${formatDate(row.volumeActivityDate)}${row.volumeActivity === "SUPPLY_RESPONSE" ? " · next day weak" : ""}`;
 
   return (
     <Space orientation="vertical" size={0}>
@@ -317,7 +322,7 @@ function getMovePaceLabel(state: MoveAccelerationState): string {
 }
 
 const DEFAULT_TAB_TWO_FILTERS: ShortHorizonTabTwoFilters = {
-  acceleration: "ACCELERATING",
+  acceleration: "ANY",
   minimumStrongFinishCount: 0,
 };
 
@@ -326,7 +331,7 @@ const TAB_TWO_ACCELERATION_OPTIONS = [
   { value: "ANY", label: "Any pace" },
   { value: "STEADY", label: "Steady" },
   { value: "RECOVERING", label: "Recovering" },
-  { value: "WEAKENING", label: "Weakening" },
+  { value: "WEAKENING", label: "Slowing" },
 ] as const;
 
 const TAB_TWO_STRONG_FINISH_OPTIONS = [
@@ -346,9 +351,9 @@ function TabTwoFilters({
   return (
     <div className="short-horizon-tab-filters" data-testid="short-horizon-tab-two-filters">
       <label>
-        <span>Move now</span>
+        <span>Move pace (optional)</span>
         <Select<ShortHorizonTabTwoFilters["acceleration"]>
-          aria-label="Tab 2 move now filter"
+          aria-label="Tab 2 move pace filter"
           size="small"
           value={filters.acceleration}
           options={[...TAB_TWO_ACCELERATION_OPTIONS]}
@@ -584,6 +589,13 @@ function buildStockColumns(
       sorter: (left, right) =>
         (left.currentFiveDayMovePct ?? -Infinity) - (right.currentFiveDayMovePct ?? -Infinity)
         || (left.currentPreviousFiveDayMovePct ?? -Infinity) - (right.currentPreviousFiveDayMovePct ?? -Infinity),
+      filters: showTabOneFilters ? [
+        { text: "Meets 5D momentum rule", value: "QUALIFIED" },
+      ] : undefined,
+      filterMultiple: false,
+      onFilter: showTabOneFilters
+        ? (value, row) => value === "QUALIFIED" && passesShortHorizonFirstMoveFilter(row)
+        : undefined,
       render: (_, row) => <MoveNowCell row={row} />,
     },
   ] : [];
@@ -621,7 +633,7 @@ function buildStockColumns(
       filters: showCurrentConditionFilters ? [
         { text: "Quiet", value: "QUIET" },
         { text: "Watch", value: "WATCH" },
-        { text: "Unavailable", value: "UNKNOWN" },
+        { text: "Supply response", value: "SUPPLY_RESPONSE" },
       ] : undefined,
       filterMultiple: false,
       onFilter: showCurrentConditionFilters
@@ -794,6 +806,20 @@ function buildAccumulationColumns(
       ),
     },
     {
+      title: "5D move",
+      key: "latestFiveDayMovePct",
+      width: 90,
+      sorter: (left, right) => (left.latestFiveDayMovePct ?? -Infinity) - (right.latestFiveDayMovePct ?? -Infinity),
+      render: (_, row) => <Text strong>{formatSignedPercent(row.latestFiveDayMovePct)}</Text>,
+    },
+    {
+      title: "20D move",
+      key: "latestTwentyDayMovePct",
+      width: 95,
+      sorter: (left, right) => (left.latestTwentyDayMovePct ?? -Infinity) - (right.latestTwentyDayMovePct ?? -Infinity),
+      render: (_, row) => <Text strong>{formatSignedPercent(row.latestTwentyDayMovePct)}</Text>,
+    },
+    {
       title: "Buy-interest days",
       key: "buyingInterestCount",
       width: 135,
@@ -923,6 +949,14 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
     () => buildAccumulationRows(data?.rows ?? []),
     [data?.rows],
   );
+  const accumulationFilterOneRows = useMemo(
+    () => buildAccumulationFilterOneRows(accumulationRows),
+    [accumulationRows],
+  );
+  const accumulationFilterTwoRows = useMemo(
+    () => buildAccumulationFilterTwoRows(accumulationFilterOneRows),
+    [accumulationFilterOneRows],
+  );
 
   return (
     <div className="short-horizon-selector-page">
@@ -994,7 +1028,7 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
                         <div>
                           <strong>Filtering rules</strong>
                           <ol>
-                            <li>Move now keeps accelerating stocks by default.</li>
+                            <li>Move now requires latest 5D movement of at least +3%, with at least 3 / 5 latest sessions green, and basic reach of 3 / 20 or Recent tested 6D reach of 1 / 6.</li>
                             <li>Strong finishes stays visible and has an optional minimum filter.</li>
                             <li>Volume activity remains visible as neutral evidence; it does not decide entry or exit.</li>
                             <li>Reject structural weakness only when the last 3 closes fall in a row and today's close breaks below the previous 5-session low.</li>
@@ -1020,7 +1054,7 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
                 label: `Best aligned · ${bestAlignedRows.length}`,
                 children: (
                   <div>
-                    <Text type="secondary" className="short-horizon-tab-note">Evidence floor: at least 3 / 20 5D reach or 1 / 6 Recent tested 6D reach. Then require accelerating Move now and at least 2 / 5 Strong finishes. Move quality and Volume activity remain context.</Text>
+                    <Text type="secondary" className="short-horizon-tab-note">Best aligned inherits all Shortlist rules, then adds at least 2 / 5 Strong finishes. Supply response volume is excluded; Quiet and Watch remain eligible.</Text>
                     <Table<ShortHorizonStockRow>
                       data-testid="short-horizon-best-aligned-table"
                       rowKey="key"
@@ -1089,6 +1123,46 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
                   </div>
                 ),
               },
+              {
+                key: "accumulation-filter-one",
+                label: `Filter 1 · ${accumulationFilterOneRows.length}`,
+                children: (
+                  <div>
+                    <Text type="secondary" className="short-horizon-tab-note">
+                      Filter 1 requires all three conditions: Buy-interest ≥10 / 30 · Quiet ≥8 / 30 · Volume below prior 10D average ≥6 eligible sessions.
+                    </Text>
+                    <Table<AccumulationStockRow>
+                      data-testid="short-horizon-accumulation-filter-one-table"
+                      rowKey="key"
+                      size="small"
+                      pagination={false}
+                      scroll={{ x: true }}
+                      columns={buildAccumulationColumns(onOpenCompactStockReview)}
+                      dataSource={accumulationFilterOneRows}
+                    />
+                  </div>
+                ),
+              },
+              {
+                key: "accumulation-filter-two",
+                label: `Filter 2 · ${accumulationFilterTwoRows.length}`,
+                children: (
+                  <div>
+                    <Text type="secondary" className="short-horizon-tab-note">
+                      Filter 2 starts with Filter 1 and requires at least 3 / 5 buying-interest days, 3 / 5 green closes, and a 5D move of at least +5%.
+                    </Text>
+                    <Table<AccumulationStockRow>
+                      data-testid="short-horizon-accumulation-filter-two-table"
+                      rowKey="key"
+                      size="small"
+                      pagination={false}
+                      scroll={{ x: true }}
+                      columns={buildAccumulationColumns(onOpenCompactStockReview)}
+                      dataSource={accumulationFilterTwoRows}
+                    />
+                  </div>
+                ),
+              },
             ]}
           />
         </Card>
@@ -1100,7 +1174,7 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
         mask={false}
         onCancel={() => setSelectedDetails(null)}
         footer={null}
-        width={760}
+        width="min(1280px, calc(100vw - 32px))"
       >
         {selectedDetails && <RecentDailyDetails row={selectedDetails} />}
       </Modal>

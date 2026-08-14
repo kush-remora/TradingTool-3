@@ -496,47 +496,47 @@ export interface WeeklyLowAlignmentBacktestReport {
   symbols: WeeklyLowAlignmentBacktestSymbolReport[];
 }
 
-// ==================== Friday Close-Strength Backtest ====================
+// ==================== Two-Day Close-Strength Backtest ====================
 
-export interface FridayCloseStrengthBacktestRequest {
+export interface TwoDayCloseStrengthBacktestRequest {
   watchlistKey: string;
 }
 
-export interface FridayCloseStrengthObservation {
+export interface TwoDayCloseStrengthObservation {
   symbol: string;
   companyName: string | null;
   instrumentToken: number;
-  signalDate: string;
-  thursdayClose: number;
-  fridayHigh: number;
-  fridayLow: number;
-  fridayClose: number;
-  fridayClosePositionPct: number;
-  fridayMovePct: number;
+  patternStartDate: string;
+  patternEndDate: string;
+  patternClosePositionPct: number[];
   entryDate: string;
   entryPrice: number;
-  followingWeekHighDate: string;
-  followingWeekHigh: number;
-  maximumUpsidePct: number;
+  targetPrice: number;
+  exitDate: string;
+  exitPrice: number;
+  exitReason: "TARGET_HIT" | "THURSDAY_CLOSE_EXIT" | string;
+  realizedReturnPct: number;
 }
 
-export interface FridayCloseStrengthBacktestSummary {
+export interface TwoDayCloseStrengthBacktestSummary {
   signalCount: number;
-  maximumUpsideAtLeast2PctCount: number;
-  maximumUpsideAtLeast5PctCount: number;
-  maximumUpsideAtLeast2PctRatePct: number | null;
-  averageMaximumUpsidePct: number | null;
-  medianMaximumUpsidePct: number | null;
+  targetHitCount: number;
+  thursdayCloseExitCount: number;
+  profitableExitCount: number;
+  lossExitCount: number;
+  averageRealizedReturnPct: number | null;
+  medianRealizedReturnPct: number | null;
+  worstRealizedReturnPct: number | null;
 }
 
-export interface FridayCloseStrengthBacktestReport {
+export interface TwoDayCloseStrengthBacktestReport {
   watchlistKey: string;
   testedFromDate: string;
   testedToDate: string;
   closePositionThresholdPct: number;
-  fridayMoveThresholdPct: number;
-  summary: FridayCloseStrengthBacktestSummary;
-  observations: FridayCloseStrengthObservation[];
+  targetPct: number;
+  summary: TwoDayCloseStrengthBacktestSummary;
+  observations: TwoDayCloseStrengthObservation[];
 }
 
 export interface WeeklyBaseDefinitionRequest {

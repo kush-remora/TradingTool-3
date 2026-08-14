@@ -18,6 +18,8 @@ import {
   getShortHorizonMoveAccelerationState,
   getShortHorizonMoveStage,
   isShortHorizonMoveExtended,
+  passesShortHorizonBasicReachFilter,
+  passesShortHorizonFirstMoveFilter,
 } from "./shortHorizonSelector";
 
 describe("shortHorizonSelector", () => {
@@ -67,7 +69,7 @@ describe("shortHorizonSelector", () => {
     expect(result.recentVolumeDirection).toBe("DOWN");
   });
 
-  it("flags abnormal recent volume without interpreting entry or exit", () => {
+  it("classifies abnormal volume from the next-session response", () => {
     const buildSequenceRow = (
       pushVolume: number,
       failureClose: number,
@@ -90,9 +92,9 @@ describe("shortHorizonSelector", () => {
     expect(watchPush.volumeActivity).toBe("WATCH");
     expect(watchPush.volumeActivityMultiple).toBe(2.2);
     expect(watchAtThreshold.volumeActivity).toBe("WATCH");
-    expect(watchFailure.volumeActivity).toBe("WATCH");
+    expect(watchFailure.volumeActivity).toBe("SUPPLY_RESPONSE");
     expect(watchFailure.volumeActivityMultiple).toBe(2.2);
-    expect(caution.volumeActivity).toBe("WATCH");
+    expect(caution.volumeActivity).toBe("SUPPLY_RESPONSE");
     expect(caution.volumeActivityMultiple).toBe(1.6);
     expect(caution.volumeActivityDate).toBe("2026-07-29");
   });
@@ -170,6 +172,63 @@ describe("shortHorizonSelector", () => {
     expect(getShortHorizonMoveStage(fresh)).toBe("FRESH");
     expect(getShortHorizonMoveStage(review)).toBe("REVIEW");
     expect(getShortHorizonMoveStage(extended)).toBe("EXTENDED");
+  });
+
+  it("requires positive current five-day movement and a green majority", () => {
+    const qualifyingRow = {
+      ...buildShortHorizonStockRow(buildRow(26, (index) => {
+      if (index === 15) return { close: 100 };
+      if (index === 20) return { close: 104 };
+      if (index === 21) return { close: 105 };
+      if (index === 22) return { close: 106 };
+      if (index === 23) return { close: 104 };
+      if (index === 24) return { close: 105 };
+      if (index === 25) return { close: 108 };
+      return undefined;
+      })),
+      eligibleDayCount: 20,
+      successfulDayCount: 3,
+      recentEligibleDayCount: 6,
+      recentSuccessfulDayCount: 1,
+    };
+
+    expect(qualifyingRow.currentFiveDayMovePct).toBeGreaterThanOrEqual(3);
+    expect(qualifyingRow.currentPreviousFiveDayMovePct).toBeGreaterThanOrEqual(3);
+    expect(passesShortHorizonFirstMoveFilter(qualifyingRow)).toBe(true);
+    expect(passesShortHorizonFirstMoveFilter({
+      ...qualifyingRow,
+      currentPreviousFiveDayMovePct: 0,
+    })).toBe(true);
+    expect(passesShortHorizonFirstMoveFilter({
+      ...qualifyingRow,
+      currentFiveDayMovePct: 2.99,
+    })).toBe(false);
+  });
+
+  it("accepts basic reach from either the broad or recent window", () => {
+    const baseRow = buildShortHorizonStockRow(buildRow(26));
+
+    expect(passesShortHorizonBasicReachFilter({
+      ...baseRow,
+      eligibleDayCount: 20,
+      successfulDayCount: 3,
+      recentEligibleDayCount: 6,
+      recentSuccessfulDayCount: 0,
+    })).toBe(true);
+    expect(passesShortHorizonBasicReachFilter({
+      ...baseRow,
+      eligibleDayCount: 20,
+      successfulDayCount: 2,
+      recentEligibleDayCount: 6,
+      recentSuccessfulDayCount: 1,
+    })).toBe(true);
+    expect(passesShortHorizonBasicReachFilter({
+      ...baseRow,
+      eligibleDayCount: 20,
+      successfulDayCount: 2,
+      recentEligibleDayCount: 6,
+      recentSuccessfulDayCount: 0,
+    })).toBe(false);
   });
 
   it("builds the latest twenty daily evidence rows newest first", () => {
@@ -398,7 +457,7 @@ describe("shortHorizonSelector", () => {
     })).toHaveLength(0);
   });
 
-  it("builds Best aligned from the evidence floor, acceleration, and strong finishes", () => {
+  it("builds Best aligned from Shortlist rules plus strong finishes", () => {
     const baseRow = buildShortHorizonStockRow(buildRow(30));
     const qualifying = {
       ...baseRow,
@@ -413,33 +472,40 @@ describe("shortHorizonSelector", () => {
       recentSuccessfulDayCount: 0,
       recentMoveQuality: "CLEAN" as const,
       volumeActivity: "WATCH" as const,
+      recentDailyEvidence: baseRow.recentDailyEvidence.map((day, index) => ({
+        ...day,
+        changePct: index < 3 ? 1 : -0.5,
+      })),
+      lastThreeClosesDeclining: false,
+      latestCloseBelowPreviousFiveSessionLow: false,
+    };
+    const steady = { ...qualifying, key: "STEADY", currentFiveDayMovePct: 4, currentPreviousFiveDayMovePct: 3 };
+    const notStrongEnough = { ...qualifying, key: "ONE-STRONG", recentStrongFinishCount: 1 };
+    const notEnoughReach = { ...qualifying, key: "NO-REACH", successfulDayCount: 2 };
+    const notEnoughMove = { ...qualifying, key: "NO-MOVE", currentFiveDayMovePct: 2.9 };
+    const notEnoughGreenDays = {
+      ...qualifying,
+      key: "NO-GREEN-MAJORITY",
+      recentDailyEvidence: qualifying.recentDailyEvidence.map((day) => ({ ...day, changePct: -0.5 })),
+    };
+    const structuralWeakness = {
+      ...qualifying,
+      key: "STRUCTURAL-WEAKNESS",
       lastThreeClosesDeclining: true,
       latestCloseBelowPreviousFiveSessionLow: true,
     };
-    const notAccelerating = { ...qualifying, key: "STEADY", currentFiveDayMovePct: 2.5 };
-    const notStrongEnough = { ...qualifying, key: "ONE-STRONG", recentStrongFinishCount: 1 };
-    const notClean = { ...qualifying, key: "MIXED", recentMoveQuality: "MIXED" as const };
+    const supplyResponse = { ...qualifying, key: "SUPPLY-RESPONSE", volumeActivity: "SUPPLY_RESPONSE" as const };
 
-    expect(buildShortHorizonBestAlignedRows([qualifying, notAccelerating, notStrongEnough, notClean]).map((row) => row.key))
-      .toEqual(["QUALIFYING", "MIXED"]);
-  });
-
-  it("accepts Best aligned rows with one recent reach even when broader reach is below three", () => {
-    const baseRow = buildShortHorizonStockRow(buildRow(30));
-    const recentOnly = {
-      ...baseRow,
-      currentFiveDayMovePct: 8,
-      currentPreviousFiveDayMovePct: 2,
-      eligibleDayCount: 20,
-      successfulDayCount: 0,
-      recentEligibleDayCount: 6,
-      recentSuccessfulDayCount: 1,
-      recentStrongFinishCount: 2,
-      recentStrongFinishSessionCount: 5,
-    };
-    const noHistoricalSpeed = { ...recentOnly, recentSuccessfulDayCount: 0 };
-
-    expect(buildShortHorizonBestAlignedRows([recentOnly, noHistoricalSpeed])).toHaveLength(1);
+    expect(buildShortHorizonBestAlignedRows([
+      qualifying,
+      steady,
+      notStrongEnough,
+      notEnoughReach,
+      notEnoughMove,
+      notEnoughGreenDays,
+      structuralWeakness,
+      supplyResponse,
+    ]).map((row) => row.key)).toEqual(["QUALIFYING", "STEADY"]);
   });
 
   it("keeps old winners out of latest-two-finish without recent reach", () => {
@@ -454,6 +520,10 @@ describe("shortHorizonSelector", () => {
       recentSuccessfulDayCount: 1,
       recentStrongFinishCount: 2,
       recentStrongFinishSessionCount: 5,
+      recentDailyEvidence: baseRow.recentDailyEvidence.map((day, index) => ({
+        ...day,
+        changePct: index < 3 ? 1 : -0.5,
+      })),
     };
     const staleHistoricalWinner = {
       ...qualifying,
@@ -500,14 +570,26 @@ describe("shortHorizonSelector", () => {
   });
 
   it("filters Tab 2 before historical reach ranking instead of applying old reach gates first", () => {
+    const qualifyingBase = buildShortHorizonStockRow(buildRow(26, (index) => {
+      if (index === 15) return { close: 100 };
+      if (index === 20) return { close: 104 };
+      if (index === 21) return { close: 105 };
+      if (index === 22) return { close: 106 };
+      if (index === 23) return { close: 104 };
+      if (index === 24) return { close: 105 };
+      if (index === 25) return { close: 108 };
+      return undefined;
+    }));
     const rows = Array.from({ length: 100 }, (_, index) => ({
-      ...buildShortHorizonStockRow(buildRow(26)),
+      ...qualifyingBase,
       key: `CURRENT-${index}`,
       symbol: `CURRENT-${index}`,
-      successfulDayCount: index === 0 ? 1 : 0,
+      eligibleDayCount: 20,
+      successfulDayCount: 3,
+      recentEligibleDayCount: 6,
       recentSuccessfulDayCount: 0,
       currentFiveDayMovePct: 6,
-      currentPreviousFiveDayMovePct: 0,
+      currentPreviousFiveDayMovePct: 4,
       volumeActivity: "QUIET" as const,
       lastThreeClosesDeclining: false,
       latestCloseBelowPreviousFiveSessionLow: false,
@@ -559,7 +641,10 @@ describe("shortHorizonSelector", () => {
       if (index === 20) return { close: 100 };
       if (index === 21) return { high: 106 };
       if (index === 19 || index === 24) return { high: 105, low: 98, close: 101 };
+      if (index === 25) return { high: 103, low: 98, close: 102 };
+      if (index === 26) return { high: 104, low: 98, close: 103 };
       if (index === 27) return { high: 110, low: 90, close: 109 };
+      if (index === 28) return { high: 110, low: 98, close: 108 };
       if (index === 29) return { high: 120, low: 90, close: 120 };
       if (index === 30) return { high: 125, low: 98, close: 101 };
       if (index === 31) return { high: 102, low: 98, close: 101 };
@@ -574,12 +659,12 @@ describe("shortHorizonSelector", () => {
     const firstSeenPerformance = buildShortHorizonFirstSeenPerformance([row], filters);
 
     expect(firstSeenDates.all.ABC).toBe("2026-07-28");
-    expect(firstSeenDates["best-aligned"].ABC).toBe("2026-07-30");
-    expect(firstSeenDates["latest-two-finish"].ABC).toBe("2026-07-30");
+    expect(firstSeenDates["best-aligned"].ABC).toBe("2026-07-28");
+    expect(firstSeenDates["latest-two-finish"].ABC).toBe("2026-07-28");
     expect(firstSeenPerformance["latest-two-finish"].ABC).toMatchObject({
-      date: "2026-07-30",
-      closeReturnPct: expect.closeTo(-15.8333, 3),
-      highReturnPct: expect.closeTo(4.1667, 3),
+      date: "2026-07-28",
+      closeReturnPct: expect.closeTo(-7.3394, 3),
+      highReturnPct: expect.closeTo(14.6789, 3),
       highDate: "2026-07-31",
     });
   });

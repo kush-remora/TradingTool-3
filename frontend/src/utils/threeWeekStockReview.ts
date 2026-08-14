@@ -40,6 +40,17 @@ export interface CurrentWeekLowAlignment {
   previousVsEarlierWeekPct: number;
 }
 
+export interface LatestWeeklyLowAlignment {
+  previousWeekLabel: string;
+  previousWeekLow: number;
+  previousWeekLowDate: string;
+  currentWeekLabel: string;
+  currentWeekLow: number;
+  currentWeekLowDate: string;
+  differencePct: number;
+  signedDifferencePct: number;
+}
+
 export interface WeeklyPriceTimeline {
   baseOpen: number;
   days: WeeklyPriceTimelineDay[];
@@ -141,6 +152,35 @@ export function findCurrentWeekLowAlignment(
     currentWeekDifferencePct: Math.abs(currentVsPreviousWeekPct),
     currentVsPreviousWeekPct,
     previousVsEarlierWeekPct: ((previousWeek.low - earlierWeek.low) / earlierWeek.low) * 100,
+  };
+}
+
+export function findLatestWeeklyLowAlignment(
+  days: WeeklyPriceDay[],
+  maximumDifferencePct: number = 1,
+): LatestWeeklyLowAlignment | null {
+  const chronologicalDays = [...days].sort((left, right) => left.date.localeCompare(right.date));
+  const summaries = buildWeeklyPriceSummaries(chronologicalDays, 2);
+  if (summaries.length < 2) return null;
+
+  const previousWeek = summaries[0];
+  const currentWeek = summaries[1];
+  if (!Number.isFinite(previousWeek.low) || previousWeek.low <= 0 || !Number.isFinite(currentWeek.low)) {
+    return null;
+  }
+
+  const signedDifferencePct = ((currentWeek.low - previousWeek.low) / previousWeek.low) * 100;
+  if (Math.abs(signedDifferencePct) > maximumDifferencePct) return null;
+
+  return {
+    previousWeekLabel: previousWeek.weekLabel,
+    previousWeekLow: previousWeek.low,
+    previousWeekLowDate: previousWeek.lowDate,
+    currentWeekLabel: currentWeek.weekLabel,
+    currentWeekLow: currentWeek.low,
+    currentWeekLowDate: currentWeek.lowDate,
+    differencePct: Math.abs(signedDifferencePct),
+    signedDifferencePct,
   };
 }
 

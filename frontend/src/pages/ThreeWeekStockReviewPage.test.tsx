@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ThreeWeekStockReviewPage } from "./ThreeWeekStockReviewPage";
 import { BuySellChangeCalculator } from "../components/BuySellChangeCalculator";
-import { buildWeeklyPriceSummaries, buildWeeklyPriceTimelines, findConsecutiveWeeklyLowAlignments, findCurrentWeekLowAlignment } from "../utils/threeWeekStockReview";
+import { buildWeeklyPriceSummaries, buildWeeklyPriceTimelines, findConsecutiveWeeklyLowAlignments, findCurrentWeekLowAlignment, findLatestWeeklyLowAlignment } from "../utils/threeWeekStockReview";
 
 const useStockDetailMock = vi.fn();
 const useLiveMarketDataMock = vi.fn(() => null);
@@ -135,6 +135,24 @@ describe("ThreeWeekStockReviewPage", () => {
       day("2026-07-20", 700, 730),
       day("2026-07-27", 704, 740),
     ])).toBeNull();
+  });
+
+  it("finds the latest two-week floor alignment without requiring an older context week", () => {
+    const alignment = findLatestWeeklyLowAlignment([
+      day("2026-07-20", 700, 730),
+      day("2026-07-24", 705, 735),
+      day("2026-07-27", 704, 740),
+      day("2026-07-28", 707, 742),
+    ]);
+
+    expect(alignment).toEqual(expect.objectContaining({
+      previousWeekLow: 700,
+      previousWeekLowDate: "2026-07-20",
+      currentWeekLow: 704,
+      currentWeekLowDate: "2026-07-27",
+      differencePct: expect.closeTo(0.57, 2),
+      signedDifferencePct: expect.closeTo(0.57, 2),
+    }));
   });
 
   it("flags a week when the low-price day has higher volume and delivery than the high-price day", () => {

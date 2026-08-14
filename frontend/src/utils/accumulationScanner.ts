@@ -5,6 +5,13 @@ export const ACCUMULATION_HEATMAP_LOOKBACK_SESSIONS = 20;
 export const ACCUMULATION_VOLUME_BASELINE_SESSIONS = 10;
 export const ACCUMULATION_CLOSE_LOCATION_THRESHOLD_PCT = 70;
 export const ACCUMULATION_QUIET_MOVE_THRESHOLD_PCT = 1;
+export const ACCUMULATION_FILTER_ONE_MIN_BUYING_INTEREST_DAYS = 10;
+export const ACCUMULATION_FILTER_ONE_MIN_QUIET_MOVE_DAYS = 8;
+export const ACCUMULATION_FILTER_ONE_MIN_VOLUME_DRY_UP_DAYS = 6;
+export const ACCUMULATION_FILTER_TWO_LOOKBACK_SESSIONS = 5;
+export const ACCUMULATION_FILTER_TWO_MIN_BUYING_INTEREST_DAYS = 3;
+export const ACCUMULATION_FILTER_TWO_MIN_GREEN_CLOSE_DAYS = 3;
+export const ACCUMULATION_FILTER_TWO_MIN_FIVE_DAY_MOVE_PCT = 5;
 
 export interface AccumulationHeatmapDay {
   date: string;
@@ -25,6 +32,8 @@ export interface AccumulationStockRow {
   instrumentToken: number;
   latestDate: string | null;
   latestClose: number | null;
+  latestFiveDayMovePct: number | null;
+  latestTwentyDayMovePct: number | null;
   countWindowSessions: number;
   heatmapWindowSessions: number;
   buyingInterestCount: number;
@@ -42,6 +51,14 @@ function sortDays(days: WeeklyPriceWatchlistDay[]): WeeklyPriceWatchlistDay[] {
 function calculateCloseChangePct(day: WeeklyPriceWatchlistDay, previousDay: WeeklyPriceWatchlistDay | undefined): number | null {
   if (previousDay == null || previousDay.close <= 0) return null;
   return ((day.close - previousDay.close) / previousDay.close) * 100;
+}
+
+function calculatePeriodMovePct(
+  latestDay: WeeklyPriceWatchlistDay | undefined,
+  startingDay: WeeklyPriceWatchlistDay | undefined,
+): number | null {
+  if (latestDay == null || startingDay == null || startingDay.close <= 0) return null;
+  return ((latestDay.close - startingDay.close) / startingDay.close) * 100;
 }
 
 function calculateCloseLocationPct(day: WeeklyPriceWatchlistDay): number | null {
@@ -109,6 +126,8 @@ export function buildAccumulationStockRow(row: WeeklyPriceWatchlistRow): Accumul
     instrumentToken: row.instrumentToken,
     latestDate: days.at(-1)?.date ?? null,
     latestClose: days.at(-1)?.close ?? null,
+    latestFiveDayMovePct: calculatePeriodMovePct(days.at(-1), days.at(-1 - ACCUMULATION_FILTER_TWO_LOOKBACK_SESSIONS)),
+    latestTwentyDayMovePct: calculatePeriodMovePct(days.at(-1), days.at(-1 - ACCUMULATION_HEATMAP_LOOKBACK_SESSIONS)),
     countWindowSessions: countEvidence.length,
     heatmapWindowSessions: heatmap.length,
     buyingInterestCount: countMatches(countEvidence, "buyingInterest"),
@@ -124,4 +143,37 @@ export function buildAccumulationRows(rows: WeeklyPriceWatchlistRow[]): Accumula
   return rows
     .map(buildAccumulationStockRow)
     .sort((left, right) => left.symbol.localeCompare(right.symbol));
+}
+
+export function buildAccumulationFilterOneRows(rows: AccumulationStockRow[]): AccumulationStockRow[] {
+  return rows.filter((row) => (
+    row.countWindowSessions === ACCUMULATION_COUNT_LOOKBACK_SESSIONS
+    && row.buyingInterestCount >= ACCUMULATION_FILTER_ONE_MIN_BUYING_INTEREST_DAYS
+    && row.quietMoveCount >= ACCUMULATION_FILTER_ONE_MIN_QUIET_MOVE_DAYS
+    && row.volumeDryUpCount >= ACCUMULATION_FILTER_ONE_MIN_VOLUME_DRY_UP_DAYS
+  ));
+}
+
+export function countRecentBuyingInterestDays(row: AccumulationStockRow): number {
+  return row.heatmap
+    .slice(-ACCUMULATION_FILTER_TWO_LOOKBACK_SESSIONS)
+    .filter((day) => day.buyingInterest === true)
+    .length;
+}
+
+export function countRecentGreenCloseDays(row: AccumulationStockRow): number {
+  return row.heatmap
+    .slice(-ACCUMULATION_FILTER_TWO_LOOKBACK_SESSIONS)
+    .filter((day) => day.greenClose === true)
+    .length;
+}
+
+export function buildAccumulationFilterTwoRows(rows: AccumulationStockRow[]): AccumulationStockRow[] {
+  return rows.filter((row) => (
+    row.heatmap.length >= ACCUMULATION_FILTER_TWO_LOOKBACK_SESSIONS
+    && countRecentBuyingInterestDays(row) >= ACCUMULATION_FILTER_TWO_MIN_BUYING_INTEREST_DAYS
+    && countRecentGreenCloseDays(row) >= ACCUMULATION_FILTER_TWO_MIN_GREEN_CLOSE_DAYS
+    && row.latestFiveDayMovePct != null
+    && row.latestFiveDayMovePct >= ACCUMULATION_FILTER_TWO_MIN_FIVE_DAY_MOVE_PCT
+  ));
 }

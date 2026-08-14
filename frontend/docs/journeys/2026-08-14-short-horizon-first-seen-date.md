@@ -18,6 +18,9 @@ When a stock remains in a filtered tab for multiple days, the review needs to sh
 - Set the stage boundaries to `Fresh` through +10%, `Review` through +20%, and `Extended` above +20%; the existing 20D net movement stays only in `Latest close` context and is no longer a first-tab filter.
 - Moved the stage label into `Latest close`; `Move now` is now limited to latest-5-session movement and no longer exposes the old acceleration enum filter.
 - Added `Prior 5D` and a compact pace label to `Move now`: `Accelerating`, `Recovering`, `Steady`, or `Slowing`; the comparison uses a strict ±1 percentage-point band.
+- Updated the first Shortlist base gate: latest 5D net movement at least +3%, at least 3 of the latest 5 sessions green, and basic reach of `3 / 20` or Recent tested 6D reach of `1 / 6`. Prior 5D remains visible context but is no longer a gate. The Move now portion remains available as an All Stocks column filter; pace remains optional.
+- Updated Best aligned to inherit all Shortlist base rules, add `Strong finishes >= 2 / 5`, and exclude `Supply response` Volume activity; Quiet and Watch remain eligible.
+- Added `Supply response` Volume activity when a qualifying latest-five volume event is followed by a red session closing in the lower 30% of its range. The event multiple and date remain visible, with a compact `next day weak` cue.
 - Recomputed the reference when the watchlist data or Shortlist filters change; no scanner thresholds or membership rules changed.
 
 ## Key decisions
