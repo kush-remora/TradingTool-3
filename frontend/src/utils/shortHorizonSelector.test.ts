@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { WeeklyPriceWatchlistRow } from "../types";
 import {
   buildShortHorizonBestAlignedRows,
-  buildShortHorizonCoreRows,
   buildShortHorizonStockRow,
   buildShortHorizonShortlistRows,
   buildShortHorizonTabTwoShortlistRows,
@@ -63,7 +62,7 @@ describe("shortHorizonSelector", () => {
     expect(result.recentVolumeDirection).toBe("DOWN");
   });
 
-  it("classifies a volume push and failed follow-through as exit pressure", () => {
+  it("flags abnormal recent volume without interpreting entry or exit", () => {
     const buildSequenceRow = (
       pushVolume: number,
       failureClose: number,
@@ -77,16 +76,49 @@ describe("shortHorizonSelector", () => {
     });
 
     const quiet = buildShortHorizonStockRow(buildSequenceRow(100, 101));
-    const watchPush = buildShortHorizonStockRow(buildSequenceRow(160, 103));
-    const watchFailure = buildShortHorizonStockRow(buildSequenceRow(140, 99));
+    const watchPush = buildShortHorizonStockRow(buildSequenceRow(220, 103));
+    const watchAtThreshold = buildShortHorizonStockRow(buildSequenceRow(160, 103));
+    const watchFailure = buildShortHorizonStockRow(buildSequenceRow(220, 99));
     const caution = buildShortHorizonStockRow(buildSequenceRow(160, 99));
 
-    expect(quiet.exitPressure).toBe("QUIET");
-    expect(watchPush.exitPressure).toBe("WATCH");
-    expect(watchFailure.exitPressure).toBe("WATCH");
-    expect(caution.exitPressure).toBe("CAUTION");
-    expect(caution.exitPressureVolumeMultiple).toBe(1.6);
-    expect(caution.exitPressureDate).toBe("2026-07-29");
+    expect(quiet.volumeActivity).toBe("QUIET");
+    expect(watchPush.volumeActivity).toBe("WATCH");
+    expect(watchPush.volumeActivityMultiple).toBe(2.2);
+    expect(watchAtThreshold.volumeActivity).toBe("WATCH");
+    expect(watchFailure.volumeActivity).toBe("WATCH");
+    expect(watchFailure.volumeActivityMultiple).toBe(2.2);
+    expect(caution.volumeActivity).toBe("WATCH");
+    expect(caution.volumeActivityMultiple).toBe(1.6);
+    expect(caution.volumeActivityDate).toBe("2026-07-29");
+  });
+
+  it("flags a high-volume middle-close day as Watch without requiring a strong finish", () => {
+    const row = buildRow(30, (index) => {
+      if (index === 9) return { close: 90, volume: 100 };
+      if (index === 28) return { open: 100, high: 110, low: 90, close: 100, volume: 260 };
+      if (index === 29) return { open: 100, high: 103, low: 99, close: 101, volume: 100 };
+      return { volume: 100 };
+    });
+
+    const result = buildShortHorizonStockRow(row);
+
+    expect(result.volumeActivity).toBe("WATCH");
+    expect(result.volumeActivityMultiple).toBe(2.6);
+    expect(result.volumeActivityDate).toBe("2026-07-29");
+  });
+
+  it("flags a high-volume latest session as Watch before follow-through exists", () => {
+    const row = buildRow(30, (index) => {
+      if (index === 9) return { close: 90, volume: 100 };
+      if (index === 29) return { open: 100, high: 110, low: 90, close: 100, volume: 220 };
+      return { volume: 100 };
+    });
+
+    const result = buildShortHorizonStockRow(row);
+
+    expect(result.volumeActivity).toBe("WATCH");
+    expect(result.volumeActivityMultiple).toBe(2.2);
+    expect(result.volumeActivityDate).toBe("2026-07-30");
   });
 
   it("calculates current five-day and twenty-day moves from prior closes", () => {
@@ -271,7 +303,7 @@ describe("shortHorizonSelector", () => {
     }])).toHaveLength(0);
   });
 
-  it("filters Tab 2 to accelerating moves and excludes only Caution exit pressure by default", () => {
+  it("filters Tab 2 to accelerating moves while keeping volume activity as evidence", () => {
     const baseRow = buildShortHorizonStockRow(buildRow(30));
     const acceleratingQuiet = {
       ...baseRow,
@@ -280,7 +312,7 @@ describe("shortHorizonSelector", () => {
       currentPreviousFiveDayMovePct: 2,
       recentStrongFinishCount: 2,
       recentStrongFinishSessionCount: 5,
-      exitPressure: "QUIET" as const,
+      volumeActivity: "QUIET" as const,
     };
     const acceleratingWatch = {
       ...baseRow,
@@ -289,34 +321,42 @@ describe("shortHorizonSelector", () => {
       currentPreviousFiveDayMovePct: 2,
       recentStrongFinishCount: 3,
       recentStrongFinishSessionCount: 5,
-      exitPressure: "WATCH" as const,
-    };
-    const acceleratingCaution = {
-      ...baseRow,
-      key: "ACCELERATING-CAUTION",
-      currentFiveDayMovePct: 8,
-      currentPreviousFiveDayMovePct: 2,
-      recentStrongFinishCount: 4,
-      recentStrongFinishSessionCount: 5,
-      exitPressure: "CAUTION" as const,
+      volumeActivity: "WATCH" as const,
     };
     const steady = {
       ...baseRow,
       key: "STEADY",
       currentFiveDayMovePct: 2.5,
       currentPreviousFiveDayMovePct: 2,
-      exitPressure: "QUIET" as const,
+      volumeActivity: "QUIET" as const,
     };
 
     expect(getShortHorizonMoveAccelerationState(acceleratingQuiet)).toBe("ACCELERATING");
     expect(filterShortHorizonRowsByTabTwoFilters(
-      [acceleratingQuiet, acceleratingWatch, acceleratingCaution, steady],
-      { acceleration: "ACCELERATING", minimumStrongFinishCount: 3, excludeExitPressureCaution: true },
+      [acceleratingQuiet, acceleratingWatch, steady],
+      { acceleration: "ACCELERATING", minimumStrongFinishCount: 3 },
     ).map((row) => row.key)).toEqual(["ACCELERATING-WATCH"]);
-    expect(filterShortHorizonRowsByTabTwoFilters(
-      [acceleratingCaution],
-      { acceleration: "ACCELERATING", minimumStrongFinishCount: 0, excludeExitPressureCaution: false },
-    )).toHaveLength(1);
+  });
+
+  it("does not call a continuing decline acceleration", () => {
+    const baseRow = buildShortHorizonStockRow(buildRow(30));
+    const recovering = {
+      ...baseRow,
+      currentFiveDayMovePct: -1.5,
+      currentPreviousFiveDayMovePct: -5.2,
+    };
+    const weakening = {
+      ...baseRow,
+      currentFiveDayMovePct: -5.2,
+      currentPreviousFiveDayMovePct: -1.5,
+    };
+
+    expect(getShortHorizonMoveAccelerationState(recovering)).toBe("RECOVERING");
+    expect(getShortHorizonMoveAccelerationState(weakening)).toBe("WEAKENING");
+    expect(filterShortHorizonRowsByTabTwoFilters([recovering], {
+      acceleration: "ACCELERATING",
+      minimumStrongFinishCount: 0,
+    })).toHaveLength(0);
   });
 
   it("builds Best aligned from acceleration and strong finishes only", () => {
@@ -329,7 +369,7 @@ describe("shortHorizonSelector", () => {
       recentStrongFinishCount: 2,
       recentStrongFinishSessionCount: 5,
       recentMoveQuality: "CLEAN" as const,
-      exitPressure: "CAUTION" as const,
+      volumeActivity: "WATCH" as const,
       lastThreeClosesDeclining: true,
       latestCloseBelowPreviousFiveSessionLow: true,
     };
@@ -350,7 +390,7 @@ describe("shortHorizonSelector", () => {
       recentSuccessfulDayCount: 0,
       currentFiveDayMovePct: 6,
       currentPreviousFiveDayMovePct: 0,
-      exitPressure: "QUIET" as const,
+      volumeActivity: "QUIET" as const,
       lastThreeClosesDeclining: false,
       latestCloseBelowPreviousFiveSessionLow: false,
     }));
@@ -358,7 +398,6 @@ describe("shortHorizonSelector", () => {
     const shortlistRows = buildShortHorizonTabTwoShortlistRows(rows, {
       acceleration: "ACCELERATING",
       minimumStrongFinishCount: 0,
-      excludeExitPressureCaution: true,
     });
 
     expect(shortlistRows).toHaveLength(100);
@@ -397,22 +436,6 @@ describe("shortHorizonSelector", () => {
     expect(shortlistRows).toHaveLength(36);
   });
 
-  it("keeps only stocks selected by both rankings in the core list", () => {
-    const rows = Array.from({ length: 100 }, (_, index) => ({
-      ...buildShortHorizonStockRow(buildRow(26)),
-      key: `STOCK-${index}`,
-      symbol: `STOCK-${index}`,
-      successfulDayCount: index < 20 ? 100 - index : 5,
-      recentSuccessfulDayCount: index >= 10 && index < 30 ? 6 : 2,
-      distanceFromFiftyTwoWeekHighPct: -index,
-    }));
-
-    const coreRows = buildShortHorizonCoreRows(rows);
-
-    expect(coreRows).toHaveLength(10);
-    expect(coreRows[0].symbol).toBe("STOCK-10");
-    expect(coreRows.at(-1)?.symbol).toBe("STOCK-19");
-  });
 });
 
 function buildRow(

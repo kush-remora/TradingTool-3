@@ -20,11 +20,9 @@ export const SHORT_HORIZON_CURRENT_INTERMEDIATE_MOVE_SESSIONS = 10;
 export const SHORT_HORIZON_CURRENT_TREND_SESSIONS = 20;
 export const SHORT_HORIZON_MOVE_ACCELERATION_TOLERANCE_PCT = 1;
 export const SHORT_HORIZON_OVEREXTENDED_TWENTY_DAY_MOVE_PCT = 25;
-export const SHORT_HORIZON_EXIT_PRESSURE_LOOKBACK_SESSIONS = 3;
-export const SHORT_HORIZON_EXIT_PRESSURE_VOLUME_BASELINE_SESSIONS = 10;
-export const SHORT_HORIZON_EXIT_PRESSURE_VOLUME_SPIKE_MULTIPLE = 1.5;
-export const SHORT_HORIZON_EXIT_PRESSURE_WEAK_CLOSE_POSITION_PCT = 40;
-export const SHORT_HORIZON_EXIT_PRESSURE_MIN_FAILURE_MOVE_PCT = -1;
+export const SHORT_HORIZON_VOLUME_ACTIVITY_LOOKBACK_SESSIONS = 3;
+export const SHORT_HORIZON_VOLUME_ACTIVITY_VOLUME_BASELINE_SESSIONS = 10;
+export const SHORT_HORIZON_VOLUME_ACTIVITY_WATCH_MULTIPLE = 1.5;
 export const SHORT_HORIZON_STRONG_FINISH_LOOKBACK_SESSIONS = 5;
 export const SHORT_HORIZON_STRONG_FINISH_MIN_CLOSE_POSITION_PCT = 60;
 export const SHORT_HORIZON_BEST_ALIGNED_MIN_STRONG_FINISHES = 2;
@@ -38,14 +36,13 @@ export const SHORT_HORIZON_MOVE_QUALITY_MAX_WILD_EFFICIENCY = 0.35;
 export type ClosePositionBucket = "HIGH" | "MIDDLE" | "LOW";
 export type PriceDirection = "UP" | "FLAT" | "DOWN";
 export type MoveQuality = "CLEAN" | "MIXED" | "WILD";
-export type ExitPressure = "QUIET" | "WATCH" | "CAUTION";
-export type MoveAccelerationState = "ACCELERATING" | "SLOWING" | "STEADY" | "UNKNOWN";
+export type VolumeActivity = "QUIET" | "WATCH";
+export type MoveAccelerationState = "ACCELERATING" | "RECOVERING" | "WEAKENING" | "STEADY" | "UNKNOWN";
 export type ShortHorizonTabTwoAccelerationFilter = MoveAccelerationState | "ANY";
 
 export interface ShortHorizonTabTwoFilters {
   acceleration: ShortHorizonTabTwoAccelerationFilter;
   minimumStrongFinishCount: number;
-  excludeExitPressureCaution: boolean;
 }
 
 export interface ShortHorizonSuccessDay {
@@ -92,10 +89,10 @@ export interface ShortHorizonStockRow {
   recentVolumeMultiple: number | null;
   recentVolumeDate: string | null;
   recentVolumeDirection: PriceDirection | null;
-  exitPressure: ExitPressure | null;
-  exitPressureVolumeMultiple: number | null;
-  exitPressureDate: string | null;
-  exitPressureDirection: PriceDirection | null;
+  volumeActivity: VolumeActivity | null;
+  volumeActivityMultiple: number | null;
+  volumeActivityDate: string | null;
+  volumeActivityDirection: PriceDirection | null;
   currentFiveDayMovePct: number | null;
   currentPreviousFiveDayMovePct: number | null;
   currentPreviousTenDayMovePct: number | null;
@@ -212,8 +209,10 @@ export function isShortHorizonMoveExtended(movePct: number | null): boolean {
 
 export function getShortHorizonMoveAccelerationState(row: ShortHorizonStockRow): MoveAccelerationState {
   if (row.currentFiveDayMovePct == null || row.currentPreviousFiveDayMovePct == null) return "UNKNOWN";
-  if (row.currentFiveDayMovePct - row.currentPreviousFiveDayMovePct >= SHORT_HORIZON_MOVE_ACCELERATION_TOLERANCE_PCT) return "ACCELERATING";
-  if (row.currentPreviousFiveDayMovePct - row.currentFiveDayMovePct >= SHORT_HORIZON_MOVE_ACCELERATION_TOLERANCE_PCT) return "SLOWING";
+  const paceChange = row.currentFiveDayMovePct - row.currentPreviousFiveDayMovePct;
+  if (row.currentFiveDayMovePct > 0 && paceChange >= SHORT_HORIZON_MOVE_ACCELERATION_TOLERANCE_PCT) return "ACCELERATING";
+  if (row.currentFiveDayMovePct < 0 && row.currentPreviousFiveDayMovePct < 0 && paceChange > 0) return "RECOVERING";
+  if (paceChange <= -SHORT_HORIZON_MOVE_ACCELERATION_TOLERANCE_PCT) return "WEAKENING";
   return "STEADY";
 }
 
@@ -228,11 +227,10 @@ export function passesShortHorizonTabTwoFilters(
       row.recentStrongFinishSessionCount >= SHORT_HORIZON_STRONG_FINISH_LOOKBACK_SESSIONS
       && row.recentStrongFinishCount >= filters.minimumStrongFinishCount
     );
-  const exitPressureMatches = !filters.excludeExitPressureCaution || row.exitPressure !== "CAUTION";
   const hasStructuralWeakness = row.lastThreeClosesDeclining === true
     && row.latestCloseBelowPreviousFiveSessionLow === true;
 
-  return accelerationMatches && strongFinishMatches && exitPressureMatches && !hasStructuralWeakness;
+  return accelerationMatches && strongFinishMatches && !hasStructuralWeakness;
 }
 
 export function filterShortHorizonRowsByTabTwoFilters(
@@ -305,81 +303,44 @@ function calculateRecentVolumeEvidence(days: WeeklyPriceWatchlistDay[]): {
   };
 }
 
-function calculateRecentExitPressureEvidence(
+function calculateRecentVolumeActivityEvidence(
   days: WeeklyPriceWatchlistDay[],
-  currentTwentyDayMovePct: number | null,
 ): {
-  exitPressure: ExitPressure | null;
-  exitPressureVolumeMultiple: number | null;
-  exitPressureDate: string | null;
-  exitPressureDirection: PriceDirection | null;
+  volumeActivity: VolumeActivity | null;
+  volumeActivityMultiple: number | null;
+  volumeActivityDate: string | null;
+  volumeActivityDirection: PriceDirection | null;
 } {
-  const recentStart = Math.max(0, days.length - SHORT_HORIZON_EXIT_PRESSURE_LOOKBACK_SESSIONS);
+  const recentStart = Math.max(0, days.length - SHORT_HORIZON_VOLUME_ACTIVITY_LOOKBACK_SESSIONS);
   const recentDays = days.slice(recentStart);
-  const pushCandidates = recentDays.slice(0, -1).map((pushDay, index) => {
-    const pushDayIndex = recentStart + index;
-    const failureDay = recentDays[index + 1];
-    const volumeMultiple = calculateVolumeMultiple(
-      pushDay,
-      days.slice(Math.max(0, pushDayIndex - SHORT_HORIZON_EXIT_PRESSURE_VOLUME_BASELINE_SESSIONS), pushDayIndex),
-    );
-    const closePositionPct = calculateClosePositionPct(pushDay);
-    const previousClose = days[pushDayIndex - 1]?.close ?? null;
-    const isStrongClosePush = closePositionPct > SHORT_HORIZON_STRONG_FINISH_MIN_CLOSE_POSITION_PCT
-      && previousClose != null
-      && pushDay.close > previousClose;
-    const isStrongPush = volumeMultiple != null
-      && volumeMultiple >= SHORT_HORIZON_EXIT_PRESSURE_VOLUME_SPIKE_MULTIPLE
-      && isStrongClosePush;
-    const failureMovePct = pushDay.close <= 0
-      ? null
-      : ((failureDay.close - pushDay.close) / pushDay.close) * 100;
-    const failedFollowThrough = isStrongClosePush
-      && failureDay.close < pushDay.close
-      && (
-        calculateClosePositionPct(failureDay) <= SHORT_HORIZON_EXIT_PRESSURE_WEAK_CLOSE_POSITION_PCT
-        || failureDay.close < pushDay.low
-        || (failureMovePct != null && failureMovePct <= SHORT_HORIZON_EXIT_PRESSURE_MIN_FAILURE_MOVE_PCT)
-      );
-
+  const volumeEvents = recentDays.map((day, index) => {
+    const dayIndex = recentStart + index;
     return {
-      pushDay,
-      failureDay,
-      volumeMultiple,
-      isStrongClosePush,
-      isStrongPush,
-      failedFollowThrough,
+      day,
+      volumeMultiple: calculateVolumeMultiple(
+        day,
+        days.slice(Math.max(0, dayIndex - SHORT_HORIZON_VOLUME_ACTIVITY_VOLUME_BASELINE_SESSIONS), dayIndex),
+      ),
     };
   }).filter((candidate) => candidate.volumeMultiple != null);
+  const selectedEvent = [...volumeEvents]
+    .reverse()
+    .find((candidate) => (candidate.volumeMultiple ?? 0) >= SHORT_HORIZON_VOLUME_ACTIVITY_WATCH_MULTIPLE) ?? null;
 
-  const hasRecentRun = currentTwentyDayMovePct != null && currentTwentyDayMovePct > 0;
-  const strongCloseCandidates = pushCandidates.filter((candidate) => candidate.isStrongClosePush);
-  const strongestCandidate = strongCloseCandidates.reduce<typeof strongCloseCandidates[number] | null>(
-    (currentCandidate, candidate) => currentCandidate == null || (candidate.volumeMultiple ?? 0) > (currentCandidate.volumeMultiple ?? 0)
-      ? candidate
-      : currentCandidate,
-    null,
-  );
-  const failedStrongPush = pushCandidates.find((candidate) => candidate.isStrongPush && candidate.failedFollowThrough);
-  const strongPush = strongCloseCandidates.find((candidate) => candidate.isStrongPush);
-  const anyFailedFollowThrough = strongCloseCandidates.find((candidate) => candidate.failedFollowThrough);
-
-  if (!hasRecentRun || strongestCandidate == null) {
+  if (selectedEvent == null) {
     return {
-      exitPressure: "QUIET",
-      exitPressureVolumeMultiple: strongestCandidate?.volumeMultiple ?? null,
-      exitPressureDate: strongestCandidate?.pushDay.date ?? null,
-      exitPressureDirection: strongestCandidate == null ? null : classifyPriceDirection(strongestCandidate.pushDay),
+      volumeActivity: "QUIET",
+      volumeActivityMultiple: null,
+      volumeActivityDate: null,
+      volumeActivityDirection: null,
     };
   }
 
   return {
-    exitPressure: failedStrongPush != null || anyFailedFollowThrough != null
-      ? failedStrongPush != null ? "CAUTION" : "WATCH"
-      : strongPush != null ? "WATCH" : "QUIET",
-    exitPressureVolumeMultiple: strongestCandidate.volumeMultiple,
-    exitPressureDate: strongestCandidate.pushDay.date,
-    exitPressureDirection: classifyPriceDirection(strongestCandidate.pushDay),
+    volumeActivity: "WATCH",
+    volumeActivityMultiple: selectedEvent.volumeMultiple,
+    volumeActivityDate: selectedEvent.day.date,
+    volumeActivityDirection: classifyPriceDirection(selectedEvent.day),
   };
 }
 
@@ -537,7 +498,7 @@ export function buildShortHorizonStockRow(row: WeeklyPriceWatchlistRow): ShortHo
   const recentHighEvidence = calculateRecentHighEvidence(sortedDays);
   const recentVolumeEvidence = calculateRecentVolumeEvidence(sortedDays);
   const currentTwentyDayMovePct = calculateMoveFromPastClose(sortedDays, SHORT_HORIZON_CURRENT_TREND_SESSIONS);
-  const recentExitPressureEvidence = calculateRecentExitPressureEvidence(sortedDays, currentTwentyDayMovePct);
+  const recentVolumeActivityEvidence = calculateRecentVolumeActivityEvidence(sortedDays);
   const recentWeaknessEvidence = calculateRecentWeaknessEvidence(sortedDays);
   const recentStrongFinishEvidence = calculateRecentStrongFinishEvidence(sortedDays);
   const evaluatedDays = referenceDays
@@ -587,7 +548,7 @@ export function buildShortHorizonStockRow(row: WeeklyPriceWatchlistRow): ShortHo
       SHORT_HORIZON_CURRENT_TREND_SESSIONS,
     ),
     currentTwentyDayMovePct,
-    ...recentExitPressureEvidence,
+    ...recentVolumeActivityEvidence,
     ...recentStrongFinishEvidence,
     recentMoveQuality: calculateRecentMoveQuality(sortedDays),
     recentDailyEvidence: calculateRecentDailyEvidence(sortedDays),
@@ -671,28 +632,4 @@ export function buildShortHorizonTabTwoShortlistRows(
     ...longWindowRows,
     ...recentWindowRows.filter((row) => !longWindowKeys.has(row.key)),
   ];
-}
-
-export function buildShortHorizonCoreRows(rows: ShortHorizonStockRow[]): ShortHorizonStockRow[] {
-  const eligibleRows = filterShortHorizonRowsByShortlistGuards(rows);
-  const shortlistSizePerRule = calculateShortHorizonShortlistSize(rows.length);
-  const longWindowKeys = new Set(
-    rankShortHorizonRowsByLongWindow(eligibleRows)
-      .slice(0, shortlistSizePerRule)
-      .map((row) => row.key),
-  );
-  const recentWindowKeys = new Set(
-    rankShortHorizonRowsByRecentWindow(eligibleRows)
-      .slice(0, shortlistSizePerRule)
-      .map((row) => row.key),
-  );
-
-  return eligibleRows
-    .filter((row) => longWindowKeys.has(row.key) && recentWindowKeys.has(row.key))
-    .sort((left, right) =>
-      (right.distanceFromFiftyTwoWeekHighPct ?? -Infinity) - (left.distanceFromFiftyTwoWeekHighPct ?? -Infinity)
-      || right.successfulDayCount - left.successfulDayCount
-      || right.recentSuccessfulDayCount - left.recentSuccessfulDayCount
-      || left.symbol.localeCompare(right.symbol),
-    );
 }

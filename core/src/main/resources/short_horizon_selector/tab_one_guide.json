@@ -6,7 +6,7 @@
     "Strong finishes",
     "Latest finish",
     "Move quality",
-    "Exit pressure",
+    "Volume activity",
     "Latest close",
     "5D reach"
   ],
@@ -14,9 +14,9 @@
     {
       "column": "Move now (Now 5D / Prior 5D / Earlier 10D)",
       "whatItShows": "Non-overlapping close-to-close movement buckets: the latest 5 sessions, the 5 sessions before that, and the 10 sessions before those.",
-      "whyImportant": "Shows whether the current move is continuing, accelerating, slowing, or recovering without requiring mental subtraction from overlapping windows.",
-      "howToRead": "Green means that bucket moved up; red means it moved down. The arrow compares Now 5D with Prior 5D using a 1 percentage-point tolerance. For example, Now 5D +6.8% versus Prior 5D +11.2% means the recent pace is slowing, while Earlier 10D -9.9% shows the broader 20D picture is a recovery.",
-      "caution": "The amber warning appears in Latest close when the 20D move is above +25%; it is not an automatic rejection. Check Strong finishes, Move quality, Latest finish, and Exit pressure."
+      "whyImportant": "Shows whether the current move is continuing upward, recovering from a decline, weakening, or steady without requiring mental subtraction from overlapping windows.",
+      "howToRead": "Green means that bucket moved up; red means it moved down. Accelerating requires a positive Now 5D move that improves by at least 1 percentage point versus Prior 5D. Recovering means both periods are negative but the latest decline is smaller. Weakening means the latest pace is worse by at least 1 percentage point.",
+      "caution": "The amber warning appears in Latest close when the 20D move is above +25%; it is not an automatic rejection. Check Strong finishes, Move quality, Latest finish, and Volume activity."
     },
     {
       "column": "Strong finishes",
@@ -33,11 +33,11 @@
       "caution": "This is descriptive context and does not filter or rank stocks."
     },
     {
-      "column": "Exit pressure",
-      "whatItShows": "A sequence warning across the latest three sessions: a recent strong-close push, its volume versus the preceding 10-session average, and whether the next session failed to follow through.",
-      "whyImportant": "Separates a high-volume bullish-looking push that may attract buyers from the later failure that can indicate possible supply.",
-      "howToRead": "Quiet means no relevant pattern. Watch means a strong push or a strong close followed by weak follow-through without enough volume confirmation. Caution means volume was at least 1.5x the preceding 10-session average, the push closed above 60% of its range, and the next session closed below the push close with a weak finish, a 1% decline, or a break below the push low.",
-      "caution": "This is a possible supply sequence, not confirmed distribution. A strong close alone is not exit pressure, and the warning does not change membership."
+      "column": "Volume activity",
+      "whatItShows": "Whether any of the latest three sessions had abnormal volume compared with its preceding 10-session average.",
+      "whyImportant": "Calls out unusual participation without pretending to know whether it came from buyers or sellers.",
+      "howToRead": "Quiet means no recent session reached 1.5x the preceding 10-session average. Watch means at least one recent session reached 1.5x or more; the displayed multiple and date identify the event.",
+      "caution": "Volume alone does not identify entry or exit. Interpret Watch alongside Move now, Strong finishes, Latest finish, and the daily details popup."
     },
     {
       "column": "Latest close",
@@ -63,11 +63,11 @@
     {
       "column": "Volume vs 10D avg (popup)",
       "whatItShows": "The day's volume as a multiple of the preceding ten completed sessions' average volume.",
-      "whyImportant": "Uses a responsive short-horizon baseline that matches the Exit pressure sequence.",
+      "whyImportant": "Uses a responsive short-horizon baseline that matches the Volume activity signal.",
       "howToRead": "1.5x means 50% above the average volume of the preceding ten sessions; 0.5x means half.",
       "caution": "Volume alone does not identify accumulation or distribution; combine it with price and close position."
     }
   ],
-  "bestCombination": "A useful current-condition combination is a positive Now 5D and Prior 5D, repeated Strong finishes, Clean move quality, and Quiet or Watch exit pressure.",
+  "bestCombination": "A useful current-condition combination is a positive Now 5D and Prior 5D, repeated Strong finishes, Clean move quality, and Volume activity read as neutral context.",
   "importantNote": "Tab 1 is an observation screen. It does not create a buy signal, and Tab 2 filtering rules are separate."
 }

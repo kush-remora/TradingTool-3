@@ -220,7 +220,11 @@
   color: #237804;
 }
 
-.short-horizon-move-acceleration-slowing {
+.short-horizon-move-acceleration-recovering {
+  color: #237804;
+}
+
+.short-horizon-move-acceleration-weakening {
   color: #ad6800;
 }
 
@@ -284,22 +288,18 @@
   color: #667085;
 }
 
-.short-horizon-exit-pressure {
+.short-horizon-volume-activity {
   font-size: 12px;
   font-weight: 600;
 }
 
-.short-horizon-exit-pressure-quiet,
-.short-horizon-exit-pressure-unknown {
+.short-horizon-volume-activity-quiet,
+.short-horizon-volume-activity-unknown {
   color: #667085;
 }
 
-.short-horizon-exit-pressure-watch {
+.short-horizon-volume-activity-watch {
   color: #ad6800;
-}
-
-.short-horizon-exit-pressure-caution {
-  color: #a8071a;
 }
 
 .short-horizon-strong-finish-dots {

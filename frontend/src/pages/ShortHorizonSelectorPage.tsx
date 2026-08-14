@@ -7,21 +7,19 @@ import { ShortHorizonTabOneGuide } from "../components/ShortHorizonTabOneGuide";
 import { getJson } from "../utils/api";
 import {
   buildShortHorizonBestAlignedRows,
-  buildShortHorizonCoreRows,
   buildShortHorizonRows,
   buildShortHorizonTabTwoShortlistRows,
-  calculateShortHorizonShortlistSize,
   getShortHorizonMoveAccelerationState,
   isShortHorizonMoveExtended,
   SHORT_HORIZON_OVEREXTENDED_TWENTY_DAY_MOVE_PCT,
   type ClosePositionBucket,
-  type ExitPressure,
   type MoveAccelerationState,
   type MoveQuality,
   type PriceDirection,
   type ShortHorizonDailyEvidence,
   type ShortHorizonStockRow,
   type ShortHorizonTabTwoFilters,
+  type VolumeActivity,
 } from "../utils/shortHorizonSelector";
 import "./shortHorizonSelector.css";
 
@@ -72,17 +70,15 @@ function getMoveQualityLabel(quality: MoveQuality | null): string {
   return "—";
 }
 
-function getExitPressureLabel(pressure: ExitPressure | null): string {
-  if (pressure === "QUIET") return "Quiet";
-  if (pressure === "WATCH") return "Watch";
-  if (pressure === "CAUTION") return "Caution";
+function getVolumeActivityLabel(activity: VolumeActivity | null): string {
+  if (activity === "QUIET") return "Quiet";
+  if (activity === "WATCH") return "Watch";
   return "—";
 }
 
-function getExitPressureSortValue(pressure: ExitPressure | null): number {
-  if (pressure === "CAUTION") return 2;
-  if (pressure === "WATCH") return 1;
-  if (pressure === "QUIET") return 0;
+function getVolumeActivitySortValue(activity: VolumeActivity | null): number {
+  if (activity === "WATCH") return 1;
+  if (activity === "QUIET") return 0;
   return -1;
 }
 
@@ -223,16 +219,19 @@ function StrongFinishDots({ row }: { row: ShortHorizonStockRow }): ReactNode {
   );
 }
 
-function ExitPressureCell({ row }: { row: ShortHorizonStockRow }): ReactNode {
-  const state = row.exitPressure?.toLowerCase() ?? "unknown";
+function VolumeActivityCell({ row }: { row: ShortHorizonStockRow }): ReactNode {
+  const state = row.volumeActivity?.toLowerCase() ?? "unknown";
+  const detail = row.volumeActivityMultiple == null
+    ? "No abnormal volume in latest 3 sessions"
+    : `${formatMultiple(row.volumeActivityMultiple)} · event ${formatDate(row.volumeActivityDate)}`;
 
   return (
     <Space orientation="vertical" size={0}>
-      <span className={`short-horizon-exit-pressure short-horizon-exit-pressure-${state}`}>
-        <strong>{getExitPressureLabel(row.exitPressure)}</strong>
+      <span className={`short-horizon-volume-activity short-horizon-volume-activity-${state}`}>
+        <strong>{getVolumeActivityLabel(row.volumeActivity)}</strong>
       </span>
       <Text type="secondary" className="short-horizon-date">
-        {formatMultiple(row.exitPressureVolumeMultiple)} · push {formatDate(row.exitPressureDate)}
+        {detail}
       </Text>
     </Space>
   );
@@ -261,7 +260,8 @@ function LatestCloseCell({ row }: { row: ShortHorizonStockRow }): ReactNode {
 
 function getMoveAccelerationLabel(state: MoveAccelerationState): string {
   if (state === "ACCELERATING") return "accelerating";
-  if (state === "SLOWING") return "slowing";
+  if (state === "RECOVERING") return "recovering decline";
+  if (state === "WEAKENING") return "weakening";
   if (state === "STEADY") return "steady pace";
   return "pace unavailable";
 }
@@ -269,14 +269,14 @@ function getMoveAccelerationLabel(state: MoveAccelerationState): string {
 const DEFAULT_TAB_TWO_FILTERS: ShortHorizonTabTwoFilters = {
   acceleration: "ACCELERATING",
   minimumStrongFinishCount: 0,
-  excludeExitPressureCaution: true,
 };
 
 const TAB_TWO_ACCELERATION_OPTIONS = [
   { value: "ACCELERATING", label: "Accelerating" },
   { value: "ANY", label: "Any pace" },
   { value: "STEADY", label: "Steady" },
-  { value: "SLOWING", label: "Slowing" },
+  { value: "RECOVERING", label: "Recovering" },
+  { value: "WEAKENING", label: "Weakening" },
 ] as const;
 
 const TAB_TWO_STRONG_FINISH_OPTIONS = [
@@ -284,11 +284,6 @@ const TAB_TWO_STRONG_FINISH_OPTIONS = [
   { value: 3, label: "At least 3 / 5" },
   { value: 4, label: "At least 4 / 5" },
   { value: 5, label: "5 / 5" },
-] as const;
-
-const TAB_TWO_EXIT_PRESSURE_OPTIONS = [
-  { value: "exclude-caution", label: "Exclude Caution" },
-  { value: "show-all", label: "Show all" },
 ] as const;
 
 function TabTwoFilters({
@@ -318,16 +313,6 @@ function TabTwoFilters({
           value={filters.minimumStrongFinishCount}
           options={[...TAB_TWO_STRONG_FINISH_OPTIONS]}
           onChange={(minimumStrongFinishCount) => onChange({ ...filters, minimumStrongFinishCount })}
-        />
-      </label>
-      <label>
-        <span>Exit pressure</span>
-        <Select<"exclude-caution" | "show-all">
-          aria-label="Tab 2 exit pressure filter"
-          size="small"
-          value={filters.excludeExitPressureCaution ? "exclude-caution" : "show-all"}
-          options={[...TAB_TWO_EXIT_PRESSURE_OPTIONS]}
-          onChange={(value) => onChange({ ...filters, excludeExitPressureCaution: value === "exclude-caution" })}
         />
       </label>
     </div>
@@ -365,7 +350,7 @@ function MoveNowCell({ row }: { row: ShortHorizonStockRow }): ReactNode {
           {formatSignedPercent(row.currentPreviousTenDayMovePct)}
         </span>
         <span className={`short-horizon-move-acceleration short-horizon-move-acceleration-${accelerationState.toLowerCase()}`} aria-label={accelerationLabel}>
-          {accelerationState === "ACCELERATING" ? "↗" : accelerationState === "SLOWING" ? "↘" : accelerationState === "STEADY" ? "→" : "·"}
+          {accelerationState === "ACCELERATING" ? "↗" : accelerationState === "RECOVERING" ? "↗" : accelerationState === "WEAKENING" ? "↘" : accelerationState === "STEADY" ? "→" : "·"}
         </span>
       </div>
     </div>
@@ -480,11 +465,11 @@ function buildStockColumns(
       ),
     },
     {
-      title: "Exit pressure",
-      key: "exitPressure",
+      title: "Volume activity",
+      key: "volumeActivity",
       width: 145,
-      sorter: (left, right) => getExitPressureSortValue(left.exitPressure) - getExitPressureSortValue(right.exitPressure),
-      render: (_, row) => <ExitPressureCell row={row} />,
+      sorter: (left, right) => getVolumeActivitySortValue(left.volumeActivity) - getVolumeActivitySortValue(right.volumeActivity),
+      render: (_, row) => <VolumeActivityCell row={row} />,
     },
   ] : [];
 
@@ -499,7 +484,8 @@ function buildStockColumns(
       filters: showTabOneFilters ? [
         { text: "Accelerating", value: "ACCELERATING" },
         { text: "Steady", value: "STEADY" },
-        { text: "Slowing", value: "SLOWING" },
+        { text: "Recovering", value: "RECOVERING" },
+        { text: "Weakening", value: "WEAKENING" },
         { text: "Unavailable", value: "UNKNOWN" },
       ] : undefined,
       filterMultiple: false,
@@ -536,21 +522,20 @@ function buildStockColumns(
       ),
     },
     {
-      title: "Exit pressure",
-      key: "exitPressure",
+      title: "Volume activity",
+      key: "volumeActivity",
       width: 145,
-      sorter: (left, right) => getExitPressureSortValue(left.exitPressure) - getExitPressureSortValue(right.exitPressure),
+      sorter: (left, right) => getVolumeActivitySortValue(left.volumeActivity) - getVolumeActivitySortValue(right.volumeActivity),
       filters: showTabOneFilters ? [
         { text: "Quiet", value: "QUIET" },
         { text: "Watch", value: "WATCH" },
-        { text: "Caution", value: "CAUTION" },
         { text: "Unavailable", value: "UNKNOWN" },
       ] : undefined,
       filterMultiple: false,
       onFilter: showTabOneFilters
-        ? (value, row) => (row.exitPressure ?? "UNKNOWN") === value
+        ? (value, row) => (row.volumeActivity ?? "UNKNOWN") === value
         : undefined,
-      render: (_, row) => <ExitPressureCell row={row} />,
+      render: (_, row) => <VolumeActivityCell row={row} />,
     },
   ] : [];
 
@@ -723,8 +708,6 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
     [rows, tabTwoFilters],
   );
   const bestAlignedRows = useMemo(() => buildShortHorizonBestAlignedRows(rows), [rows]);
-  const coreRows = useMemo(() => buildShortHorizonCoreRows(rows), [rows]);
-  const shortlistSizePerRule = calculateShortHorizonShortlistSize(rows.length);
 
   return (
     <div className="short-horizon-selector-page">
@@ -798,7 +781,7 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
                           <ol>
                             <li>Move now keeps accelerating stocks by default.</li>
                             <li>Strong finishes stays visible and has an optional minimum filter.</li>
-                            <li>Exit pressure excludes Caution but keeps Watch and Quiet.</li>
+                            <li>Volume activity remains visible as neutral evidence; it does not decide entry or exit.</li>
                             <li>Reject structural weakness only when the last 3 closes fall in a row and today's close breaks below the previous 5-session low.</li>
                             <li>All other Tab 1 columns remain visible for review.</li>
                           </ol>
@@ -831,25 +814,6 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
                       scroll={{ x: true }}
                       columns={buildStockColumns(false, false, true, true, true, true, false, setSelectedDetails, onOpenCompactStockReview)}
                       dataSource={bestAlignedRows}
-                    />
-                  </div>
-                ),
-              },
-              {
-                key: "core",
-                label: `Core · ${coreRows.length}`,
-                children: (
-                  <div>
-                    <Text type="secondary" className="short-horizon-tab-note">Selected by both rankings · sorted nearest to the 52-week high · current moves, strong finishes, move quality, and exit pressure shown for context.</Text>
-                    <Text type="secondary" className="short-horizon-rule-note"><strong>Core:</strong> A stock must be in the top {shortlistSizePerRule} by both 5D reach count and Recent tested 6D reach count. The 52-week-high distance only orders this list; it does not reject a stock.</Text>
-                    <Table<ShortHorizonStockRow>
-                      data-testid="short-horizon-core-table"
-                      rowKey="key"
-                      size="small"
-                      pagination={false}
-                      scroll={{ x: true }}
-                      columns={buildStockColumns(true, true, true, false, false, false, false, setSelectedDetails, onOpenCompactStockReview)}
-                      dataSource={coreRows}
                     />
                   </div>
                 ),

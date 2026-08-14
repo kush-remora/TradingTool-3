@@ -923,3 +923,7 @@ The selector should find stocks with proven short-term movement, current clean s
 The console now includes a strict `Best aligned` view for two current-condition checks: accelerating Move now and at least `2 / 5` Strong finishes. Move quality remains visible context but is not a membership filter. It is a subset view, not a buy signal, and does not add Exit pressure or structural-weakness filtering. The 52-week-high context also reports the high date and trading-session age so distance from the high can be read with recency.
 
 The Recent 20D details popup now includes sortable daily delivery percentage. This is supporting evidence alongside volume versus the preceding 10-session average, not an additional selection rule.
+
+A `Best aligned · Quiet` tab now shows the Best aligned subset with only `Exit pressure = Quiet` added as a stricter membership condition. Move quality and 52-week-high distance remain context.
+
+Exit pressure was reworked as a volume-first warning. It uses the preceding 10-session average, assigns Watch to recent volume at least `2×` without confirmed failure, and assigns Caution to volume at least `1.5×` followed by lower-close failure. Strong finishes remains separate so high participation with good demand is not automatically treated as distribution.

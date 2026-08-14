@@ -61,11 +61,7 @@ This creates the useful connection between **the stock eventually reaching the t
 
 The first frontend slice is now available as **5-Day Stock Selector**. It reuses the existing watchlist daily-history endpoint and adds a sidebar route at `console/short-horizon-selector`. The table shows the latest close, historical `+5% in 5D` count/rate, a low-to-high close-position marker with direction, and `Details` / `Review` actions. Details opens the latest 20 completed sessions with OHLC, close-to-close change, close position within the daily range, and distance from the day's high.
 
-The page now has three tabs: **All Stocks**, which keeps the full watchlist visible; **Shortlist**, which applies current Tab 1 filters and then orders all passing stocks by two historical rankings; and **Core**, which keeps only the overlap of its historical rankings. Shortlist no longer truncates the current-condition result to a percentage or 20-stock cap. Tab 1 shows both historical counts so the reason for a stock's position remains visible. The Shortlist tab also shows recent-high and volume evidence. These are shown as context only; no distribution conclusion is applied.
-
-The third **Core** tab keeps only the intersection: a stock must appear in both ranking groups. It uses the same guards and the same original-watchlist-based ranking limit, so it is a smaller, higher-agreement review list rather than a new score. Core rows are ordered by distance from the 52-week high, closest first. That distance is visible context and does not reject a stock.
-
-The Core tab now also shows the current move over 5 sessions and 20 sessions, calculated from the latest close versus the close that many trading sessions earlier. These two values answer whether the historical candidate is still moving now. They are context only and do not change Core membership.
+The page now has three tabs: **All Stocks**, which keeps the full watchlist visible; **Shortlist**, which applies the current Tab 1 filters and then orders all passing stocks by two historical rankings; and **Best aligned**, which keeps the strict current-condition subset. The former Core overlap tab and Best aligned · Quiet tab were removed while the next filtering stage is redesigned. Tab 1 and Shortlist keep volume activity as neutral evidence; no entry or exit conclusion is applied.
 
 The calculation uses only completed five-session windows. It reports the actual usable reference-day count, so sparse history is visible rather than silently presented as a full 20-day sample. No backend contract, score, buy label, rejection metric, or intraday logic was added.
 
@@ -118,9 +114,9 @@ All Stocks now shows a sortable `Strong finishes` column with the count out of f
 
 All Stocks now shows a sortable compact `Move now` column with non-overlapping `Now 5D`, `Prior 5D`, and `Earlier 10D` close-to-close movement buckets. The cell uses green/red direction, a pace arrow comparing Now 5D with Prior 5D using a 1 percentage-point tolerance, and an amber extension watch when the hidden 20D total reaches +25% or more. These values provide current activity context and do not affect selection.
 
-## Implemented exit-pressure warning
+## Implemented neutral volume activity
 
-Shortlist and Core now show a sortable `Exit pressure` sequence warning using the latest three completed sessions and a preceding 10-session volume baseline. A meaningful push requires volume of at least `1.5×`, a close above 60% of the range, a positive close versus the prior session, and a positive 20D move. `Quiet` means no relevant pattern. `Watch` means a strong push or strong close is not yet confirmed by the next session, or the next session shows weak follow-through without enough volume confirmation. `Caution` means the meaningful push is followed by a close below the push-day close with a weak finish, at least a 1% decline, or a break below the push low. This is a possible supply sequence, not confirmed distribution, and it does not filter, rank, or change membership.
+All Stocks, Shortlist, and Best aligned now show sortable `Volume activity` using the latest three completed sessions and each session's preceding 10-session volume average. `Quiet` means no recent session reached `1.5×`; `Watch` means at least one did. The signal calls out abnormal participation only. It does not infer entry, exit, accumulation, distribution, or membership.
 
 Validation for this addition: the focused selector suite passed with 20 tests, and the production frontend build passed. The page test confirms that the sortable column appears once in Shortlist and Core.
 
@@ -136,7 +132,7 @@ The Tab 1 header now has a `How to read Tab 1` button. It loads a backend-owned 
 
 ## Implemented compact move reading
 
-The All Stocks move column now shows `Now 5D`, `Prior 5D`, and `Earlier 10D` one below the other. The repeated period labels are intentionally small and light; the percentage values carry the visual emphasis. Positive values are green and negative values are red. The arrow compares Now 5D with Prior 5D, so it directly communicates recent pace without overlapping-window mental math. The hidden 20D total still controls the amber extension watch and remains available in hover text.
+The All Stocks move column now shows `Now 5D`, `Prior 5D`, and `Earlier 10D` one below the other. The repeated period labels are intentionally small and light; the percentage values carry the visual emphasis. Positive values are green and negative values are red. The arrow compares Now 5D with Prior 5D: upward acceleration requires a positive Now 5D that improves by at least 1 percentage point, a negative-to-less-negative sequence is Recovering, and a materially worse latest pace is Weakening. The hidden 20D total still controls the amber extension watch and remains available in hover text.
 
 `Strong finishes` and `Latest finish` are adjacent on Tab 1. Strong finishes shows repeated buyer control across five sessions; Latest finish shows the most recent candle's close position. Latest finish is kept compact so the two demand signals can be read together.
 
@@ -144,26 +140,34 @@ The All Stocks `Latest close` cell now also shows the total `20D` movement and d
 
 ## Implemented Tab 2 reading filters
 
-The Shortlist tab now mirrors the main Tab 1 evidence so the filtering decision remains explainable: `Move now`, `Strong finishes`, `Latest finish`, `Move quality`, `Exit pressure`, `Latest close` with 20D/from-high context, and `5D reach`. It applies current-state filters first; historical reach is then used for ranking, while the two-part structural weakness guard remains an active rejection rule.
+The Shortlist tab now mirrors the main Tab 1 evidence so the filtering decision remains explainable: `Move now`, `Strong finishes`, `Latest finish`, `Move quality`, `Volume activity`, `Latest close` with 20D/from-high context, and `5D reach`. It applies current-state filters first; historical reach is then used for ranking, while the two-part structural weakness guard remains an active rejection rule.
 
-The default current-state filter keeps only `Move now = Accelerating`, using the existing 1 percentage-point comparison between `Now 5D` and `Prior 5D`. The UI also allows `Any pace`, `Steady`, or `Slowing`. Strong finishes are available as an optional minimum filter (`Any`, at least 3/5, at least 4/5, or 5/5), because the metric is useful evidence but should not reject a stock by itself. Exit pressure defaults to excluding only `Caution`; `Watch` and `Quiet` remain eligible. The existing rule that rejects only three falling closes plus a break below the previous five-session low remains active. The former 5/20, 2/6, and recent-high rules are not current-condition gates in Tab 2.
+The default current-state filter keeps only `Move now = Accelerating`, requiring a positive Now 5D that improves by at least 1 percentage point versus Prior 5D. The UI also allows `Any pace`, `Steady`, `Recovering`, or `Weakening`. Recovering means both periods are negative but the latest decline is smaller; it is not treated as upward acceleration and cannot enter Best aligned. Strong finishes are available as an optional minimum filter (`Any`, at least 3/5, at least 4/5, or 5/5), because the metric is useful evidence but should not reject a stock by itself. Volume activity remains visible and does not filter entry or exit. The existing rule that rejects only three falling closes plus a break below the previous five-session low remains active. The former 5/20, 2/6, and recent-high rules are not current-condition gates in Tab 2.
 
 This is intentionally a first filter pass rather than a final strategy rule. The next validation task is to compare the resulting Shortlist count and missed candidates across historical examples before tightening strong-finish, acceleration, or `Watch` behaviour.
 
-The Shortlist tab now explains the distinction once in plain language: the existing historical rules create the candidate pool, and the selectable current Tab 1 filters perform the present-day reading. The current reading defaults to accelerating Move now, keeps Strong finishes optional, excludes only Exit pressure Caution, retains Watch and Quiet, and preserves the two-part structural weakness guard. This avoids presenting the old reach thresholds as the new agreed Tab 2 decision logic.
+The Shortlist tab now explains the distinction once in plain language: the existing historical rules create the candidate pool, and the selectable current Tab 1 filters perform the present-day reading. The current reading defaults to accelerating Move now, keeps Strong finishes optional, retains Volume activity as evidence, and preserves the two-part structural weakness guard. This avoids presenting the old reach thresholds as the new agreed Tab 2 decision logic.
 
-Tab 1 (`All Stocks`) now has column-level exploration filters for Move now acceleration, Strong finishes, Latest finish, Move quality, Exit pressure, and the 20D extension warning. These are local table filters only; they do not change the Shortlist or Core rules.
+Tab 1 (`All Stocks`) now has column-level exploration filters for Move now acceleration, Strong finishes, Latest finish, Move quality, Volume activity, and the 20D extension warning. These are local table filters only; they do not change the Shortlist or Best aligned rules.
 
-The Shortlist explanation is displayed as separate numbered `Sorting rules` and `Filtering rules` sections. Sorting covers the two historical reach rankings and their candidate pool; filtering covers current acceleration, optional Strong finishes, Exit pressure, and structural weakness.
+The Shortlist explanation is displayed as separate numbered `Sorting rules` and `Filtering rules` sections. Sorting covers the two historical reach rankings and their candidate pool; filtering covers current acceleration, optional Strong finishes, Volume activity as context, and structural weakness.
 
 The Tab 2 order was corrected after reviewing the 99-stock scan: current-condition filters are applied to the full watchlist first, then the surviving stocks are ranked by historical 5D and Recent tested 6D reach. The old historical minimums and recent-high guard are no longer applied as a gate before the current Tab 1 reading.
 
-Tab 2 no longer truncates the current-condition result to the old top-20%-per-ranking limit. All current-condition candidates remain visible, with historical reach used for ordering only. For the attached scan, this means all 22 accelerating, non-Caution, structurally valid stocks should be visible.
+Tab 2 no longer truncates the current-condition result to the old top-20%-per-ranking limit. All current-condition candidates remain visible, with historical reach used for ordering only. For the attached scan, this means all 22 accelerating, structurally valid stocks should be visible.
 
 Tab 2 also shows the sortable `52W high` distance context column. It is informational only and does not remove or filter a current-condition candidate.
 
 ## Best aligned tab
 
-The new `Best aligned` tab is a strict current-condition subset of the full computed rows. It uses only two rules: `Move now = Accelerating` and at least `2 / 5` Strong finishes. Move quality remains visible context and does not filter membership. It intentionally does not apply Shortlist's Exit pressure or structural-weakness rules. The 52W-high column remains context and now shows the high price, distance from the high, high date, and trading sessions ago.
+The current `Best aligned` tab is a strict current-condition subset of the full computed rows. It uses only two rules: `Move now = Accelerating` and at least `2 / 5` Strong finishes. Move quality and Volume activity remain visible context and do not filter membership. It intentionally does not apply Shortlist's structural-weakness rule. The 52W-high column remains context and now shows the high price, distance from the high, high date, and trading sessions ago.
 
 The Recent 20D details popup also shows each session's delivery percentage beside the volume-vs-10D-average multiple. This is evidence for review only and does not affect tab membership.
+
+The former `Best aligned · Quiet` tab was a stricter subset of Best aligned, but it has now been retired because volume activity is descriptive evidence rather than a membership rule. The former `Core` tab has also been retired while the next-level filtering rules are redesigned.
+
+## Current next-level filtering direction
+
+The obsolete `Best aligned · Quiet` and `Core` tabs have been removed. `Best aligned` remains as the current next-level filter starting point: accelerating Move now plus at least `2 / 5` Strong finishes. Its rules will be revisited separately before adding more filters.
+
+The former `Exit pressure` signal is now neutral `Volume activity`. `Quiet` means no session in the latest three reached `1.5×` its preceding 10-session average; `Watch` means at least one did. It deliberately does not infer entry, exit, accumulation, or distribution. Tab 2 no longer excludes a supposed `Caution` state; volume activity stays visible for the user to interpret beside price and finish evidence.

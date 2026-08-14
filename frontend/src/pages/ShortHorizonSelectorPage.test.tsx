@@ -59,7 +59,8 @@ describe("ShortHorizonSelectorPage", () => {
     expect(within(screen.getByTestId("short-horizon-selector-table")).queryByText("T-1", { exact: true })).not.toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "Move now" })).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "Move quality" })).toBeInTheDocument();
-    expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "Exit pressure" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "Volume activity" })).toBeInTheDocument();
+    expect(screen.getByText("No abnormal volume in latest 3 sessions")).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-selector-table")).getAllByLabelText("filter").length).toBeGreaterThanOrEqual(6);
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByText("20D +4.0%", { exact: true })).toBeInTheDocument();
     const moveTable = screen.getByTestId("short-horizon-selector-table");
@@ -84,7 +85,7 @@ describe("ShortHorizonSelectorPage", () => {
     expect(within(screen.getByTestId("short-horizon-shortlist-table")).getByRole("columnheader", { name: "Move now" })).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-shortlist-table")).getByRole("columnheader", { name: "Strong finishes" })).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-shortlist-table")).getByRole("columnheader", { name: "Move quality" })).toBeInTheDocument();
-    expect(within(screen.getByTestId("short-horizon-shortlist-table")).getByRole("columnheader", { name: "Exit pressure" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-shortlist-table")).getByRole("columnheader", { name: "Volume activity" })).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-shortlist-table")).getByRole("columnheader", { name: "52W high" })).toBeInTheDocument();
     expect(screen.getByTestId("short-horizon-tab-two-filters")).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-tab-two-filters")).getByText("Accelerating")).toBeInTheDocument();
@@ -97,16 +98,10 @@ describe("ShortHorizonSelectorPage", () => {
     expect(await screen.findByTestId("short-horizon-best-aligned-table")).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-best-aligned-table")).getByRole("columnheader", { name: "52W high" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Core · 1" }));
-    expect(await screen.findByTestId("short-horizon-core-table")).toBeInTheDocument();
-    expect(screen.getByText(/A stock must be in the top 1 by both 5D reach count and Recent tested 6D reach count/)).toBeInTheDocument();
-    expect(within(screen.getByTestId("short-horizon-core-table")).getByRole("columnheader", { name: "5D move" })).toBeInTheDocument();
-    expect(within(screen.getByTestId("short-horizon-core-table")).getByRole("columnheader", { name: "20D move" })).toBeInTheDocument();
-    expect(within(screen.getByTestId("short-horizon-core-table")).getByRole("columnheader", { name: "Strong finishes" })).toBeInTheDocument();
-    expect(within(screen.getByTestId("short-horizon-core-table")).getByRole("columnheader", { name: "Move quality" })).toBeInTheDocument();
-    expect(within(screen.getByTestId("short-horizon-core-table")).getByRole("columnheader", { name: "Exit pressure" })).toBeInTheDocument();
-    expect(within(screen.getByTestId("short-horizon-core-table")).getByRole("columnheader", { name: "52W high" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Best aligned · Quiet/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Core/ })).not.toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("tab", { name: "All Stocks · 1" }));
     fireEvent.click(screen.getByRole("button", { name: "Details" }));
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toBeInTheDocument();
