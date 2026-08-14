@@ -32,6 +32,8 @@ class MomentumEvidenceCalculatorTest {
         assertEquals(MomentumDataStatus.AVAILABLE, evidence.dataStatus)
         assertEquals(true, evidence.aboveSma200)
         assertEquals(320.0, evidence.fiftyTwoWeekHigh)
+        assertEquals(testCandles.last().candleDate.toString(), evidence.fiftyTwoWeekHighDate)
+        assertEquals(0, evidence.fiftyTwoWeekHighSessionsAgo)
         assertEquals(-0.31, evidence.distanceFromFiftyTwoWeekHighPct)
         assertEquals(289.0, evidence.thirtyDayLow)
         assertEquals(10.38, evidence.distanceFromThirtyDayLowPct)
@@ -63,6 +65,18 @@ class MomentumEvidenceCalculatorTest {
 
         assertEquals(80.0, evidence.thirtyDayLow)
         assertEquals(73.75, evidence.distanceFromThirtyDayLowPct)
+    }
+
+    @Test
+    fun `reports the 52 week high date and trading session age`() {
+        val candles = buildWeekdayCandles(300).mapIndexed { index, candle ->
+            candle.copy(high = if (index == 120) 500.0 else 100.0 + index / 100.0)
+        }
+
+        val evidence = calculateMomentumEvidence(candles, candles.last().candleDate)
+
+        assertEquals(candles[120].candleDate.toString(), evidence.fiftyTwoWeekHighDate)
+        assertEquals(179, evidence.fiftyTwoWeekHighSessionsAgo)
     }
 
     @Test

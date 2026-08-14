@@ -43,6 +43,8 @@ fun calculateMomentumEvidence(
             aboveSma200 = null,
             distanceFromSma200Pct = null,
             fiftyTwoWeekHigh = null,
+            fiftyTwoWeekHighDate = null,
+            fiftyTwoWeekHighSessionsAgo = null,
             distanceFromFiftyTwoWeekHighPct = null,
             thirtyDayLow = null,
             distanceFromThirtyDayLowPct = null,
@@ -64,11 +66,13 @@ fun calculateMomentumEvidence(
     val distanceFromSma200Pct = sma200
         ?.takeIf { it > 0.0 }
         ?.let { ((currentCandle.close / it) - 1.0) * 100.0 }
-    val fiftyTwoWeekHigh = availableCandles
-        .takeLast(FIFTY_TWO_WEEK_TRADING_SESSIONS)
-        .map(DailyCandle::high)
-        .filter { high -> high > 0.0 && high.isFinite() }
-        .maxOrNull()
+    val fiftyTwoWeekCandles = availableCandles.takeLast(FIFTY_TWO_WEEK_TRADING_SESSIONS)
+    val fiftyTwoWeekHighCandle = fiftyTwoWeekCandles
+        .filter { candle -> candle.high > 0.0 && candle.high.isFinite() }
+        .maxWithOrNull(compareBy<DailyCandle> { candle -> candle.high }.thenBy { candle -> candle.candleDate })
+    val fiftyTwoWeekHigh = fiftyTwoWeekHighCandle?.high
+    val fiftyTwoWeekHighSessionsAgo = fiftyTwoWeekHighCandle
+        ?.let { highCandle -> fiftyTwoWeekCandles.lastIndex - fiftyTwoWeekCandles.indexOf(highCandle) }
     val distanceFromFiftyTwoWeekHighPct = fiftyTwoWeekHigh
         ?.let { high -> ((currentCandle.close / high) - 1.0) * 100.0 }
     val thirtyDayLow = availableCandles
@@ -88,6 +92,8 @@ fun calculateMomentumEvidence(
         aboveSma200 = sma200?.let { currentCandle.close > it },
         distanceFromSma200Pct = distanceFromSma200Pct?.roundTo2(),
         fiftyTwoWeekHigh = fiftyTwoWeekHigh?.roundTo2(),
+        fiftyTwoWeekHighDate = fiftyTwoWeekHighCandle?.candleDate?.toString(),
+        fiftyTwoWeekHighSessionsAgo = fiftyTwoWeekHighSessionsAgo,
         distanceFromFiftyTwoWeekHighPct = distanceFromFiftyTwoWeekHighPct?.roundTo2(),
         thirtyDayLow = thirtyDayLow?.roundTo2(),
         distanceFromThirtyDayLowPct = distanceFromThirtyDayLowPct?.roundTo2(),

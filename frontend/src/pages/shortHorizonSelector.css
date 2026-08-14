@@ -46,6 +46,52 @@
   line-height: 1.5;
 }
 
+.short-horizon-rule-note ol {
+  margin: 4px 0 0 18px;
+  padding: 0;
+}
+
+.short-horizon-rule-note li {
+  padding-left: 2px;
+}
+
+.short-horizon-rule-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 24px;
+  margin-top: 6px;
+}
+
+.short-horizon-rule-columns > div > strong {
+  color: #475467;
+}
+
+.short-horizon-tab-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px solid #eaecf0;
+  border-radius: 6px;
+  background: #fcfcfd;
+}
+
+.short-horizon-tab-filters label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #667085;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.short-horizon-tab-filters .ant-select {
+  min-width: 132px;
+  font-weight: 400;
+}
+
 .short-horizon-loading {
   display: flex;
   align-items: center;
@@ -384,5 +430,9 @@
 
   .short-horizon-selector-header .ant-select {
     width: 100% !important;
+  }
+
+  .short-horizon-rule-columns {
+    grid-template-columns: 1fr;
   }
 }

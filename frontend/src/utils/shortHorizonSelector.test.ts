@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 import type { WeeklyPriceWatchlistRow } from "../types";
 import {
+  buildShortHorizonBestAlignedRows,
   buildShortHorizonCoreRows,
   buildShortHorizonStockRow,
   buildShortHorizonShortlistRows,
+  buildShortHorizonTabTwoShortlistRows,
   calculateClosePositionPct,
   calculateShortHorizonShortlistSize,
   classifyClosePosition,
+  filterShortHorizonRowsByTabTwoFilters,
   filterShortHorizonRowsByEvidenceGate,
   filterShortHorizonRowsByShortlistGuards,
+  getShortHorizonMoveAccelerationState,
   isShortHorizonMoveExtended,
 } from "./shortHorizonSelector";
 
@@ -114,6 +118,7 @@ describe("shortHorizonSelector", () => {
       low: 98 + index,
       close: 101 + index,
       volume: index === 24 ? 200 : 100,
+      deliveryPercentage: index === 24 ? 58.4 : 40,
     }));
 
     const result = buildShortHorizonStockRow(row);
@@ -130,6 +135,7 @@ describe("shortHorizonSelector", () => {
     expect(result.recentDailyEvidence[0].changePct).toBeCloseTo(0.80645, 3);
     expect(result.recentDailyEvidence[0].closeFromHighPct).toBeCloseTo(-1.5748, 3);
     expect(result.recentDailyEvidence[0].volumeMultiple).toBe(2);
+    expect(result.recentDailyEvidence[0].deliveryPercentage).toBe(58.4);
   });
 
   it("counts strong finishes only across the latest five sessions", () => {
@@ -263,6 +269,99 @@ describe("shortHorizonSelector", () => {
       recentSuccessfulDayCount: 2,
       pullbackFromRecentHighPct: -1,
     }])).toHaveLength(0);
+  });
+
+  it("filters Tab 2 to accelerating moves and excludes only Caution exit pressure by default", () => {
+    const baseRow = buildShortHorizonStockRow(buildRow(30));
+    const acceleratingQuiet = {
+      ...baseRow,
+      key: "ACCELERATING-QUIET",
+      currentFiveDayMovePct: 8,
+      currentPreviousFiveDayMovePct: 2,
+      recentStrongFinishCount: 2,
+      recentStrongFinishSessionCount: 5,
+      exitPressure: "QUIET" as const,
+    };
+    const acceleratingWatch = {
+      ...baseRow,
+      key: "ACCELERATING-WATCH",
+      currentFiveDayMovePct: 8,
+      currentPreviousFiveDayMovePct: 2,
+      recentStrongFinishCount: 3,
+      recentStrongFinishSessionCount: 5,
+      exitPressure: "WATCH" as const,
+    };
+    const acceleratingCaution = {
+      ...baseRow,
+      key: "ACCELERATING-CAUTION",
+      currentFiveDayMovePct: 8,
+      currentPreviousFiveDayMovePct: 2,
+      recentStrongFinishCount: 4,
+      recentStrongFinishSessionCount: 5,
+      exitPressure: "CAUTION" as const,
+    };
+    const steady = {
+      ...baseRow,
+      key: "STEADY",
+      currentFiveDayMovePct: 2.5,
+      currentPreviousFiveDayMovePct: 2,
+      exitPressure: "QUIET" as const,
+    };
+
+    expect(getShortHorizonMoveAccelerationState(acceleratingQuiet)).toBe("ACCELERATING");
+    expect(filterShortHorizonRowsByTabTwoFilters(
+      [acceleratingQuiet, acceleratingWatch, acceleratingCaution, steady],
+      { acceleration: "ACCELERATING", minimumStrongFinishCount: 3, excludeExitPressureCaution: true },
+    ).map((row) => row.key)).toEqual(["ACCELERATING-WATCH"]);
+    expect(filterShortHorizonRowsByTabTwoFilters(
+      [acceleratingCaution],
+      { acceleration: "ACCELERATING", minimumStrongFinishCount: 0, excludeExitPressureCaution: false },
+    )).toHaveLength(1);
+  });
+
+  it("builds Best aligned from acceleration and strong finishes only", () => {
+    const baseRow = buildShortHorizonStockRow(buildRow(30));
+    const qualifying = {
+      ...baseRow,
+      key: "QUALIFYING",
+      currentFiveDayMovePct: 8,
+      currentPreviousFiveDayMovePct: 2,
+      recentStrongFinishCount: 2,
+      recentStrongFinishSessionCount: 5,
+      recentMoveQuality: "CLEAN" as const,
+      exitPressure: "CAUTION" as const,
+      lastThreeClosesDeclining: true,
+      latestCloseBelowPreviousFiveSessionLow: true,
+    };
+    const notAccelerating = { ...qualifying, key: "STEADY", currentFiveDayMovePct: 2.5 };
+    const notStrongEnough = { ...qualifying, key: "ONE-STRONG", recentStrongFinishCount: 1 };
+    const notClean = { ...qualifying, key: "MIXED", recentMoveQuality: "MIXED" as const };
+
+    expect(buildShortHorizonBestAlignedRows([qualifying, notAccelerating, notStrongEnough, notClean]).map((row) => row.key))
+      .toEqual(["QUALIFYING", "MIXED"]);
+  });
+
+  it("filters Tab 2 before historical reach ranking instead of applying old reach gates first", () => {
+    const rows = Array.from({ length: 100 }, (_, index) => ({
+      ...buildShortHorizonStockRow(buildRow(26)),
+      key: `CURRENT-${index}`,
+      symbol: `CURRENT-${index}`,
+      successfulDayCount: index === 0 ? 1 : 0,
+      recentSuccessfulDayCount: 0,
+      currentFiveDayMovePct: 6,
+      currentPreviousFiveDayMovePct: 0,
+      exitPressure: "QUIET" as const,
+      lastThreeClosesDeclining: false,
+      latestCloseBelowPreviousFiveSessionLow: false,
+    }));
+
+    const shortlistRows = buildShortHorizonTabTwoShortlistRows(rows, {
+      acceleration: "ACCELERATING",
+      minimumStrongFinishCount: 0,
+      excludeExitPressureCaution: true,
+    });
+
+    expect(shortlistRows).toHaveLength(100);
   });
 
   it("unites the adaptive 20-day and recent-six rankings", () => {

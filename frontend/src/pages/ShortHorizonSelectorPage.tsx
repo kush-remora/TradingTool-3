@@ -6,21 +6,22 @@ import type { UniverseOptionsResponse, WeeklyPriceWatchlistScannerResponse } fro
 import { ShortHorizonTabOneGuide } from "../components/ShortHorizonTabOneGuide";
 import { getJson } from "../utils/api";
 import {
+  buildShortHorizonBestAlignedRows,
   buildShortHorizonCoreRows,
   buildShortHorizonRows,
-  buildShortHorizonShortlistRows,
+  buildShortHorizonTabTwoShortlistRows,
   calculateShortHorizonShortlistSize,
-  filterShortHorizonRowsByShortlistGuards,
-  getShortHorizonShortlistRuleDescription,
+  getShortHorizonMoveAccelerationState,
   isShortHorizonMoveExtended,
-  SHORT_HORIZON_MOVE_ACCELERATION_TOLERANCE_PCT,
   SHORT_HORIZON_OVEREXTENDED_TWENTY_DAY_MOVE_PCT,
   type ClosePositionBucket,
   type ExitPressure,
+  type MoveAccelerationState,
   type MoveQuality,
   type PriceDirection,
   type ShortHorizonDailyEvidence,
   type ShortHorizonStockRow,
+  type ShortHorizonTabTwoFilters,
 } from "../utils/shortHorizonSelector";
 import "./shortHorizonSelector.css";
 
@@ -35,8 +36,17 @@ function formatDate(value: string | null): string {
   return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`));
 }
 
+function formatSessionAge(value: number | null): string {
+  if (value == null) return "age unavailable";
+  return value === 0 ? "today" : `${value} sessions ago`;
+}
+
 function formatPercent(value: number | null): string {
   return value == null ? "—" : `${value.toFixed(0)}%`;
+}
+
+function formatDeliveryPercentage(value: number | null): string {
+  return value == null ? "—" : `${value.toFixed(1)}%`;
 }
 
 function formatSignedPercent(value: number | null): string {
@@ -134,6 +144,14 @@ function RecentDailyDetails({ row }: { row: ShortHorizonStockRow }) {
       width: 130,
       sorter: (left, right) => (left.volumeMultiple ?? -Infinity) - (right.volumeMultiple ?? -Infinity),
       render: (value: number | null) => formatMultiple(value),
+    },
+    {
+      title: "Delivery %",
+      dataIndex: "deliveryPercentage",
+      key: "deliveryPercentage",
+      width: 105,
+      sorter: (left, right) => (left.deliveryPercentage ?? -Infinity) - (right.deliveryPercentage ?? -Infinity),
+      render: (value: number | null) => formatDeliveryPercentage(value),
     },
     {
       title: "Change %",
@@ -241,15 +259,6 @@ function LatestCloseCell({ row }: { row: ShortHorizonStockRow }): ReactNode {
   );
 }
 
-type MoveAccelerationState = "ACCELERATING" | "SLOWING" | "STEADY" | "UNKNOWN";
-
-function getMoveAccelerationState(row: ShortHorizonStockRow): MoveAccelerationState {
-  if (row.currentFiveDayMovePct == null || row.currentPreviousFiveDayMovePct == null) return "UNKNOWN";
-  if (row.currentFiveDayMovePct - row.currentPreviousFiveDayMovePct >= SHORT_HORIZON_MOVE_ACCELERATION_TOLERANCE_PCT) return "ACCELERATING";
-  if (row.currentPreviousFiveDayMovePct - row.currentFiveDayMovePct >= SHORT_HORIZON_MOVE_ACCELERATION_TOLERANCE_PCT) return "SLOWING";
-  return "STEADY";
-}
-
 function getMoveAccelerationLabel(state: MoveAccelerationState): string {
   if (state === "ACCELERATING") return "accelerating";
   if (state === "SLOWING") return "slowing";
@@ -257,8 +266,76 @@ function getMoveAccelerationLabel(state: MoveAccelerationState): string {
   return "pace unavailable";
 }
 
+const DEFAULT_TAB_TWO_FILTERS: ShortHorizonTabTwoFilters = {
+  acceleration: "ACCELERATING",
+  minimumStrongFinishCount: 0,
+  excludeExitPressureCaution: true,
+};
+
+const TAB_TWO_ACCELERATION_OPTIONS = [
+  { value: "ACCELERATING", label: "Accelerating" },
+  { value: "ANY", label: "Any pace" },
+  { value: "STEADY", label: "Steady" },
+  { value: "SLOWING", label: "Slowing" },
+] as const;
+
+const TAB_TWO_STRONG_FINISH_OPTIONS = [
+  { value: 0, label: "Any strong finishes" },
+  { value: 3, label: "At least 3 / 5" },
+  { value: 4, label: "At least 4 / 5" },
+  { value: 5, label: "5 / 5" },
+] as const;
+
+const TAB_TWO_EXIT_PRESSURE_OPTIONS = [
+  { value: "exclude-caution", label: "Exclude Caution" },
+  { value: "show-all", label: "Show all" },
+] as const;
+
+function TabTwoFilters({
+  filters,
+  onChange,
+}: {
+  filters: ShortHorizonTabTwoFilters;
+  onChange: (filters: ShortHorizonTabTwoFilters) => void;
+}): ReactNode {
+  return (
+    <div className="short-horizon-tab-filters" data-testid="short-horizon-tab-two-filters">
+      <label>
+        <span>Move now</span>
+        <Select<ShortHorizonTabTwoFilters["acceleration"]>
+          aria-label="Tab 2 move now filter"
+          size="small"
+          value={filters.acceleration}
+          options={[...TAB_TWO_ACCELERATION_OPTIONS]}
+          onChange={(acceleration) => onChange({ ...filters, acceleration })}
+        />
+      </label>
+      <label>
+        <span>Strong finishes</span>
+        <Select<number>
+          aria-label="Tab 2 strong finishes filter"
+          size="small"
+          value={filters.minimumStrongFinishCount}
+          options={[...TAB_TWO_STRONG_FINISH_OPTIONS]}
+          onChange={(minimumStrongFinishCount) => onChange({ ...filters, minimumStrongFinishCount })}
+        />
+      </label>
+      <label>
+        <span>Exit pressure</span>
+        <Select<"exclude-caution" | "show-all">
+          aria-label="Tab 2 exit pressure filter"
+          size="small"
+          value={filters.excludeExitPressureCaution ? "exclude-caution" : "show-all"}
+          options={[...TAB_TWO_EXIT_PRESSURE_OPTIONS]}
+          onChange={(value) => onChange({ ...filters, excludeExitPressureCaution: value === "exclude-caution" })}
+        />
+      </label>
+    </div>
+  );
+}
+
 function MoveNowCell({ row }: { row: ShortHorizonStockRow }): ReactNode {
-  const accelerationState = getMoveAccelerationState(row);
+  const accelerationState = getShortHorizonMoveAccelerationState(row);
   const accelerationLabel = getMoveAccelerationLabel(accelerationState);
   const isOverextended = isShortHorizonMoveExtended(row.currentTwentyDayMovePct);
   const explanation = row.currentPreviousFiveDayMovePct == null || row.currentPreviousTenDayMovePct == null
@@ -302,6 +379,7 @@ function buildStockColumns(
   showStrongFinishColumn: boolean,
   showTenTwentyMoveSummary: boolean,
   showCurrentConditionEvidence: boolean,
+  showTabOneFilters: boolean,
   onDetails: (row: ShortHorizonStockRow) => void,
   onReview: (symbol: string) => void,
 ): ColumnsType<ShortHorizonStockRow> {
@@ -328,6 +406,16 @@ function buildStockColumns(
       title: "Latest close",
       key: "latestClose",
       width: 160,
+      filters: showTabOneFilters ? [
+        { text: "20D extension watch", value: "EXTENDED" },
+        { text: "No extension watch", value: "NOT_EXTENDED" },
+      ] : undefined,
+      filterMultiple: false,
+      onFilter: showTabOneFilters
+        ? (value, row) => value === "EXTENDED"
+          ? isShortHorizonMoveExtended(row.currentTwentyDayMovePct)
+          : !isShortHorizonMoveExtended(row.currentTwentyDayMovePct)
+        : undefined,
       render: (_, row) => <LatestCloseCell row={row} />,
     },
     {
@@ -350,6 +438,15 @@ function buildStockColumns(
       key: "recentStrongFinishCount",
       width: 150,
       sorter: (left, right) => left.recentStrongFinishCount - right.recentStrongFinishCount,
+      filters: showTabOneFilters ? [
+        { text: "At least 3 / 5", value: "3" },
+        { text: "At least 4 / 5", value: "4" },
+        { text: "5 / 5", value: "5" },
+      ] : undefined,
+      filterMultiple: false,
+      onFilter: showTabOneFilters
+        ? (value, row) => row.recentStrongFinishSessionCount >= 5 && row.recentStrongFinishCount >= Number(value)
+        : undefined,
       render: (_, row) => (
         <Space orientation="vertical" size={0}>
           <Text strong>{row.recentStrongFinishCount} / {row.recentStrongFinishSessionCount}</Text>
@@ -399,6 +496,16 @@ function buildStockColumns(
       sorter: (left, right) =>
         (left.currentFiveDayMovePct ?? -Infinity) - (right.currentFiveDayMovePct ?? -Infinity)
         || (left.currentPreviousFiveDayMovePct ?? -Infinity) - (right.currentPreviousFiveDayMovePct ?? -Infinity),
+      filters: showTabOneFilters ? [
+        { text: "Accelerating", value: "ACCELERATING" },
+        { text: "Steady", value: "STEADY" },
+        { text: "Slowing", value: "SLOWING" },
+        { text: "Unavailable", value: "UNKNOWN" },
+      ] : undefined,
+      filterMultiple: false,
+      onFilter: showTabOneFilters
+        ? (value, row) => getShortHorizonMoveAccelerationState(row) === value
+        : undefined,
       render: (_, row) => <MoveNowCell row={row} />,
     },
   ] : [];
@@ -409,6 +516,16 @@ function buildStockColumns(
       key: "recentMoveQuality",
       width: 125,
       sorter: (left, right) => (left.recentMoveQuality ?? "").localeCompare(right.recentMoveQuality ?? ""),
+      filters: showTabOneFilters ? [
+        { text: "Clean", value: "CLEAN" },
+        { text: "Mixed", value: "MIXED" },
+        { text: "Wild", value: "WILD" },
+        { text: "Unavailable", value: "UNKNOWN" },
+      ] : undefined,
+      filterMultiple: false,
+      onFilter: showTabOneFilters
+        ? (value, row) => (row.recentMoveQuality ?? "UNKNOWN") === value
+        : undefined,
       render: (_, row) => (
         <Space orientation="vertical" size={0}>
           <Text className={`short-horizon-move-quality short-horizon-move-quality-${row.recentMoveQuality?.toLowerCase() ?? "unknown"}`}>
@@ -423,6 +540,16 @@ function buildStockColumns(
       key: "exitPressure",
       width: 145,
       sorter: (left, right) => getExitPressureSortValue(left.exitPressure) - getExitPressureSortValue(right.exitPressure),
+      filters: showTabOneFilters ? [
+        { text: "Quiet", value: "QUIET" },
+        { text: "Watch", value: "WATCH" },
+        { text: "Caution", value: "CAUTION" },
+        { text: "Unavailable", value: "UNKNOWN" },
+      ] : undefined,
+      filterMultiple: false,
+      onFilter: showTabOneFilters
+        ? (value, row) => (row.exitPressure ?? "UNKNOWN") === value
+        : undefined,
       render: (_, row) => <ExitPressureCell row={row} />,
     },
   ] : [];
@@ -484,6 +611,7 @@ function buildStockColumns(
         <Space orientation="vertical" size={0}>
           <Text strong>{formatSignedPercent(row.distanceFromFiftyTwoWeekHighPct)}</Text>
           <Text type="secondary" className="short-horizon-date">{formatPrice(row.fiftyTwoWeekHigh)}</Text>
+          <Text type="secondary" className="short-horizon-date">{formatSessionAge(row.fiftyTwoWeekHighSessionsAgo)} · {formatDate(row.fiftyTwoWeekHighDate)}</Text>
         </Space>
       ),
     },
@@ -494,6 +622,15 @@ function buildStockColumns(
     key: "latestFinish",
     width: 150,
     sorter: (left, right) => (left.latestClosePositionPct ?? -1) - (right.latestClosePositionPct ?? -1),
+    filters: showTabOneFilters ? [
+      { text: "HIGH", value: "HIGH" },
+      { text: "MID", value: "MIDDLE" },
+      { text: "LOW", value: "LOW" },
+    ] : undefined,
+    filterMultiple: false,
+    onFilter: showTabOneFilters
+      ? (value, row) => row.latestClosePositionBucket === value
+      : undefined,
     render: (_, row) => <ClosePositionBar positionPct={row.latestClosePositionPct} bucket={row.latestClosePositionBucket} direction={row.latestDirection} />,
   };
 
@@ -535,6 +672,7 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
   const [data, setData] = useState<WeeklyPriceWatchlistScannerResponse | null>(null);
   const [selectedDetails, setSelectedDetails] = useState<ShortHorizonStockRow | null>(null);
   const [activeTab, setActiveTab] = useState("all");
+  const [tabTwoFilters, setTabTwoFilters] = useState<ShortHorizonTabTwoFilters>(DEFAULT_TAB_TWO_FILTERS);
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [loadingScan, setLoadingScan] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -580,8 +718,11 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
   }, [selectedWatchlist]);
 
   const rows = useMemo(() => buildShortHorizonRows(data?.rows ?? []), [data?.rows]);
-  const eligibleRows = useMemo(() => filterShortHorizonRowsByShortlistGuards(rows), [rows]);
-  const shortlistRows = useMemo(() => buildShortHorizonShortlistRows(rows), [rows]);
+  const shortlistRows = useMemo(
+    () => buildShortHorizonTabTwoShortlistRows(rows, tabTwoFilters),
+    [rows, tabTwoFilters],
+  );
+  const bestAlignedRows = useMemo(() => buildShortHorizonBestAlignedRows(rows), [rows]);
   const coreRows = useMemo(() => buildShortHorizonCoreRows(rows), [rows]);
   const shortlistSizePerRule = calculateShortHorizonShortlistSize(rows.length);
 
@@ -630,7 +771,7 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
                     size="small"
                     pagination={false}
                     scroll={{ x: true }}
-                    columns={buildStockColumns(false, false, false, true, true, true, setSelectedDetails, onOpenCompactStockReview)}
+                    columns={buildStockColumns(false, false, false, true, true, true, true, setSelectedDetails, onOpenCompactStockReview)}
                     dataSource={rows}
                   />
                 ),
@@ -640,16 +781,56 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
                 label: `Shortlist · ${shortlistRows.length}`,
                 children: (
                   <div>
-                    <Text type="secondary" className="short-horizon-tab-note">Passed {eligibleRows.length} / {rows.length} · Best {shortlistSizePerRule} by each history.</Text>
-                    <Text type="secondary" className="short-horizon-rule-note"><strong>Rules:</strong> {getShortHorizonShortlistRuleDescription()}</Text>
+                    <TabTwoFilters filters={tabTwoFilters} onChange={setTabTwoFilters} />
+                    <div className="short-horizon-rule-note">
+                      <strong>How Shortlist works:</strong>
+                      <div className="short-horizon-rule-columns">
+                        <div>
+                          <strong>Sorting rules</strong>
+                          <ol>
+                            <li>Rank by 5D reach across the last 20 usable starting days.</li>
+                            <li>Rank separately by Recent tested 6D reach.</li>
+                            <li>Keep the best group from each ranking in the historical candidate pool.</li>
+                          </ol>
+                        </div>
+                        <div>
+                          <strong>Filtering rules</strong>
+                          <ol>
+                            <li>Move now keeps accelerating stocks by default.</li>
+                            <li>Strong finishes stays visible and has an optional minimum filter.</li>
+                            <li>Exit pressure excludes Caution but keeps Watch and Quiet.</li>
+                            <li>Reject structural weakness only when the last 3 closes fall in a row and today's close breaks below the previous 5-session low.</li>
+                            <li>All other Tab 1 columns remain visible for review.</li>
+                          </ol>
+                        </div>
+                      </div>
+                    </div>
                     <Table<ShortHorizonStockRow>
                       data-testid="short-horizon-shortlist-table"
                       rowKey="key"
                       size="small"
                       pagination={false}
                       scroll={{ x: true }}
-                      columns={buildStockColumns(true, false, false, false, false, false, setSelectedDetails, onOpenCompactStockReview)}
+                      columns={buildStockColumns(false, false, true, true, true, true, false, setSelectedDetails, onOpenCompactStockReview)}
                       dataSource={shortlistRows}
+                    />
+                  </div>
+                ),
+              },
+              {
+                key: "best-aligned",
+                label: `Best aligned · ${bestAlignedRows.length}`,
+                children: (
+                  <div>
+                    <Text type="secondary" className="short-horizon-tab-note">Strict two-rule view: accelerating Move now and at least 2 / 5 Strong finishes. Move quality remains visible context; the 52W high remains context only.</Text>
+                    <Table<ShortHorizonStockRow>
+                      data-testid="short-horizon-best-aligned-table"
+                      rowKey="key"
+                      size="small"
+                      pagination={false}
+                      scroll={{ x: true }}
+                      columns={buildStockColumns(false, false, true, true, true, true, false, setSelectedDetails, onOpenCompactStockReview)}
+                      dataSource={bestAlignedRows}
                     />
                   </div>
                 ),
@@ -667,7 +848,7 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
                       size="small"
                       pagination={false}
                       scroll={{ x: true }}
-                      columns={buildStockColumns(true, true, true, false, false, false, setSelectedDetails, onOpenCompactStockReview)}
+                      columns={buildStockColumns(true, true, true, false, false, false, false, setSelectedDetails, onOpenCompactStockReview)}
                       dataSource={coreRows}
                     />
                   </div>

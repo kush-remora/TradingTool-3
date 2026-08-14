@@ -27,6 +27,7 @@ export const SHORT_HORIZON_EXIT_PRESSURE_WEAK_CLOSE_POSITION_PCT = 40;
 export const SHORT_HORIZON_EXIT_PRESSURE_MIN_FAILURE_MOVE_PCT = -1;
 export const SHORT_HORIZON_STRONG_FINISH_LOOKBACK_SESSIONS = 5;
 export const SHORT_HORIZON_STRONG_FINISH_MIN_CLOSE_POSITION_PCT = 60;
+export const SHORT_HORIZON_BEST_ALIGNED_MIN_STRONG_FINISHES = 2;
 export const SHORT_HORIZON_MOVE_QUALITY_LOOKBACK_SESSIONS = 5;
 export const SHORT_HORIZON_MOVE_QUALITY_MIN_UP_CLOSES = 3;
 export const SHORT_HORIZON_MOVE_QUALITY_MAX_CLEAN_DIRECTION_CHANGES = 1;
@@ -38,6 +39,14 @@ export type ClosePositionBucket = "HIGH" | "MIDDLE" | "LOW";
 export type PriceDirection = "UP" | "FLAT" | "DOWN";
 export type MoveQuality = "CLEAN" | "MIXED" | "WILD";
 export type ExitPressure = "QUIET" | "WATCH" | "CAUTION";
+export type MoveAccelerationState = "ACCELERATING" | "SLOWING" | "STEADY" | "UNKNOWN";
+export type ShortHorizonTabTwoAccelerationFilter = MoveAccelerationState | "ANY";
+
+export interface ShortHorizonTabTwoFilters {
+  acceleration: ShortHorizonTabTwoAccelerationFilter;
+  minimumStrongFinishCount: number;
+  excludeExitPressureCaution: boolean;
+}
 
 export interface ShortHorizonSuccessDay {
   key: string;
@@ -63,6 +72,7 @@ export interface ShortHorizonDailyEvidence {
   direction: PriceDirection;
   closeFromHighPct: number | null;
   volumeMultiple: number | null;
+  deliveryPercentage: number | null;
   isStrongFinish: boolean;
 }
 
@@ -95,6 +105,8 @@ export interface ShortHorizonStockRow {
   recentMoveQuality: MoveQuality | null;
   recentDailyEvidence: ShortHorizonDailyEvidence[];
   fiftyTwoWeekHigh: number | null;
+  fiftyTwoWeekHighDate: string | null;
+  fiftyTwoWeekHighSessionsAgo: number | null;
   distanceFromFiftyTwoWeekHighPct: number | null;
   lastThreeClosesDeclining: boolean | null;
   previousFiveSessionLow: number | null;
@@ -196,6 +208,50 @@ export function calculateShortHorizonShortlistSize(stockCount: number): number {
 
 export function isShortHorizonMoveExtended(movePct: number | null): boolean {
   return movePct != null && movePct > SHORT_HORIZON_OVEREXTENDED_TWENTY_DAY_MOVE_PCT;
+}
+
+export function getShortHorizonMoveAccelerationState(row: ShortHorizonStockRow): MoveAccelerationState {
+  if (row.currentFiveDayMovePct == null || row.currentPreviousFiveDayMovePct == null) return "UNKNOWN";
+  if (row.currentFiveDayMovePct - row.currentPreviousFiveDayMovePct >= SHORT_HORIZON_MOVE_ACCELERATION_TOLERANCE_PCT) return "ACCELERATING";
+  if (row.currentPreviousFiveDayMovePct - row.currentFiveDayMovePct >= SHORT_HORIZON_MOVE_ACCELERATION_TOLERANCE_PCT) return "SLOWING";
+  return "STEADY";
+}
+
+export function passesShortHorizonTabTwoFilters(
+  row: ShortHorizonStockRow,
+  filters: ShortHorizonTabTwoFilters,
+): boolean {
+  const accelerationMatches = filters.acceleration === "ANY"
+    || getShortHorizonMoveAccelerationState(row) === filters.acceleration;
+  const strongFinishMatches = filters.minimumStrongFinishCount === 0
+    || (
+      row.recentStrongFinishSessionCount >= SHORT_HORIZON_STRONG_FINISH_LOOKBACK_SESSIONS
+      && row.recentStrongFinishCount >= filters.minimumStrongFinishCount
+    );
+  const exitPressureMatches = !filters.excludeExitPressureCaution || row.exitPressure !== "CAUTION";
+  const hasStructuralWeakness = row.lastThreeClosesDeclining === true
+    && row.latestCloseBelowPreviousFiveSessionLow === true;
+
+  return accelerationMatches && strongFinishMatches && exitPressureMatches && !hasStructuralWeakness;
+}
+
+export function filterShortHorizonRowsByTabTwoFilters(
+  rows: ShortHorizonStockRow[],
+  filters: ShortHorizonTabTwoFilters,
+): ShortHorizonStockRow[] {
+  return rows.filter((row) => passesShortHorizonTabTwoFilters(row, filters));
+}
+
+export function filterShortHorizonRowsByBestAlignedFilters(rows: ShortHorizonStockRow[]): ShortHorizonStockRow[] {
+  return rows.filter((row) =>
+    getShortHorizonMoveAccelerationState(row) === "ACCELERATING"
+    && row.recentStrongFinishSessionCount >= SHORT_HORIZON_STRONG_FINISH_LOOKBACK_SESSIONS
+    && row.recentStrongFinishCount >= SHORT_HORIZON_BEST_ALIGNED_MIN_STRONG_FINISHES,
+  );
+}
+
+export function buildShortHorizonBestAlignedRows(rows: ShortHorizonStockRow[]): ShortHorizonStockRow[] {
+  return filterShortHorizonRowsByBestAlignedFilters(rows);
 }
 
 export function passesShortHorizonEvidenceGate(row: ShortHorizonStockRow): boolean {
@@ -447,6 +503,7 @@ function calculateRecentDailyEvidence(days: WeeklyPriceWatchlistDay[]): ShortHor
           day,
           days.slice(Math.max(0, absoluteDayIndex - SHORT_HORIZON_VOLUME_AVERAGE_SESSIONS), absoluteDayIndex),
         ),
+        deliveryPercentage: day.deliveryPercentage,
         isStrongFinish: isStrongFinishPosition(closePositionPct),
       };
     })
@@ -535,6 +592,8 @@ export function buildShortHorizonStockRow(row: WeeklyPriceWatchlistRow): ShortHo
     recentMoveQuality: calculateRecentMoveQuality(sortedDays),
     recentDailyEvidence: calculateRecentDailyEvidence(sortedDays),
     fiftyTwoWeekHigh: row.momentum_evidence?.fifty_two_week_high ?? null,
+    fiftyTwoWeekHighDate: row.momentum_evidence?.fifty_two_week_high_date ?? null,
+    fiftyTwoWeekHighSessionsAgo: row.momentum_evidence?.fifty_two_week_high_sessions_ago ?? null,
     distanceFromFiftyTwoWeekHighPct: row.momentum_evidence?.distance_from_fifty_two_week_high_pct ?? null,
     ...recentWeaknessEvidence,
     eligibleDayCount: referenceDays.length,
@@ -581,15 +640,37 @@ function rankShortHorizonRowsByRecentWindow(rows: ShortHorizonStockRow[]): Short
   );
 }
 
-export function buildShortHorizonShortlistRows(rows: ShortHorizonStockRow[]): ShortHorizonStockRow[] {
-  const eligibleRows = filterShortHorizonRowsByShortlistGuards(rows);
-  const shortlistSizePerRule = calculateShortHorizonShortlistSize(rows.length);
-  const longWindowRows = rankShortHorizonRowsByLongWindow(eligibleRows).slice(0, shortlistSizePerRule);
-  const recentWindowRows = rankShortHorizonRowsByRecentWindow(eligibleRows).slice(0, shortlistSizePerRule);
+function buildShortHorizonShortlistRowsFromCandidates(
+  candidateRows: ShortHorizonStockRow[],
+  originalStockCount: number,
+): ShortHorizonStockRow[] {
+  const shortlistSizePerRule = calculateShortHorizonShortlistSize(originalStockCount);
+  const longWindowRows = rankShortHorizonRowsByLongWindow(candidateRows).slice(0, shortlistSizePerRule);
+  const recentWindowRows = rankShortHorizonRowsByRecentWindow(candidateRows).slice(0, shortlistSizePerRule);
   const longWindowKeys = new Set(longWindowRows.map((row) => row.key));
 
   return [...longWindowRows, ...recentWindowRows.filter((row) => !longWindowKeys.has(row.key))]
     .slice(0, SHORT_HORIZON_MAX_SHORTLIST_COUNT * 2);
+}
+
+export function buildShortHorizonShortlistRows(rows: ShortHorizonStockRow[]): ShortHorizonStockRow[] {
+  const eligibleRows = filterShortHorizonRowsByShortlistGuards(rows);
+  return buildShortHorizonShortlistRowsFromCandidates(eligibleRows, rows.length);
+}
+
+export function buildShortHorizonTabTwoShortlistRows(
+  rows: ShortHorizonStockRow[],
+  filters: ShortHorizonTabTwoFilters,
+): ShortHorizonStockRow[] {
+  const currentCandidates = filterShortHorizonRowsByTabTwoFilters(rows, filters);
+  const longWindowRows = rankShortHorizonRowsByLongWindow(currentCandidates);
+  const recentWindowRows = rankShortHorizonRowsByRecentWindow(currentCandidates);
+  const longWindowKeys = new Set(longWindowRows.map((row) => row.key));
+
+  return [
+    ...longWindowRows,
+    ...recentWindowRows.filter((row) => !longWindowKeys.has(row.key)),
+  ];
 }
 
 export function buildShortHorizonCoreRows(rows: ShortHorizonStockRow[]): ShortHorizonStockRow[] {

@@ -54,19 +54,20 @@ describe("ShortHorizonSelectorPage", () => {
     expect(screen.getByText("5D reach 20 / 20")).toBeInTheDocument();
     expect(screen.getByText("Recent tested 6D 6 / 6")).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "Strong finishes" })).toBeInTheDocument();
-    expect(within(screen.getByTestId("short-horizon-selector-table")).getByText("0 / 5")).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-selector-table")).getByText("1 / 5")).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByLabelText("Strong finish sequence, newest day first")).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-selector-table")).queryByText("T-1", { exact: true })).not.toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "Move now" })).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "Move quality" })).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "Exit pressure" })).toBeInTheDocument();
-    expect(within(screen.getByTestId("short-horizon-selector-table")).getByText("20D +0.0%", { exact: true })).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-selector-table")).getAllByLabelText("filter").length).toBeGreaterThanOrEqual(6);
+    expect(within(screen.getByTestId("short-horizon-selector-table")).getByText("20D +4.0%", { exact: true })).toBeInTheDocument();
     const moveTable = screen.getByTestId("short-horizon-selector-table");
     const headerLabels = within(moveTable).getAllByRole("columnheader").map((header) => header.getAttribute("aria-label") ?? header.textContent);
     expect(headerLabels.indexOf("Latest finish")).toBe(headerLabels.indexOf("Strong finishes") + 1);
-    expect(within(moveTable).getAllByText("+0.0%", { exact: true })).toHaveLength(3);
+    expect(within(moveTable).getAllByText("+0.0%", { exact: true })).toHaveLength(2);
     expect(Array.from(moveTable.querySelectorAll(".short-horizon-move-period")).map((label) => label.textContent)).toEqual(["Now 5D", "Prior 5D", "Earlier 10D"]);
-    const moveCell = within(screen.getByTestId("short-horizon-selector-table")).getByLabelText(/Now 5D \+0\.0%/);
+    const moveCell = within(screen.getByTestId("short-horizon-selector-table")).getByLabelText(/Now 5D \+4\.0%/);
     const moveText = moveCell.textContent ?? "";
     expect(moveText.indexOf("Now 5D")).toBeLessThan(moveText.indexOf("Prior 5D"));
     expect(moveText.indexOf("Prior 5D")).toBeLessThan(moveText.indexOf("Earlier 10D"));
@@ -80,10 +81,21 @@ describe("ShortHorizonSelectorPage", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Shortlist · 1" }));
     expect(await screen.findByTestId("short-horizon-shortlist-table")).toBeInTheDocument();
-    expect(within(screen.getByTestId("short-horizon-shortlist-table")).queryByText(/Strong finishes/)).not.toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-shortlist-table")).getByRole("columnheader", { name: "Move now" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-shortlist-table")).getByRole("columnheader", { name: "Strong finishes" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-shortlist-table")).getByRole("columnheader", { name: "Move quality" })).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-shortlist-table")).getByRole("columnheader", { name: "Exit pressure" })).toBeInTheDocument();
-    expect(screen.getByText(/Passed 1 \/ 1 · Best 1 by each history/)).toBeInTheDocument();
-    expect(screen.getByText(/reject only if the last 3 closes fall in a row and today's close breaks below the previous 5-session low/)).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-shortlist-table")).getByRole("columnheader", { name: "52W high" })).toBeInTheDocument();
+    expect(screen.getByTestId("short-horizon-tab-two-filters")).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-tab-two-filters")).getByText("Accelerating")).toBeInTheDocument();
+    expect(screen.getByText("Sorting rules")).toBeInTheDocument();
+    expect(screen.getByText("Filtering rules")).toBeInTheDocument();
+    expect(screen.getByText(/Rank by 5D reach across the last 20 usable starting days/)).toBeInTheDocument();
+    expect(screen.getByText(/Reject structural weakness only when the last 3 closes fall in a row/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Best aligned · 0" }));
+    expect(await screen.findByTestId("short-horizon-best-aligned-table")).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-best-aligned-table")).getByRole("columnheader", { name: "52W high" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Core · 1" }));
     expect(await screen.findByTestId("short-horizon-core-table")).toBeInTheDocument();
@@ -103,13 +115,14 @@ describe("ShortHorizonSelectorPage", () => {
     expect(within(dialog).getByText("recent completed sessions")).toBeInTheDocument();
     expect(within(dialog).getByRole("columnheader", { name: "Open" })).toBeInTheDocument();
     expect(within(dialog).getByRole("columnheader", { name: "Volume vs 10D avg" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("columnheader", { name: "Delivery %" })).toBeInTheDocument();
     expect(within(dialog).getByRole("columnheader", { name: "Change %" })).toBeInTheDocument();
     expect(within(dialog).getByRole("columnheader", { name: "Close position" })).toBeInTheDocument();
     expect(within(dialog).getByRole("columnheader", { name: "From high" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Review" }));
     await waitFor(() => expect(onOpenCompactStockReview).toHaveBeenCalledWith("ABC"));
-  });
+  }, 10000);
 });
 
 function buildDays() {
@@ -118,7 +131,7 @@ function buildDays() {
     open: 100,
     high: 110,
     low: 90,
-    close: 100,
+    close: index === 24 ? 104 : 100,
     volume: 100,
     deliveryPercentage: null,
   }));

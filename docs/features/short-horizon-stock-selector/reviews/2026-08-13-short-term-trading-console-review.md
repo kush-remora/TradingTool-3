@@ -917,3 +917,9 @@ Reference links:
 ## One-Line Product Principle
 
 The selector should find stocks with proven short-term movement, current clean strength, and no obvious crowd-exit warning; everything else belongs in details or Compact Review.
+
+## New Best aligned view
+
+The console now includes a strict `Best aligned` view for two current-condition checks: accelerating Move now and at least `2 / 5` Strong finishes. Move quality remains visible context but is not a membership filter. It is a subset view, not a buy signal, and does not add Exit pressure or structural-weakness filtering. The 52-week-high context also reports the high date and trading-session age so distance from the high can be read with recency.
+
+The Recent 20D details popup now includes sortable daily delivery percentage. This is supporting evidence alongside volume versus the preceding 10-session average, not an additional selection rule.

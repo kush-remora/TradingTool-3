@@ -772,6 +772,8 @@ export interface MomentumEvidence {
   above_sma200: boolean | null;
   distance_from_sma200_pct: number | null;
   fifty_two_week_high: number | null;
+  fifty_two_week_high_date?: string | null;
+  fifty_two_week_high_sessions_ago?: number | null;
   distance_from_fifty_two_week_high_pct: number | null;
   thirty_day_low?: number | null;
   distance_from_thirty_day_low_pct?: number | null;

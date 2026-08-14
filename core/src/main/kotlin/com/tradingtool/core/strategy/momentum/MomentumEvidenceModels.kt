@@ -48,6 +48,8 @@ data class MomentumEvidence(
     @get:JsonProperty("above_sma200") val aboveSma200: Boolean?,
     @get:JsonProperty("distance_from_sma200_pct") val distanceFromSma200Pct: Double?,
     @get:JsonProperty("fifty_two_week_high") val fiftyTwoWeekHigh: Double?,
+    @get:JsonProperty("fifty_two_week_high_date") val fiftyTwoWeekHighDate: String?,
+    @get:JsonProperty("fifty_two_week_high_sessions_ago") val fiftyTwoWeekHighSessionsAgo: Int?,
     @get:JsonProperty("distance_from_fifty_two_week_high_pct") val distanceFromFiftyTwoWeekHighPct: Double?,
     @get:JsonProperty("thirty_day_low") val thirtyDayLow: Double?,
     @get:JsonProperty("distance_from_thirty_day_low_pct") val distanceFromThirtyDayLowPct: Double?,
