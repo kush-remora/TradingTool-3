@@ -3,17 +3,22 @@ import { Alert, Button, Card, Empty, Modal, Select, Space, Spin, Table, Tabs, Ty
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { UniverseOptionsResponse, WeeklyPriceWatchlistScannerResponse } from "../types";
+import { AccumulationHeatmap } from "../components/AccumulationHeatmap";
 import { ShortHorizonTabOneGuide } from "../components/ShortHorizonTabOneGuide";
 import { getJson } from "../utils/api";
 import {
+  buildAccumulationRows,
+  type AccumulationStockRow,
+} from "../utils/accumulationScanner";
+import {
   buildShortHorizonBestAlignedRows,
   buildShortHorizonFirstSeenPerformance,
+  buildShortHorizonFreshTodayRows,
   buildShortHorizonLatestTwoFinishRows,
   buildShortHorizonRows,
   buildShortHorizonTabTwoShortlistRows,
   getShortHorizonMoveAccelerationState,
-  isShortHorizonMoveExtended,
-  SHORT_HORIZON_OVEREXTENDED_TWENTY_DAY_MOVE_PCT,
+  getShortHorizonMoveStage,
   type ClosePositionBucket,
   type MoveAccelerationState,
   type MoveQuality,
@@ -21,6 +26,7 @@ import {
   type ShortHorizonDailyEvidence,
   type ShortHorizonFirstSeenPerformance,
   type ShortHorizonFirstSeenPerformanceByTab,
+  type ShortHorizonMoveStage,
   type ShortHorizonStockRow,
   type ShortHorizonTabTwoFilters,
   type VolumeActivity,
@@ -28,6 +34,21 @@ import {
 import "./shortHorizonSelector.css";
 
 const { Text, Title } = Typography;
+const SHORT_HORIZON_STRONG_FIRST_SEEN_RETURN_PCT = 5;
+
+function getFirstSeenReturnClassName(value: number | null): string {
+  const direction = value == null || value === 0 ? "neutral" : value > 0 ? "positive" : "negative";
+  const weight = value != null && value >= SHORT_HORIZON_STRONG_FIRST_SEEN_RETURN_PCT ? " strong" : "";
+  return "short-horizon-first-seen-return-" + direction + weight;
+}
+
+function FirstSeenReturnMetric({ label, value }: { label: string; value: number | null }): ReactNode {
+  return (
+    <span>
+      {label} <span className={getFirstSeenReturnClassName(value)}>{formatSignedPercent(value)}</span>
+    </span>
+  );
+}
 
 function formatPrice(value: number | null): string {
   return value == null ? "—" : `₹${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -54,6 +75,12 @@ function formatDeliveryPercentage(value: number | null): string {
 function formatSignedPercent(value: number | null): string {
   if (value == null) return "—";
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
+function formatAccumulationClose(value: number | null): string {
+  return value == null
+    ? "—"
+    : `₹${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function addFirstSeenPerformance(
@@ -239,7 +266,7 @@ function StrongFinishDots({ row }: { row: ShortHorizonStockRow }): ReactNode {
 function VolumeActivityCell({ row }: { row: ShortHorizonStockRow }): ReactNode {
   const state = row.volumeActivity?.toLowerCase() ?? "unknown";
   const detail = row.volumeActivityMultiple == null
-    ? "No abnormal volume in latest 3 sessions"
+    ? "No abnormal volume in latest 5 sessions"
     : `${formatMultiple(row.volumeActivityMultiple)} · event ${formatDate(row.volumeActivityDate)}`;
 
   return (
@@ -255,9 +282,9 @@ function VolumeActivityCell({ row }: { row: ShortHorizonStockRow }): ReactNode {
 }
 
 function LatestCloseCell({ row }: { row: ShortHorizonStockRow }): ReactNode {
-  const isExtended = isShortHorizonMoveExtended(row.currentTwentyDayMovePct);
+  const stage = getShortHorizonMoveStage(row);
   const latestDayChangePct = row.recentDailyEvidence[0]?.changePct ?? null;
-  const contextTitle = `Day ${formatSignedPercent(latestDayChangePct)} · 20D ${formatSignedPercent(row.currentTwentyDayMovePct)}${row.pullbackFromRecentHighPct == null ? "" : ` · ${formatSignedPercent(row.pullbackFromRecentHighPct)} from recent high`}${isExtended ? ` · Extension watch above ${SHORT_HORIZON_OVEREXTENDED_TWENTY_DAY_MOVE_PCT}%` : ""}`;
+  const contextTitle = `Day ${formatSignedPercent(latestDayChangePct)} · 20D ${formatSignedPercent(row.currentTwentyDayMovePct)}${row.pullbackFromRecentHighPct == null ? "" : ` · ${formatSignedPercent(row.pullbackFromRecentHighPct)} from recent high`} · Stage ${getMoveStageLabel(stage)}`;
 
   return (
     <Space orientation="vertical" size={0}>
@@ -275,18 +302,18 @@ function LatestCloseCell({ row }: { row: ShortHorizonStockRow }): ReactNode {
         {row.pullbackFromRecentHighPct != null && (
           <span className="short-horizon-latest-close-from-high"> · {formatSignedPercent(row.pullbackFromRecentHighPct)} from high</span>
         )}
-        {isExtended && <span className="short-horizon-latest-close-warning" aria-label="Extension watch">⚠</span>}
+        <span className={`short-horizon-move-stage short-horizon-move-stage-${stage.toLowerCase()}`}> · {getMoveStageLabel(stage)}</span>
       </span>
     </Space>
   );
 }
 
-function getMoveAccelerationLabel(state: MoveAccelerationState): string {
-  if (state === "ACCELERATING") return "accelerating";
-  if (state === "RECOVERING") return "recovering decline";
-  if (state === "WEAKENING") return "weakening";
-  if (state === "STEADY") return "steady pace";
-  return "pace unavailable";
+function getMovePaceLabel(state: MoveAccelerationState): string {
+  if (state === "ACCELERATING") return "Accelerating";
+  if (state === "RECOVERING") return "Recovering";
+  if (state === "WEAKENING") return "Slowing";
+  if (state === "STEADY") return "Steady";
+  return "Unavailable";
 }
 
 const DEFAULT_TAB_TWO_FILTERS: ShortHorizonTabTwoFilters = {
@@ -342,39 +369,87 @@ function TabTwoFilters({
   );
 }
 
+type FiveDayPathMarker = "UP" | "DOWN" | "FLAT" | "UNKNOWN";
+
+interface FiveDayPathSummary {
+  greenDays: number;
+  averageDailyChangePct: number | null;
+  markers: FiveDayPathMarker[];
+}
+
+function getFiveDayMoveBand(value: number | null): string {
+  if (value == null) return "—";
+  const absoluteMove = Math.abs(value);
+  if (absoluteMove >= 10) return "10%+";
+  if (absoluteMove >= 5) return "5–10%";
+  if (absoluteMove >= 3) return "3–5%";
+  return "<3%";
+}
+
+function buildFiveDayPathSummary(row: ShortHorizonStockRow): FiveDayPathSummary {
+  const recentDays = row.recentDailyEvidence.slice(0, 5);
+  const changes = recentDays
+    .map((day) => day.changePct)
+    .filter((changePct): changePct is number => changePct != null);
+
+  return {
+    greenDays: recentDays.filter((day) => day.changePct != null && day.changePct > 0).length,
+    averageDailyChangePct: changes.length === 0
+      ? null
+      : changes.reduce((total, changePct) => total + changePct, 0) / changes.length,
+    markers: recentDays.map((day) => getMoveDirection(day.changePct) ?? "UNKNOWN"),
+  };
+}
+
+function getFiveDayPathMarkerLabel(marker: FiveDayPathMarker): string {
+  if (marker === "UP") return "G";
+  if (marker === "DOWN") return "R";
+  if (marker === "FLAT") return "·";
+  return "?";
+}
+
+function getMoveStageLabel(stage: ShortHorizonMoveStage): string {
+  if (stage === "FRESH") return "Fresh";
+  if (stage === "REVIEW") return "Review";
+  if (stage === "EXTENDED") return "Extended";
+  return "Stage unavailable";
+}
+
 function MoveNowCell({ row }: { row: ShortHorizonStockRow }): ReactNode {
-  const accelerationState = getShortHorizonMoveAccelerationState(row);
-  const accelerationLabel = getMoveAccelerationLabel(accelerationState);
-  const isOverextended = isShortHorizonMoveExtended(row.currentTwentyDayMovePct);
-  const explanation = row.currentPreviousFiveDayMovePct == null || row.currentPreviousTenDayMovePct == null
-    ? `Now 5D ${formatSignedPercent(row.currentFiveDayMovePct)} · Prior 5D ${formatSignedPercent(row.currentPreviousFiveDayMovePct)} · Earlier 10D ${formatSignedPercent(row.currentPreviousTenDayMovePct)}. The 5D pace comparison is unavailable.`
-    : `Now 5D ${formatSignedPercent(row.currentFiveDayMovePct)} · Prior 5D ${formatSignedPercent(row.currentPreviousFiveDayMovePct)} · Earlier 10D ${formatSignedPercent(row.currentPreviousTenDayMovePct)} · 20D total ${formatSignedPercent(row.currentTwentyDayMovePct)}. The latest 5D is ${accelerationLabel} versus the prior 5D.`;
-  const title = isOverextended
-    ? `${explanation} Extension watch: the 20D move is above ${SHORT_HORIZON_OVEREXTENDED_TWENTY_DAY_MOVE_PCT}%.`
-    : explanation;
+  const path = buildFiveDayPathSummary(row);
+  const direction = getMoveDirection(row.currentFiveDayMovePct);
+  const pace = getShortHorizonMoveAccelerationState(row);
+  const paceLabel = getMovePaceLabel(pace);
+  const directionLabel = direction === "UP" ? "Up" : direction === "DOWN" ? "Down" : direction === "FLAT" ? "Flat" : "5D";
+  const resultLabel = row.currentFiveDayMovePct == null
+    ? "Now 5D unavailable"
+    : "Now 5D " + directionLabel + " " + formatSignedPercent(row.currentFiveDayMovePct) + " · Prior 5D " + formatSignedPercent(row.currentPreviousFiveDayMovePct) + " · " + paceLabel;
+  const availableDays = path.markers.length;
+  const pathLabel = "5D path: " + path.greenDays + "/" + availableDays + " green · avg day " + formatSignedPercent(path.averageDailyChangePct) + " · " + path.markers.map(getFiveDayPathMarkerLabel).join(" ");
+  const title = resultLabel + ". " + (availableDays === 0 ? "5D path unavailable." : pathLabel);
 
   return (
-    <div className="short-horizon-move-now" title={title} aria-label={title}>
-      <div className="short-horizon-move-now-line">
-        <span className="short-horizon-move-period">Now 5D</span>
-        <span className={`short-horizon-current-move short-horizon-current-move-${getMoveDirection(row.currentFiveDayMovePct)?.toLowerCase() ?? "unknown"}`}>
-          {formatSignedPercent(row.currentFiveDayMovePct)}
-        </span>
+    <div className="short-horizon-five-day-summary" title={title} aria-label={title}>
+      <div className={`short-horizon-five-day-result short-horizon-five-day-result-${direction?.toLowerCase() ?? "unknown"}`}>
+        <span>{directionLabel}</span>
+        <strong>{formatSignedPercent(row.currentFiveDayMovePct)}</strong>
+        <span className="short-horizon-five-day-band">{getFiveDayMoveBand(row.currentFiveDayMovePct)}</span>
       </div>
-      <div className="short-horizon-move-now-line">
-        <span className="short-horizon-move-period">Prior 5D</span>
-        <span className={`short-horizon-current-move short-horizon-current-move-${getMoveDirection(row.currentPreviousFiveDayMovePct)?.toLowerCase() ?? "unknown"}`}>
-          {formatSignedPercent(row.currentPreviousFiveDayMovePct)}
-        </span>
+      <div className={`short-horizon-five-day-pace short-horizon-five-day-pace-${pace.toLowerCase()}`}>
+        <span>Prior 5D</span>
+        <strong>{formatSignedPercent(row.currentPreviousFiveDayMovePct)}</strong>
+        <span>{paceLabel}</span>
       </div>
-      <div className="short-horizon-move-now-line">
-        <span className="short-horizon-move-period">Earlier 10D</span>
-        <span className={`short-horizon-current-move short-horizon-current-move-${getMoveDirection(row.currentPreviousTenDayMovePct)?.toLowerCase() ?? "unknown"}`}>
-          {formatSignedPercent(row.currentPreviousTenDayMovePct)}
+      <div className="short-horizon-five-day-path">
+        <span className="short-horizon-five-day-path-count">{path.greenDays}/{availableDays}</span>
+        <span className="short-horizon-five-day-path-markers" aria-hidden="true">
+          {path.markers.map((marker, index) => (
+            <span className={`short-horizon-five-day-marker short-horizon-five-day-marker-${marker.toLowerCase()}`} key={marker + "-" + index}>
+              {getFiveDayPathMarkerLabel(marker)}
+            </span>
+          ))}
         </span>
-        <span className={`short-horizon-move-acceleration short-horizon-move-acceleration-${accelerationState.toLowerCase()}`} aria-label={accelerationLabel}>
-          {accelerationState === "ACCELERATING" ? "↗" : accelerationState === "RECOVERING" ? "↗" : accelerationState === "WEAKENING" ? "↘" : accelerationState === "STEADY" ? "→" : "·"}
-        </span>
+        <span className="short-horizon-five-day-average">avg {formatSignedPercent(path.averageDailyChangePct)}</span>
       </div>
     </div>
   );
@@ -415,7 +490,9 @@ function buildStockColumns(
               className="short-horizon-first-seen-performance"
               title={row.firstSeenHighDate ? `Highest post-signal high on ${formatDate(row.firstSeenHighDate)}` : "No later session high yet"}
             >
-              Close {formatSignedPercent(row.firstSeenCloseReturnPct)} · High {formatSignedPercent(row.firstSeenHighReturnPct)}
+              <FirstSeenReturnMetric label="Close" value={row.firstSeenCloseReturnPct} />
+              {" · "}
+              <FirstSeenReturnMetric label="High" value={row.firstSeenHighReturnPct} />
             </Text>
           )}
           <Text strong>{row.symbol}</Text>
@@ -427,16 +504,6 @@ function buildStockColumns(
       title: "Latest close",
       key: "latestClose",
       width: 160,
-      filters: showTabOneFilters ? [
-        { text: "20D extension watch", value: "EXTENDED" },
-        { text: "No extension watch", value: "NOT_EXTENDED" },
-      ] : undefined,
-      filterMultiple: false,
-      onFilter: showTabOneFilters
-        ? (value, row) => value === "EXTENDED"
-          ? isShortHorizonMoveExtended(row.currentTwentyDayMovePct)
-          : !isShortHorizonMoveExtended(row.currentTwentyDayMovePct)
-        : undefined,
       render: (_, row) => <LatestCloseCell row={row} />,
     },
     {
@@ -517,17 +584,6 @@ function buildStockColumns(
       sorter: (left, right) =>
         (left.currentFiveDayMovePct ?? -Infinity) - (right.currentFiveDayMovePct ?? -Infinity)
         || (left.currentPreviousFiveDayMovePct ?? -Infinity) - (right.currentPreviousFiveDayMovePct ?? -Infinity),
-      filters: showTabOneFilters ? [
-        { text: "Accelerating", value: "ACCELERATING" },
-        { text: "Steady", value: "STEADY" },
-        { text: "Recovering", value: "RECOVERING" },
-        { text: "Weakening", value: "WEAKENING" },
-        { text: "Unavailable", value: "UNKNOWN" },
-      ] : undefined,
-      filterMultiple: false,
-      onFilter: showTabOneFilters
-        ? (value, row) => getShortHorizonMoveAccelerationState(row) === value
-        : undefined,
       render: (_, row) => <MoveNowCell row={row} />,
     },
   ] : [];
@@ -687,6 +743,100 @@ function buildStockColumns(
   ];
 }
 
+function AccumulationCountCell({
+  count,
+  total,
+  tone,
+}: {
+  count: number;
+  total: number;
+  tone: "buying" | "green" | "quiet" | "volume";
+}): ReactNode {
+  return (
+    <div className={`accumulation-count-cell accumulation-count-cell-${tone}`}>
+      <strong>{count} / {total}</strong>
+      <span>sessions</span>
+    </div>
+  );
+}
+
+function buildAccumulationColumns(
+  onReview: (symbol: string) => void,
+): ColumnsType<AccumulationStockRow> {
+  return [
+    {
+      title: "No.",
+      key: "number",
+      width: 52,
+      align: "center",
+      render: (_, _row, index) => (index ?? 0) + 1,
+    },
+    {
+      title: "Stock",
+      key: "stock",
+      width: 170,
+      render: (_, row) => (
+        <Space orientation="vertical" size={0}>
+          <Text strong>{row.symbol}</Text>
+          <Text type="secondary" className="short-horizon-company">{row.companyName}</Text>
+        </Space>
+      ),
+    },
+    {
+      title: "Latest close",
+      key: "latestClose",
+      width: 120,
+      render: (_, row) => (
+        <Space orientation="vertical" size={0}>
+          <Text strong>{formatAccumulationClose(row.latestClose)}</Text>
+          <Text type="secondary" className="short-horizon-date">{formatDate(row.latestDate)}</Text>
+        </Space>
+      ),
+    },
+    {
+      title: "Buy-interest days",
+      key: "buyingInterestCount",
+      width: 135,
+      sorter: (left, right) => left.buyingInterestCount - right.buyingInterestCount,
+      defaultSortOrder: "descend",
+      render: (_, row) => <AccumulationCountCell count={row.buyingInterestCount} total={row.countWindowSessions} tone="buying" />,
+    },
+    {
+      title: "Green closes",
+      key: "greenCloseCount",
+      width: 120,
+      sorter: (left, right) => left.greenCloseCount - right.greenCloseCount,
+      render: (_, row) => <AccumulationCountCell count={row.greenCloseCount} total={row.countWindowSessions} tone="green" />,
+    },
+    {
+      title: "Quiet <1%",
+      key: "quietMoveCount",
+      width: 110,
+      sorter: (left, right) => left.quietMoveCount - right.quietMoveCount,
+      render: (_, row) => <AccumulationCountCell count={row.quietMoveCount} total={row.countWindowSessions} tone="quiet" />,
+    },
+    {
+      title: "Volume below 10D",
+      key: "volumeDryUpCount",
+      width: 140,
+      sorter: (left, right) => left.volumeDryUpCount - right.volumeDryUpCount,
+      render: (_, row) => <AccumulationCountCell count={row.volumeDryUpCount} total={row.volumeEligibleSessionCount} tone="volume" />,
+    },
+    {
+      title: "20D heatmap",
+      key: "heatmap",
+      width: 300,
+      render: (_, row) => <AccumulationHeatmap days={row.heatmap} />,
+    },
+    {
+      title: "Action",
+      key: "action",
+      width: 92,
+      render: (_, row) => <Button size="small" type="primary" onClick={() => onReview(row.symbol)}>Review</Button>,
+    },
+  ];
+}
+
 export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenCompactStockReview: (symbol: string) => void }) {
   const [options, setOptions] = useState<UniverseOptionsResponse["options"]>([]);
   const [selectedWatchlist, setSelectedWatchlist] = useState<string | null>(null);
@@ -764,6 +914,14 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
   const latestTwoFinishRowsWithFirstSeenDates = useMemo(
     () => addFirstSeenPerformance(latestTwoFinishRows, firstSeenPerformance["latest-two-finish"]),
     [latestTwoFinishRows, firstSeenPerformance],
+  );
+  const freshTodayRows = useMemo(
+    () => buildShortHorizonFreshTodayRows(latestTwoFinishRowsWithFirstSeenDates),
+    [latestTwoFinishRowsWithFirstSeenDates],
+  );
+  const accumulationRows = useMemo(
+    () => buildAccumulationRows(data?.rows ?? []),
+    [data?.rows],
   );
 
   return (
@@ -889,6 +1047,44 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
                       scroll={{ x: true }}
                       columns={buildStockColumns(false, false, true, true, true, true, false, true, setSelectedDetails, onOpenCompactStockReview)}
                       dataSource={latestTwoFinishRowsWithFirstSeenDates}
+                    />
+                  </div>
+                ),
+              },
+              {
+                key: "fresh-today",
+                label: "Fresh today · " + freshTodayRows.length,
+                children: (
+                  <div>
+                    <Text type="secondary" className="short-horizon-tab-note">Only stocks that entered Latest 2-day finish in the current completed session. Use this tab to separate fresh signals from stocks already visible in the recent five-session window.</Text>
+                    <Table<ShortHorizonStockRow>
+                      data-testid="short-horizon-fresh-today-table"
+                      rowKey="key"
+                      size="small"
+                      pagination={false}
+                      scroll={{ x: true }}
+                      columns={buildStockColumns(false, false, true, true, true, true, false, true, setSelectedDetails, onOpenCompactStockReview)}
+                      dataSource={freshTodayRows}
+                    />
+                  </div>
+                ),
+              },
+              {
+                key: "accumulation",
+                label: `Accumulation · ${accumulationRows.length}`,
+                children: (
+                  <div>
+                    <Text type="secondary" className="short-horizon-tab-note">
+                      30-session context: Buy = close at least 70% up the daily range · Green = close above previous close · Quiet = absolute close-to-close move below 1% · Vol = volume below the prior 10-session average. Heatmap reads oldest → latest across the latest 20 sessions.
+                    </Text>
+                    <Table<AccumulationStockRow>
+                      data-testid="short-horizon-accumulation-table"
+                      rowKey="key"
+                      size="small"
+                      pagination={false}
+                      scroll={{ x: true }}
+                      columns={buildAccumulationColumns(onOpenCompactStockReview)}
+                      dataSource={accumulationRows}
                     />
                   </div>
                 ),

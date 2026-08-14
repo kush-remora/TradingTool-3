@@ -112,11 +112,13 @@ The read-only Details modal is modeless and has no blocking mask, so the global 
 
 All Stocks now shows a sortable `Strong finishes` column with the count out of five and five filled/empty dots in newest-first order. Filled dots mean the close finished in the upper 40% of the day's high–low range; hover still exposes the date and sequence position, and the metric does not affect selection.
 
-All Stocks now shows a sortable compact `Move now` column with non-overlapping `Now 5D`, `Prior 5D`, and `Earlier 10D` close-to-close movement buckets. The cell uses green/red direction, a pace arrow comparing Now 5D with Prior 5D using a 1 percentage-point tolerance, and an amber extension watch when the hidden 20D total reaches +25% or more. These values provide current activity context and do not affect selection.
+All Stocks now shows a sortable compact `Move now` column focused on the latest five completed sessions. The cell shows the net 5D direction and magnitude band, the count of green close-to-close days, a compact newest-first G/R path strip, and the average daily change. Previous-period acceleration remains outside this first-tab reading step and is not changed by this presentation update.
+
+The `Latest close` cell now adds one low-cognitive-load stage label for every stock: `Fresh` when the latest close is no more than 10% above the recent 20-session low, `Review` when it is above 10% through 20%, and `Extended` above 20%. This uses rebound from the recent low rather than net 20D change, and is display-only; it does not filter rows or alter any downstream tab. `Move now` remains limited to latest-5-session movement, now adds `Prior 5D` and a pace label, and no longer exposes the old acceleration enum filter.
 
 ## Implemented neutral volume activity
 
-All Stocks, Shortlist, and Best aligned now show sortable `Volume activity` using the latest three completed sessions and each session's preceding 10-session volume average. `Quiet` means no recent session reached `1.5×`; `Watch` means at least one did. The signal calls out abnormal participation only. It does not infer entry, exit, accumulation, distribution, or membership.
+All Stocks, Shortlist, and Best aligned now show sortable `Volume activity` using the latest five completed sessions and each session's preceding 10-session volume average. `Quiet` means no recent session reached `1.5×`; `Watch` means at least one did. The signal calls out abnormal participation only. It does not infer entry, exit, accumulation, distribution, or membership.
 
 Validation for this addition: the focused selector suite passed with 20 tests, and the production frontend build passed. The page test confirms that the sortable column appears once in Shortlist and Core.
 
@@ -148,7 +150,7 @@ This is intentionally a first filter pass rather than a final strategy rule. The
 
 The Shortlist tab now explains the distinction once in plain language: the existing historical rules create the candidate pool, and the selectable current Tab 1 filters perform the present-day reading. The current reading defaults to accelerating Move now, keeps Strong finishes optional, retains Volume activity as evidence, and preserves the two-part structural weakness guard. This avoids presenting the old reach thresholds as the new agreed Tab 2 decision logic.
 
-Tab 1 (`All Stocks`) now has column-level exploration filters for Move now acceleration, Strong finishes, Latest finish, Move quality, Volume activity, and the 20D extension warning. These are local table filters only; they do not change the Shortlist or Best aligned rules.
+Tab 1 (`All Stocks`) now has column-level exploration filters for Move now acceleration, Strong finishes, Latest finish, Move quality, and Volume activity. The 20D movement remains visible in `Latest close` as context, but it is no longer a filter for the first-tab reading.
 
 The Shortlist explanation is displayed as separate numbered `Sorting rules` and `Filtering rules` sections. Sorting covers the two historical reach rankings and their candidate pool; filtering covers current acceleration, optional Strong finishes, Volume activity as context, and structural weakness.
 
@@ -172,8 +174,9 @@ The former `Best aligned · Quiet` tab was a stricter subset of Best aligned, bu
 
 The obsolete `Best aligned · Quiet` and `Core` tabs have been removed. `Best aligned` is the next-level filter: minimum historical speed (`3 / 20` broader reach or `1 / 6` recent reach), accelerating Move now, and at least `2 / 5` Strong finishes. The separate Latest 2-day finish tab adds the latest-two-candles condition. These rules remain open for later review.
 
-The former `Exit pressure` signal is now neutral `Volume activity`. `Quiet` means no session in the latest three reached `1.5×` its preceding 10-session average; `Watch` means at least one did. It deliberately does not infer entry, exit, accumulation, or distribution. Tab 2 no longer excludes a supposed `Caution` state; volume activity stays visible for the user to interpret beside price and finish evidence.
+The former `Exit pressure` signal is now neutral `Volume activity`. `Quiet` means no session in the latest five reached `1.5×` its preceding 10-session average; `Watch` means at least one did. It deliberately does not infer entry, exit, accumulation, or distribution. Tab 2 no longer excludes a supposed `Caution` state; volume activity stays visible for the user to interpret beside price and finish evidence.
 
 The final `Latest 2-day finish` tab now exposes table filters for `Move quality` and `Volume activity`. These are presentation filters only: they help reduce the final review list to names like Clean/Quiet or Clean/Watch, but they do not change the tab's base membership rules.
 
 The `Latest close` cell now also shows the latest completed candle's close-to-close percentage change as `Day +x.x%` beside the price. This is current-day context only and does not affect sorting, filtering, or membership.
+The `Fresh today` tab follows `Latest 2-day finish` and is a derived view rather than a new scanner rule. It keeps only final-tab rows whose first-seen date equals the latest completed session, making newly qualified stocks easy to review separately from existing candidates.

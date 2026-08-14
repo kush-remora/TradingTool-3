@@ -41,6 +41,7 @@ import { ThreeWeekWatchlistReviewPage } from "./pages/ThreeWeekWatchlistReviewPa
 import { CompactStockReviewPage } from "./pages/compactStockReview/CompactStockReviewPage";
 import { WeeklyLowAlignmentSummaryPage } from "./pages/WeeklyLowAlignmentSummaryPage";
 import { WeeklyLowAlignmentBacktestPage } from "./pages/WeeklyLowAlignmentBacktestPage";
+import { FridayCloseStrengthBacktestPage } from "./pages/FridayCloseStrengthBacktestPage";
 import { VolumeEventReviewPage } from "./pages/VolumeEventReviewPage";
 import { VolumeEventConfirmationBacktestPage } from "./pages/VolumeEventConfirmationBacktestPage";
 import { WeeklyPriceWatchlistScannerPage } from "./pages/WeeklyPriceWatchlistScannerPage";
@@ -82,6 +83,7 @@ type V1PageKey =
   | "three-week-watchlist-review"
   | "weekly-low-alignment"
   | "weekly-low-alignment-backtest"
+  | "friday-close-strength-backtest"
   | "volume-event-review"
   | "volume-event-confirmation-backtest"
   | "weekly-price-watchlist-scanner"
@@ -153,6 +155,11 @@ const menuItems: MenuProps["items"] = [
   {
     key: "weekly-low-alignment-backtest",
     label: "Weekly Low Alignment Backtest",
+    icon: <LineChartOutlined />,
+  },
+  {
+    key: "friday-close-strength-backtest",
+    label: "Friday Close-Strength Backtest",
     icon: <LineChartOutlined />,
   },
   {
@@ -273,6 +280,7 @@ const validPages: PageKey[] = [
   "weekly-floor-rebound",
   "weekly-low-limit-backtest",
   "weekly-low-alignment-backtest",
+  "friday-close-strength-backtest",
   "weekly-base-definition",
   "weekly-base-group-backtest",
   "three-week-stock-review",
@@ -530,6 +538,7 @@ export default function App() {
             {route === "weekly-floor-rebound" && <WeeklyFloorReboundPage />}
             {route === "weekly-low-limit-backtest" && <WeeklyLowLimitBacktestPage />}
             {route === "weekly-low-alignment-backtest" && <WeeklyLowAlignmentBacktestPage />}
+            {route === "friday-close-strength-backtest" && <FridayCloseStrengthBacktestPage />}
             {typeof route !== "string" && route.page === "weekly-low-limit-validation" && (
               <WeeklyLowLimitDailyValidationPage
                 symbol={route.symbol}

@@ -19,9 +19,9 @@ describe("ShortHorizonSelectorPage", () => {
         return Promise.resolve({
           title: "How to read Tab 1 · All Stocks",
           description: "Read current behaviour first.",
-          readingOrder: ["Move now (Now 5D / Prior 5D / Earlier 10D)", "Strong finishes"],
+          readingOrder: ["Move now (Now 5D / Prior 5D / pace)", "Strong finishes"],
           columns: [{
-            column: "Move now (Now 5D / Prior 5D / Earlier 10D)",
+            column: "Move now (Now 5D / Prior 5D / pace)",
             whatItShows: "Current movement.",
             whyImportant: "Shows activity.",
             howToRead: "Positive is rising.",
@@ -51,7 +51,10 @@ describe("ShortHorizonSelectorPage", () => {
 
     expect(await screen.findByTestId("short-horizon-selector-table")).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByText("First seen 21 Jul")).toBeInTheDocument();
-    expect(within(screen.getByTestId("short-horizon-selector-table")).getByText("Close +4.0% · High +10.0%")).toBeInTheDocument();
+    const firstSeenPerformance = screen.getByTestId("short-horizon-selector-table").querySelector(".short-horizon-first-seen-performance");
+    expect(firstSeenPerformance).toHaveTextContent("Close +4.0% · High +10.0%");
+    expect(firstSeenPerformance?.querySelector(".short-horizon-first-seen-return-positive")).not.toHaveClass("strong");
+    expect(firstSeenPerformance?.querySelector(".short-horizon-first-seen-return-positive.strong")).toHaveTextContent("+10.0%");
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "No." })).toBeInTheDocument();
     expect(screen.getByText("5D reach 20 / 20")).toBeInTheDocument();
     expect(screen.getByText("Recent tested 6D 6 / 6")).toBeInTheDocument();
@@ -62,19 +65,24 @@ describe("ShortHorizonSelectorPage", () => {
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "Move now" })).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "Move quality" })).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByRole("columnheader", { name: "Volume activity" })).toBeInTheDocument();
-    expect(screen.getByText("No abnormal volume in latest 3 sessions")).toBeInTheDocument();
-    expect(within(screen.getByTestId("short-horizon-selector-table")).getAllByLabelText("filter").length).toBeGreaterThanOrEqual(6);
+    expect(screen.getByText("No abnormal volume in latest 5 sessions")).toBeInTheDocument();
+    expect(within(screen.getByTestId("short-horizon-selector-table")).getAllByLabelText("filter").length).toBeGreaterThanOrEqual(4);
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByText("Day +4.0%", { exact: true })).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-selector-table")).getByText("20D +4.0%", { exact: true })).toBeInTheDocument();
     const moveTable = screen.getByTestId("short-horizon-selector-table");
     const headerLabels = within(moveTable).getAllByRole("columnheader").map((header) => header.getAttribute("aria-label") ?? header.textContent);
     expect(headerLabels.indexOf("Latest finish")).toBe(headerLabels.indexOf("Strong finishes") + 1);
-    expect(within(moveTable).getAllByText("+0.0%", { exact: true })).toHaveLength(2);
-    expect(Array.from(moveTable.querySelectorAll(".short-horizon-move-period")).map((label) => label.textContent)).toEqual(["Now 5D", "Prior 5D", "Earlier 10D"]);
-    const moveCell = within(screen.getByTestId("short-horizon-selector-table")).getByLabelText(/Now 5D \+4\.0%/);
-    const moveText = moveCell.textContent ?? "";
-    expect(moveText.indexOf("Now 5D")).toBeLessThan(moveText.indexOf("Prior 5D"));
-    expect(moveText.indexOf("Prior 5D")).toBeLessThan(moveText.indexOf("Earlier 10D"));
+    const moveCell = within(screen.getByTestId("short-horizon-selector-table")).getByLabelText(/Now 5D Up \+4\.0%/);
+    expect(moveCell).toHaveTextContent("3–5%");
+    expect(moveCell).toHaveTextContent("Prior 5D");
+    expect(moveCell).toHaveTextContent("+0.0%");
+    expect(moveCell).toHaveTextContent("Accelerating");
+    expect(moveCell).not.toHaveTextContent("Review");
+    expect(moveCell).toHaveAttribute("aria-label", expect.stringContaining("5D path: 1/5 green"));
+    expect(moveCell).toHaveAttribute("aria-label", expect.stringContaining("avg day +0.8%"));
+    const latestCloseContext = within(screen.getByTestId("short-horizon-selector-table")).getByLabelText(/Stage Review/);
+    expect(latestCloseContext).toHaveTextContent("20D +4.0%");
+    expect(latestCloseContext).toHaveTextContent("Review");
     expect(screen.getByText(/5D reach: for each tested starting close, price touched \+5% within the next 5 trading sessions/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "How to read Tab 1" }));
@@ -110,6 +118,22 @@ describe("ShortHorizonSelectorPage", () => {
     expect(within(screen.getByTestId("short-horizon-latest-two-finish-table")).getByRole("columnheader", { name: "Volume activity" })).toBeInTheDocument();
     expect(within(screen.getByTestId("short-horizon-latest-two-finish-table")).getAllByLabelText("filter").length).toBeGreaterThanOrEqual(2);
 
+    fireEvent.click(screen.getByRole("tab", { name: "Fresh today · 0" }));
+    expect(await screen.findByTestId("short-horizon-fresh-today-table")).toBeInTheDocument();
+    expect(screen.getByText(/Only stocks that entered Latest 2-day finish in the current completed session/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Accumulation · 1" }));
+    const accumulationTable = await screen.findByTestId("short-horizon-accumulation-table");
+    expect(within(accumulationTable).getByRole("columnheader", { name: "Buy-interest days" })).toBeInTheDocument();
+    expect(within(accumulationTable).getByRole("columnheader", { name: "Volume below 10D" })).toBeInTheDocument();
+    expect(within(accumulationTable).getByRole("columnheader", { name: "20D heatmap" })).toBeInTheDocument();
+    expect(within(accumulationTable).getByLabelText("Latest 20-session accumulation heatmap")).toBeInTheDocument();
+    expect(within(accumulationTable).getAllByLabelText(/Mon, 06 Jul/)).toHaveLength(4);
+    const inactiveBuyDot = accumulationTable.querySelector(".accumulation-heatmap-dot-buyingInterest.accumulation-heatmap-dot-inactive");
+    expect(inactiveBuyDot).not.toBeNull();
+    expect(inactiveBuyDot).toHaveAttribute("title", "Mon, 06 Jul 50.0%");
+    expect(screen.getByText(/30-session context: Buy = close at least 70% up the daily range/)).toBeInTheDocument();
+
     expect(screen.queryByRole("tab", { name: /Best aligned · Quiet/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /Core/ })).not.toBeInTheDocument();
 
@@ -129,7 +153,7 @@ describe("ShortHorizonSelectorPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Review" }));
     await waitFor(() => expect(onOpenCompactStockReview).toHaveBeenCalledWith("ABC"));
-  }, 10000);
+  }, 15000);
 });
 
 function buildDays() {

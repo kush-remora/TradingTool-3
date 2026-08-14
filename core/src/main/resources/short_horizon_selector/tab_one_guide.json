@@ -2,7 +2,7 @@
   "title": "How to read Tab 1 · All Stocks",
   "description": "Read current behaviour first. Use 5D reach as historical context, not as a claim that a trade captured five percent.",
   "readingOrder": [
-    "Move now (Now 5D / Prior 5D / Earlier 10D)",
+    "Move now (Now 5D / Prior 5D / pace)",
     "Strong finishes",
     "Latest finish",
     "Move quality",
@@ -12,11 +12,11 @@
   ],
   "columns": [
     {
-      "column": "Move now (Now 5D / Prior 5D / Earlier 10D)",
-      "whatItShows": "Non-overlapping close-to-close movement buckets: the latest 5 sessions, the 5 sessions before that, and the 10 sessions before those.",
-      "whyImportant": "Shows whether the current move is continuing upward, recovering from a decline, weakening, or steady without requiring mental subtraction from overlapping windows.",
-      "howToRead": "Green means that bucket moved up; red means it moved down. Accelerating requires a positive Now 5D move that improves by at least 1 percentage point versus Prior 5D. Recovering means both periods are negative but the latest decline is smaller. Weakening means the latest pace is worse by at least 1 percentage point.",
-      "caution": "The amber warning appears in Latest close when the 20D move is above +25%; it is not an automatic rejection. Check Strong finishes, Move quality, Latest finish, and Volume activity."
+      "column": "Move now (Now 5D / Prior 5D / pace)",
+      "whatItShows": "The latest five-session close-to-close move, the preceding five-session move, and how the pace changed.",
+      "whyImportant": "Shows whether the current move is accelerating, recovering, steady, or slowing without adding a longer-period signal to this column.",
+      "howToRead": "Accelerating means the latest 5D move improved by more than 1 percentage point. Recovering means both periods are negative but the latest decline improved by more than 1 percentage point. Steady is within ±1 percentage point; Slowing is worse by more than 1 percentage point.",
+      "caution": "This is current movement context, not a buy signal. Check Strong finishes, Move quality, Latest finish, Volume activity, and the Fresh/Review/Extended stage in Latest close."
     },
     {
       "column": "Strong finishes",
@@ -34,17 +34,17 @@
     },
     {
       "column": "Volume activity",
-      "whatItShows": "Whether any of the latest three sessions had abnormal volume compared with its preceding 10-session average.",
+      "whatItShows": "Whether any of the latest five sessions had abnormal volume compared with its preceding 10-session average.",
       "whyImportant": "Calls out unusual participation without pretending to know whether it came from buyers or sellers.",
-      "howToRead": "Quiet means no recent session reached 1.5x the preceding 10-session average. Watch means at least one recent session reached 1.5x or more; the displayed multiple and date identify the event.",
+      "howToRead": "Quiet means no recent session reached 1.5x the preceding 10-session average. Watch means at least one of the latest five sessions reached 1.5x or more; the displayed multiple and date identify the event.",
       "caution": "Volume alone does not identify entry or exit. Interpret Watch alongside Move now, Strong finishes, Latest finish, and the daily details popup."
     },
     {
       "column": "Latest close",
-      "whatItShows": "The latest completed closing price and date, the total 20D close-to-close move, and the latest close's distance from the recent 20-session high.",
+      "whatItShows": "The latest completed closing price and date, the total 20D close-to-close move, distance from the recent 20-session high, and a Fresh/Review/Extended stage based on distance above the recent 20-session low.",
       "whyImportant": "Anchors every other signal to the current price observation.",
-      "howToRead": "Read `20D +7.1% · -3.2% from high` as a positive 20D move with the latest close 3.2% below the recent high. The amber ⚠ means the 20D move is above +25% and needs extension caution.",
-      "caution": "The warning is context, not a rejection. A strong move can still be valid, but do not chase it without a good entry location."
+      "howToRead": "Read `20D +7.1% · -3.2% from high · Review` as a positive 20D move, a close 3.2% below the recent high, and a current price in the Review zone above the recent low.",
+      "caution": "The stage is context, not a rejection. Extended means the price has already rebounded sharply from its recent low; do not chase it without a good entry location."
     },
     {
       "column": "5D reach",
@@ -68,6 +68,6 @@
       "caution": "Volume alone does not identify accumulation or distribution; combine it with price and close position."
     }
   ],
-  "bestCombination": "A useful current-condition combination is a positive Now 5D and Prior 5D, repeated Strong finishes, Clean move quality, and Volume activity read as neutral context.",
+  "bestCombination": "A useful current-condition combination is a positive Now 5D with Accelerating or Steady pace, repeated Strong finishes, Clean move quality, and Volume activity read as neutral context.",
   "importantNote": "Tab 1 is an observation screen. It does not create a buy signal, and Tab 2 filtering rules are separate."
 }

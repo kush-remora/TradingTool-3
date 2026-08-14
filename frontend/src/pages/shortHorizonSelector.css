@@ -118,6 +118,22 @@
   line-height: 1.2;
 }
 
+.short-horizon-first-seen-return-positive {
+  color: #16a34a;
+}
+
+.short-horizon-first-seen-return-negative {
+  color: #dc2626;
+}
+
+.short-horizon-first-seen-return-neutral {
+  color: #667085;
+}
+
+.short-horizon-first-seen-return-positive.strong {
+  font-weight: 700;
+}
+
 .short-horizon-close-cell {
   min-width: 145px;
 }
@@ -201,48 +217,122 @@
   color: #667085;
 }
 
-.short-horizon-move-now {
-  min-width: 160px;
-  font-size: 11px;
-  line-height: 1.45;
+.short-horizon-five-day-summary {
+  min-width: 165px;
+  font-size: 10px;
+  line-height: 1.35;
 }
 
-.short-horizon-move-now-line {
+.short-horizon-five-day-result,
+.short-horizon-five-day-pace,
+.short-horizon-five-day-path {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   white-space: nowrap;
 }
 
-.short-horizon-move-period {
-  min-width: 62px;
-  color: #98a2b3;
+.short-horizon-five-day-result {
+  font-size: 11px;
+}
+
+.short-horizon-five-day-pace {
+  color: #667085;
   font-size: 9px;
-  font-weight: 500;
 }
 
-.short-horizon-move-acceleration {
-  margin-left: 4px;
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1;
+.short-horizon-five-day-pace strong {
+  color: #344054;
 }
 
-.short-horizon-move-acceleration-accelerating {
+.short-horizon-five-day-pace-accelerating {
   color: #237804;
 }
 
-.short-horizon-move-acceleration-recovering {
-  color: #237804;
+.short-horizon-five-day-pace-recovering {
+  color: #1677ff;
 }
 
-.short-horizon-move-acceleration-weakening {
+.short-horizon-five-day-pace-weakening {
   color: #ad6800;
 }
 
-.short-horizon-move-acceleration-steady,
-.short-horizon-move-acceleration-unknown {
-  color: #98a2b3;
+.short-horizon-five-day-pace-unknown {
+  color: #667085;
+}
+
+.short-horizon-five-day-result-up {
+  color: #237804;
+}
+
+.short-horizon-five-day-result-down {
+  color: #a8071a;
+}
+
+.short-horizon-five-day-result-flat,
+.short-horizon-five-day-result-unknown {
+  color: #667085;
+}
+
+.short-horizon-five-day-band {
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #f2f4f7;
+  color: #667085;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.short-horizon-move-stage {
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.short-horizon-move-stage-fresh {
+  color: #237804;
+}
+
+.short-horizon-move-stage-review {
+  color: #ad6800;
+}
+
+.short-horizon-move-stage-extended {
+  color: #a8071a;
+}
+
+.short-horizon-move-stage-unknown {
+  color: #667085;
+}
+
+.short-horizon-five-day-path {
+  color: #667085;
+  font-size: 9px;
+}
+
+.short-horizon-five-day-path-count {
+  font-weight: 600;
+}
+
+.short-horizon-five-day-path-markers {
+  display: inline-flex;
+  gap: 2px;
+  letter-spacing: 0;
+}
+
+.short-horizon-five-day-marker-up {
+  color: #237804;
+  font-weight: 700;
+}
+
+.short-horizon-five-day-marker-down {
+  color: #a8071a;
+  font-weight: 700;
+}
+
+.short-horizon-five-day-marker-flat,
+.short-horizon-five-day-marker-unknown,
+.short-horizon-five-day-average {
+  color: #667085;
 }
 
 .short-horizon-latest-close-context {
@@ -427,6 +517,94 @@
 
 .short-horizon-details-table {
   margin-top: 14px;
+}
+
+.accumulation-count-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  line-height: 1.1;
+}
+
+.accumulation-count-cell span {
+  color: #98a2b3;
+  font-size: 9px;
+}
+
+.accumulation-count-cell-buying strong,
+.accumulation-count-cell-green strong {
+  color: #237804;
+}
+
+.accumulation-count-cell-quiet strong {
+  color: #1677ff;
+}
+
+.accumulation-count-cell-volume strong {
+  color: #722ed1;
+}
+
+.accumulation-heatmap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 250px;
+  padding: 2px 0;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.accumulation-heatmap-line {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.accumulation-heatmap-label {
+  width: 30px;
+  color: #667085;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.accumulation-heatmap-dots {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.accumulation-heatmap-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border: 1px solid #d0d5dd;
+  border-radius: 2px;
+  background: #f2f4f7;
+}
+
+.accumulation-heatmap-dot-unavailable {
+  border-style: dashed;
+  background: #fff;
+}
+
+.accumulation-heatmap-dot-buyingInterest.accumulation-heatmap-dot-active {
+  border-color: #52c41a;
+  background: #52c41a;
+}
+
+.accumulation-heatmap-dot-greenClose.accumulation-heatmap-dot-active {
+  border-color: #237804;
+  background: #237804;
+}
+
+.accumulation-heatmap-dot-quietMove.accumulation-heatmap-dot-active {
+  border-color: #1677ff;
+  background: #1677ff;
+}
+
+.accumulation-heatmap-dot-volumeDryUp.accumulation-heatmap-dot-active {
+  border-color: #722ed1;
+  background: #722ed1;
 }
 
 @media (max-width: 700px) {

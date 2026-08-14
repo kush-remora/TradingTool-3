@@ -4,6 +4,7 @@ import {
   buildShortHorizonBestAlignedRows,
   buildShortHorizonFirstSeenDates,
   buildShortHorizonFirstSeenPerformance,
+  buildShortHorizonFreshTodayRows,
   buildShortHorizonLatestTwoFinishRows,
   buildShortHorizonStockRow,
   buildShortHorizonShortlistRows,
@@ -15,6 +16,7 @@ import {
   filterShortHorizonRowsByEvidenceGate,
   filterShortHorizonRowsByShortlistGuards,
   getShortHorizonMoveAccelerationState,
+  getShortHorizonMoveStage,
   isShortHorizonMoveExtended,
 } from "./shortHorizonSelector";
 
@@ -110,6 +112,20 @@ describe("shortHorizonSelector", () => {
     expect(result.volumeActivityDate).toBe("2026-07-29");
   });
 
+  it("keeps a fifth-most-recent volume event visible as Watch", () => {
+    const row = buildRow(30, (index) => {
+      if (index === 9) return { close: 90, volume: 100 };
+      if (index === 25) return { volume: 220 };
+      return { volume: 100 };
+    });
+
+    const result = buildShortHorizonStockRow(row);
+
+    expect(result.volumeActivity).toBe("WATCH");
+    expect(result.volumeActivityMultiple).toBe(2.2);
+    expect(result.volumeActivityDate).toBe("2026-07-26");
+  });
+
   it("flags a high-volume latest session as Watch before follow-through exists", () => {
     const row = buildRow(30, (index) => {
       if (index === 9) return { close: 90, volume: 100 };
@@ -144,6 +160,16 @@ describe("shortHorizonSelector", () => {
     expect(isShortHorizonMoveExtended(25)).toBe(false);
     expect(isShortHorizonMoveExtended(25.01)).toBe(true);
     expect(isShortHorizonMoveExtended(null)).toBe(false);
+  });
+
+  it("classifies the current price from the recent twenty-day low", () => {
+    const fresh = buildShortHorizonStockRow(buildRow(25, () => ({ low: 100, close: 110 })));
+    const review = buildShortHorizonStockRow(buildRow(25, () => ({ low: 100, close: 120 })));
+    const extended = buildShortHorizonStockRow(buildRow(25, () => ({ low: 100, close: 120.01 })));
+
+    expect(getShortHorizonMoveStage(fresh)).toBe("FRESH");
+    expect(getShortHorizonMoveStage(review)).toBe("REVIEW");
+    expect(getShortHorizonMoveStage(extended)).toBe("EXTENDED");
   });
 
   it("builds the latest twenty daily evidence rows newest first", () => {
@@ -335,6 +361,11 @@ describe("shortHorizonSelector", () => {
     };
 
     expect(getShortHorizonMoveAccelerationState(acceleratingQuiet)).toBe("ACCELERATING");
+    expect(getShortHorizonMoveAccelerationState({
+      ...acceleratingQuiet,
+      currentFiveDayMovePct: 3,
+      currentPreviousFiveDayMovePct: 2,
+    })).toBe("STEADY");
     expect(filterShortHorizonRowsByTabTwoFilters(
       [acceleratingQuiet, acceleratingWatch, steady],
       { acceleration: "ACCELERATING", minimumStrongFinishCount: 3 },
@@ -356,6 +387,11 @@ describe("shortHorizonSelector", () => {
 
     expect(getShortHorizonMoveAccelerationState(recovering)).toBe("RECOVERING");
     expect(getShortHorizonMoveAccelerationState(weakening)).toBe("WEAKENING");
+    expect(getShortHorizonMoveAccelerationState({
+      ...recovering,
+      currentFiveDayMovePct: -3.9,
+      currentPreviousFiveDayMovePct: -5,
+    })).toBe("RECOVERING");
     expect(filterShortHorizonRowsByTabTwoFilters([recovering], {
       acceleration: "ACCELERATING",
       minimumStrongFinishCount: 0,
@@ -444,6 +480,23 @@ describe("shortHorizonSelector", () => {
         ? { ...day, closePositionPct: 74 }
         : day),
     }])).toHaveLength(0);
+  });
+
+  it("keeps only rows that first enter Latest 2-day finish today", () => {
+    const latestDate = "2026-07-30";
+    const freshRow = {
+      ...buildShortHorizonStockRow(buildRow(30)),
+      key: "FRESH",
+      latestDate,
+      firstSeenDate: latestDate,
+    };
+    const existingRow = {
+      ...freshRow,
+      key: "EXISTING",
+      firstSeenDate: "2026-07-29",
+    };
+
+    expect(buildShortHorizonFreshTodayRows([freshRow, existingRow]).map((row) => row.key)).toEqual(["FRESH"]);
   });
 
   it("filters Tab 2 before historical reach ranking instead of applying old reach gates first", () => {

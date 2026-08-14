@@ -496,6 +496,49 @@ export interface WeeklyLowAlignmentBacktestReport {
   symbols: WeeklyLowAlignmentBacktestSymbolReport[];
 }
 
+// ==================== Friday Close-Strength Backtest ====================
+
+export interface FridayCloseStrengthBacktestRequest {
+  watchlistKey: string;
+}
+
+export interface FridayCloseStrengthObservation {
+  symbol: string;
+  companyName: string | null;
+  instrumentToken: number;
+  signalDate: string;
+  thursdayClose: number;
+  fridayHigh: number;
+  fridayLow: number;
+  fridayClose: number;
+  fridayClosePositionPct: number;
+  fridayMovePct: number;
+  entryDate: string;
+  entryPrice: number;
+  followingWeekHighDate: string;
+  followingWeekHigh: number;
+  maximumUpsidePct: number;
+}
+
+export interface FridayCloseStrengthBacktestSummary {
+  signalCount: number;
+  maximumUpsideAtLeast2PctCount: number;
+  maximumUpsideAtLeast5PctCount: number;
+  maximumUpsideAtLeast2PctRatePct: number | null;
+  averageMaximumUpsidePct: number | null;
+  medianMaximumUpsidePct: number | null;
+}
+
+export interface FridayCloseStrengthBacktestReport {
+  watchlistKey: string;
+  testedFromDate: string;
+  testedToDate: string;
+  closePositionThresholdPct: number;
+  fridayMoveThresholdPct: number;
+  summary: FridayCloseStrengthBacktestSummary;
+  observations: FridayCloseStrengthObservation[];
+}
+
 export interface WeeklyBaseDefinitionRequest {
   symbol: string;
 }

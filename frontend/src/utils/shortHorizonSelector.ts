@@ -20,7 +20,9 @@ export const SHORT_HORIZON_CURRENT_INTERMEDIATE_MOVE_SESSIONS = 10;
 export const SHORT_HORIZON_CURRENT_TREND_SESSIONS = 20;
 export const SHORT_HORIZON_MOVE_ACCELERATION_TOLERANCE_PCT = 1;
 export const SHORT_HORIZON_OVEREXTENDED_TWENTY_DAY_MOVE_PCT = 25;
-export const SHORT_HORIZON_VOLUME_ACTIVITY_LOOKBACK_SESSIONS = 3;
+export const SHORT_HORIZON_REVIEW_TWENTY_DAY_LOW_DISTANCE_PCT = 10;
+export const SHORT_HORIZON_EXTENDED_TWENTY_DAY_LOW_DISTANCE_PCT = 20;
+export const SHORT_HORIZON_VOLUME_ACTIVITY_LOOKBACK_SESSIONS = 5;
 export const SHORT_HORIZON_VOLUME_ACTIVITY_VOLUME_BASELINE_SESSIONS = 10;
 export const SHORT_HORIZON_VOLUME_ACTIVITY_WATCH_MULTIPLE = 1.5;
 export const SHORT_HORIZON_STRONG_FINISH_LOOKBACK_SESSIONS = 5;
@@ -42,6 +44,7 @@ export type ClosePositionBucket = "HIGH" | "MIDDLE" | "LOW";
 export type PriceDirection = "UP" | "FLAT" | "DOWN";
 export type MoveQuality = "CLEAN" | "MIXED" | "WILD";
 export type VolumeActivity = "QUIET" | "WATCH";
+export type ShortHorizonMoveStage = "FRESH" | "REVIEW" | "EXTENDED" | "UNKNOWN";
 export type MoveAccelerationState = "ACCELERATING" | "RECOVERING" | "WEAKENING" | "STEADY" | "UNKNOWN";
 export type ShortHorizonTabTwoAccelerationFilter = MoveAccelerationState | "ANY";
 export type ShortHorizonTab = "all" | "shortlist" | "best-aligned" | "latest-two-finish";
@@ -228,12 +231,24 @@ export function isShortHorizonMoveExtended(movePct: number | null): boolean {
   return movePct != null && movePct > SHORT_HORIZON_OVEREXTENDED_TWENTY_DAY_MOVE_PCT;
 }
 
+export function getShortHorizonMoveStage(row: ShortHorizonStockRow): ShortHorizonMoveStage {
+  if (row.latestClose == null || row.recentDailyEvidence.length === 0) return "UNKNOWN";
+
+  const recentLow = Math.min(...row.recentDailyEvidence.map((day) => day.low));
+  if (!Number.isFinite(recentLow) || recentLow <= 0) return "UNKNOWN";
+
+  const distanceFromRecentLowPct = ((row.latestClose - recentLow) / recentLow) * 100;
+  if (distanceFromRecentLowPct <= SHORT_HORIZON_REVIEW_TWENTY_DAY_LOW_DISTANCE_PCT) return "FRESH";
+  if (distanceFromRecentLowPct <= SHORT_HORIZON_EXTENDED_TWENTY_DAY_LOW_DISTANCE_PCT) return "REVIEW";
+  return "EXTENDED";
+}
+
 export function getShortHorizonMoveAccelerationState(row: ShortHorizonStockRow): MoveAccelerationState {
   if (row.currentFiveDayMovePct == null || row.currentPreviousFiveDayMovePct == null) return "UNKNOWN";
   const paceChange = row.currentFiveDayMovePct - row.currentPreviousFiveDayMovePct;
-  if (row.currentFiveDayMovePct > 0 && paceChange >= SHORT_HORIZON_MOVE_ACCELERATION_TOLERANCE_PCT) return "ACCELERATING";
-  if (row.currentFiveDayMovePct < 0 && row.currentPreviousFiveDayMovePct < 0 && paceChange > 0) return "RECOVERING";
-  if (paceChange <= -SHORT_HORIZON_MOVE_ACCELERATION_TOLERANCE_PCT) return "WEAKENING";
+  if (row.currentFiveDayMovePct < 0 && row.currentPreviousFiveDayMovePct < 0 && paceChange > SHORT_HORIZON_MOVE_ACCELERATION_TOLERANCE_PCT) return "RECOVERING";
+  if (paceChange > SHORT_HORIZON_MOVE_ACCELERATION_TOLERANCE_PCT) return "ACCELERATING";
+  if (paceChange < -SHORT_HORIZON_MOVE_ACCELERATION_TOLERANCE_PCT) return "WEAKENING";
   return "STEADY";
 }
 
@@ -291,6 +306,19 @@ export function buildShortHorizonLatestTwoFinishRows(rows: ShortHorizonStockRow[
       && latestTwoDays.length === SHORT_HORIZON_BEST_ALIGNED_LATEST_FINISH_LOOKBACK_SESSIONS
       && latestTwoDays.some((day) => day.closePositionPct >= SHORT_HORIZON_BEST_ALIGNED_MIN_LATEST_FINISH_POSITION_PCT);
   });
+}
+
+export function buildShortHorizonFreshTodayRows(rows: ShortHorizonStockRow[]): ShortHorizonStockRow[] {
+  const latestDate = rows.reduce<string | null>(
+    (currentLatestDate, row) => row.latestDate != null && (currentLatestDate == null || row.latestDate > currentLatestDate)
+      ? row.latestDate
+      : currentLatestDate,
+    null,
+  );
+
+  return latestDate == null
+    ? []
+    : rows.filter((row) => row.latestDate === latestDate && row.firstSeenDate === latestDate);
 }
 
 export function passesShortHorizonEvidenceGate(row: ShortHorizonStockRow): boolean {

@@ -1,0 +1,5 @@
+# Friday Close-Strength Weekly-Upside Backtest
+
+The backtest tests whether a stock that closes near the high on Friday and has gained more than 2% from Thursday's close tends to offer upside during the following trading week. It uses the existing Summary Console watchlist/index membership source, supports one selected watchlist, and defaults to the most recent six months. For each qualifying Friday, the simulated entry is the next available trading session's open (normally Monday); the result is the maximum favorable excursion through that week's Friday, using the highest intraday high observed after entry.
+
+The Friday signal is `((Friday close - Friday low) / (Friday high - Friday low)) >= 70%` plus `((Friday close / Thursday close) - 1) * 100 > 2%`. A zero-range Friday is not a signal. Holidays use the next available session for entry, and the following week ends at the last available session before the next Monday. The result must clearly label the upside metric as retrospective maximum movement rather than a guaranteed executable exit, and should preserve one row per stock-Friday signal for auditability.

@@ -46,6 +46,8 @@ import com.tradingtool.core.strategy.weeklylowlimit.WeeklyLowLimitBacktestEngine
 import com.tradingtool.core.strategy.weeklylowlimit.WeeklyLowLimitBacktestService
 import com.tradingtool.core.strategy.weeklylowalignmentbacktest.WeeklyLowAlignmentBacktestEngine
 import com.tradingtool.core.strategy.weeklylowalignmentbacktest.WeeklyLowAlignmentBacktestService
+import com.tradingtool.core.strategy.fridaystrengthbacktest.FridayCloseStrengthBacktestEngine
+import com.tradingtool.core.strategy.fridaystrengthbacktest.FridayCloseStrengthBacktestService
 import com.tradingtool.core.volumeshocker.groww.dao.GrowwVolumeShockerReadDao
 import com.tradingtool.core.volumeshocker.groww.dao.GrowwVolumeShockerWriteDao
 import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceJdbiHandler
@@ -375,6 +377,20 @@ class ServiceModule(
         candleCacheService: CandleCacheService,
         engine: WeeklyLowAlignmentBacktestEngine,
     ): WeeklyLowAlignmentBacktestService = WeeklyLowAlignmentBacktestService(
+        indexConstituentHandler = indexConstituentHandler,
+        candleCacheService = candleCacheService,
+        engine = engine,
+    )
+
+    @Provides @Singleton
+    fun provideFridayCloseStrengthBacktestEngine(): FridayCloseStrengthBacktestEngine = FridayCloseStrengthBacktestEngine()
+
+    @Provides @Singleton
+    fun provideFridayCloseStrengthBacktestService(
+        indexConstituentHandler: IndexConstituentJdbiHandler,
+        candleCacheService: CandleCacheService,
+        engine: FridayCloseStrengthBacktestEngine,
+    ): FridayCloseStrengthBacktestService = FridayCloseStrengthBacktestService(
         indexConstituentHandler = indexConstituentHandler,
         candleCacheService = candleCacheService,
         engine = engine,
