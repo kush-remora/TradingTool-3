@@ -584,6 +584,41 @@
   text-transform: none;
 }
 
+.daily-ohlc-glyph {
+  display: block;
+  width: 56px;
+  height: 38px;
+  color: #707b89;
+}
+
+.daily-ohlc-glyph-up { color: #13805d; }
+.daily-ohlc-glyph-down { color: #c43f4c; }
+
+.daily-ohlc-glyph-wick,
+.daily-ohlc-glyph-cap {
+  stroke: #a1a9b4;
+  stroke-width: 1.25;
+}
+
+.daily-ohlc-glyph-marker {
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.daily-ohlc-glyph-body {
+  fill: currentColor;
+  opacity: 0.72;
+}
+
+.daily-ohlc-glyph-bound,
+.daily-ohlc-glyph-point {
+  font-size: 7px;
+  font-weight: 700;
+}
+
+.daily-ohlc-glyph-bound { fill: #a1a9b4; }
+.daily-ohlc-glyph-point { fill: currentColor; }
+
 .adaptive-breakout-decision-tag {
   margin: 0;
   padding-inline: 7px;

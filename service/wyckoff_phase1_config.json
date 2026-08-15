@@ -1,0 +1,83 @@
+{
+  "enabled" : true,
+  "signalLookbackDays" : 10,
+  "trackA" : {
+    "deliveryThresholdByCap" : {
+      "MID_CAP" : 55.0,
+      "SMALL_CAP" : 55.0,
+      "MICRO_CAP" : 55.0,
+      "NANO_CAP" : 55.0
+    },
+    "rollingDensity" : {
+      "enabled" : true,
+      "lookbackDays" : 15,
+      "minThresholdBreaches" : 4
+    },
+    "deliveryVolumeZScore" : {
+      "enabled" : true,
+      "baselineDays" : 60,
+      "minZScore" : 2.0
+    },
+    "lvqDq" : {
+      "enabled" : true,
+      "rollingMinDays" : 63,
+      "nearMinPctOfRollingMin" : 95.0,
+      "lookbackDays" : 15,
+      "requireDeliveryPass" : true
+    },
+    "absorptionCheck" : {
+      "enabled" : true,
+      "spreadLookbackDays" : 20
+    },
+    "lowVolumeHighDeliveryInfo" : {
+      "enabled" : true,
+      "mode" : "INFO_ONLY",
+      "volumeBaselineDays" : 50,
+      "maxVolumeVsBaselineRatio" : 0.8
+    }
+  },
+  "contextFilter" : {
+    "roc20Range" : {
+      "enabled" : true,
+      "minDistancePct" : -5.0,
+      "maxDistancePct" : 5.0
+    },
+    "dma200Proximity" : {
+      "enabled" : true,
+      "minDistancePct" : -5.0,
+      "maxDistancePct" : 5.0
+    }
+  },
+  "runtime" : {
+    "enableCandleBackfill" : false,
+    "maxParallelSymbols" : 16
+  },
+  "strictFilter" : {
+    "dma200Proximity" : {
+      "enabled" : true,
+      "minDistancePct" : -100.0,
+      "maxDistancePct" : 2.0
+    },
+    "roc20Proximity" : {
+      "enabled" : true,
+      "minPct" : -100.0,
+      "maxPct" : 2.0
+    },
+    "movingAverageCompression" : {
+      "enabled" : true,
+      "maxDma50To200DistancePct" : 3.0
+    },
+    "volatilityContraction" : {
+      "enabled" : true,
+      "requireSpreadLessThan20dAverage" : true,
+      "relaxIfBelowDma200" : false,
+      "relaxedMultiplierIfBelowDma200" : 1.5,
+      "bypassIfBelowDma200AndDeliveryHigh" : false,
+      "bypassDeliveryThreshold" : 70.0
+    },
+    "accumulationDensity" : {
+      "enabled" : true,
+      "minTier55Count" : 3
+    }
+  }
+}

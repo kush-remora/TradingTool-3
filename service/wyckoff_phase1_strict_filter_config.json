@@ -1,0 +1,28 @@
+{
+  "dma200Proximity" : {
+    "enabled" : true,
+    "minDistancePct" : -100.0,
+    "maxDistancePct" : 2.0
+  },
+  "roc20Proximity" : {
+    "enabled" : true,
+    "minPct" : -100.0,
+    "maxPct" : 2.0
+  },
+  "movingAverageCompression" : {
+    "enabled" : true,
+    "maxDma50To200DistancePct" : 3.0
+  },
+  "volatilityContraction" : {
+    "enabled" : true,
+    "requireSpreadLessThan20dAverage" : true,
+    "relaxIfBelowDma200" : false,
+    "relaxedMultiplierIfBelowDma200" : 1.5,
+    "bypassIfBelowDma200AndDeliveryHigh" : false,
+    "bypassDeliveryThreshold" : 70.0
+  },
+  "accumulationDensity" : {
+    "enabled" : true,
+    "minTier55Count" : 3
+  }
+}

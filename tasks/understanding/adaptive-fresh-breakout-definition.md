@@ -27,3 +27,7 @@ Final validation: the HFCL regression now proves a ₹195.53 local anchor, confi
 Raw-replay comprehension follow-up: the audit drawer must teach the price story without requiring the user to memorize engine terminology. Keep every raw value, but add an explicit bottom-to-top reading path, a compact stage sequence, consistent decision colors, plain-language summaries that compare the close with the active ceiling, and descriptive labels for the local ceiling (`line to beat`) versus major overhead (`later obstacle`). Avoid scores, hidden rows, or additional strategy logic; this is an interpretation-layer change only.
 
 Implemented and visually checked at a 1,280px viewport. The raw table keeps all original fields and explanations, fits without losing columns, uses text plus color for every event state, and exposes the simple row-level meaning before the technical engine wording.
+
+Daily-shape follow-up: add a compact visual in every raw row showing the session's high-low range and the relative open/close positions, with green for close above open, red for close below open, and neutral for equal prices. The graphic must be accessible and explicitly avoid implying whether the high or low occurred first, because daily OHLC data does not contain that intraday sequence.
+
+Implemented and validated with focused tests, a production build, and live review at 1,280px. The glyph keeps every audit column visible and announces the exact OHLC values plus the unknown intraday order to assistive technology.

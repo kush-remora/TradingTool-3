@@ -18,6 +18,7 @@ import type { TableColumnsType } from "antd";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useStockQuotes } from "../hooks/useStockQuotes";
 import { RecentDailyEvidenceTable, type RecentDailyEvidenceRow } from "../components/RecentDailyEvidenceTable";
+import { DailyOhlcGlyph } from "../components/DailyOhlcGlyph";
 import type {
   AdaptiveBreakoutRawStep,
   AdaptiveBreakoutScanResponse,
@@ -492,6 +493,7 @@ function RawReplayGuide(): ReactNode {
         <span className="breakout">Fresh breakout</span>
       </div>
       <div className="adaptive-breakout-raw-keys">
+        <span><strong>Day shape</strong> = positions, not time order</span>
         <span><strong>Ceiling</strong> = line to beat</span>
         <span><strong>Major</strong> = later obstacle only</span>
         <span><strong>ATR</strong> = the stock's movement ruler</span>
@@ -502,22 +504,28 @@ function RawReplayGuide(): ReactNode {
 
 function RawDecisionTable({ steps }: { steps: AdaptiveBreakoutRawStep[] }): ReactNode {
   const columns: TableColumnsType<AdaptiveBreakoutRawStep> = [
-    { title: "Date", dataIndex: "date", key: "date", width: 75, render: formatDate },
-    { title: "O", dataIndex: "open", key: "open", width: 68, render: formatPrice },
-    { title: "H", dataIndex: "high", key: "high", width: 68, render: formatPrice },
-    { title: "L", dataIndex: "low", key: "low", width: 68, render: formatPrice },
-    { title: "C", dataIndex: "close", key: "close", width: 68, render: formatPrice },
-    { title: "Volume", dataIndex: "volume", key: "volume", width: 82, render: formatInteger },
-    { title: "ATR", dataIndex: "atr", key: "atr", width: 66, render: formatPrice },
-    { title: <span className="adaptive-breakout-raw-header">Floor<small>journey start</small></span>, dataIndex: "candidateFloor", key: "candidateFloor", width: 78, render: formatPrice },
-    { title: <span className="adaptive-breakout-raw-header">Peak<small>highest seen</small></span>, dataIndex: "candidatePeak", key: "candidatePeak", width: 78, render: formatPrice },
-    { title: <span className="adaptive-breakout-raw-header">Ceiling<small>line to beat</small></span>, dataIndex: "ceilingUpperBoundary", key: "ceilingUpperBoundary", width: 84, render: formatPrice },
-    { title: <span className="adaptive-breakout-raw-header">Major<small>later obstacle</small></span>, dataIndex: "majorCeilingUpperBoundary", key: "majorCeilingUpperBoundary", width: 84, render: formatPrice },
+    { title: "Date", dataIndex: "date", key: "date", width: 70, render: formatDate },
+    {
+      title: <span className="adaptive-breakout-raw-header">Day<small>OHLC shape</small></span>,
+      key: "dayShape",
+      width: 64,
+      render: (_, step) => <DailyOhlcGlyph open={step.open} high={step.high} low={step.low} close={step.close} />,
+    },
+    { title: "O", dataIndex: "open", key: "open", width: 65, render: formatPrice },
+    { title: "H", dataIndex: "high", key: "high", width: 65, render: formatPrice },
+    { title: "L", dataIndex: "low", key: "low", width: 65, render: formatPrice },
+    { title: "C", dataIndex: "close", key: "close", width: 65, render: formatPrice },
+    { title: "Volume", dataIndex: "volume", key: "volume", width: 78, render: formatInteger },
+    { title: "ATR", dataIndex: "atr", key: "atr", width: 64, render: formatPrice },
+    { title: <span className="adaptive-breakout-raw-header">Floor<small>journey start</small></span>, dataIndex: "candidateFloor", key: "candidateFloor", width: 76, render: formatPrice },
+    { title: <span className="adaptive-breakout-raw-header">Peak<small>highest seen</small></span>, dataIndex: "candidatePeak", key: "candidatePeak", width: 76, render: formatPrice },
+    { title: <span className="adaptive-breakout-raw-header">Ceiling<small>line to beat</small></span>, dataIndex: "ceilingUpperBoundary", key: "ceilingUpperBoundary", width: 82, render: formatPrice },
+    { title: <span className="adaptive-breakout-raw-header">Major<small>later obstacle</small></span>, dataIndex: "majorCeilingUpperBoundary", key: "majorCeilingUpperBoundary", width: 82, render: formatPrice },
     {
       title: "Decision",
       dataIndex: "decision",
       key: "decision",
-      width: 145,
+      width: 138,
       render: (value: AdaptiveBreakoutRawStep["decision"]) => (
         <Tag className={`adaptive-breakout-decision-tag adaptive-breakout-decision-${value.toLowerCase()}`}>
           {value.replace(/_/g, " ")}
@@ -527,7 +535,7 @@ function RawDecisionTable({ steps }: { steps: AdaptiveBreakoutRawStep[] }): Reac
     {
       title: "What this means",
       key: "meaning",
-      width: 255,
+      width: 230,
       render: (_, step) => (
         <div className="adaptive-breakout-raw-meaning">
           <strong>{rawDecisionSummary(step)}</strong>

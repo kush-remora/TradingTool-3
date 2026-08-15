@@ -87,6 +87,11 @@ describe("AdaptiveBreakoutScannerPage", () => {
     expect(within(auditDrawer).getByText("Floor found")).toBeInTheDocument();
     expect(within(auditDrawer).getByText("₹86.00 is now the confirmed line that a future close must beat.")).toBeInTheDocument();
     expect(within(auditDrawer).getAllByText("later obstacle")).toHaveLength(2);
+    expect(auditDrawer.querySelector(".adaptive-breakout-raw-keys")).toHaveTextContent("Day shape = positions, not time order");
+    const dayShape = within(auditDrawer).getByRole("img", {
+      name: /Daily range: open ₹82\.00, high ₹83\.00, low ₹79\.00, close ₹80\.00, close below open\. Intraday high-low order is unknown\./,
+    });
+    expect(dayShape).toHaveClass("daily-ohlc-glyph-down");
     expect(await screen.findByText("CEILING CONFIRMED")).toBeInTheDocument();
     expect(screen.getByText("The rebound peaked and was rejected.")).toBeInTheDocument();
     await waitFor(() => expect(getJsonMock).toHaveBeenCalledWith("/api/stocks/quotes?symbols=ABC"));
