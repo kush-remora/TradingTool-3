@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useStockQuotes } from "../hooks/useStockQuotes";
 import { RecentDailyEvidenceTable, type RecentDailyEvidenceRow } from "../components/RecentDailyEvidenceTable";
 import { DailyOhlcGlyph } from "../components/DailyOhlcGlyph";
+import { AtrTurnCheck } from "../components/AtrTurnCheck";
 import type {
   AdaptiveBreakoutRawStep,
   AdaptiveBreakoutScanResponse,
@@ -494,6 +495,7 @@ function RawReplayGuide(): ReactNode {
       </div>
       <div className="adaptive-breakout-raw-keys">
         <span><strong>Day shape</strong> = positions, not time order</span>
+        <span><strong>Turn check</strong> = movement ÷ ATR; ✓ means rule passed</span>
         <span><strong>Ceiling</strong> = line to beat</span>
         <span><strong>Major</strong> = later obstacle only</span>
         <span><strong>ATR</strong> = the stock's movement ruler</span>
@@ -502,7 +504,10 @@ function RawReplayGuide(): ReactNode {
   );
 }
 
-function RawDecisionTable({ steps }: { steps: AdaptiveBreakoutRawStep[] }): ReactNode {
+function RawDecisionTable({ steps, config }: {
+  steps: AdaptiveBreakoutRawStep[];
+  config: AdaptiveBreakoutScanResponse["config"];
+}): ReactNode {
   const columns: TableColumnsType<AdaptiveBreakoutRawStep> = [
     { title: "Date", dataIndex: "date", key: "date", width: 70, render: formatDate },
     {
@@ -539,6 +544,7 @@ function RawDecisionTable({ steps }: { steps: AdaptiveBreakoutRawStep[] }): Reac
       render: (_, step) => (
         <div className="adaptive-breakout-raw-meaning">
           <strong>{rawDecisionSummary(step)}</strong>
+          <AtrTurnCheck step={step} config={config} />
           <span>{step.explanation}</span>
         </div>
       ),
@@ -742,7 +748,7 @@ export function AdaptiveBreakoutScannerPage(): ReactNode {
         size="min(1580px, calc(100vw - 24px))"
         title={auditRow ? <Space><EyeOutlined /><strong>{auditRow.symbol}</strong><Text type="secondary">raw decision replay · newest first</Text></Space> : null}
       >
-        {auditRow && <RawDecisionTable steps={auditRow.rawSteps} />}
+        {auditRow && report && <RawDecisionTable steps={auditRow.rawSteps} config={report.config} />}
       </Drawer>
 
       <Modal

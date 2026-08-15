@@ -92,6 +92,12 @@ describe("AdaptiveBreakoutScannerPage", () => {
       name: /Daily range: open ₹82\.00, high ₹83\.00, low ₹79\.00, close ₹80\.00, close below open\. Intraday high-low order is unknown\./,
     });
     expect(dayShape).toHaveClass("daily-ohlc-glyph-down");
+    expect(within(auditDrawer).getByLabelText(
+      "Down move ₹5.00, 2.50 ATR, required 0.75 ATR or ₹1.50, new down leg.",
+    )).toHaveTextContent("↓ 2.50 ATR≥ 0.75 ✓₹85.00 → ₹80.00 · move ₹5.00 · new down leg");
+    expect(within(auditDrawer).getByLabelText(
+      "Up move ₹4.00, 2.00 ATR, required 1.00 ATR or ₹2.00, floor confirmed.",
+    )).toHaveTextContent("↑ 2.00 ATR≥ 1.00 ✓₹80.00 → ₹84.00 · move ₹4.00 · floor confirmed");
     expect(await screen.findByText("CEILING CONFIRMED")).toBeInTheDocument();
     expect(screen.getByText("The rebound peaked and was rejected.")).toBeInTheDocument();
     await waitFor(() => expect(getJsonMock).toHaveBeenCalledWith("/api/stocks/quotes?symbols=ABC"));
@@ -218,21 +224,55 @@ const scanResponse = {
     fiftyTwoWeekHigh: 100,
     distanceFromFiftyTwoWeekHighPct: -14,
     breakoutEvidence: null,
-    rawSteps: [{
-      date: "2026-08-05",
-      open: 82,
-      high: 83,
-      low: 79,
-      close: 80,
-      volume: 1000,
-      atr: 2,
-      candidateFloor: 80,
-      candidatePeak: 85,
-      ceilingAnchor: 85,
-      ceilingUpperBoundary: 86,
-      majorCeilingUpperBoundary: null,
-      decision: "CEILING_CONFIRMED",
-      explanation: "The rebound peaked and was rejected.",
-    }],
+    rawSteps: [
+      {
+        date: "2026-08-03",
+        open: 80,
+        high: 85,
+        low: 79,
+        close: 80,
+        volume: 900,
+        atr: 2,
+        candidateFloor: 79,
+        candidatePeak: 85,
+        ceilingAnchor: null,
+        ceilingUpperBoundary: null,
+        majorCeilingUpperBoundary: null,
+        decision: "CEILING_CANDIDATE",
+        explanation: "Price rejected ₹85.00 by at least 0.75 ATR.",
+      },
+      {
+        date: "2026-08-04",
+        open: 81,
+        high: 85,
+        low: 80,
+        close: 84,
+        volume: 950,
+        atr: 2,
+        candidateFloor: 80,
+        candidatePeak: 85,
+        ceilingAnchor: null,
+        ceilingUpperBoundary: null,
+        majorCeilingUpperBoundary: null,
+        decision: "FLOOR_CONFIRMED",
+        explanation: "Price moved one ATR above the candidate floor.",
+      },
+      {
+        date: "2026-08-05",
+        open: 82,
+        high: 83,
+        low: 79,
+        close: 80,
+        volume: 1000,
+        atr: 2,
+        candidateFloor: 80,
+        candidatePeak: 85,
+        ceilingAnchor: 85,
+        ceilingUpperBoundary: 86,
+        majorCeilingUpperBoundary: null,
+        decision: "CEILING_CONFIRMED",
+        explanation: "The rebound peaked and was rejected.",
+      },
+    ],
   }],
 };
