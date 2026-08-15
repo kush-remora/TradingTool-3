@@ -48,6 +48,10 @@ import com.tradingtool.core.strategy.weeklylowalignmentbacktest.WeeklyLowAlignme
 import com.tradingtool.core.strategy.weeklylowalignmentbacktest.WeeklyLowAlignmentBacktestService
 import com.tradingtool.core.strategy.twodayclosestrengthbacktest.TwoDayCloseStrengthBacktestEngine
 import com.tradingtool.core.strategy.twodayclosestrengthbacktest.TwoDayCloseStrengthBacktestService
+import com.tradingtool.core.strategy.weeklylowretestbacktest.WeeklyLowRetestBacktestEngine
+import com.tradingtool.core.strategy.weeklylowretestbacktest.WeeklyLowRetestBacktestService
+import com.tradingtool.core.strategy.baseretestbacktest.BaseRetestBacktestEngine
+import com.tradingtool.core.strategy.baseretestbacktest.BaseRetestBacktestService
 import com.tradingtool.core.volumeshocker.groww.dao.GrowwVolumeShockerReadDao
 import com.tradingtool.core.volumeshocker.groww.dao.GrowwVolumeShockerWriteDao
 import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceJdbiHandler
@@ -391,6 +395,34 @@ class ServiceModule(
         candleCacheService: CandleCacheService,
         engine: TwoDayCloseStrengthBacktestEngine,
     ): TwoDayCloseStrengthBacktestService = TwoDayCloseStrengthBacktestService(
+        indexConstituentHandler = indexConstituentHandler,
+        candleCacheService = candleCacheService,
+        engine = engine,
+    )
+
+    @Provides @Singleton
+    fun provideWeeklyLowRetestBacktestEngine(): WeeklyLowRetestBacktestEngine = WeeklyLowRetestBacktestEngine()
+
+    @Provides @Singleton
+    fun provideWeeklyLowRetestBacktestService(
+        indexConstituentHandler: IndexConstituentJdbiHandler,
+        candleCacheService: CandleCacheService,
+        engine: WeeklyLowRetestBacktestEngine,
+    ): WeeklyLowRetestBacktestService = WeeklyLowRetestBacktestService(
+        indexConstituentHandler = indexConstituentHandler,
+        candleCacheService = candleCacheService,
+        engine = engine,
+    )
+
+    @Provides @Singleton
+    fun provideBaseRetestBacktestEngine(): BaseRetestBacktestEngine = BaseRetestBacktestEngine()
+
+    @Provides @Singleton
+    fun provideBaseRetestBacktestService(
+        indexConstituentHandler: IndexConstituentJdbiHandler,
+        candleCacheService: CandleCacheService,
+        engine: BaseRetestBacktestEngine,
+    ): BaseRetestBacktestService = BaseRetestBacktestService(
         indexConstituentHandler = indexConstituentHandler,
         candleCacheService = candleCacheService,
         engine = engine,

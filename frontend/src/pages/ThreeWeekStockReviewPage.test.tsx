@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ThreeWeekStockReviewPage } from "./ThreeWeekStockReviewPage";
 import { BuySellChangeCalculator } from "../components/BuySellChangeCalculator";
-import { buildWeeklyPriceSummaries, buildWeeklyPriceTimelines, findConsecutiveWeeklyLowAlignments, findCurrentWeekLowAlignment, findLatestWeeklyLowAlignment } from "../utils/threeWeekStockReview";
+import { buildWeeklyPriceSummaries, buildWeeklyPriceTimelines, findConsecutiveWeeklyLowAlignments, findCurrentWeekLowAlignment, findFiveSessionMaxMove, findLatestWeeklyLowAlignment } from "../utils/threeWeekStockReview";
 
 const useStockDetailMock = vi.fn();
 const useLiveMarketDataMock = vi.fn(() => null);
@@ -152,6 +152,25 @@ describe("ThreeWeekStockReviewPage", () => {
       currentWeekLowDate: "2026-07-27",
       differencePct: expect.closeTo(0.57, 2),
       signedDifferencePct: expect.closeTo(0.57, 2),
+    }));
+  });
+
+  it("measures the highest high in the five sessions after the prior-week low", () => {
+    const move = findFiveSessionMaxMove([
+      day("2026-08-03", 100, 110),
+      day("2026-08-04", 101, 115),
+      day("2026-08-05", 102, 120),
+      day("2026-08-06", 103, 118),
+      day("2026-08-07", 104, 119),
+      day("2026-08-10", 105, 117),
+    ], "2026-08-03", 100);
+
+    expect(move).toEqual(expect.objectContaining({
+      highestHigh: 120,
+      highestHighDate: "2026-08-05",
+      maxMovePct: 20,
+      observedSessions: 5,
+      isComplete: true,
     }));
   });
 

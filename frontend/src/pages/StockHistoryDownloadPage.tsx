@@ -13,6 +13,7 @@ const LOOKBACK_OPTIONS = [
   { label: "1 month", value: 1, days: 31 },
   { label: "3 months", value: 3, days: 93 },
   { label: "6 months", value: 6, days: 186 },
+  { label: "1 year", value: 12, days: 365 },
 ];
 
 const formatNumber = (value: number | null): string => value == null ? "—" : value.toLocaleString("en-IN", { maximumFractionDigits: 2 });

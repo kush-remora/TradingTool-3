@@ -76,6 +76,99 @@ export interface ShortHorizonTabOneGuide {
   importantNote: string;
 }
 
+export type AdaptiveBreakoutStatus =
+  | "NO_CEILING"
+  | "BELOW_CEILING"
+  | "TESTING_CEILING"
+  | "STRONG_REBOUND"
+  | "FRESH_BREAKOUT"
+  | "BREAKOUT_CONTINUATION";
+
+export type AdaptiveBreakoutDecision =
+  | "BUILDING_STRUCTURE"
+  | "FLOOR_CONFIRMED"
+  | "CEILING_CANDIDATE"
+  | "CEILING_CONFIRMED"
+  | "BELOW_CEILING"
+  | "CEILING_TEST"
+  | "STRONG_REBOUND"
+  | "FRESH_BREAKOUT"
+  | "BREAKOUT_CONTINUATION";
+
+export interface AdaptiveBreakoutCeiling {
+  anchorDate: string;
+  confirmedDate: string;
+  anchorPrice: number;
+  upperBoundary: number;
+  atrAtAnchor: number;
+  breakoutDate: string | null;
+}
+
+export interface AdaptiveBreakoutRawStep {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  atr: number;
+  candidateFloor: number;
+  candidatePeak: number;
+  ceilingAnchor: number | null;
+  ceilingUpperBoundary: number | null;
+  majorCeilingUpperBoundary: number | null;
+  decision: AdaptiveBreakoutDecision;
+  explanation: string;
+}
+
+export interface AdaptiveBreakoutConfirmationEvidence {
+  date: string;
+  closePositionPct: number | null;
+  volumeVsTenDayAverage: number | null;
+  distanceFromFiftyTwoWeekHighPct: number | null;
+}
+
+export interface AdaptiveBreakoutScanRow {
+  symbol: string;
+  companyName: string;
+  instrumentToken: number;
+  status: AdaptiveBreakoutStatus;
+  latestDate: string;
+  latestOpen: number;
+  latestHigh: number;
+  latestLow: number;
+  latestClose: number;
+  latestVolume: number;
+  latestAtr: number;
+  ceiling: AdaptiveBreakoutCeiling | null;
+  majorCeiling: AdaptiveBreakoutCeiling | null;
+  ceilingAgeSessions: number | null;
+  closeVsCeilingPct: number | null;
+  closePositionPct: number | null;
+  volumeVsTenDayAverage: number | null;
+  fiftyTwoWeekHigh: number | null;
+  distanceFromFiftyTwoWeekHighPct: number | null;
+  breakoutEvidence: AdaptiveBreakoutConfirmationEvidence | null;
+  rawSteps: AdaptiveBreakoutRawStep[];
+}
+
+export interface AdaptiveBreakoutScanResponse {
+  watchlistKey: string;
+  requestedAsOfDate: string;
+  latestCandleDate: string | null;
+  scannedStockCount: number;
+  freshBreakoutCount: number;
+  config: {
+    atrPeriod: number;
+    floorReboundAtrMultiple: number;
+    peakRejectionAtrMultiple: number;
+    ceilingWidthAtrMultiple: number;
+    maximumLocalCeilingDistanceAtrMultiple: number;
+    strongReboundAtrMultiple: number;
+  };
+  rows: AdaptiveBreakoutScanRow[];
+}
+
 // ==================== Kite Instruments ====================
 
 export interface InstrumentSearchResult {
@@ -537,6 +630,160 @@ export interface TwoDayCloseStrengthBacktestReport {
   targetPct: number;
   summary: TwoDayCloseStrengthBacktestSummary;
   observations: TwoDayCloseStrengthObservation[];
+}
+
+// ==================== Weekly Low Retest Backtest ====================
+
+export interface WeeklyLowRetestBacktestRequest {
+  watchlistKey: string;
+  symbol?: string;
+  limitOffsetPct: number;
+  targetPct: number;
+}
+
+export interface WeeklyLowRetestObservation {
+  symbol: string;
+  companyName: string | null;
+  instrumentToken: number;
+  lookbackStartDate: string;
+  lookbackEndDate: string;
+  anchorDate: string;
+  anchorLow: number;
+  anchorVolumeVs10DayAveragePct: number | null;
+  anchorCloseNearHighPct: number | null;
+  recentCycleLowDate: string;
+  recentCycleLow: number;
+  triggerDate: string;
+  triggerHigh: number;
+  triggerMovePct: number;
+  cycleSequence: string;
+  limitOrderDate: string;
+  limitOrderExpiryDate: string;
+  limitPrice: number;
+  orderWindowLowDate: string;
+  orderWindowLow: number;
+  orderWindowLowVolumeVs10DayAveragePct: number | null;
+  orderWindowLowCloseNearHighPct: number | null;
+  fillDate: string | null;
+  fillLow: number | null;
+  fillPrice: number | null;
+  fillVolumeVs10DayAveragePct: number | null;
+  fillCloseNearHighPct: number | null;
+  targetPrice: number;
+  peakHighDate: string | null;
+  peakHigh: number | null;
+  peakReturnPct: number | null;
+  fourthSessionCloseDate: string | null;
+  fourthSessionClose: number | null;
+  noFillFourthSessionPnlPct: number | null;
+  targetReachedInOrderWindow: boolean;
+  exitDate: string | null;
+  exitPrice: number | null;
+  outcome: "NO_FILL" | "TARGET_HIT" | "FOURTH_SESSION_EXIT" | string;
+  realizedReturnPct: number | null;
+  holdingSessions: number | null;
+}
+
+export interface WeeklyLowRetestBacktestSummary {
+  signalCount: number;
+  noFillCount: number;
+  filledTradeCount: number;
+  targetHitCount: number;
+  fourthSessionExitCount: number;
+  profitableExitCount: number;
+  lossExitCount: number;
+  targetHitRatePct: number | null;
+  averageRealizedReturnPct: number | null;
+  medianRealizedReturnPct: number | null;
+  worstRealizedReturnPct: number | null;
+  totalRealizedReturnPct: number | null;
+  totalHoldingSessions: number;
+}
+
+export interface WeeklyLowRetestBacktestReport {
+  watchlistKey: string;
+  selectedSymbol: string | null;
+  testedFromDate: string;
+  testedToDate: string;
+  limitOffsetPct: number;
+  orderWindowSessions: number;
+  targetPct: number;
+  summary: WeeklyLowRetestBacktestSummary;
+  observations: WeeklyLowRetestObservation[];
+}
+
+// ==================== Three-Touch Base Retest Backtest ====================
+
+export interface BaseRetestBacktestRequest {
+  watchlistKey: string;
+  symbol?: string;
+  targetPct: number;
+  stopLossPct: number;
+}
+
+export interface BaseRetestObservation {
+  symbol: string;
+  companyName: string | null;
+  instrumentToken: number;
+  firstLowDate: string;
+  firstLow: number;
+  firstReboundDate: string;
+  firstReboundHigh: number;
+  firstReboundMovePct: number;
+  secondLowDate: string;
+  secondLow: number;
+  lowDifferencePct: number;
+  confirmationDate: string;
+  confirmationHigh: number;
+  confirmationMovePct: number;
+  basePrice: number;
+  limitPrice: number;
+  invalidationClosePrice: number;
+  orderActiveDate: string;
+  orderEndDate: string;
+  invalidationDate: string | null;
+  fillDate: string | null;
+  fillPrice: number | null;
+  targetPrice: number | null;
+  stopLossPrice: number | null;
+  exitDate: string | null;
+  exitPrice: number | null;
+  outcome: "NO_FILL" | "BASE_INVALIDATED" | "TARGET_HIT" | "STOP_LOSS" | "END_OF_DATA_EXIT" | string;
+  pnlPct: number | null;
+  holdingSessions: number | null;
+}
+
+export interface BaseRetestBacktestSummary {
+  setupCount: number;
+  filledTradeCount: number;
+  noFillCount: number;
+  baseInvalidatedCount: number;
+  targetHitCount: number;
+  stopLossCount: number;
+  endOfDataExitCount: number;
+  profitableTradeCount: number;
+  lossTradeCount: number;
+  winRatePct: number | null;
+  averagePnlPct: number | null;
+  medianPnlPct: number | null;
+  worstPnlPct: number | null;
+  totalPnlPct: number | null;
+  totalHoldingSessions: number;
+}
+
+export interface BaseRetestBacktestReport {
+  watchlistKey: string;
+  selectedSymbol: string | null;
+  testedFromDate: string;
+  testedToDate: string;
+  lowTolerancePct: number;
+  reboundPct: number;
+  limitOffsetPct: number;
+  invalidationPct: number;
+  targetPct: number;
+  stopLossPct: number;
+  summary: BaseRetestBacktestSummary;
+  observations: BaseRetestObservation[];
 }
 
 export interface WeeklyBaseDefinitionRequest {

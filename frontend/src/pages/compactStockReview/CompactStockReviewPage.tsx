@@ -31,7 +31,7 @@ import "./compactStockReview.css";
 const HISTORY_DAYS = 150;
 const CHART_DAYS = 150;
 const RECENT_TAPE_DAYS = 10;
-type CompactReviewTab = "review" | "summary";
+type CompactReviewTab = "review" | "summary" | "max-move";
 
 export function CompactStockReviewPage() {
   const [selectedInstrument, setSelectedInstrument] = useState<InstrumentSearchResult | null>(null);
@@ -39,9 +39,10 @@ export function CompactStockReviewPage() {
   const [selectedWatchlist, setSelectedWatchlist] = useState<string | null>(() => (
     new URLSearchParams(window.location.search).get("watchlist")
   ));
-  const [activeTab, setActiveTab] = useState<CompactReviewTab>(() => (
-    new URLSearchParams(window.location.search).get("view") === "summary" ? "summary" : "review"
-  ));
+  const [activeTab, setActiveTab] = useState<CompactReviewTab>(() => {
+    const requestedView = new URLSearchParams(window.location.search).get("view");
+    return requestedView === "summary" || requestedView === "max-move" ? requestedView : "review";
+  });
   const [watchlistMembers, setWatchlistMembers] = useState<InstrumentSearchResult[]>([]);
   const [watchlistOptionsLoading, setWatchlistOptionsLoading] = useState(true);
   const [watchlistOptionsError, setWatchlistOptionsError] = useState<string | null>(null);
@@ -142,8 +143,8 @@ export function CompactStockReviewPage() {
   const selectTab = (tab: CompactReviewTab): void => {
     setActiveTab(tab);
     const url = new URL(window.location.href);
-    if (tab === "summary") url.searchParams.set("view", "summary");
-    else url.searchParams.delete("view");
+    if (tab === "review") url.searchParams.delete("view");
+    else url.searchParams.set("view", tab);
     window.history.replaceState({}, "", `${url.pathname}${url.search}`);
   };
 
@@ -259,6 +260,15 @@ export function CompactStockReviewPage() {
             >
               4W Summary
             </button>
+            <button
+              type="button"
+              className={`compact-review-tab ${activeTab === "max-move" ? "compact-review-tab-active" : ""}`}
+              role="tab"
+              aria-selected={activeTab === "max-move"}
+              onClick={() => selectTab("max-move")}
+            >
+              5D &gt;5%
+            </button>
           </div>
           {activeTab === "review" && <Button
             size="small"
@@ -290,10 +300,11 @@ export function CompactStockReviewPage() {
           onDeletePaperTrade={deleteActivePaperTrade}
         />}
 
-        {activeTab === "summary" && <CompactFourWeekSummary
+        {(activeTab === "summary" || activeTab === "max-move") && <CompactFourWeekSummary
           watchlistOptions={watchlistOptions}
           watchlistOptionsLoading={watchlistOptionsLoading}
           watchlistOptionsError={watchlistOptionsError}
+          showOnlyMaxMoveCandidates={activeTab === "max-move"}
           onOpenStockReview={(symbol) => {
             const instrument = nseEquities.find((candidate) => candidate.trading_symbol === symbol);
             if (instrument) selectInstrument(instrument);

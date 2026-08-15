@@ -51,6 +51,16 @@ export interface LatestWeeklyLowAlignment {
   signedDifferencePct: number;
 }
 
+export interface FiveSessionMaxMove {
+  entryDate: string;
+  entryPrice: number;
+  highestHigh: number;
+  highestHighDate: string;
+  maxMovePct: number;
+  observedSessions: number;
+  isComplete: boolean;
+}
+
 export interface WeeklyPriceTimeline {
   baseOpen: number;
   days: WeeklyPriceTimelineDay[];
@@ -181,6 +191,32 @@ export function findLatestWeeklyLowAlignment(
     currentWeekLowDate: currentWeek.lowDate,
     differencePct: Math.abs(signedDifferencePct),
     signedDifferencePct,
+  };
+}
+
+export function findFiveSessionMaxMove(
+  days: WeeklyPriceDay[],
+  entryDate: string,
+  entryPrice: number,
+  sessionWindow: number = 5,
+): FiveSessionMaxMove | null {
+  if (!Number.isFinite(entryPrice) || entryPrice <= 0 || sessionWindow <= 0) return null;
+
+  const nextSessions = [...days]
+    .filter((day) => day.date > entryDate)
+    .sort((left, right) => left.date.localeCompare(right.date))
+    .slice(0, sessionWindow);
+  if (nextSessions.length === 0) return null;
+
+  const highestDay = nextSessions.reduce((highest, day) => day.high > highest.high ? day : highest);
+  return {
+    entryDate,
+    entryPrice,
+    highestHigh: highestDay.high,
+    highestHighDate: highestDay.date,
+    maxMovePct: ((highestDay.high - entryPrice) / entryPrice) * 100,
+    observedSessions: nextSessions.length,
+    isComplete: nextSessions.length === sessionWindow,
   };
 }
 

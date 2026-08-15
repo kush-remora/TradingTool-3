@@ -1,0 +1,23 @@
+.base-retest-positive {
+  color: #389e0d;
+}
+
+.base-retest-negative {
+  color: #cf1322;
+}
+
+.base-retest-entry-row > td {
+  background: #f6ffed !important;
+}
+
+.base-retest-exit-row > td {
+  background: #fff1f0 !important;
+}
+
+.base-retest-day-marker {
+  display: block;
+  margin-top: 2px;
+  color: #1677ff;
+  font-size: 11px;
+  font-weight: 600;
+}

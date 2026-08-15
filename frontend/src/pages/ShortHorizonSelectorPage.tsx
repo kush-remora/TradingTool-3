@@ -4,6 +4,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { UniverseOptionsResponse, WeeklyPriceWatchlistScannerResponse } from "../types";
 import { AccumulationHeatmap } from "../components/AccumulationHeatmap";
+import { ClosePositionBar, RecentDailyEvidenceTable } from "../components/RecentDailyEvidenceTable";
 import { ShortHorizonTabOneGuide } from "../components/ShortHorizonTabOneGuide";
 import { getJson } from "../utils/api";
 import {
@@ -22,11 +23,9 @@ import {
   getShortHorizonMoveAccelerationState,
   getShortHorizonMoveStage,
   passesShortHorizonFirstMoveFilter,
-  type ClosePositionBucket,
   type MoveAccelerationState,
   type MoveQuality,
   type PriceDirection,
-  type ShortHorizonDailyEvidence,
   type ShortHorizonFirstSeenPerformance,
   type ShortHorizonFirstSeenPerformanceByTab,
   type ShortHorizonMoveStage,
@@ -65,14 +64,6 @@ function formatDate(value: string | null): string {
 function formatSessionAge(value: number | null): string {
   if (value == null) return "age unavailable";
   return value === 0 ? "today" : `${value} sessions ago`;
-}
-
-function formatPercent(value: number | null): string {
-  return value == null ? "—" : `${value.toFixed(0)}%`;
-}
-
-function formatDeliveryPercentage(value: number | null): string {
-  return value == null ? "—" : `${value.toFixed(1)}%`;
 }
 
 function formatSignedPercent(value: number | null): string {
@@ -135,119 +126,11 @@ function getStrongFinishDayLabel(index: number): string {
   return index === 0 ? "T" : `T-${index}`;
 }
 
-function getBucketLabel(bucket: ClosePositionBucket | null): string {
-  if (bucket === "HIGH") return "HIGH";
-  if (bucket === "LOW") return "LOW";
-  if (bucket === "MIDDLE") return "MID";
-  return "—";
-}
-
 function getDirectionIcon(direction: PriceDirection | null): ReactNode {
   if (direction === "UP") return <ArrowUpOutlined />;
   if (direction === "DOWN") return <ArrowDownOutlined />;
   if (direction === "FLAT") return <MinusOutlined />;
   return null;
-}
-
-function ClosePositionBar({ positionPct, bucket, direction }: {
-  positionPct: number | null;
-  bucket: ClosePositionBucket | null;
-  direction: PriceDirection | null;
-}) {
-  const position = positionPct == null ? 50 : positionPct;
-  const state = bucket?.toLowerCase() ?? "unknown";
-
-  return (
-    <div className="short-horizon-close-cell" aria-label={`Close ${getBucketLabel(bucket)}, ${formatPercent(positionPct)} of the way from low to high`}>
-      <div className="short-horizon-close-label">
-        <span className={`short-horizon-direction short-horizon-direction-${state}`}>{getDirectionIcon(direction)}</span>
-        <strong>{getBucketLabel(bucket)}</strong>
-        <span className="short-horizon-close-position">{formatPercent(positionPct)}</span>
-      </div>
-      <div className="short-horizon-range" aria-hidden="true">
-        <span className="short-horizon-range-low">L</span>
-        <span className="short-horizon-range-track">
-          <span className={`short-horizon-range-dot short-horizon-range-dot-${state}`} style={{ left: `${position}%` }} />
-        </span>
-        <span className="short-horizon-range-high">H</span>
-      </div>
-    </div>
-  );
-}
-
-function RecentDailyDetails({ row }: { row: ShortHorizonStockRow }) {
-  const dailyColumns: ColumnsType<ShortHorizonDailyEvidence> = [
-    { title: "Date", dataIndex: "date", key: "date", width: 100, render: formatDate },
-    { title: "Open", dataIndex: "open", key: "open", width: 100, render: formatPrice },
-    { title: "High", dataIndex: "high", key: "high", width: 100, render: formatPrice },
-    { title: "Low", dataIndex: "low", key: "low", width: 100, render: formatPrice },
-    { title: "Close", dataIndex: "close", key: "close", width: 100, render: formatPrice },
-    {
-      title: "Volume vs 10D avg",
-      dataIndex: "volumeMultiple",
-      key: "volumeMultiple",
-      width: 130,
-      sorter: (left, right) => (left.volumeMultiple ?? -Infinity) - (right.volumeMultiple ?? -Infinity),
-      render: (value: number | null) => formatMultiple(value),
-    },
-    {
-      title: "Delivery %",
-      dataIndex: "deliveryPercentage",
-      key: "deliveryPercentage",
-      width: 105,
-      sorter: (left, right) => (left.deliveryPercentage ?? -Infinity) - (right.deliveryPercentage ?? -Infinity),
-      render: (value: number | null) => formatDeliveryPercentage(value),
-    },
-    {
-      title: "Change %",
-      dataIndex: "changePct",
-      key: "changePct",
-      width: 100,
-      sorter: (left, right) => (left.changePct ?? -Infinity) - (right.changePct ?? -Infinity),
-      render: (value: number | null) => <span className={`short-horizon-daily-change-${getMoveDirection(value)?.toLowerCase() ?? "unknown"}`}>{formatSignedPercent(value)}</span>,
-    },
-    {
-      title: "Close position",
-      key: "closePosition",
-      width: 155,
-      sorter: (left, right) => left.closePositionPct - right.closePositionPct,
-      render: (_, day) => <ClosePositionBar positionPct={day.closePositionPct} bucket={day.closePositionBucket} direction={day.direction} />,
-    },
-    {
-      title: "From high",
-      dataIndex: "closeFromHighPct",
-      key: "closeFromHighPct",
-      width: 105,
-      sorter: (left, right) => (left.closeFromHighPct ?? -Infinity) - (right.closeFromHighPct ?? -Infinity),
-      render: (value: number | null) => <span className="short-horizon-daily-from-high">{formatSignedPercent(value)}</span>,
-    },
-  ];
-
-  return (
-    <div className="short-horizon-details">
-      <div className="short-horizon-details-summary">
-        <div>
-          <span className="short-horizon-details-number">{row.recentDailyEvidence.length}</span>
-          <span>recent completed sessions</span>
-        </div>
-        <div className="short-horizon-details-rate">Newest first</div>
-      </div>
-      <Text type="secondary">Change is close versus the previous close. Close position shows where the close finished between the day's low and high; From high shows the close's distance from that day's high; Volume vs 10D avg compares the session volume with the preceding ten-session average.</Text>
-      {row.recentDailyEvidence.length > 0 ? (
-        <Table<ShortHorizonDailyEvidence>
-          className="short-horizon-details-table"
-          size="small"
-          rowKey="key"
-          pagination={false}
-          columns={dailyColumns}
-          dataSource={row.recentDailyEvidence}
-          scroll={{ x: true }}
-        />
-      ) : (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No recent daily evidence available." />
-      )}
-    </div>
-  );
 }
 
 function StrongFinishDots({ row }: { row: ShortHorizonStockRow }): ReactNode {
@@ -495,9 +378,9 @@ function buildStockColumns(
               className="short-horizon-first-seen-performance"
               title={row.firstSeenHighDate ? `Highest post-signal high on ${formatDate(row.firstSeenHighDate)}` : "No later session high yet"}
             >
-              <FirstSeenReturnMetric label="Close" value={row.firstSeenCloseReturnPct} />
+              <FirstSeenReturnMetric label="Close" value={row.firstSeenCloseReturnPct ?? null} />
               {" · "}
-              <FirstSeenReturnMetric label="High" value={row.firstSeenHighReturnPct} />
+              <FirstSeenReturnMetric label="High" value={row.firstSeenHighReturnPct ?? null} />
             </Text>
           )}
           <Text strong>{row.symbol}</Text>
@@ -1176,7 +1059,7 @@ export function ShortHorizonSelectorPage({ onOpenCompactStockReview }: { onOpenC
         footer={null}
         width="min(1280px, calc(100vw - 32px))"
       >
-        {selectedDetails && <RecentDailyDetails row={selectedDetails} />}
+        {selectedDetails && <RecentDailyEvidenceTable days={selectedDetails.recentDailyEvidence} />}
       </Modal>
     </div>
   );

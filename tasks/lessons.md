@@ -88,3 +88,22 @@
 
 - For the single-stock daily review console, optimize for one-viewport information density and simultaneous context, not progressive disclosure or navigation. Keep chart, recent tape, multi-week structure, evolving story, and note entry visible together; highlight exceptions instead of hiding raw context behind tabs.
 - For trading charts with a hover readout, explicitly use a free crosshair mode. The selected date may snap horizontally to a candle, but the price guide must remain vertically movable for normal chart inspection.
+
+## 2026-08-14
+
+- In daily-OHLC retest backtests, treat a same-day target after an intraday limit fill as ambiguous when the session opens above the limit; require the next session unless the open itself proves the order was already filled.
+- Round calculated trading prices with explicit half-up decimal rounding and compare limit touches with a small tolerance; binary floating-point boundaries can otherwise turn an exact retest into a false no-fill.
+- When a hypothesis is defined as "every day," do not group anchors into calendar weeks; model each trading session independently and attach its own trigger, order window, fill, and exit lifecycle.
+- For rolling-window hypotheses, calculate the previous five completed sessions before the current entry day; do not move the order to the next day after the window qualifies.
+- Daily OHLC does not reveal intraday order, so an explicit candle-path assumption must be recorded: green means low-then-high, red means high-then-low, and doji is unknown.
+- For dense trading audit tables, keep the decision fields in the main row and move verification fields into an expandable debug area; display volume as a ratio of the 10D average (for example, 82.58% of average), not as a confusing signed delta.
+- For trade-audit drill-downs, use trading-session indices around the backtest row's cycle start and exit dates, add the requested buffer on both sides, and highlight entry/exit rows so raw daily evidence can be checked without losing the trade narrative.
+- In dashboards with persistent header tools such as the buy/sell calculator, detail modals should use a non-blocking mask when the underlying tool must remain interactive; add a regression assertion that no modal mask is present.
+- In trade detail tables, distinguish order, actual fill/entry, and exit dates with explicit markers; same-session entry and exit needs a combined style so one state does not visually hide the other.
+- Keep a strategy's confirmation threshold separate from its exit target when only the target is made configurable; otherwise a UI target change silently changes the setup population as well.
+- Discover backtest setups independently from trade exit timing. Restarting pattern discovery at the previous trade's exit can make a larger target produce more signals by skipping or getting trapped behind different price history.
+
+## 2026-08-15
+
+- Never derive a durable event snapshot from a bounded audit-history window. Persist the event date and its evidence explicitly; if evidence is unavailable, show that honestly instead of silently substituting the latest candle.
+- In adaptive structure detection, separate local breakout resistance from older major overhead. A distant historical ceiling should remain visible as risk context, but must not suppress a confirmed breakout from a newer rejection-and-retest range.

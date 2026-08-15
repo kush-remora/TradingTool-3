@@ -43,4 +43,16 @@ describe("StockHistoryDownloadPage", () => {
     expect(screen.getByRole("button", { name: "Download CSV" })).toBeEnabled();
     expect(screen.getByText("INFY · 3 months")).toBeInTheDocument();
   });
+
+  it("loads the one-year period when selected", async () => {
+    render(<StockHistoryDownloadPage />);
+
+    fireEvent.mouseDown(screen.getByLabelText("Stock"));
+    fireEvent.click(await screen.findByText("INFY — Infosys"));
+    fireEvent.mouseDown(screen.getByLabelText("Period"));
+    fireEvent.click(await screen.findByText("1 year"));
+
+    await waitFor(() => expect(useStockDetailMock).toHaveBeenLastCalledWith("INFY", 365));
+    expect(screen.getByText("INFY · 1 year")).toBeInTheDocument();
+  });
 });

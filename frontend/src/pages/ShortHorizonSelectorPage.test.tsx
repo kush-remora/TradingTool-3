@@ -159,7 +159,7 @@ describe("ShortHorizonSelectorPage", () => {
     expect(within(dialog).getByRole("columnheader", { name: "Delivery %" })).toBeInTheDocument();
     expect(within(dialog).getByRole("columnheader", { name: "Change %" })).toBeInTheDocument();
     expect(within(dialog).getByRole("columnheader", { name: "Close position" })).toBeInTheDocument();
-    expect(within(dialog).getByRole("columnheader", { name: "From high" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("columnheader", { name: "Low → high %" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Review" }));
     await waitFor(() => expect(onOpenCompactStockReview).toHaveBeenCalledWith("ABC"));

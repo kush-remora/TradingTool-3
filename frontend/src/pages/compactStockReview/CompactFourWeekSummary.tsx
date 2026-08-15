@@ -8,17 +8,22 @@ import type {
 } from "../../types";
 import { getJson } from "../../utils/api";
 import {
+  findFiveSessionMaxMove,
   findLatestWeeklyLowAlignment,
+  type FiveSessionMaxMove,
   type LatestWeeklyLowAlignment,
   type WeeklyPriceDay,
 } from "../../utils/threeWeekStockReview";
 
 const MAX_WEEKLY_LOW_DIFFERENCE_PCT = 1;
+const FIVE_SESSION_WINDOW = 5;
+const MAX_MOVE_FILTER_PCT = 5;
 
 interface CompactFourWeekSummaryProps {
   watchlistOptions: UniverseOption[];
   watchlistOptionsLoading: boolean;
   watchlistOptionsError: string | null;
+  showOnlyMaxMoveCandidates: boolean;
   onOpenStockReview: (symbol: string) => void;
 }
 
@@ -26,6 +31,7 @@ interface FourWeekSummaryCandidate {
   symbol: string;
   companyName: string;
   alignment: LatestWeeklyLowAlignment;
+  maxMove: FiveSessionMaxMove | null;
 }
 
 function formatPrice(value: number): string {
@@ -48,7 +54,10 @@ function toWeeklyPriceDays(days: WeeklyPriceWatchlistRow["days"]): WeeklyPriceDa
   }));
 }
 
-function buildCandidates(responses: WeeklyPriceWatchlistScannerResponse[]): FourWeekSummaryCandidate[] {
+function buildCandidates(
+  responses: WeeklyPriceWatchlistScannerResponse[],
+  showOnlyMaxMoveCandidates: boolean,
+): FourWeekSummaryCandidate[] {
   const uniqueRows = new Map<string, WeeklyPriceWatchlistRow>();
   for (const response of responses) {
     for (const row of response.rows) {
@@ -58,10 +67,24 @@ function buildCandidates(responses: WeeklyPriceWatchlistScannerResponse[]): Four
 
   return [...uniqueRows.values()]
     .flatMap((row) => {
-      const alignment = findLatestWeeklyLowAlignment(toWeeklyPriceDays(row.days), MAX_WEEKLY_LOW_DIFFERENCE_PCT);
-      return alignment ? [{ symbol: row.symbol, companyName: row.companyName, alignment }] : [];
+      const weeklyDays = toWeeklyPriceDays(row.days);
+      const alignment = findLatestWeeklyLowAlignment(weeklyDays, MAX_WEEKLY_LOW_DIFFERENCE_PCT);
+      if (!alignment) return [];
+
+      const maxMove = findFiveSessionMaxMove(
+        weeklyDays,
+        alignment.previousWeekLowDate,
+        alignment.previousWeekLow,
+        FIVE_SESSION_WINDOW,
+      );
+      if (showOnlyMaxMoveCandidates && (maxMove == null || !maxMove.isComplete || maxMove.maxMovePct <= MAX_MOVE_FILTER_PCT)) {
+        return [];
+      }
+      return [{ symbol: row.symbol, companyName: row.companyName, alignment, maxMove }];
     })
-    .sort((left, right) => left.alignment.differencePct - right.alignment.differencePct
+    .sort((left, right) => (showOnlyMaxMoveCandidates
+      ? (right.maxMove?.maxMovePct ?? 0) - (left.maxMove?.maxMovePct ?? 0)
+      : left.alignment.differencePct - right.alignment.differencePct)
       || left.symbol.localeCompare(right.symbol));
 }
 
@@ -82,6 +105,7 @@ export function CompactFourWeekSummary({
   watchlistOptions,
   watchlistOptionsLoading,
   watchlistOptionsError,
+  showOnlyMaxMoveCandidates,
   onOpenStockReview,
 }: CompactFourWeekSummaryProps) {
   const [selectedWatchlists, setSelectedWatchlists] = useState<string[]>([]);
@@ -90,16 +114,18 @@ export function CompactFourWeekSummary({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (watchlistOptionsLoading || watchlistOptions.length === 0) return;
+    if (watchlistOptionsLoading || selectedWatchlists.length === 0) {
+      setResponses([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
 
-    const requestedWatchlists = selectedWatchlists.length > 0
-      ? selectedWatchlists
-      : watchlistOptions.map((option) => option.value);
     let current = true;
     setLoading(true);
     setError(null);
 
-    void Promise.all(requestedWatchlists.map((watchlist) => getJson<WeeklyPriceWatchlistScannerResponse>(
+    void Promise.all(selectedWatchlists.map((watchlist) => getJson<WeeklyPriceWatchlistScannerResponse>(
       `/api/strategy/weekly-price-review/scan?watchlist=${encodeURIComponent(watchlist)}`,
       { useCache: false },
     )))
@@ -117,12 +143,15 @@ export function CompactFourWeekSummary({
       });
 
     return () => { current = false; };
-  }, [selectedWatchlists, watchlistOptions, watchlistOptionsLoading]);
+  }, [selectedWatchlists, watchlistOptionsLoading]);
 
-  const candidates = useMemo(() => buildCandidates(responses), [responses]);
+  const candidates = useMemo(
+    () => buildCandidates(responses, showOnlyMaxMoveCandidates),
+    [responses, showOnlyMaxMoveCandidates],
+  );
   const selectedLabel = selectedWatchlists.length === 0
-    ? `All watchlists (${watchlistOptions.length})`
-    : `${selectedWatchlists.length} watchlist${selectedWatchlists.length === 1 ? "" : "s"}`;
+    ? "Select one or more watchlists"
+    : `${selectedWatchlists.length} watchlist${selectedWatchlists.length === 1 ? "" : "s"} selected`;
   const columns = useMemo<ColumnsType<FourWeekSummaryCandidate>>(() => [
     {
       title: "Stock",
@@ -163,6 +192,24 @@ export function CompactFourWeekSummary({
       render: (_, row) => <Tag color="gold">{row.alignment.signedDifferencePct >= 0 ? "+" : ""}{row.alignment.signedDifferencePct.toFixed(2)}%</Tag>,
     },
     {
+      title: "Max 5D move",
+      key: "maxMove",
+      width: 190,
+      render: (_, row) => {
+        if (!row.maxMove) return <Typography.Text type="secondary">—</Typography.Text>;
+        return (
+          <Space orientation="vertical" size={0}>
+            <Typography.Text strong style={{ color: row.maxMove.maxMovePct > 0 ? "#16803b" : "#cf1322" }}>
+              {row.maxMove.maxMovePct >= 0 ? "+" : ""}{row.maxMove.maxMovePct.toFixed(2)}%
+            </Typography.Text>
+            <Typography.Text type="secondary">
+              {formatPrice(row.maxMove.highestHigh)} · {formatDateWithDay(row.maxMove.highestHighDate)} · {row.maxMove.observedSessions}/{FIVE_SESSION_WINDOW} sessions
+            </Typography.Text>
+          </Space>
+        );
+      },
+    },
+    {
       title: "Review",
       key: "review",
       width: 110,
@@ -174,9 +221,13 @@ export function CompactFourWeekSummary({
     <section className="compact-four-week-summary" data-testid="compact-four-week-summary">
       <div className="compact-four-week-summary-heading">
         <div>
-          <Typography.Title level={4} style={{ margin: 0 }}>4W flow summary</Typography.Title>
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            {showOnlyMaxMoveCandidates ? "5D max move above 5%" : "4W flow summary"}
+          </Typography.Title>
           <Typography.Text type="secondary">
-            Stocks where this week&apos;s low is within 1% of last week&apos;s low. Use the compact review to validate the full structure.
+            {showOnlyMaxMoveCandidates
+              ? "Aligned stocks whose next five completed sessions reached more than 5% above last week's low."
+              : "Stocks where this week&apos;s low is within 1% of last week&apos;s low. Use the compact review to validate the full structure."}
           </Typography.Text>
         </div>
         <Tag color="gold">{candidates.length} candidate{candidates.length === 1 ? "" : "s"}</Tag>
@@ -190,7 +241,7 @@ export function CompactFourWeekSummary({
           loading={watchlistOptionsLoading}
           value={selectedWatchlists}
           onChange={setSelectedWatchlists}
-          placeholder="All watchlists"
+          placeholder="Select one or more watchlists"
           maxTagCount="responsive"
           options={watchlistOptions.map((option) => ({ value: option.value, label: `${option.label} (${option.count})` }))}
           style={{ minWidth: 360, maxWidth: "100%" }}
@@ -202,9 +253,14 @@ export function CompactFourWeekSummary({
       {error && <Alert type="error" showIcon message={error} />}
       {watchlistOptionsLoading && <div className="compact-four-week-summary-state"><Spin /><span>Loading watchlists…</span></div>}
       {!watchlistOptionsLoading && !watchlistOptionsError && watchlistOptions.length === 0 && <Empty description="No watchlists are available." />}
+      {!watchlistOptionsLoading && !watchlistOptionsError && watchlistOptions.length > 0 && selectedWatchlists.length === 0 && (
+        <Empty description="Select one or more watchlists to start the scan." />
+      )}
       {loading && <div className="compact-four-week-summary-state"><Spin /><span>Scanning selected watchlists…</span></div>}
-      {!loading && !error && watchlistOptions.length > 0 && candidates.length === 0 && (
-        <Empty description="No stocks match the 1% current-week floor check." />
+      {!loading && !error && selectedWatchlists.length > 0 && candidates.length === 0 && (
+        <Empty description={showOnlyMaxMoveCandidates
+          ? "No aligned stocks exceeded 5% in the next five completed sessions."
+          : "No stocks match the 1% current-week floor check."} />
       )}
       {!loading && candidates.length > 0 && (
         <Table<FourWeekSummaryCandidate>

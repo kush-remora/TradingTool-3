@@ -3,6 +3,7 @@ package com.tradingtool.resources
 import com.google.inject.Inject
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.strategy.absolutedelivery.AbsoluteDeliveryBacktestService
+import com.tradingtool.core.strategy.adaptivebreakout.AdaptiveBreakoutScannerService
 import com.tradingtool.core.strategy.fiftytwohigh.ChartinkFiftyTwoWeekHighReportService
 import com.tradingtool.core.strategy.hotsma.HotSmaRunConfig
 import com.tradingtool.core.strategy.hotsma.HotSmaRunRequest
@@ -40,6 +41,12 @@ import com.tradingtool.core.strategy.weeklylowalignmentbacktest.WeeklyLowAlignme
 import com.tradingtool.core.strategy.twodayclosestrengthbacktest.TwoDayCloseStrengthBacktestRequest
 import com.tradingtool.core.strategy.twodayclosestrengthbacktest.TwoDayCloseStrengthBacktestRunConfig
 import com.tradingtool.core.strategy.twodayclosestrengthbacktest.TwoDayCloseStrengthBacktestService
+import com.tradingtool.core.strategy.weeklylowretestbacktest.WeeklyLowRetestBacktestRequest
+import com.tradingtool.core.strategy.weeklylowretestbacktest.WeeklyLowRetestBacktestRunConfig
+import com.tradingtool.core.strategy.weeklylowretestbacktest.WeeklyLowRetestBacktestService
+import com.tradingtool.core.strategy.baseretestbacktest.BaseRetestBacktestRequest
+import com.tradingtool.core.strategy.baseretestbacktest.BaseRetestBacktestRunConfig
+import com.tradingtool.core.strategy.baseretestbacktest.BaseRetestBacktestService
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionRequest
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionRunConfig
 import com.tradingtool.core.strategy.weeklybase.WeeklyBaseDefinitionService
@@ -76,6 +83,7 @@ class StrategyResource @Inject constructor(
     private val twoDayGreenCandleBacktestService: TwoDayGreenCandleBacktestService,
     private val volumeEventConfirmationBacktestService: VolumeEventConfirmationBacktestService,
     private val absoluteDeliveryBacktestService: AbsoluteDeliveryBacktestService,
+    private val adaptiveBreakoutScannerService: AdaptiveBreakoutScannerService,
     private val deliveryBreakoutScannerService: DeliveryBreakoutScannerService,
     private val wyckoffPhase1ScannerService: WyckoffPhase1ScannerService,
     private val wyckoffPhase1ConfigService: WyckoffPhase1ConfigService,
@@ -93,6 +101,8 @@ class StrategyResource @Inject constructor(
     private val weeklyLowLimitBacktestService: WeeklyLowLimitBacktestService,
     private val weeklyLowAlignmentBacktestService: WeeklyLowAlignmentBacktestService,
     private val twoDayCloseStrengthBacktestService: TwoDayCloseStrengthBacktestService,
+    private val weeklyLowRetestBacktestService: WeeklyLowRetestBacktestService,
+    private val baseRetestBacktestService: BaseRetestBacktestService,
     private val weeklyBaseDefinitionService: WeeklyBaseDefinitionService,
     private val weeklyBaseGroupBacktestService: WeeklyBaseGroupBacktestService,
     private val weeklyPriceWatchlistScannerService: WeeklyPriceWatchlistScannerService,
@@ -292,6 +302,24 @@ class StrategyResource @Inject constructor(
     @Path("/weekly-price-review/watchlists")
     fun getWeeklyPriceReviewWatchlists(): CompletableFuture<Response> = ioScope.endpoint {
         ok(weeklyPriceWatchlistScannerService.listWatchlists())
+    }
+
+    @GET
+    @Path("/adaptive-breakout/watchlists")
+    fun getAdaptiveBreakoutWatchlists(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(adaptiveBreakoutScannerService.listWatchlists())
+    }
+
+    @GET
+    @Path("/adaptive-breakout/scan")
+    fun getAdaptiveBreakoutScan(
+        @QueryParam("watchlist") watchlist: String?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        try {
+            ok(adaptiveBreakoutScannerService.scan(watchlist.orEmpty()))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid adaptive breakout request.")
+        }
     }
 
     @GET
@@ -646,6 +674,54 @@ class StrategyResource @Inject constructor(
             )
         } catch (error: IllegalArgumentException) {
             badRequest(error.message ?: "Invalid two-day close-strength backtest request.")
+        }
+    }
+
+    @POST
+    @Path("/weekly-low-retest-backtest/run")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runWeeklyLowRetestBacktest(
+        request: WeeklyLowRetestBacktestRequest?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        try {
+            ok(
+                weeklyLowRetestBacktestService.run(
+                    WeeklyLowRetestBacktestRunConfig(
+                        watchlistKey = body.watchlistKey,
+                        symbol = body.symbol,
+                        limitOffsetPct = body.limitOffsetPct,
+                        targetPct = body.targetPct,
+                        toDate = LocalDate.now(),
+                    ),
+                ),
+            )
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid daily low trigger backtest request.")
+        }
+    }
+
+    @POST
+    @Path("/base-retest-backtest/run")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runBaseRetestBacktest(
+        request: BaseRetestBacktestRequest?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        try {
+            ok(
+                baseRetestBacktestService.run(
+                    BaseRetestBacktestRunConfig(
+                        watchlistKey = body.watchlistKey,
+                        symbol = body.symbol,
+                        targetPct = body.targetPct,
+                        stopLossPct = body.stopLossPct,
+                        toDate = LocalDate.now(),
+                    ),
+                ),
+            )
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid three-touch base backtest request.")
         }
     }
 

@@ -1,0 +1,96 @@
+.recent-daily-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.recent-daily-summary > div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.recent-daily-summary strong,
+.recent-daily-summary b {
+  color: #008f72;
+  font-size: 22px;
+}
+
+.recent-daily-summary b {
+  font-size: 16px;
+}
+
+.recent-daily-table {
+  margin-top: 12px;
+}
+
+.recent-daily-close-cell {
+  min-width: 145px;
+}
+
+.recent-daily-close-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+
+.recent-daily-close-label > span:last-child,
+.recent-daily-low-high {
+  color: #667085;
+  font-size: 10px;
+}
+
+.recent-daily-direction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 9px;
+}
+
+.recent-daily-direction-high { color: #237804; background: #f6ffed; }
+.recent-daily-direction-middle { color: #ad6800; background: #fffbe6; }
+.recent-daily-direction-low { color: #a8071a; background: #fff1f0; }
+.recent-daily-direction-unknown { background: #f2f4f7; }
+.recent-daily-range-dot-high { color: #237804; }
+.recent-daily-range-dot-middle { color: #ad6800; }
+.recent-daily-range-dot-low { color: #a8071a; }
+
+.recent-daily-range {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  color: #98a2b3;
+  font-size: 9px;
+}
+
+.recent-daily-range-track {
+  position: relative;
+  display: block;
+  width: 100px;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #ffccc7, #ffe58f 50%, #b7eb8f);
+}
+
+.recent-daily-range-dot {
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 1px currentColor;
+  transform: translate(-50%, -50%);
+}
+
+.recent-daily-change-up { color: #237804; font-weight: 600; }
+.recent-daily-change-down { color: #a8071a; font-weight: 600; }
+.recent-daily-change-flat { color: #667085; }

@@ -42,6 +42,8 @@ import { CompactStockReviewPage } from "./pages/compactStockReview/CompactStockR
 import { WeeklyLowAlignmentSummaryPage } from "./pages/WeeklyLowAlignmentSummaryPage";
 import { WeeklyLowAlignmentBacktestPage } from "./pages/WeeklyLowAlignmentBacktestPage";
 import { TwoDayCloseStrengthBacktestPage } from "./pages/TwoDayCloseStrengthBacktestPage";
+import { WeeklyLowRetestBacktestPage } from "./pages/WeeklyLowRetestBacktestPage";
+import { BaseRetestBacktestPage } from "./pages/BaseRetestBacktestPage";
 import { VolumeEventReviewPage } from "./pages/VolumeEventReviewPage";
 import { VolumeEventConfirmationBacktestPage } from "./pages/VolumeEventConfirmationBacktestPage";
 import { WeeklyPriceWatchlistScannerPage } from "./pages/WeeklyPriceWatchlistScannerPage";
@@ -52,11 +54,13 @@ import { StockHistoryDownloadPage } from "./pages/StockHistoryDownloadPage";
 import { NetwebCycleTrackerPage } from "./pages/NetwebCycleTrackerPage";
 import { SummaryConsolePage } from "./pages/SummaryConsolePage";
 import { ShortHorizonSelectorPage } from "./pages/ShortHorizonSelectorPage";
+import { AdaptiveBreakoutScannerPage } from "./pages/AdaptiveBreakoutScannerPage";
 import type { AccumulationCaseSnapshot } from "./types";
 
 type V1PageKey =
   | "summary-console"
   | "short-horizon-selector"
+  | "adaptive-breakout"
   | "trade"
   | "wyckoff-phase1"
   | "volume-shocker"
@@ -84,6 +88,8 @@ type V1PageKey =
   | "weekly-low-alignment"
   | "weekly-low-alignment-backtest"
   | "two-day-close-strength-backtest"
+  | "weekly-low-retest-backtest"
+  | "base-retest-backtest"
   | "volume-event-review"
   | "volume-event-confirmation-backtest"
   | "weekly-price-watchlist-scanner"
@@ -163,6 +169,16 @@ const menuItems: MenuProps["items"] = [
     icon: <LineChartOutlined />,
   },
   {
+    key: "weekly-low-retest-backtest",
+    label: "Daily Low Trigger Backtest",
+    icon: <LineChartOutlined />,
+  },
+  {
+    key: "base-retest-backtest",
+    label: "Three-Touch Base Backtest",
+    icon: <LineChartOutlined />,
+  },
+  {
     key: "weekly-base-definition",
     label: "Weekly Base Definition",
     icon: <LineChartOutlined />,
@@ -211,6 +227,11 @@ const menuItems: MenuProps["items"] = [
     key: "price-acceptance",
     label: "Price Acceptance Scanner",
     icon: <BarChartOutlined />,
+  },
+  {
+    key: "adaptive-breakout",
+    label: "Adaptive Breakout Scanner",
+    icon: <LineChartOutlined />,
   },
   {
     key: "52w-momentum-rule5",
@@ -265,6 +286,7 @@ const menuItems: MenuProps["items"] = [
 const validPages: PageKey[] = [
   "summary-console",
   "short-horizon-selector",
+  "adaptive-breakout",
   "trade",
   "wyckoff-phase1",
   "volume-shocker",
@@ -281,6 +303,8 @@ const validPages: PageKey[] = [
   "weekly-low-limit-backtest",
   "weekly-low-alignment-backtest",
   "two-day-close-strength-backtest",
+  "weekly-low-retest-backtest",
+  "base-retest-backtest",
   "weekly-base-definition",
   "weekly-base-group-backtest",
   "three-week-stock-review",
@@ -524,6 +548,7 @@ export default function App() {
             {route === "trade" && <TradePage />}
             {route === "summary-console" && <SummaryConsolePage onOpenStockReview={openStockReview} />}
             {route === "short-horizon-selector" && <ShortHorizonSelectorPage onOpenCompactStockReview={openCompactStockReview} />}
+            {route === "adaptive-breakout" && <AdaptiveBreakoutScannerPage />}
             {route === "wyckoff-phase1" && <WyckoffPhase1Page />}
             {route === "volume-shocker" && <VolumeShockerDashboardPage />}
             {route === "absolute-delivery" && <AbsoluteDeliveryBacktestPage />}
@@ -539,6 +564,8 @@ export default function App() {
             {route === "weekly-low-limit-backtest" && <WeeklyLowLimitBacktestPage />}
             {route === "weekly-low-alignment-backtest" && <WeeklyLowAlignmentBacktestPage />}
             {route === "two-day-close-strength-backtest" && <TwoDayCloseStrengthBacktestPage />}
+            {route === "weekly-low-retest-backtest" && <WeeklyLowRetestBacktestPage />}
+            {route === "base-retest-backtest" && <BaseRetestBacktestPage />}
             {typeof route !== "string" && route.page === "weekly-low-limit-validation" && (
               <WeeklyLowLimitDailyValidationPage
                 symbol={route.symbol}

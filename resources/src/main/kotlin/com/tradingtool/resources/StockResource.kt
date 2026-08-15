@@ -235,7 +235,7 @@ class StockResource @Inject constructor(
             return@endpoint badRequest("symbol is required.")
         }
 
-        val requestedDays = (days ?: 7).coerceIn(1, 200)
+        val requestedDays = (days ?: 7).coerceIn(1, 365)
         val token = instrumentCache.token("NSE", normalizedSymbol)
             ?: return@endpoint notFound("Unknown NSE symbol: $normalizedSymbol")
 

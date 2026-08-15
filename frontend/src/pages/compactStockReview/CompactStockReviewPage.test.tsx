@@ -59,11 +59,11 @@ const day = (date: string, open: number, high: number, low: number, close: numbe
   vol_ratio: null,
 });
 
-function weeklyDay(date: string, low: number) {
+function weeklyDay(date: string, low: number, high: number = low + 30) {
   return {
     date,
     open: low + 1,
-    high: low + 30,
+    high,
     low,
     close: low + 10,
     volume: 100_000,
@@ -268,9 +268,24 @@ describe("CompactStockReviewPage", () => {
             companyName: "Netweb Technologies India",
             instrumentToken: 4462849,
             days: [
-              weeklyDay("2026-07-27", 704),
               weeklyDay("2026-08-03", 700),
-              weeklyDay("2026-08-07", 704),
+              weeklyDay("2026-08-04", 710, 740),
+              weeklyDay("2026-08-05", 705, 735),
+              weeklyDay("2026-08-06", 708, 738),
+              weeklyDay("2026-08-07", 706, 736),
+              weeklyDay("2026-08-10", 704, 734),
+            ],
+          }, {
+            symbol: "TCS",
+            companyName: "Tata Consultancy Services",
+            instrumentToken: 12345,
+            days: [
+              weeklyDay("2026-08-03", 100, 130),
+              weeklyDay("2026-08-04", 100, 105),
+              weeklyDay("2026-08-05", 100, 104),
+              weeklyDay("2026-08-06", 100, 103),
+              weeklyDay("2026-08-07", 100, 102),
+              weeklyDay("2026-08-10", 100, 101),
             ],
           }],
         });
@@ -291,15 +306,31 @@ describe("CompactStockReviewPage", () => {
 
     render(<CompactStockReviewPage />);
 
+    expect(await screen.findByText("Select one or more watchlists to start the scan.")).toBeInTheDocument();
+    expect(getJsonMock).not.toHaveBeenCalledWith(
+      "/api/strategy/weekly-price-review/scan?watchlist=leaders",
+      { useCache: false },
+    );
+
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Summary watchlists" }));
+    fireEvent.click(await screen.findByText("leaders (2)"));
     expect(await screen.findByTestId("compact-four-week-summary-table")).toHaveTextContent("NETWEB");
     const summaryTable = screen.getByTestId("compact-four-week-summary-table");
     expect(summaryTable).toHaveTextContent("₹704.00");
     expect(summaryTable).toHaveTextContent("₹700.00");
-    expect(summaryTable).toHaveTextContent("-0.57%");
-    expect(summaryTable).toHaveTextContent("Mon, 03 Aug");
-    expect(screen.getByText("All watchlists (2)")).toBeInTheDocument();
+    expect(summaryTable).toHaveTextContent("+0.57%");
+    expect(summaryTable).toHaveTextContent("Mon, 10 Aug");
+    expect(summaryTable).toHaveTextContent("+5.71%");
+    expect(summaryTable).toHaveTextContent("5/5 sessions");
+    expect(screen.getByText("1 watchlist selected")).toBeInTheDocument();
 
-    fireEvent.click(within(summaryTable).getByRole("link", { name: "Open NETWEB in compact review" }));
+    fireEvent.click(screen.getByRole("tab", { name: "5D >5%" }));
+    expect(await screen.findByRole("heading", { name: "5D max move above 5%" })).toBeInTheDocument();
+    const maxMoveTable = screen.getByTestId("compact-four-week-summary-table");
+    expect(maxMoveTable).toHaveTextContent("NETWEB");
+    expect(within(maxMoveTable).queryByText("TCS")).not.toBeInTheDocument();
+
+    fireEvent.click(within(maxMoveTable).getByRole("link", { name: "Open NETWEB in compact review" }));
     expect(screen.getByRole("tab", { name: "Stock review" })).toHaveAttribute("aria-selected", "true");
   });
 
