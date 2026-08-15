@@ -33,3 +33,5 @@ Daily-shape follow-up: add a compact visual in every raw row showing the session
 Implemented and validated with focused tests, a production build, and live review at 1,280px. The glyph keeps every audit column visible and announces the exact OHLC values plus the unknown intraday order to assistive technology.
 
 ATR-comprehension follow-up: remove the need to manually subtract prices and divide by ATR when reading a turn. On `CEILING_CANDIDATE` rows, show the downward move from candidate peak to close, its ATR multiple, and the 0.75 ATR trigger. On `FLOOR_CONFIRMED` rows, show the upward move from candidate floor to close, its ATR multiple, and the 1.00 ATR trigger. Keep this inside the existing explanation cell so no audit column is lost, use arrows plus words so color is not the only meaning, and do not change the strategy calculation.
+
+Implemented without changing engine behavior. Each relevant row now presents the subtraction, rupee movement, ATR multiple, required multiple, pass mark, and resulting state; downward turns also identify the new candidate low. Focused tests, production build, and live 1,280px review passed.

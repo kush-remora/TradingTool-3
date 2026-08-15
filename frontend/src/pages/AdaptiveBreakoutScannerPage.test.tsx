@@ -93,11 +93,11 @@ describe("AdaptiveBreakoutScannerPage", () => {
     });
     expect(dayShape).toHaveClass("daily-ohlc-glyph-down");
     expect(within(auditDrawer).getByLabelText(
-      "Down move ₹5.00, 2.50 ATR, required 0.75 ATR or ₹1.50, new down leg.",
-    )).toHaveTextContent("↓ 2.50 ATR≥ 0.75 ✓₹85.00 → ₹80.00 · move ₹5.00 · new down leg");
+      "Down move ₹5.00, 2.50 ATR, required 0.75 ATR or ₹1.50, new down leg; candidate low starts ₹79.00.",
+    )).toHaveTextContent("↓ 2.50 ATR≥ 0.75 ✓peak ₹85.00 − close ₹80.00 = ₹5.00 · candidate low → ₹79.00");
     expect(within(auditDrawer).getByLabelText(
       "Up move ₹4.00, 2.00 ATR, required 1.00 ATR or ₹2.00, floor confirmed.",
-    )).toHaveTextContent("↑ 2.00 ATR≥ 1.00 ✓₹80.00 → ₹84.00 · move ₹4.00 · floor confirmed");
+    )).toHaveTextContent("↑ 2.00 ATR≥ 1.00 ✓close ₹84.00 − floor ₹80.00 = ₹4.00 · floor confirmed");
     expect(await screen.findByText("CEILING CONFIRMED")).toBeInTheDocument();
     expect(screen.getByText("The rebound peaked and was rejected.")).toBeInTheDocument();
     await waitFor(() => expect(getJsonMock).toHaveBeenCalledWith("/api/stocks/quotes?symbols=ABC"));

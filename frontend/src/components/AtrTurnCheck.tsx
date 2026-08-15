@@ -50,7 +50,9 @@ export function AtrTurnCheck({ step, config }: AtrTurnCheckProps): ReactNode {
   const calculation = calculateAtrTurn({ step, config });
   if (calculation == null) return null;
   const isUp = calculation.direction === "up";
-  const ruleMeaning = isUp ? "floor confirmed" : "new down leg";
+  const ruleMeaning = isUp
+    ? "floor confirmed"
+    : `new down leg; candidate low starts ${formatTurnPrice(step.candidateFloor)}`;
   const accessibleLabel = [
     `${isUp ? "Up" : "Down"} move ${formatTurnPrice(calculation.movement)}`,
     `${calculation.movementMultiple.toFixed(2)} ATR`,
@@ -64,7 +66,8 @@ export function AtrTurnCheck({ step, config }: AtrTurnCheckProps): ReactNode {
         <b>≥ {calculation.thresholdMultiple.toFixed(2)} ✓</b>
       </span>
       <small>
-        {formatTurnPrice(calculation.referencePrice)} → {formatTurnPrice(step.close)} · move {formatTurnPrice(calculation.movement)} · {ruleMeaning}
+        {isUp ? "close" : "peak"} {formatTurnPrice(isUp ? step.close : calculation.referencePrice)} − {isUp ? "floor" : "close"} {formatTurnPrice(isUp ? calculation.referencePrice : step.close)} = {formatTurnPrice(calculation.movement)}
+        {isUp ? " · floor confirmed" : ` · candidate low → ${formatTurnPrice(step.candidateFloor)}`}
       </small>
     </div>
   );

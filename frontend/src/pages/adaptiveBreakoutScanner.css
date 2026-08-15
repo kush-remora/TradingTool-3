@@ -697,12 +697,9 @@
 }
 
 .adaptive-breakout-atr-turn small {
-  overflow: hidden;
   color: #747f8e;
   font-size: 8px;
   line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .adaptive-breakout-raw-row-floor_confirmed > td:first-child { box-shadow: inset 3px 0 #6f9cda; }
