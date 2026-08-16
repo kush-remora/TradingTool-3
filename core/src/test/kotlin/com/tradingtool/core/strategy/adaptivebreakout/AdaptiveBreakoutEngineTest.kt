@@ -17,18 +17,27 @@ class AdaptiveBreakoutEngineTest {
         assertEquals(AdaptiveBreakoutStatus.FRESH_BREAKOUT, evaluation.status)
         assertEquals(87.0, evaluation.ceiling?.anchorPrice)
         assertTrue(evaluation.ceiling?.upperBoundary?.let { boundary -> boundary in 87.0..89.0 } == true)
-        assertEquals(AdaptiveBreakoutDecision.CEILING_CANDIDATE, evaluation.rawSteps.first { step -> step.close == 80.0 && step.date > START_DATE.plusDays(19).toString() }.decision)
+        val firstCeiling = evaluation.rawSteps.first { step ->
+            step.decision == AdaptiveBreakoutDecision.CEILING_CONFIRMED
+        }
+        assertEquals(firstCeiling.date, evaluation.rawSteps.first { step -> step.ceilingAnchor != null }.date)
+        assertTrue(assertNotNull(evaluation.ceiling).testCount >= 2)
         assertEquals(AdaptiveBreakoutDecision.FRESH_BREAKOUT, evaluation.rawSteps.last().decision)
     }
 
     @Test
     fun `labels an uninterrupted two ATR rise as strong rebound rather than breakout`() {
-        val evaluation = AdaptiveBreakoutEngine.evaluate(candlesFromPriorTop(80.0, 81.0, 82.0, 83.0, 84.0, 85.0))
+        val evaluation = AdaptiveBreakoutEngine.evaluate(candlesFromPriorTop(80.0, 81.0, 82.0, 83.0, 84.0, 85.0, 86.0))
 
         assertNotNull(evaluation)
         assertEquals(AdaptiveBreakoutStatus.STRONG_REBOUND, evaluation.status)
         assertNull(evaluation.ceiling)
         assertTrue(evaluation.rawSteps.none { step -> step.decision == AdaptiveBreakoutDecision.FRESH_BREAKOUT })
+        val confirmedFloor = evaluation.rawSteps.single { step ->
+            step.decision == AdaptiveBreakoutDecision.FLOOR_CONFIRMED
+        }
+        assertTrue(confirmedFloor.candidateFloorAtr != confirmedFloor.atr)
+        assertTrue(confirmedFloor.close - confirmedFloor.candidateFloor >= confirmedFloor.candidateFloorAtr)
     }
 
     @Test
@@ -52,25 +61,82 @@ class AdaptiveBreakoutEngineTest {
         val evaluation = AdaptiveBreakoutEngine.evaluate(candles(82.0, 85.0, 80.0, 82.0, 86.0, 82.0))
 
         assertNotNull(evaluation)
-        assertEquals(86.0, evaluation.ceiling?.anchorPrice)
+        assertEquals(87.0, evaluation.ceiling?.anchorPrice)
         assertEquals(AdaptiveBreakoutStatus.BELOW_CEILING, evaluation.status)
     }
 
     @Test
-    fun `HFCL forms a local ceiling and breaks it while retaining old resistance as major overhead`() {
+    fun `strict one ATR rejection does not invent the former HFCL local ceiling`() {
         val evaluation = AdaptiveBreakoutEngine.evaluate(hfclCandles())
 
         assertNotNull(evaluation)
-        assertEquals(AdaptiveBreakoutStatus.FRESH_BREAKOUT, evaluation.status)
-        assertEquals(195.53, evaluation.ceiling?.anchorPrice)
-        assertEquals("2026-07-31", evaluation.ceiling?.confirmedDate)
-        assertEquals("2026-08-03", evaluation.ceiling?.breakoutDate)
+        assertEquals(AdaptiveBreakoutStatus.NO_CEILING, evaluation.status)
+        assertNull(evaluation.ceiling)
         assertEquals(231.41, evaluation.majorCeiling?.anchorPrice)
-        assertTrue(evaluation.ceiling?.upperBoundary?.let { boundary -> boundary < 202.52 } == true)
-        assertEquals(
-            AdaptiveBreakoutDecision.FRESH_BREAKOUT,
-            evaluation.rawSteps.single { step -> step.date == "2026-08-03" }.decision,
+        val rejection = evaluation.rawSteps.single { step -> step.date == "2026-07-30" }
+        val rejectionAtrMultiple = (rejection.candidatePeak - rejection.close) / rejection.candidatePeakAtr
+        assertTrue(rejectionAtrMultiple < 1.0)
+        assertTrue(evaluation.rawSteps.none { step -> step.decision == AdaptiveBreakoutDecision.FRESH_BREAKOUT })
+    }
+
+    @Test
+    fun `marks an unresolved first outside day as ambiguous`() {
+        val warmup = (0 until 20).map { index -> candle(index, 100.0) }
+        val outsideDay = marketCandle(
+            date = START_DATE.plusDays(20),
+            open = 100.0,
+            high = 115.0,
+            low = 85.0,
+            close = 100.0,
         )
+
+        val evaluation = AdaptiveBreakoutEngine.evaluate(warmup + outsideDay)
+
+        assertNotNull(evaluation)
+        assertEquals(AdaptiveBreakoutDecision.AMBIGUOUS_OUTSIDE_DAY, evaluation.rawSteps.last().decision)
+        assertNull(evaluation.ceiling)
+    }
+
+    @Test
+    fun `does not use an extreme from the ATR warmup as live structure`() {
+        val warmupExtreme = marketCandle(
+            date = START_DATE,
+            open = 100.0,
+            high = 150.0,
+            low = 100.0,
+            close = 100.0,
+        )
+        val remainingWarmup = (1 until 14).map { index -> candle(index, 100.0) }
+        val firstReadyCandle = candle(14, 100.0)
+
+        val evaluation = AdaptiveBreakoutEngine.evaluate(listOf(warmupExtreme) + remainingWarmup + firstReadyCandle)
+
+        assertNotNull(evaluation)
+        assertEquals(AdaptiveBreakoutStatus.NO_CEILING, evaluation.status)
+        assertNull(evaluation.ceiling)
+        assertEquals(101.0, evaluation.rawSteps.last().candidatePeak)
+    }
+
+    @Test
+    fun `records a breakout even when the same candle confirms a newer ceiling`() {
+        val priorCandles = candles(82.0, 85.0, 80.0, 82.0, 86.0, 82.0, 85.0, 86.0)
+        val breakoutDate = START_DATE.plusDays(priorCandles.size.toLong())
+        val breakoutAndRejection = marketCandle(
+            date = breakoutDate,
+            open = 89.0,
+            high = 95.0,
+            low = 88.0,
+            close = 89.0,
+        )
+
+        val evaluation = AdaptiveBreakoutEngine.evaluate(priorCandles + breakoutAndRejection)
+
+        assertNotNull(evaluation)
+        assertEquals(AdaptiveBreakoutStatus.FRESH_BREAKOUT, evaluation.status)
+        assertEquals(AdaptiveBreakoutDecision.FRESH_BREAKOUT, evaluation.rawSteps.last().decision)
+        assertEquals(95.0, evaluation.ceiling?.anchorPrice)
+        assertNull(evaluation.ceiling?.breakoutDate)
+        assertEquals(breakoutDate.toString(), evaluation.breakoutEvidence?.date)
     }
 
     private fun candles(vararg closes: Double): List<DailyCandle> {

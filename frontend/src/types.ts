@@ -87,8 +87,8 @@ export type AdaptiveBreakoutStatus =
 export type AdaptiveBreakoutDecision =
   | "BUILDING_STRUCTURE"
   | "FLOOR_CONFIRMED"
-  | "CEILING_CANDIDATE"
   | "CEILING_CONFIRMED"
+  | "AMBIGUOUS_OUTSIDE_DAY"
   | "BELOW_CEILING"
   | "CEILING_TEST"
   | "STRONG_REBOUND"
@@ -101,6 +101,8 @@ export interface AdaptiveBreakoutCeiling {
   anchorPrice: number;
   upperBoundary: number;
   atrAtAnchor: number;
+  testCount: number;
+  lastTestDate: string | null;
   breakoutDate: string | null;
 }
 
@@ -113,10 +115,13 @@ export interface AdaptiveBreakoutRawStep {
   volume: number;
   atr: number;
   candidateFloor: number;
+  candidateFloorAtr: number;
   candidatePeak: number;
+  candidatePeakAtr: number;
   ceilingAnchor: number | null;
   ceilingUpperBoundary: number | null;
   majorCeilingUpperBoundary: number | null;
+  ceilingTestCount: number | null;
   decision: AdaptiveBreakoutDecision;
   explanation: string;
 }

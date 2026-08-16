@@ -629,8 +629,8 @@
 .adaptive-breakout-decision-building_structure,
 .adaptive-breakout-decision-below_ceiling { color: #687383; border-color: #dfe3e8; background: #f3f5f7; }
 .adaptive-breakout-decision-floor_confirmed { color: #3461a4; border-color: #cfe0fb; background: #edf4ff; }
-.adaptive-breakout-decision-ceiling_candidate { color: #956009; border-color: #f1daa5; background: #fff5dc; }
 .adaptive-breakout-decision-ceiling_confirmed { color: #654bb0; border-color: #dcd0fb; background: #f2edff; }
+.adaptive-breakout-decision-ambiguous_outside_day { color: #6f5c25; border-color: #e8d9aa; background: #fff9e8; }
 .adaptive-breakout-decision-ceiling_test { color: #a15f08; border-color: #f0d49b; background: #fff7e6; }
 .adaptive-breakout-decision-strong_rebound { color: #087987; border-color: #bce4e8; background: #eaf8fa; }
 .adaptive-breakout-decision-fresh_breakout { color: #087658; border-color: #bee8d7; background: #e7f7f1; }

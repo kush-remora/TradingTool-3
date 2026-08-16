@@ -107,3 +107,8 @@
 
 - Never derive a durable event snapshot from a bounded audit-history window. Persist the event date and its evidence explicitly; if evidence is unavailable, show that honestly instead of silently substituting the latest candle.
 - In adaptive structure detection, separate local breakout resistance from older major overhead. A distant historical ceiling should remain visible as risk context, but must not suppress a confirmed breakout from a newer rejection-and-retest range.
+
+## 2026-08-16
+
+- In ATR-anchored swing detection, update an extreme only on a strictly higher high or strictly lower low. Equal highs/lows must not silently move the ATR anchor and change an already-defined reversal threshold.
+- A replay row may display one primary event, but that label must not suppress other structural state updates on the same candle; compute all events first, then choose the UI headline.

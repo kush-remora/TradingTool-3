@@ -238,7 +238,7 @@ function confirmationEvidence(
   status: DisplayStatus,
   marketOpen: boolean,
 ): ConfirmationEvidence {
-  const breakoutDate = row.ceiling?.breakoutDate;
+  const breakoutDate = row.ceiling?.breakoutDate ?? row.breakoutEvidence?.date;
   if (breakoutDate && (status === "FRESH_BREAKOUT" || status === "BREAKOUT_CONTINUATION")) {
     if (row.breakoutEvidence?.date === breakoutDate) {
       return {
@@ -428,7 +428,7 @@ function StructureCell({ row, quote }: { row: AdaptiveBreakoutScanRow; quote: St
         <span className="adaptive-breakout-price-marker" style={{ left: `${progress}%` }} />
       </div>
       <span className="adaptive-breakout-structure-age">
-        {row.ceilingAgeSessions ?? "—"} sessions · formed {formatDate(row.ceiling.confirmedDate)}
+        {row.ceilingAgeSessions ?? "—"} sessions · {row.ceiling.testCount} test{row.ceiling.testCount === 1 ? "" : "s"} · formed {formatDate(row.ceiling.confirmedDate)}
         {row.majorCeiling ? ` · major ${formatPrice(row.majorCeiling.upperBoundary)}` : ""}
       </span>
     </div>
@@ -469,10 +469,10 @@ function rawDecisionSummary(step: AdaptiveBreakoutRawStep): string {
   return {
     BUILDING_STRUCTURE: "No reliable floor-and-ceiling story exists yet.",
     FLOOR_CONFIRMED: `The close moved meaningfully away from the ${formatPrice(step.candidateFloor)} floor.`,
-    CEILING_CANDIDATE: `${formatPrice(step.candidatePeak)} may be resistance; wait for price to test this area again.`,
-    CEILING_CONFIRMED: `${ceiling} is now the confirmed line that a future close must beat.`,
+    CEILING_CONFIRMED: `${ceiling} is now the active line to beat; later failures make it stronger.`,
+    AMBIGUOUS_OUTSIDE_DAY: "This candle supports both directions; daily OHLC cannot prove the order, so the structure waits.",
     BELOW_CEILING: `The ${formatPrice(step.close)} close remains below the ${ceiling} line.`,
-    CEILING_TEST: `The ${formatPrice(step.close)} close is testing the ${ceiling} resistance area.`,
+    CEILING_TEST: `The ${formatPrice(step.close)} close is testing ${ceiling}; ${step.ceilingTestCount ?? 0} confirmed failure${step.ceilingTestCount === 1 ? "" : "s"} so far.`,
     STRONG_REBOUND: "Price has risen strongly from the floor, but no resistance is confirmed yet.",
     FRESH_BREAKOUT: `The ${formatPrice(step.close)} close crossed ${ceiling} for the first time.`,
     BREAKOUT_CONTINUATION: `The ${ceiling} line was broken earlier; this is no longer the first breakout day.`,
@@ -488,14 +488,13 @@ function RawReplayGuide(): ReactNode {
       </div>
       <div className="adaptive-breakout-raw-flow" aria-label="Normal breakout sequence">
         <span className="floor">Floor found</span><b>→</b>
-        <span className="candidate">Possible ceiling</span><b>→</b>
         <span className="confirmed">Ceiling confirmed</span><b>→</b>
-        <span className="testing">Testing</span><b>→</b>
+        <span className="testing">More tests = stronger</span><b>→</b>
         <span className="breakout">Fresh breakout</span>
       </div>
       <div className="adaptive-breakout-raw-keys">
         <span><strong>Day shape</strong> = positions, not time order</span>
-        <span><strong>Turn check</strong> = movement ÷ ATR; ✓ means rule passed</span>
+        <span><strong>Turn check</strong> = movement ÷ ATR from the floor/peak day; ✓ means rule passed</span>
         <span><strong>Ceiling</strong> = line to beat</span>
         <span><strong>Major</strong> = later obstacle only</span>
         <span><strong>ATR</strong> = the stock's movement ruler</span>

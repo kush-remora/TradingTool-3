@@ -3,7 +3,7 @@ package com.tradingtool.core.strategy.adaptivebreakout
 data class AdaptiveBreakoutConfig(
     val atrPeriod: Int = 14,
     val floorReboundAtrMultiple: Double = 1.0,
-    val peakRejectionAtrMultiple: Double = 0.75,
+    val peakRejectionAtrMultiple: Double = 1.0,
     val ceilingWidthAtrMultiple: Double = 0.5,
     val maximumLocalCeilingDistanceAtrMultiple: Double = 3.0,
     val strongReboundAtrMultiple: Double = 2.0,
@@ -22,7 +22,7 @@ enum class AdaptiveBreakoutDecision {
     BUILDING_STRUCTURE,
     FLOOR_CONFIRMED,
     CEILING_CONFIRMED,
-    CEILING_CANDIDATE,
+    AMBIGUOUS_OUTSIDE_DAY,
     BELOW_CEILING,
     CEILING_TEST,
     STRONG_REBOUND,
@@ -36,6 +36,8 @@ data class AdaptiveBreakoutCeiling(
     val anchorPrice: Double,
     val upperBoundary: Double,
     val atrAtAnchor: Double,
+    val testCount: Int,
+    val lastTestDate: String?,
     val breakoutDate: String?,
 )
 
@@ -48,10 +50,13 @@ data class AdaptiveBreakoutRawStep(
     val volume: Long,
     val atr: Double,
     val candidateFloor: Double,
+    val candidateFloorAtr: Double,
     val candidatePeak: Double,
+    val candidatePeakAtr: Double,
     val ceilingAnchor: Double?,
     val ceilingUpperBoundary: Double?,
     val majorCeilingUpperBoundary: Double?,
+    val ceilingTestCount: Int?,
     val decision: AdaptiveBreakoutDecision,
     val explanation: String,
 )
