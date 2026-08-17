@@ -112,3 +112,4 @@
 
 - In ATR-anchored swing detection, update an extreme only on a strictly higher high or strictly lower low. Equal highs/lows must not silently move the ATR anchor and change an already-defined reversal threshold.
 - A replay row may display one primary event, but that label must not suppress other structural state updates on the same candle; compute all events first, then choose the UI headline.
+- When chart review finds a valid shallow reversal, add persistence as an alternative proof instead of lowering the primary reversal threshold for every stock. Keep strong rejection and compact containment separately labelled and independently testable.

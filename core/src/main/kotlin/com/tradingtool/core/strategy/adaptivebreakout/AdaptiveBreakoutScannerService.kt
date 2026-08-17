@@ -4,7 +4,9 @@ import com.google.inject.Inject
 import com.google.inject.Singleton
 import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
+import com.tradingtool.core.database.StockDeliveryJdbiHandler
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
+import com.tradingtool.core.kite.InstrumentTokenResolverService
 import com.tradingtool.core.model.screener.UniverseOption
 import com.tradingtool.core.model.screener.UniverseOptionsResponse
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +21,8 @@ import java.time.LocalDate
 class AdaptiveBreakoutScannerService @Inject constructor(
     private val indexConstituentHandler: IndexConstituentJdbiHandler,
     private val candleCacheService: CandleCacheService,
+    private val stockDeliveryHandler: StockDeliveryJdbiHandler,
+    private val instrumentTokenResolver: InstrumentTokenResolverService,
 ) {
     suspend fun listWatchlists(): UniverseOptionsResponse {
         val options = indexConstituentHandler.read { dao -> dao.listUniqueIndices() }
@@ -52,6 +56,70 @@ class AdaptiveBreakoutScannerService @Inject constructor(
             config = CONFIG,
             rows = rows,
         )
+    }
+
+    suspend fun reviewBreakoutDay(symbol: String, requestedDate: LocalDate): BreakoutDayQualityResponse {
+        val normalizedSymbol = symbol.trim().uppercase()
+        require(normalizedSymbol.isNotEmpty()) { "symbol is required." }
+        require(!requestedDate.isAfter(LocalDate.now())) { "date cannot be in the future." }
+        val token = instrumentTokenResolver.resolve("NSE", normalizedSymbol)
+            ?: throw IllegalArgumentException("Unknown NSE symbol: $normalizedSymbol")
+        val candles = candleCacheService.getDailyCandles(
+            token = token,
+            symbol = normalizedSymbol,
+            from = requestedDate.minusYears(HISTORY_YEARS),
+            to = requestedDate,
+        ).filter { candle -> !candle.candleDate.isAfter(requestedDate) }
+        require(candles.any { candle -> candle.candleDate == requestedDate }) {
+            "No completed daily candle exists for $normalizedSymbol on $requestedDate."
+        }
+        val evaluation = AdaptiveBreakoutEngine.evaluate(candles, CONFIG)
+            ?: throw IllegalArgumentException("Not enough candle history to review $normalizedSymbol on $requestedDate.")
+        val deliveries = stockDeliveryHandler.read { dao ->
+            dao.findByInstrumentTokenBetweenDates(
+                instrumentToken = token,
+                fromDate = requestedDate.minusMonths(6),
+                toDate = requestedDate,
+            )
+        }
+        return BreakoutDayQualityAnalyzer.analyze(
+            symbol = normalizedSymbol,
+            candles = candles,
+            deliveries = deliveries,
+            evaluation = evaluation,
+        )
+    }
+
+    suspend fun runBacktest(request: AdaptiveBreakoutBacktestRequest): AdaptiveBreakoutBacktestResponse {
+        val normalizedSymbol = request.symbol.trim().uppercase()
+        require(normalizedSymbol.isNotEmpty()) { "symbol is required." }
+        require(request.instrumentToken > 0) { "instrumentToken must be positive." }
+        require(request.months in 1..24) { "months must be between 1 and 24." }
+        require(request.targetPct > 0.0 && request.targetPct <= 100.0) {
+            "targetPct must be greater than 0 and no more than 100."
+        }
+        require(request.stopLossPct > 0.0 && request.stopLossPct <= 100.0) {
+            "stopLossPct must be greater than 0 and no more than 100."
+        }
+
+        val candles = candleCacheService.getDailyCandles(
+            token = request.instrumentToken,
+            symbol = normalizedSymbol,
+            from = LocalDate.now().minusYears(HISTORY_YEARS),
+            to = LocalDate.now(),
+        ).sortedBy { candle -> candle.candleDate }
+        require(candles.isNotEmpty()) { "No daily candle data is available for $normalizedSymbol." }
+
+        val availableToDate = candles.last().candleDate
+        val requestedFromDate = availableToDate.minusMonths(request.months)
+        val testedFromDate = maxOf(requestedFromDate, candles.first().candleDate)
+        return AdaptiveBreakoutBacktestEngine.run(
+            candles = candles,
+            testFromDate = testedFromDate,
+            testToDate = availableToDate,
+            targetPct = request.targetPct,
+            stopLossPct = request.stopLossPct,
+        ).copy(symbol = normalizedSymbol)
     }
 
     private suspend fun resolveWatchlist(watchlistKey: String): String {
@@ -103,11 +171,12 @@ class AdaptiveBreakoutScannerService @Inject constructor(
     private val AdaptiveBreakoutStatus.sortOrder: Int
         get() = when (this) {
             AdaptiveBreakoutStatus.FRESH_BREAKOUT -> 0
-            AdaptiveBreakoutStatus.TESTING_CEILING -> 1
-            AdaptiveBreakoutStatus.STRONG_REBOUND -> 2
-            AdaptiveBreakoutStatus.BELOW_CEILING -> 3
-            AdaptiveBreakoutStatus.NO_CEILING -> 4
-            AdaptiveBreakoutStatus.BREAKOUT_CONTINUATION -> 5
+            AdaptiveBreakoutStatus.EARLY_BREAKOUT -> 1
+            AdaptiveBreakoutStatus.TESTING_CEILING -> 2
+            AdaptiveBreakoutStatus.STRONG_REBOUND -> 3
+            AdaptiveBreakoutStatus.BELOW_CEILING -> 4
+            AdaptiveBreakoutStatus.NO_CEILING -> 5
+            AdaptiveBreakoutStatus.BREAKOUT_CONTINUATION -> 6
         }
 
     private companion object {

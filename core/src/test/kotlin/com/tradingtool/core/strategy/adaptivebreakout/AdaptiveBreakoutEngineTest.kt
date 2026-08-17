@@ -70,12 +70,13 @@ class AdaptiveBreakoutEngineTest {
         val evaluation = AdaptiveBreakoutEngine.evaluate(hfclCandles())
 
         assertNotNull(evaluation)
-        assertEquals(AdaptiveBreakoutStatus.NO_CEILING, evaluation.status)
+        assertEquals(AdaptiveBreakoutStatus.EARLY_BREAKOUT, evaluation.status)
         assertNull(evaluation.ceiling)
         assertEquals(231.41, evaluation.majorCeiling?.anchorPrice)
         val rejection = evaluation.rawSteps.single { step -> step.date == "2026-07-30" }
         val rejectionAtrMultiple = (rejection.candidatePeak - rejection.close) / rejection.candidatePeakAtr
         assertTrue(rejectionAtrMultiple < 1.0)
+        assertEquals(AdaptiveBreakoutDecision.EARLY_BREAKOUT, evaluation.rawSteps.last().decision)
         assertTrue(evaluation.rawSteps.none { step -> step.decision == AdaptiveBreakoutDecision.FRESH_BREAKOUT })
     }
 
@@ -139,6 +140,85 @@ class AdaptiveBreakoutEngineTest {
         assertEquals(breakoutDate.toString(), evaluation.breakoutEvidence?.date)
     }
 
+    @Test
+    fun `confirms KRN compact ceiling after two contained sessions and breaks it on 11 August`() {
+        val evaluation = AdaptiveBreakoutEngine.evaluate(krnCompactCeilingCandles())
+
+        assertNotNull(evaluation)
+        val candidate = evaluation.rawSteps.single { step -> step.date == "2026-08-04" }
+        assertEquals(AdaptiveBreakoutDecision.COMPACT_CEILING_CANDIDATE, candidate.decision)
+        assertEquals(1_230.0, candidate.compactCeilingCandidate)
+        assertEquals(0, candidate.compactCeilingConfirmationCount)
+
+        val firstContainedSession = evaluation.rawSteps.single { step -> step.date == "2026-08-05" }
+        assertEquals(AdaptiveBreakoutDecision.COMPACT_CEILING_CANDIDATE, firstContainedSession.decision)
+        assertEquals(1, firstContainedSession.compactCeilingConfirmationCount)
+
+        val confirmation = evaluation.rawSteps.single { step -> step.date == "2026-08-06" }
+        assertEquals(AdaptiveBreakoutDecision.CEILING_CONFIRMED, confirmation.decision)
+        assertEquals(AdaptiveBreakoutCeilingType.COMPACT_RANGE, confirmation.ceilingType)
+        assertEquals(2, confirmation.compactCeilingConfirmationCount)
+        assertEquals(1_230.0, confirmation.ceilingAnchor)
+
+        val breakout = evaluation.rawSteps.single { step -> step.date == "2026-08-11" }
+        assertEquals(AdaptiveBreakoutDecision.FRESH_BREAKOUT, breakout.decision)
+        assertNotNull(breakout.breakoutBoundary)
+        assertTrue(breakout.close > breakout.breakoutBoundary)
+        assertEquals("2026-08-11", evaluation.breakoutEvidence?.date)
+        val ceiling = assertNotNull(evaluation.ceiling)
+        assertEquals(1_230.0, ceiling.anchorPrice)
+        assertTrue(ceiling.upperBoundary in 1_250.0..1_260.0)
+        assertEquals(AdaptiveBreakoutCeilingType.COMPACT_RANGE, ceiling.type)
+        assertEquals(1_319.0, evaluation.majorCeiling?.anchorPrice)
+    }
+
+    @Test
+    fun `higher high resets compact ceiling confirmation`() {
+        val candles = krnCompactCeilingCandles().filter { candle -> candle.candleDate <= LocalDate.of(2026, 8, 4) } +
+            listOf(
+                marketCandle(LocalDate.of(2026, 8, 5), 1_210.0, 1_235.0, 1_200.0, 1_205.0),
+                marketCandle(LocalDate.of(2026, 8, 6), 1_215.0, 1_225.0, 1_198.0, 1_210.0),
+            )
+
+        val evaluation = AdaptiveBreakoutEngine.evaluate(candles)
+
+        assertNotNull(evaluation)
+        val resetDay = evaluation.rawSteps.single { step -> step.date == "2026-08-05" }
+        assertEquals(1_235.0, resetDay.candidatePeak)
+        assertEquals(0, resetDay.compactCeilingConfirmationCount)
+        assertTrue(evaluation.rawSteps.none { step ->
+            step.date == "2026-08-06" && step.decision == AdaptiveBreakoutDecision.CEILING_CONFIRMED
+        })
+    }
+
+    @Test
+    fun `close above a live compact candidate emits watch-only early breakout`() {
+        val candidateCandles = krnCompactCeilingCandles()
+            .filter { candle -> candle.candleDate <= LocalDate.of(2026, 8, 4) }
+        val candidateEvaluation = assertNotNull(AdaptiveBreakoutEngine.evaluate(candidateCandles))
+        val candidateStep = candidateEvaluation.rawSteps.last()
+        val candidatePeak = assertNotNull(candidateStep.compactCeilingCandidate)
+        val earlyBoundary = candidatePeak + candidateStep.candidatePeakAtr * 0.1
+        val earlyClose = earlyBoundary + 1.0
+        val earlyCandle = marketCandle(
+            date = LocalDate.of(2026, 8, 5),
+            open = earlyBoundary - 2.0,
+            high = earlyClose + 2.0,
+            low = earlyBoundary - 4.0,
+            close = earlyClose,
+        )
+
+        val evaluation = assertNotNull(AdaptiveBreakoutEngine.evaluate(candidateCandles + earlyCandle))
+        val earlyStep = evaluation.rawSteps.last()
+
+        assertEquals(AdaptiveBreakoutStatus.EARLY_BREAKOUT, evaluation.status)
+        assertEquals(AdaptiveBreakoutDecision.EARLY_BREAKOUT, earlyStep.decision)
+        assertEquals(earlyBoundary, assertNotNull(earlyStep.breakoutBoundary), 0.0001)
+        assertEquals(candidatePeak, earlyStep.compactCeilingCandidate)
+        assertNull(evaluation.breakoutEvidence)
+        assertTrue(evaluation.rawSteps.none { step -> step.decision == AdaptiveBreakoutDecision.FRESH_BREAKOUT })
+    }
+
     private fun candles(vararg closes: Double): List<DailyCandle> {
         val warmup = (0 until 20).map { index -> candle(index, 80.0) }
         val path = closes.mapIndexed { index, close -> candle(index + warmup.size, close) }
@@ -165,6 +245,28 @@ class AdaptiveBreakoutEngineTest {
             marketCandle(LocalDate.of(2026, 7, 30), 193.0, 195.0, 182.92, 184.69),
             marketCandle(LocalDate.of(2026, 7, 31), 185.0, 194.0, 184.0, 193.92),
             marketCandle(LocalDate.of(2026, 8, 3), 195.0, 203.61, 194.0, 202.52),
+        )
+    }
+
+    private fun krnCompactCeilingCandles(): List<DailyCandle> {
+        val warmup = (0 until 20).map { index ->
+            marketCandle(
+                date = LocalDate.of(2026, 7, 1).plusDays(index.toLong()),
+                open = 1_294.0,
+                high = 1_319.0,
+                low = 1_269.0,
+                close = 1_294.0,
+            )
+        }
+        return warmup + listOf(
+            marketCandle(LocalDate.of(2026, 7, 31), 1_194.0, 1_194.0, 1_150.0, 1_170.0),
+            marketCandle(LocalDate.of(2026, 8, 3), 1_174.0, 1_218.0, 1_168.0, 1_212.0),
+            marketCandle(LocalDate.of(2026, 8, 4), 1_220.0, 1_230.0, 1_191.0, 1_196.60),
+            marketCandle(LocalDate.of(2026, 8, 5), 1_205.0, 1_219.90, 1_196.0, 1_213.70),
+            marketCandle(LocalDate.of(2026, 8, 6), 1_212.0, 1_222.0, 1_195.0, 1_214.70),
+            marketCandle(LocalDate.of(2026, 8, 7), 1_214.0, 1_224.0, 1_200.0, 1_208.40),
+            marketCandle(LocalDate.of(2026, 8, 10), 1_210.0, 1_242.0, 1_206.0, 1_226.40),
+            marketCandle(LocalDate.of(2026, 8, 11), 1_240.0, 1_287.70, 1_233.40, 1_287.70),
         )
     }
 

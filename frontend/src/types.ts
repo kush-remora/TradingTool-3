@@ -81,19 +81,24 @@ export type AdaptiveBreakoutStatus =
   | "BELOW_CEILING"
   | "TESTING_CEILING"
   | "STRONG_REBOUND"
+  | "EARLY_BREAKOUT"
   | "FRESH_BREAKOUT"
   | "BREAKOUT_CONTINUATION";
 
 export type AdaptiveBreakoutDecision =
   | "BUILDING_STRUCTURE"
   | "FLOOR_CONFIRMED"
+  | "COMPACT_CEILING_CANDIDATE"
   | "CEILING_CONFIRMED"
   | "AMBIGUOUS_OUTSIDE_DAY"
   | "BELOW_CEILING"
   | "CEILING_TEST"
   | "STRONG_REBOUND"
+  | "EARLY_BREAKOUT"
   | "FRESH_BREAKOUT"
   | "BREAKOUT_CONTINUATION";
+
+export type AdaptiveBreakoutCeilingType = "STRONG_REJECTION" | "COMPACT_RANGE";
 
 export interface AdaptiveBreakoutCeiling {
   anchorDate: string;
@@ -101,6 +106,7 @@ export interface AdaptiveBreakoutCeiling {
   anchorPrice: number;
   upperBoundary: number;
   atrAtAnchor: number;
+  type: AdaptiveBreakoutCeilingType;
   testCount: number;
   lastTestDate: string | null;
   breakoutDate: string | null;
@@ -122,8 +128,65 @@ export interface AdaptiveBreakoutRawStep {
   ceilingUpperBoundary: number | null;
   majorCeilingUpperBoundary: number | null;
   ceilingTestCount: number | null;
+  ceilingType: AdaptiveBreakoutCeilingType | null;
+  breakoutBoundary?: number | null;
+  compactCeilingCandidate: number | null;
+  compactCeilingConfirmationCount: number | null;
   decision: AdaptiveBreakoutDecision;
   explanation: string;
+}
+
+export type BreakoutQualityVerdict = "PASS" | "WAIT" | "REJECT" | "UNAVAILABLE";
+export type BreakoutQualityDecision = "PASS" | "WAIT" | "REJECT" | "CONTEXT_ONLY";
+
+export interface BreakoutQualityRuleResult {
+  key: string;
+  label: string;
+  rule: string;
+  actual: string;
+  verdict: BreakoutQualityVerdict;
+  explanation: string;
+}
+
+export interface BreakoutChartContext {
+  overallDecision: BreakoutQualityDecision;
+  decisionSummary: string;
+  sma50: number | null;
+  sma200: number | null;
+  sma50ChangePctFiveSessions: number | null;
+  sma200ChangePctTwentySessions: number | null;
+  priorFiftyTwoWeekHigh: number | null;
+  nextObstaclePrice: number | null;
+  nextObstacleLabel: string | null;
+  roomToObstaclePct: number | null;
+  roomToObstacleAtr: number | null;
+  rules: BreakoutQualityRuleResult[];
+}
+
+export interface BreakoutDayQualityResponse {
+  symbol: string;
+  date: string;
+  structureStatus: AdaptiveBreakoutStatus;
+  structureDecision: AdaptiveBreakoutDecision;
+  structureExplanation: string;
+  overallDecision: BreakoutQualityDecision;
+  decisionSummary: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  atr: number;
+  floor: number;
+  peak: number;
+  breakoutLine: number | null;
+  majorCeiling: number | null;
+  sma50: number | null;
+  sma200: number | null;
+  deliveryPercentage: number | null;
+  deliveredQuantity: number | null;
+  rules: BreakoutQualityRuleResult[];
+  chartContext: BreakoutChartContext;
 }
 
 export interface AdaptiveBreakoutConfirmationEvidence {
@@ -167,11 +230,65 @@ export interface AdaptiveBreakoutScanResponse {
     atrPeriod: number;
     floorReboundAtrMultiple: number;
     peakRejectionAtrMultiple: number;
+    compactPeakRejectionAtrMultiple: number;
+    compactCeilingConfirmationSessions: number;
+    earlyBreakoutBufferAtrMultiple: number;
     ceilingWidthAtrMultiple: number;
     maximumLocalCeilingDistanceAtrMultiple: number;
     strongReboundAtrMultiple: number;
   };
   rows: AdaptiveBreakoutScanRow[];
+}
+
+// ==================== Adaptive Breakout Six-Month Backtest ====================
+
+export interface AdaptiveBreakoutBacktestRequest {
+  symbol: string;
+  instrumentToken: number;
+  months?: number;
+  targetPct?: number;
+  stopLossPct?: number;
+}
+
+export type AdaptiveBreakoutBacktestExitReason =
+  | "TARGET_HIT"
+  | "STOP_LOSS"
+  | "STOP_LOSS_SAME_CANDLE"
+  | "END_OF_TEST";
+
+export interface AdaptiveBreakoutBacktestTrade {
+  breakoutDate: string;
+  breakoutClose: number;
+  entryDate: string;
+  entryPrice: number;
+  targetPrice: number;
+  stopPrice: number;
+  exitDate: string;
+  exitPrice: number;
+  exitReason: AdaptiveBreakoutBacktestExitReason;
+  holdingSessions: number;
+  returnPct: number;
+  ambiguousSameCandle: boolean;
+}
+
+export interface AdaptiveBreakoutBacktestResponse {
+  symbol: string;
+  testedFromDate: string;
+  testedToDate: string;
+  targetPct: number;
+  stopLossPct: number;
+  entryRule: string;
+  ambiguousCandleRule: string;
+  summary: {
+    freshBreakoutCount: number;
+    enteredTradeCount: number;
+    targetHitCount: number;
+    stopLossCount: number;
+    endOfTestCount: number;
+    winRatePct: number | null;
+    averageHoldingSessions: number | null;
+  };
+  trades: AdaptiveBreakoutBacktestTrade[];
 }
 
 // ==================== Kite Instruments ====================

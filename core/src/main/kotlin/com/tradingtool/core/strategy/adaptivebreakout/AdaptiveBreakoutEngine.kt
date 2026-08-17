@@ -22,10 +22,10 @@ internal object AdaptiveBreakoutEngine {
         }
         val latest = orderedCandles.last()
         val latestAtr = atrValues.last()
-        val status = if (steps.last().decision == AdaptiveBreakoutDecision.FRESH_BREAKOUT) {
-            AdaptiveBreakoutStatus.FRESH_BREAKOUT
-        } else {
-            currentStatus(latest, orderedCandles, atrValues, state, config)
+        val status = when (steps.last().decision) {
+            AdaptiveBreakoutDecision.FRESH_BREAKOUT -> AdaptiveBreakoutStatus.FRESH_BREAKOUT
+            AdaptiveBreakoutDecision.EARLY_BREAKOUT -> AdaptiveBreakoutStatus.EARLY_BREAKOUT
+            else -> currentStatus(latest, orderedCandles, atrValues, state, config)
         }
         val ceilingAgeSessions = state.ceiling?.let { ceiling -> orderedCandles.lastIndex - ceiling.confirmedIndex }
         val latestFiftyTwoWeekHigh = fiftyTwoWeekHigh(orderedCandles)
@@ -73,6 +73,10 @@ internal object AdaptiveBreakoutEngine {
                 "First close above the active ceiling; the previous close was not above it.",
             )
         }
+        if (!freshBreakout) {
+            detectEarlyBreakout(index, candle, candles, atrValues, config, state.compactCeilingCandidate)
+                ?.let(events::add)
+        }
 
         if (index == config.atrPeriod) {
             state.highIndex = index
@@ -99,6 +103,9 @@ internal object AdaptiveBreakoutEngine {
             .takeIf { recordedEvents -> recordedEvents.isNotEmpty() }
             ?.joinToString(" Also: ") { event -> event.explanation }
             ?: status.explanation()
+        val compactEvent = events.firstOrNull { event -> event.decision == AdaptiveBreakoutDecision.EARLY_BREAKOUT }
+            ?: events.lastOrNull { event -> event.compactCandidateAnchor != null }
+        val compactCandidate = state.compactCeilingCandidate
 
         return AdaptiveBreakoutRawStep(
             date = candle.candleDate.toString(),
@@ -116,6 +123,16 @@ internal object AdaptiveBreakoutEngine {
             ceilingUpperBoundary = state.ceiling?.upperBoundary,
             majorCeilingUpperBoundary = state.majorCeiling?.upperBoundary,
             ceilingTestCount = state.ceiling?.testCount,
+            ceilingType = state.ceiling?.type,
+            breakoutBoundary = when {
+                freshBreakout -> ceilingAtStart?.upperBoundary
+                else -> events.firstOrNull { event -> event.decision == AdaptiveBreakoutDecision.EARLY_BREAKOUT }
+                    ?.breakoutBoundary
+            },
+            compactCeilingCandidate = compactEvent?.compactCandidateAnchor
+                ?: compactCandidate?.let { candidate -> candles[candidate.anchorIndex].high },
+            compactCeilingConfirmationCount = compactEvent?.compactConfirmationCount
+                ?: compactCandidate?.confirmationCount,
             decision = decision,
             explanation = explanation,
         )
@@ -134,6 +151,30 @@ internal object AdaptiveBreakoutEngine {
     ): Boolean {
         if (index == 0 || ceiling == null || ceiling.breakoutDate != null) return false
         return candles[index].close > ceiling.upperBoundary && candles[index - 1].close <= ceiling.upperBoundary
+    }
+
+    private fun detectEarlyBreakout(
+        index: Int,
+        candle: DailyCandle,
+        candles: List<DailyCandle>,
+        atrValues: List<Double>,
+        config: AdaptiveBreakoutConfig,
+        candidate: CompactCeilingCandidate?,
+    ): ReplayEvent? {
+        if (index == 0 || candidate == null || index <= candidate.anchorIndex) return null
+        val candidatePeak = candles[candidate.anchorIndex].high
+        val candidateAtr = atrValues[candidate.anchorIndex]
+        if (!candidateAtr.isUsableAtr()) return null
+        val earlyBoundary = candidatePeak + candidateAtr * config.earlyBreakoutBufferAtrMultiple
+        if (candle.close <= earlyBoundary || candles[index - 1].close > earlyBoundary) return null
+
+        return ReplayEvent(
+            decision = AdaptiveBreakoutDecision.EARLY_BREAKOUT,
+            explanation = "Watch only: the close cleared the unconfirmed $candidatePeak compact peak plus ${config.earlyBreakoutBufferAtrMultiple} ATR. The confirmed ceiling and fresh-breakout state are unchanged.",
+            compactCandidateAnchor = candidatePeak,
+            compactConfirmationCount = candidate.confirmationCount,
+            breakoutBoundary = earlyBoundary,
+        )
     }
 
     private fun detectTurn(
@@ -186,7 +227,17 @@ internal object AdaptiveBreakoutEngine {
         if (ceilingConfirmed) {
             state.direction = ReplayDirection.DOWN
             state.lowIndex = index
-            activateCeiling(buildCeiling(highIndex, index, candles, atrValues, config), state)
+            activateCeiling(
+                buildCeiling(
+                    highIndex,
+                    index,
+                    AdaptiveBreakoutCeilingType.STRONG_REJECTION,
+                    candles,
+                    atrValues,
+                    config,
+                ),
+                state,
+            )
             return ReplayEvent(
                 AdaptiveBreakoutDecision.CEILING_CONFIRMED,
                 "Price rejected $highPrice by at least ${config.peakRejectionAtrMultiple} ATR using the peak-day ATR $peakAtr; the peak is now the active ceiling and later returns increase its test count.",
@@ -208,14 +259,115 @@ internal object AdaptiveBreakoutEngine {
         val peakAtr = atrValues[highIndex]
         if (!peakAtr.isUsableAtr()) return null
         val peakRejectionDistance = peakAtr * config.peakRejectionAtrMultiple
-        if (highPrice - candle.close < peakRejectionDistance) return null
+        if (highPrice - candle.close >= peakRejectionDistance) {
+            return confirmStrongCeiling(index, highIndex, highPrice, peakAtr, candles, atrValues, config, state)
+        }
 
+        val existingCandidate = state.compactCeilingCandidate
+        if (existingCandidate != null && existingCandidate.anchorIndex == highIndex) {
+            return advanceCompactCeilingCandidate(
+                index,
+                candle,
+                highPrice,
+                existingCandidate,
+                candles,
+                atrValues,
+                config,
+                state,
+            )
+        }
+
+        state.compactCeilingCandidate = null
+        val compactRejectionDistance = peakAtr * config.compactPeakRejectionAtrMultiple
+        if (highPrice - candle.close < compactRejectionDistance) return null
+
+        state.compactCeilingCandidate = CompactCeilingCandidate(
+            anchorIndex = highIndex,
+            confirmationCount = 0,
+            lowIndex = index,
+        )
+        return ReplayEvent(
+            decision = AdaptiveBreakoutDecision.COMPACT_CEILING_CANDIDATE,
+            explanation = "Price rejected $highPrice by at least ${config.compactPeakRejectionAtrMultiple} ATR. It is only a candidate until ${config.compactCeilingConfirmationSessions} later sessions remain below that peak.",
+            compactCandidateAnchor = highPrice,
+            compactConfirmationCount = 0,
+        )
+    }
+
+    private fun confirmStrongCeiling(
+        index: Int,
+        highIndex: Int,
+        highPrice: Double,
+        peakAtr: Double,
+        candles: List<DailyCandle>,
+        atrValues: List<Double>,
+        config: AdaptiveBreakoutConfig,
+        state: ReplayState,
+    ): ReplayEvent {
         state.direction = ReplayDirection.DOWN
         state.lowIndex = index
-        activateCeiling(buildCeiling(highIndex, index, candles, atrValues, config), state)
+        state.compactCeilingCandidate = null
+        activateCeiling(
+            buildCeiling(
+                highIndex,
+                index,
+                AdaptiveBreakoutCeilingType.STRONG_REJECTION,
+                candles,
+                atrValues,
+                config,
+            ),
+            state,
+        )
         return ReplayEvent(
             AdaptiveBreakoutDecision.CEILING_CONFIRMED,
-            "Price rejected $highPrice by at least ${config.peakRejectionAtrMultiple} ATR using the peak-day ATR $peakAtr; the peak is now the active ceiling and later returns increase its test count.",
+            "Price rejected $highPrice by at least ${config.peakRejectionAtrMultiple} ATR using the peak-day ATR $peakAtr; the peak is now the active strong-rejection ceiling.",
+        )
+    }
+
+    private fun advanceCompactCeilingCandidate(
+        index: Int,
+        candle: DailyCandle,
+        highPrice: Double,
+        candidate: CompactCeilingCandidate,
+        candles: List<DailyCandle>,
+        atrValues: List<Double>,
+        config: AdaptiveBreakoutConfig,
+        state: ReplayState,
+    ): ReplayEvent {
+        val lowIndex = if (candle.low < candles[candidate.lowIndex].low) index else candidate.lowIndex
+        val confirmationCount = candidate.confirmationCount + 1
+        if (confirmationCount < config.compactCeilingConfirmationSessions) {
+            state.compactCeilingCandidate = candidate.copy(
+                confirmationCount = confirmationCount,
+                lowIndex = lowIndex,
+            )
+            return ReplayEvent(
+                decision = AdaptiveBreakoutDecision.COMPACT_CEILING_CANDIDATE,
+                explanation = "$highPrice remains a compact-ceiling candidate; $confirmationCount of ${config.compactCeilingConfirmationSessions} later sessions has stayed below the peak.",
+                compactCandidateAnchor = highPrice,
+                compactConfirmationCount = confirmationCount,
+            )
+        }
+
+        state.direction = ReplayDirection.DOWN
+        state.lowIndex = lowIndex
+        state.compactCeilingCandidate = null
+        activateCeiling(
+            buildCeiling(
+                candidate.anchorIndex,
+                index,
+                AdaptiveBreakoutCeilingType.COMPACT_RANGE,
+                candles,
+                atrValues,
+                config,
+            ),
+            state,
+        )
+        return ReplayEvent(
+            decision = AdaptiveBreakoutDecision.CEILING_CONFIRMED,
+            explanation = "$highPrice is now a compact ceiling: the first rejection was at least ${config.compactPeakRejectionAtrMultiple} ATR and $confirmationCount later sessions stayed below that peak.",
+            compactCandidateAnchor = highPrice,
+            compactConfirmationCount = confirmationCount,
         )
     }
 
@@ -235,6 +387,7 @@ internal object AdaptiveBreakoutEngine {
 
         state.direction = ReplayDirection.UP
         state.highIndex = index
+        state.compactCeilingCandidate = null
         val activeCeiling = state.ceiling
         val maximumLocalDistance = floorAtr * config.maximumLocalCeilingDistanceAtrMultiple
         val distantCeilingDemoted = activeCeiling != null &&
@@ -256,6 +409,7 @@ internal object AdaptiveBreakoutEngine {
     private fun buildCeiling(
         anchorIndex: Int,
         confirmedIndex: Int,
+        type: AdaptiveBreakoutCeilingType,
         candles: List<DailyCandle>,
         atrValues: List<Double>,
         config: AdaptiveBreakoutConfig,
@@ -270,6 +424,7 @@ internal object AdaptiveBreakoutEngine {
             anchorPrice = anchor.high,
             upperBoundary = anchor.high + atrAtAnchor * config.ceilingWidthAtrMultiple,
             atrAtAnchor = atrAtAnchor,
+            type = type,
             testCount = 1,
             lastTestDate = candles[confirmedIndex].candleDate.toString(),
         )
@@ -371,6 +526,7 @@ internal object AdaptiveBreakoutEngine {
         AdaptiveBreakoutStatus.BELOW_CEILING -> AdaptiveBreakoutDecision.BELOW_CEILING
         AdaptiveBreakoutStatus.TESTING_CEILING -> AdaptiveBreakoutDecision.CEILING_TEST
         AdaptiveBreakoutStatus.STRONG_REBOUND -> AdaptiveBreakoutDecision.STRONG_REBOUND
+        AdaptiveBreakoutStatus.EARLY_BREAKOUT -> AdaptiveBreakoutDecision.EARLY_BREAKOUT
         AdaptiveBreakoutStatus.FRESH_BREAKOUT -> AdaptiveBreakoutDecision.FRESH_BREAKOUT
         AdaptiveBreakoutStatus.BREAKOUT_CONTINUATION -> AdaptiveBreakoutDecision.BREAKOUT_CONTINUATION
     }
@@ -380,6 +536,7 @@ internal object AdaptiveBreakoutEngine {
         AdaptiveBreakoutStatus.BELOW_CEILING -> "Close remains below the active ceiling area."
         AdaptiveBreakoutStatus.TESTING_CEILING -> "Close is inside the active ceiling area but has not cleared its upper boundary."
         AdaptiveBreakoutStatus.STRONG_REBOUND -> "Price has advanced at least two ATR from the floor, but no local ceiling is confirmed."
+        AdaptiveBreakoutStatus.EARLY_BREAKOUT -> "A completed close cleared an unconfirmed compact ceiling; watch only until the main structure confirms."
         AdaptiveBreakoutStatus.FRESH_BREAKOUT -> "First completed close above the active ceiling."
         AdaptiveBreakoutStatus.BREAKOUT_CONTINUATION -> "The active ceiling was already broken on an earlier session."
     }
@@ -429,6 +586,18 @@ internal object AdaptiveBreakoutEngine {
         require(config.atrPeriod > 0) { "atrPeriod must be greater than zero." }
         require(config.floorReboundAtrMultiple > 0.0) { "floorReboundAtrMultiple must be greater than zero." }
         require(config.peakRejectionAtrMultiple > 0.0) { "peakRejectionAtrMultiple must be greater than zero." }
+        require(config.compactPeakRejectionAtrMultiple > 0.0) {
+            "compactPeakRejectionAtrMultiple must be greater than zero."
+        }
+        require(config.compactPeakRejectionAtrMultiple < config.peakRejectionAtrMultiple) {
+            "compactPeakRejectionAtrMultiple must be lower than peakRejectionAtrMultiple."
+        }
+        require(config.compactCeilingConfirmationSessions > 0) {
+            "compactCeilingConfirmationSessions must be greater than zero."
+        }
+        require(config.earlyBreakoutBufferAtrMultiple >= 0.0) {
+            "earlyBreakoutBufferAtrMultiple must not be negative."
+        }
         require(config.ceilingWidthAtrMultiple >= 0.0) { "ceilingWidthAtrMultiple must not be negative." }
         require(config.maximumLocalCeilingDistanceAtrMultiple > 0.0) {
             "maximumLocalCeilingDistanceAtrMultiple must be greater than zero."
@@ -445,6 +614,13 @@ internal object AdaptiveBreakoutEngine {
         var ceiling: ReplayCeiling? = null,
         var majorCeiling: ReplayCeiling? = null,
         var latestBreakoutDate: String? = null,
+        var compactCeilingCandidate: CompactCeilingCandidate? = null,
+    )
+
+    private data class CompactCeilingCandidate(
+        val anchorIndex: Int,
+        val confirmationCount: Int,
+        val lowIndex: Int,
     )
 
     private data class ReplayCeiling(
@@ -455,6 +631,7 @@ internal object AdaptiveBreakoutEngine {
         val anchorPrice: Double,
         val upperBoundary: Double,
         val atrAtAnchor: Double,
+        val type: AdaptiveBreakoutCeilingType,
         val testCount: Int,
         val lastTestDate: String?,
         val readyForRetest: Boolean = false,
@@ -472,6 +649,7 @@ internal object AdaptiveBreakoutEngine {
             anchorPrice = anchorPrice,
             upperBoundary = upperBoundary,
             atrAtAnchor = atrAtAnchor,
+            type = type,
             testCount = testCount,
             lastTestDate = lastTestDate,
             breakoutDate = breakoutDate,
@@ -481,16 +659,21 @@ internal object AdaptiveBreakoutEngine {
     private data class ReplayEvent(
         val decision: AdaptiveBreakoutDecision,
         val explanation: String,
+        val compactCandidateAnchor: Double? = null,
+        val compactConfirmationCount: Int? = null,
+        val breakoutBoundary: Double? = null,
     )
 
     private val AdaptiveBreakoutDecision.priority: Int
         get() = when (this) {
             AdaptiveBreakoutDecision.FRESH_BREAKOUT -> 0
-            AdaptiveBreakoutDecision.AMBIGUOUS_OUTSIDE_DAY -> 1
-            AdaptiveBreakoutDecision.CEILING_CONFIRMED -> 2
-            AdaptiveBreakoutDecision.FLOOR_CONFIRMED -> 3
-            AdaptiveBreakoutDecision.CEILING_TEST -> 4
-            else -> 5
+            AdaptiveBreakoutDecision.EARLY_BREAKOUT -> 1
+            AdaptiveBreakoutDecision.AMBIGUOUS_OUTSIDE_DAY -> 2
+            AdaptiveBreakoutDecision.CEILING_CONFIRMED -> 3
+            AdaptiveBreakoutDecision.FLOOR_CONFIRMED -> 4
+            AdaptiveBreakoutDecision.COMPACT_CEILING_CANDIDATE -> 5
+            AdaptiveBreakoutDecision.CEILING_TEST -> 6
+            else -> 6
         }
 
     private const val FIFTY_TWO_WEEK_SESSIONS = 252

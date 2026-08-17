@@ -10,6 +10,7 @@ import {
   RadarChartOutlined,
   ReloadOutlined,
   RiseOutlined,
+  SafetyCertificateOutlined,
   ThunderboltFilled,
   VerticalAlignTopOutlined,
 } from "@ant-design/icons";
@@ -17,6 +18,7 @@ import { Alert, Button, Card, Drawer, Empty, Modal, Select, Space, Spin, Table, 
 import type { TableColumnsType } from "antd";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useStockQuotes } from "../hooks/useStockQuotes";
+import { useStockDetail } from "../hooks/useStockDetail";
 import { RecentDailyEvidenceTable, type RecentDailyEvidenceRow } from "../components/RecentDailyEvidenceTable";
 import { DailyOhlcGlyph } from "../components/DailyOhlcGlyph";
 import { AtrTurnCheck } from "../components/AtrTurnCheck";
@@ -48,6 +50,7 @@ interface ConfirmationEvidence {
 const STATUS_ORDER: DisplayStatus[] = [
   "LIVE_CANDIDATE",
   "FRESH_BREAKOUT",
+  "EARLY_BREAKOUT",
   "TESTING_CEILING",
   "STRONG_REBOUND",
   "BELOW_CEILING",
@@ -91,9 +94,30 @@ function formatDate(value: string | null): string {
   }).format(new Date(`${value}T00:00:00Z`));
 }
 
+function formatDateWithYear(value: string | null): string {
+  if (!value) return "unavailable";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${value}T00:00:00Z`));
+}
+
+function lastFreshBreakoutDate(row: AdaptiveBreakoutScanRow): string | null {
+  return row.ceiling?.breakoutDate ?? row.breakoutEvidence?.date ?? null;
+}
+
+function buildBuyReviewUrl(row: AdaptiveBreakoutScanRow): string {
+  const date = lastFreshBreakoutDate(row) ?? row.latestDate;
+  const params = new URLSearchParams({ symbol: row.symbol, date });
+  return `${import.meta.env.BASE_URL}console/breakout-buy-review?${params}`;
+}
+
 function statusLabel(status: DisplayStatus): string {
   if (status === "LIVE_CANDIDATE") return "Live candidate";
   if (status === "FRESH_BREAKOUT") return "Fresh breakout";
+  if (status === "EARLY_BREAKOUT") return "Early breakout";
   if (status === "TESTING_CEILING") return "At ceiling";
   if (status === "STRONG_REBOUND") return "Strong rebound";
   if (status === "BELOW_CEILING") return "Below ceiling";
@@ -104,6 +128,7 @@ function statusLabel(status: DisplayStatus): string {
 function statusIcon(status: DisplayStatus): ReactNode {
   if (status === "LIVE_CANDIDATE") return <ThunderboltFilled />;
   if (status === "FRESH_BREAKOUT") return <CheckCircleFilled />;
+  if (status === "EARLY_BREAKOUT") return <EyeOutlined />;
   if (status === "TESTING_CEILING") return <AimOutlined />;
   if (status === "STRONG_REBOUND") return <RiseOutlined />;
   if (status === "BELOW_CEILING") return <RiseOutlined />;
@@ -135,9 +160,15 @@ function currentPrice(row: AdaptiveBreakoutScanRow, quote: StockQuoteSnapshot | 
 }
 
 function gapFromCeilingPct(row: AdaptiveBreakoutScanRow, quote: StockQuoteSnapshot | undefined): number | null {
-  if (!row.ceiling) return null;
+  const boundary = effectiveBreakoutBoundary(row);
+  if (boundary == null) return null;
   const price = currentPrice(row, quote);
-  return price > 0 ? ((price - row.ceiling.upperBoundary) / row.ceiling.upperBoundary) * 100 : null;
+  return price > 0 ? ((price - boundary) / boundary) * 100 : null;
+}
+
+function effectiveBreakoutBoundary(row: AdaptiveBreakoutScanRow): number | null {
+  if (row.status === "EARLY_BREAKOUT") return row.rawSteps.at(-1)?.breakoutBoundary ?? null;
+  return row.ceiling?.upperBoundary ?? null;
 }
 
 function latestFloor(row: AdaptiveBreakoutScanRow): number | null {
@@ -238,7 +269,7 @@ function confirmationEvidence(
   status: DisplayStatus,
   marketOpen: boolean,
 ): ConfirmationEvidence {
-  const breakoutDate = row.ceiling?.breakoutDate ?? row.breakoutEvidence?.date;
+  const breakoutDate = lastFreshBreakoutDate(row);
   if (breakoutDate && (status === "FRESH_BREAKOUT" || status === "BREAKOUT_CONTINUATION")) {
     if (row.breakoutEvidence?.date === breakoutDate) {
       return {
@@ -273,7 +304,10 @@ function confirmationEvidence(
   };
 }
 
-function recentDailyEvidence(row: AdaptiveBreakoutScanRow): RecentDailyEvidenceRow[] {
+function recentDailyEvidence(
+  row: AdaptiveBreakoutScanRow,
+  deliveryByDate: Map<string, number | null> = new Map(),
+): RecentDailyEvidenceRow[] {
   const startIndex = Math.max(0, row.rawSteps.length - 20);
   return row.rawSteps
     .slice(startIndex)
@@ -305,7 +339,7 @@ function recentDailyEvidence(row: AdaptiveBreakoutScanRow): RecentDailyEvidenceR
         low: step.low,
         close: step.close,
         volumeMultiple: averageVolume != null && averageVolume > 0 ? step.volume / averageVolume : null,
-        deliveryPercentage: null,
+        deliveryPercentage: deliveryByDate.get(step.date) ?? null,
         changePct: previousClose != null && previousClose > 0 ? ((step.close - previousClose) / previousClose) * 100 : null,
         closePositionPct,
         closePositionBucket,
@@ -317,7 +351,7 @@ function recentDailyEvidence(row: AdaptiveBreakoutScanRow): RecentDailyEvidenceR
 
 function structureProgress(row: AdaptiveBreakoutScanRow, quote: StockQuoteSnapshot | undefined): number {
   const floor = latestFloor(row);
-  const ceiling = row.ceiling?.upperBoundary;
+  const ceiling = effectiveBreakoutBoundary(row);
   if (floor == null || ceiling == null || ceiling <= floor) return 0;
   return Math.max(0, Math.min(100, ((currentPrice(row, quote) - floor) / (ceiling - floor)) * 100));
 }
@@ -401,13 +435,48 @@ function PriceCell({
   );
 }
 
-function StructureCell({ row, quote }: { row: AdaptiveBreakoutScanRow; quote: StockQuoteSnapshot | undefined }): ReactNode {
+function StructureCell({
+  row,
+  quote,
+  compactConfirmationSessions,
+}: {
+  row: AdaptiveBreakoutScanRow;
+  quote: StockQuoteSnapshot | undefined;
+  compactConfirmationSessions: number;
+}): ReactNode {
   const floor = latestFloor(row);
+  const latestStep = row.rawSteps.at(-1);
+  const earlyBoundary = row.status === "EARLY_BREAKOUT" ? latestStep?.breakoutBoundary : null;
+  if (earlyBoundary != null) {
+    const progress = structureProgress(row, quote);
+    return (
+      <div className="adaptive-breakout-structure early" aria-label={`Price cleared the early watch line at ${formatPrice(earlyBoundary)}`}>
+        <div className="adaptive-breakout-structure-labels">
+          <span>Floor {formatPrice(floor)}</span>
+          <strong>Early line {formatPrice(earlyBoundary)}</strong>
+        </div>
+        <div className="adaptive-breakout-track">
+          <span className="adaptive-breakout-track-fill" style={{ width: `${progress}%` }} />
+          <span className="adaptive-breakout-price-marker" style={{ left: `${progress}%` }} />
+        </div>
+        <span className="adaptive-breakout-structure-age">
+          Watch only · candidate {formatPrice(latestStep?.compactCeilingCandidate)} was not confirmed
+          {row.ceiling ? ` · confirmed ceiling remains ${formatPrice(row.ceiling.upperBoundary)}` : ""}
+        </span>
+      </div>
+    );
+  }
   if (!row.ceiling) {
-    const headline = row.status === "STRONG_REBOUND" ? "Strong rebound · 2 ATR+" : "Rebound in progress";
-    const context = row.majorCeiling
-      ? `Major overhead ${formatPrice(row.majorCeiling.upperBoundary)}`
-      : "No rejected top yet";
+    const compactCandidate = latestStep?.compactCeilingCandidate;
+    const hasCompactCandidate = compactCandidate != null;
+    const headline = hasCompactCandidate
+      ? `Compact candidate ${formatPrice(compactCandidate)}`
+      : row.status === "STRONG_REBOUND" ? "Strong rebound · 2 ATR+" : "Rebound in progress";
+    const context = hasCompactCandidate
+      ? `Contained ${latestStep?.compactCeilingConfirmationCount ?? 0}/${compactConfirmationSessions} · not active yet`
+      : row.majorCeiling
+        ? `Major overhead ${formatPrice(row.majorCeiling.upperBoundary)}`
+        : "No rejected top yet";
     return (
       <div className="adaptive-breakout-no-ceiling">
         <span className="adaptive-breakout-rise-line"><i /><i /><i /><i /></span>
@@ -428,7 +497,7 @@ function StructureCell({ row, quote }: { row: AdaptiveBreakoutScanRow; quote: St
         <span className="adaptive-breakout-price-marker" style={{ left: `${progress}%` }} />
       </div>
       <span className="adaptive-breakout-structure-age">
-        {row.ceilingAgeSessions ?? "—"} sessions · {row.ceiling.testCount} test{row.ceiling.testCount === 1 ? "" : "s"} · formed {formatDate(row.ceiling.confirmedDate)}
+        {row.ceiling.type === "COMPACT_RANGE" ? "Compact range" : "Strong rejection"} · {row.ceilingAgeSessions ?? "—"} sessions · {row.ceiling.testCount} test{row.ceiling.testCount === 1 ? "" : "s"} · confirmed {formatDate(row.ceiling.confirmedDate)}
         {row.majorCeiling ? ` · major ${formatPrice(row.majorCeiling.upperBoundary)}` : ""}
       </span>
     </div>
@@ -464,16 +533,21 @@ function EvidenceCell({ evidence }: { evidence: ConfirmationEvidence }): ReactNo
   );
 }
 
-function rawDecisionSummary(step: AdaptiveBreakoutRawStep): string {
+function rawDecisionSummary(
+  step: AdaptiveBreakoutRawStep,
+  config: AdaptiveBreakoutScanResponse["config"],
+): string {
   const ceiling = formatPrice(step.ceilingUpperBoundary);
   return {
     BUILDING_STRUCTURE: "No reliable floor-and-ceiling story exists yet.",
     FLOOR_CONFIRMED: `The close moved meaningfully away from the ${formatPrice(step.candidateFloor)} floor.`,
-    CEILING_CONFIRMED: `${ceiling} is now the active line to beat; later failures make it stronger.`,
+    COMPACT_CEILING_CANDIDATE: `${formatPrice(step.compactCeilingCandidate)} may be a compact ceiling; containment is ${step.compactCeilingConfirmationCount ?? 0}/${config.compactCeilingConfirmationSessions}.`,
+    CEILING_CONFIRMED: `${ceiling} is now the active ${step.ceilingType === "COMPACT_RANGE" ? "compact" : "strong-rejection"} line to beat.`,
     AMBIGUOUS_OUTSIDE_DAY: "This candle supports both directions; daily OHLC cannot prove the order, so the structure waits.",
     BELOW_CEILING: `The ${formatPrice(step.close)} close remains below the ${ceiling} line.`,
     CEILING_TEST: `The ${formatPrice(step.close)} close is testing ${ceiling}; ${step.ceilingTestCount ?? 0} confirmed failure${step.ceilingTestCount === 1 ? "" : "s"} so far.`,
     STRONG_REBOUND: "Price has risen strongly from the floor, but no resistance is confirmed yet.",
+    EARLY_BREAKOUT: `The ${formatPrice(step.close)} close cleared the provisional ${formatPrice(step.breakoutBoundary)} watch line; the confirmed ceiling is unchanged.`,
     FRESH_BREAKOUT: `The ${formatPrice(step.close)} close crossed ${ceiling} for the first time.`,
     BREAKOUT_CONTINUATION: `The ${ceiling} line was broken earlier; this is no longer the first breakout day.`,
   }[step.decision];
@@ -488,6 +562,8 @@ function RawReplayGuide(): ReactNode {
       </div>
       <div className="adaptive-breakout-raw-flow" aria-label="Normal breakout sequence">
         <span className="floor">Floor found</span><b>→</b>
+        <span className="candidate">Compact candidate</span><b>→</b>
+        <span className="early">Early watch</span><b>or</b>
         <span className="confirmed">Ceiling confirmed</span><b>→</b>
         <span className="testing">More tests = stronger</span><b>→</b>
         <span className="breakout">Fresh breakout</span>
@@ -542,7 +618,7 @@ function RawDecisionTable({ steps, config }: {
       width: 230,
       render: (_, step) => (
         <div className="adaptive-breakout-raw-meaning">
-          <strong>{rawDecisionSummary(step)}</strong>
+          <strong>{rawDecisionSummary(step, config)}</strong>
           <AtrTurnCheck step={step} config={config} />
           <span>{step.explanation}</span>
         </div>
@@ -578,7 +654,20 @@ export function AdaptiveBreakoutScannerPage(): ReactNode {
   const [error, setError] = useState<string | null>(null);
   const symbols = useMemo(() => report?.rows.map((row) => row.symbol) ?? [], [report?.rows]);
   const { quotesBySymbol, loading: loadingQuotes, error: quoteError } = useStockQuotes(symbols);
+  const {
+    data: dailyDetails,
+    loading: loadingDailyDetails,
+    error: dailyDetailsError,
+  } = useStockDetail(dailyDetailsRow?.symbol ?? null, 20);
   const marketOpen = isIndianEquityMarketOpen();
+
+  const dailyEvidence = useMemo(() => {
+    if (!dailyDetailsRow) return [];
+    const deliveryByDate = new Map(
+      (dailyDetails?.delivery_days ?? []).map((day) => [day.date, day.delivery_percentage]),
+    );
+    return recentDailyEvidence(dailyDetailsRow, deliveryByDate);
+  }, [dailyDetails, dailyDetailsRow]);
 
   useEffect(() => {
     let active = true;
@@ -625,7 +714,7 @@ export function AdaptiveBreakoutScannerPage(): ReactNode {
       title: "Stock / signal",
       key: "stock",
       fixed: "left",
-      width: 190,
+      width: 250,
       render: (_, row) => {
         const quote = quotesBySymbol[row.symbol];
         const status = displayStatus(row, quote, marketOpen);
@@ -661,15 +750,41 @@ export function AdaptiveBreakoutScannerPage(): ReactNode {
               >
                 <HistoryOutlined /> 20D
               </button>
+              <a
+                aria-label={`Review ${row.symbol} breakout day quality`}
+                className="adaptive-breakout-buy-review-link"
+                href={buildBuyReviewUrl(row)}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`Review ${row.symbol} breakout-day quality`}
+              >
+                <SafetyCertificateOutlined /> Buy review
+              </a>
             </div>
             <span>{row.companyName}</span>
             <StatusBadge status={status} />
+            {status === "BREAKOUT_CONTINUATION" && (
+              <span className="adaptive-breakout-last-breakout">
+                <CheckCircleFilled /> Last fresh breakout · {formatDateWithYear(lastFreshBreakoutDate(row))}
+              </span>
+            )}
           </div>
         );
       },
     },
     { title: "Price now", key: "price", width: 145, render: (_, row) => <PriceCell row={row} quote={quotesBySymbol[row.symbol]} marketOpen={marketOpen} /> },
-    { title: "Floor → ceiling", key: "structure", width: 270, render: (_, row) => <StructureCell row={row} quote={quotesBySymbol[row.symbol]} /> },
+    {
+      title: "Floor → ceiling",
+      key: "structure",
+      width: 270,
+      render: (_, row) => (
+        <StructureCell
+          row={row}
+          quote={quotesBySymbol[row.symbol]}
+          compactConfirmationSessions={report?.config.compactCeilingConfirmationSessions ?? 2}
+        />
+      ),
+    },
     { title: "Breakout gap", key: "gap", width: 110, render: (_, row) => <GapCell row={row} quote={quotesBySymbol[row.symbol]} /> },
     {
       title: "Confirmation snapshot",
@@ -758,7 +873,13 @@ export function AdaptiveBreakoutScannerPage(): ReactNode {
         footer={null}
         width="min(1280px, calc(100vw - 32px))"
       >
-        {dailyDetailsRow && <RecentDailyEvidenceTable days={recentDailyEvidence(dailyDetailsRow)} />}
+        {dailyDetailsRow && (
+          <>
+            {loadingDailyDetails && <Spin size="small" />}
+            {dailyDetailsError && <Alert type="warning" showIcon message={`Delivery data unavailable: ${dailyDetailsError}`} />}
+            <RecentDailyEvidenceTable days={dailyEvidence} />
+          </>
+        )}
       </Modal>
     </div>
   );

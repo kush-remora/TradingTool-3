@@ -32,16 +32,17 @@ function calculateAtrTurn({ step, config }: AtrTurnCheckProps): AtrTurnCalculati
       thresholdPrice: step.candidateFloorAtr * config.floorReboundAtrMultiple,
     };
   }
-  if (step.decision === "CEILING_CONFIRMED") {
+  if (step.decision === "CEILING_CONFIRMED" || step.decision === "COMPACT_CEILING_CANDIDATE") {
     if (!Number.isFinite(step.candidatePeakAtr) || step.candidatePeakAtr <= 0) return null;
     const movement = step.candidatePeak - step.close;
+    const isCompact = step.decision === "COMPACT_CEILING_CANDIDATE" || step.ceilingType === "COMPACT_RANGE";
     return {
       direction: "down",
       movement,
       movementMultiple: movement / step.candidatePeakAtr,
       referencePrice: step.candidatePeak,
-      thresholdMultiple: config.peakRejectionAtrMultiple,
-      thresholdPrice: step.candidatePeakAtr * config.peakRejectionAtrMultiple,
+      thresholdMultiple: isCompact ? config.compactPeakRejectionAtrMultiple : config.peakRejectionAtrMultiple,
+      thresholdPrice: step.candidatePeakAtr * (isCompact ? config.compactPeakRejectionAtrMultiple : config.peakRejectionAtrMultiple),
     };
   }
   return null;
@@ -51,9 +52,12 @@ export function AtrTurnCheck({ step, config }: AtrTurnCheckProps): ReactNode {
   const calculation = calculateAtrTurn({ step, config });
   if (calculation == null) return null;
   const isUp = calculation.direction === "up";
+  const isCompactCandidate = step.decision === "COMPACT_CEILING_CANDIDATE";
   const ruleMeaning = isUp
     ? "floor confirmed"
-    : `ceiling confirmed; new down leg starts at ${formatTurnPrice(step.candidateFloor)}`;
+    : isCompactCandidate
+      ? `compact candidate; ${step.compactCeilingConfirmationCount ?? 0} of ${config.compactCeilingConfirmationSessions} contained sessions`
+      : `ceiling confirmed; new down leg starts at ${formatTurnPrice(step.candidateFloor)}`;
   const accessibleLabel = [
     `${isUp ? "Up" : "Down"} move ${formatTurnPrice(calculation.movement)}`,
     `${calculation.movementMultiple.toFixed(2)} ATR`,
@@ -68,7 +72,11 @@ export function AtrTurnCheck({ step, config }: AtrTurnCheckProps): ReactNode {
       </span>
       <small>
         {isUp ? "close" : "peak"} {formatTurnPrice(isUp ? step.close : calculation.referencePrice)} − {isUp ? "floor" : "close"} {formatTurnPrice(isUp ? calculation.referencePrice : step.close)} = {formatTurnPrice(calculation.movement)}
-        {isUp ? " · floor confirmed" : ` · ceiling confirmed · down leg → ${formatTurnPrice(step.candidateFloor)}`}
+        {isUp
+          ? " · floor confirmed"
+          : isCompactCandidate
+            ? ` · candidate · contained ${step.compactCeilingConfirmationCount ?? 0}/${config.compactCeilingConfirmationSessions}`
+            : ` · ceiling confirmed · down leg → ${formatTurnPrice(step.candidateFloor)}`}
       </small>
     </div>
   );

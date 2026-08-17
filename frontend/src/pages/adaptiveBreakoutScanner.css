@@ -109,6 +109,11 @@
   color: #12805c;
 }
 
+.adaptive-breakout-summary-early_breakout svg,
+.adaptive-breakout-status-early_breakout {
+  color: #2768a8;
+}
+
 .adaptive-breakout-summary-testing_ceiling svg,
 .adaptive-breakout-status-testing_ceiling {
   color: #ad6800;
@@ -191,6 +196,7 @@
 }
 
 .adaptive-breakout-row-live_candidate > td:first-child { box-shadow: inset 3px 0 #00a0a8; }
+.adaptive-breakout-row-early_breakout > td:first-child { box-shadow: inset 3px 0 #3d82bd; }
 .adaptive-breakout-row-fresh_breakout > td:first-child { box-shadow: inset 3px 0 #16a36f; }
 .adaptive-breakout-row-testing_ceiling > td:first-child { box-shadow: inset 3px 0 #d49a20; }
 .adaptive-breakout-row-strong_rebound > td:first-child { box-shadow: inset 3px 0 #1595a3; }
@@ -206,9 +212,10 @@
 
 .adaptive-breakout-stock-actions {
   display: flex;
+  flex-wrap: wrap;
   min-width: 0;
   align-items: center;
-  gap: 9px;
+  gap: 3px 9px;
 }
 
 .adaptive-breakout-kite-link,
@@ -270,6 +277,21 @@
 
 .adaptive-breakout-status svg {
   font-size: 10px;
+}
+
+.adaptive-breakout-stock > .adaptive-breakout-last-breakout {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 4px;
+  margin-top: 1px;
+  color: #19805f;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.adaptive-breakout-last-breakout svg {
+  font-size: 8px;
 }
 
 .adaptive-breakout-price-cell > div {
@@ -554,6 +576,7 @@
 
 .adaptive-breakout-raw-flow .floor { color: #3461a4; background: #edf4ff; }
 .adaptive-breakout-raw-flow .candidate { color: #9b650f; background: #fff5dc; }
+.adaptive-breakout-raw-flow .early { color: #2768a8; background: #edf6fd; }
 .adaptive-breakout-raw-flow .confirmed { color: #654bb0; background: #f2edff; }
 .adaptive-breakout-raw-flow .testing { color: #a15f08; background: #fff7e6; }
 .adaptive-breakout-raw-flow .breakout { color: #087658; background: #e7f7f1; }
@@ -629,10 +652,12 @@
 .adaptive-breakout-decision-building_structure,
 .adaptive-breakout-decision-below_ceiling { color: #687383; border-color: #dfe3e8; background: #f3f5f7; }
 .adaptive-breakout-decision-floor_confirmed { color: #3461a4; border-color: #cfe0fb; background: #edf4ff; }
+.adaptive-breakout-decision-compact_ceiling_candidate { color: #9b650f; border-color: #eed49a; background: #fff5dc; }
 .adaptive-breakout-decision-ceiling_confirmed { color: #654bb0; border-color: #dcd0fb; background: #f2edff; }
 .adaptive-breakout-decision-ambiguous_outside_day { color: #6f5c25; border-color: #e8d9aa; background: #fff9e8; }
 .adaptive-breakout-decision-ceiling_test { color: #a15f08; border-color: #f0d49b; background: #fff7e6; }
 .adaptive-breakout-decision-strong_rebound { color: #087987; border-color: #bce4e8; background: #eaf8fa; }
+.adaptive-breakout-decision-early_breakout { color: #2768a8; border-color: #bfd8ee; background: #edf6fd; }
 .adaptive-breakout-decision-fresh_breakout { color: #087658; border-color: #bee8d7; background: #e7f7f1; }
 .adaptive-breakout-decision-breakout_continuation { color: #39715f; border-color: #d2e9e0; background: #f0f8f5; }
 
@@ -703,10 +728,12 @@
 }
 
 .adaptive-breakout-raw-row-floor_confirmed > td:first-child { box-shadow: inset 3px 0 #6f9cda; }
-.adaptive-breakout-raw-row-ceiling_candidate > td:first-child { box-shadow: inset 3px 0 #dda937; }
+.adaptive-breakout-raw-row-compact_ceiling_candidate > td:first-child { box-shadow: inset 3px 0 #dda937; }
 .adaptive-breakout-raw-row-ceiling_confirmed > td:first-child { box-shadow: inset 3px 0 #8b6fd1; }
 .adaptive-breakout-raw-row-ceiling_test > td:first-child { box-shadow: inset 3px 0 #d9962f; }
 .adaptive-breakout-raw-row-strong_rebound > td:first-child { box-shadow: inset 3px 0 #35a5b2; }
+.adaptive-breakout-raw-row-early_breakout > td { background: #f2f8fd !important; }
+.adaptive-breakout-raw-row-early_breakout > td:first-child { box-shadow: inset 3px 0 #3d82bd; }
 .adaptive-breakout-raw-row-fresh_breakout > td { background: #f2fbf7 !important; }
 .adaptive-breakout-raw-row-fresh_breakout > td:first-child { box-shadow: inset 3px 0 #18a071; }
 .adaptive-breakout-raw-row-breakout_continuation > td:first-child { box-shadow: inset 3px 0 #6ba58f; }
@@ -757,3 +784,13 @@
     display: none;
   }
 }
+.adaptive-breakout-buy-review-link {
+  align-items: center;
+  color: #087f68;
+  display: inline-flex;
+  font-size: 11px;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.adaptive-breakout-buy-review-link:hover { color: #055f4f; }

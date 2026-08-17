@@ -13,6 +13,16 @@ vi.mock("../utils/marketHours", () => ({
   isIndianEquityMarketOpen: () => marketOpenMock(),
 }));
 
+vi.mock("../hooks/useStockDetail", () => ({
+  useStockDetail: () => ({
+    data: {
+      delivery_days: [{ date: "2026-08-05", delivery_percentage: 42.5 }],
+    },
+    loading: false,
+    error: null,
+  }),
+}));
+
 function mockLatestScanApi(response: object = scanResponse): void {
   getJsonMock.mockImplementation((path: string) => {
     if (path === "/api/strategy/adaptive-breakout/watchlists") {
@@ -55,11 +65,14 @@ describe("AdaptiveBreakoutScannerPage", () => {
     const detailLink = within(table).getByRole("link", { name: "Open ABC stock detail" });
     expect(detailLink).toHaveAttribute("href", "/TradingTool-3/console/compact-stock-review?symbol=ABC");
     expect(detailLink).toHaveAttribute("target", "_blank");
+    const buyReviewLink = within(table).getByRole("link", { name: "Review ABC breakout day quality" });
+    expect(buyReviewLink).toHaveAttribute("href", "/TradingTool-3/console/breakout-buy-review?symbol=ABC&date=2026-08-14");
+    expect(buyReviewLink).toHaveAttribute("target", "_blank");
     expect(await within(table).findByText("Live candidate")).toBeInTheDocument();
     expect(within(table).getByText("₹87.00")).toBeInTheDocument();
     expect(within(table).getByText(/Last close ₹86\.00/)).toBeInTheDocument();
     expect(within(table).getByText(/Ceiling ₹86\.00/)).toBeInTheDocument();
-    expect(within(table).getByText("9 sessions · 2 tests · formed 05 Aug")).toBeInTheDocument();
+    expect(within(table).getByText("Strong rejection · 9 sessions · 2 tests · confirmed 05 Aug")).toBeInTheDocument();
     expect(within(table).getByText("1.40×")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Live candidate 1/i })).toBeInTheDocument();
     expect(screen.getByText(/completed close confirms breakout/i)).toBeInTheDocument();
@@ -74,6 +87,7 @@ describe("AdaptiveBreakoutScannerPage", () => {
     expect(within(detailsDialog).getByText("ABC · Recent 20D details")).toBeInTheDocument();
     expect(within(detailsDialog).getByRole("columnheader", { name: "Volume vs 10D avg" })).toBeInTheDocument();
     expect(within(detailsDialog).getByRole("columnheader", { name: "Delivery %" })).toBeInTheDocument();
+    expect(within(detailsDialog).getByText("42.5%")).toBeInTheDocument();
     expect(within(detailsDialog).getByRole("columnheader", { name: "Close position" })).toBeInTheDocument();
     expect(document.querySelector(".ant-modal-mask")).not.toBeInTheDocument();
     fireEvent.click(within(detailsDialog).getByRole("button", { name: "Close" }));
@@ -86,7 +100,7 @@ describe("AdaptiveBreakoutScannerPage", () => {
     expect(await screen.findByText(/raw decision replay/i)).toBeInTheDocument();
     expect(within(auditDrawer).getByText("Read the story from the bottom ↑")).toBeInTheDocument();
     expect(within(auditDrawer).getByText("Floor found")).toBeInTheDocument();
-    expect(within(auditDrawer).getByText("₹86.00 is now the active line to beat; later failures make it stronger.")).toBeInTheDocument();
+    expect(within(auditDrawer).getByText("₹86.00 is now the active strong-rejection line to beat.")).toBeInTheDocument();
     expect(within(auditDrawer).getAllByText("later obstacle")).toHaveLength(2);
     expect(auditDrawer.querySelector(".adaptive-breakout-raw-keys")).toHaveTextContent("Day shape = positions, not time order");
     const dayShape = within(auditDrawer).getByRole("img", {
@@ -120,6 +134,72 @@ describe("AdaptiveBreakoutScannerPage", () => {
     expect(screen.getByRole("button", { name: "Fresh breakout 1" })).toBeInTheDocument();
   });
 
+  it("shows compact ceiling type and containment progress", async () => {
+    marketOpenMock.mockReturnValue(true);
+    mockLatestScanApi({
+      ...scanResponse,
+      rows: [{
+        ...scanResponse.rows[0],
+        ceiling: { ...scanResponse.rows[0].ceiling, type: "COMPACT_RANGE" },
+        rawSteps: [{
+          ...scanResponse.rows[0].rawSteps[0],
+          decision: "COMPACT_CEILING_CANDIDATE",
+          ceilingType: null,
+          compactCeilingCandidate: 85,
+          compactCeilingConfirmationCount: 1,
+          explanation: "₹85.00 remains a candidate after one contained session.",
+        }],
+      }],
+    });
+
+    render(<AdaptiveBreakoutScannerPage />);
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Watchlist" }));
+    fireEvent.click(await screen.findByText("leaders (1)"));
+    fireEvent.click(screen.getByRole("button", { name: /Run scan/i }));
+
+    const table = await screen.findByTestId("adaptive-breakout-table");
+    expect(await within(table).findByText("Compact range · 9 sessions · 2 tests · confirmed 05 Aug")).toBeInTheDocument();
+    fireEvent.click(within(table).getByRole("button", { name: "Audit ABC" }));
+
+    const auditDrawer = document.querySelector(".adaptive-breakout-audit-drawer-root") as HTMLElement;
+    expect(await within(auditDrawer).findByText("COMPACT CEILING CANDIDATE")).toBeInTheDocument();
+    expect(within(auditDrawer).getByText("₹85.00 may be a compact ceiling; containment is 1/2.")).toBeInTheDocument();
+    expect(within(auditDrawer).getByLabelText(
+      "Down move ₹5.00, 2.50 ATR, required 0.50 ATR or ₹1.00, compact candidate; 1 of 2 contained sessions.",
+    )).toHaveTextContent("contained 1/2");
+  });
+
+  it("shows an unconfirmed compact candidate in the one-page structure view", async () => {
+    marketOpenMock.mockReturnValue(true);
+    mockLatestScanApi({
+      ...scanResponse,
+      rows: [{
+        ...scanResponse.rows[0],
+        status: "NO_CEILING",
+        ceiling: null,
+        rawSteps: [{
+          ...scanResponse.rows[0].rawSteps[0],
+          decision: "COMPACT_CEILING_CANDIDATE",
+          ceilingAnchor: null,
+          ceilingUpperBoundary: null,
+          ceilingTestCount: null,
+          ceilingType: null,
+          compactCeilingCandidate: 85,
+          compactCeilingConfirmationCount: 1,
+        }],
+      }],
+    });
+
+    render(<AdaptiveBreakoutScannerPage />);
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Watchlist" }));
+    fireEvent.click(await screen.findByText("leaders (1)"));
+    fireEvent.click(screen.getByRole("button", { name: /Run scan/i }));
+
+    const table = await screen.findByTestId("adaptive-breakout-table");
+    expect(await within(table).findByText("Compact candidate ₹85.00")).toBeInTheDocument();
+    expect(within(table).getByText("Contained 1/2 · not active yet")).toBeInTheDocument();
+  });
+
   it("shows the original breakout candle evidence for an already-broken ceiling", async () => {
     marketOpenMock.mockReturnValue(true);
     mockLatestScanApi({
@@ -145,6 +225,7 @@ describe("AdaptiveBreakoutScannerPage", () => {
 
     const table = await screen.findByTestId("adaptive-breakout-table");
     expect(await within(table).findByText("Already broken")).toBeInTheDocument();
+    expect(within(table).getByText("Last fresh breakout · 05 Aug 2026")).toBeInTheDocument();
     expect(within(table).getByText("Breakout close · 05 Aug")).toBeInTheDocument();
     expect(within(table).getByText("90%")).toBeInTheDocument();
     expect(within(table).getByText("2.10×")).toBeInTheDocument();
@@ -200,6 +281,7 @@ describe("AdaptiveBreakoutScannerPage", () => {
           anchorPrice: 100,
           upperBoundary: 101,
           atrAtAnchor: 2,
+          type: "STRONG_REJECTION",
           testCount: 1,
           lastTestDate: "2026-06-05",
           breakoutDate: null,
@@ -218,6 +300,49 @@ describe("AdaptiveBreakoutScannerPage", () => {
     expect(within(table).getByText("Major overhead ₹101.00")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Strong rebound 1" })).toBeInTheDocument();
   });
+
+  it("shows early breakout as a watch-only line without replacing the confirmed ceiling", async () => {
+    marketOpenMock.mockReturnValue(true);
+    const latestStep = scanResponse.rows[0].rawSteps.at(-1)!;
+    mockLatestScanApi({
+      ...scanResponse,
+      rows: [{
+        ...scanResponse.rows[0],
+        status: "EARLY_BREAKOUT",
+        latestClose: 87,
+        ceiling: {
+          ...scanResponse.rows[0].ceiling,
+          anchorPrice: 99,
+          upperBoundary: 100,
+        },
+        rawSteps: [{
+          ...latestStep,
+          close: 87,
+          high: 88,
+          candidatePeak: 88,
+          ceilingAnchor: 99,
+          ceilingUpperBoundary: 100,
+          breakoutBoundary: 85.2,
+          compactCeilingCandidate: 85,
+          compactCeilingConfirmationCount: 0,
+          decision: "EARLY_BREAKOUT",
+          explanation: "Watch only: the close cleared the unconfirmed compact peak.",
+        }],
+      }],
+    });
+
+    render(<AdaptiveBreakoutScannerPage />);
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Watchlist" }));
+    fireEvent.click(await screen.findByText("leaders (1)"));
+    fireEvent.click(screen.getByRole("button", { name: /Run scan/i }));
+
+    const table = await screen.findByTestId("adaptive-breakout-table");
+    expect(await within(table).findByText("Early breakout")).toBeInTheDocument();
+    expect(within(table).getByText("Early line ₹85.20")).toBeInTheDocument();
+    expect(within(table).getByText(/Watch only · candidate ₹85\.00 was not confirmed/)).toBeInTheDocument();
+    expect(within(table).getByText(/confirmed ceiling remains ₹100\.00/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Early breakout 1" })).toBeInTheDocument();
+  });
 });
 
 const scanResponse = {
@@ -230,6 +355,9 @@ const scanResponse = {
     atrPeriod: 14,
     floorReboundAtrMultiple: 1,
     peakRejectionAtrMultiple: 1,
+    compactPeakRejectionAtrMultiple: 0.5,
+    compactCeilingConfirmationSessions: 2,
+    earlyBreakoutBufferAtrMultiple: 0.1,
     ceilingWidthAtrMultiple: 0.5,
     maximumLocalCeilingDistanceAtrMultiple: 3,
     strongReboundAtrMultiple: 2,
@@ -252,6 +380,7 @@ const scanResponse = {
       anchorPrice: 85,
       upperBoundary: 86,
       atrAtAnchor: 2,
+      type: "STRONG_REJECTION",
       testCount: 2,
       lastTestDate: "2026-08-05",
       breakoutDate: null,
@@ -281,6 +410,9 @@ const scanResponse = {
         ceilingUpperBoundary: 86,
         majorCeilingUpperBoundary: null,
         ceilingTestCount: 1,
+        ceilingType: "STRONG_REJECTION",
+        compactCeilingCandidate: null,
+        compactCeilingConfirmationCount: null,
         decision: "CEILING_CONFIRMED",
         explanation: "Price rejected ₹85.00 by at least 1.00 ATR.",
       },
@@ -300,6 +432,9 @@ const scanResponse = {
         ceilingUpperBoundary: 86,
         majorCeilingUpperBoundary: null,
         ceilingTestCount: 1,
+        ceilingType: "STRONG_REJECTION",
+        compactCeilingCandidate: null,
+        compactCeilingConfirmationCount: null,
         decision: "FLOOR_CONFIRMED",
         explanation: "Price moved one ATR above the candidate floor.",
       },
@@ -319,6 +454,9 @@ const scanResponse = {
         ceilingUpperBoundary: 86,
         majorCeilingUpperBoundary: null,
         ceilingTestCount: 2,
+        ceilingType: "STRONG_REJECTION",
+        compactCeilingCandidate: null,
+        compactCeilingConfirmationCount: null,
         decision: "CEILING_TEST",
         explanation: "Price returned to the confirmed ceiling.",
       },

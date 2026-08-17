@@ -4,6 +4,7 @@ import com.google.inject.Inject
 import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.strategy.absolutedelivery.AbsoluteDeliveryBacktestService
 import com.tradingtool.core.strategy.adaptivebreakout.AdaptiveBreakoutScannerService
+import com.tradingtool.core.strategy.adaptivebreakout.AdaptiveBreakoutBacktestRequest
 import com.tradingtool.core.strategy.fiftytwohigh.ChartinkFiftyTwoWeekHighReportService
 import com.tradingtool.core.strategy.hotsma.HotSmaRunConfig
 import com.tradingtool.core.strategy.hotsma.HotSmaRunRequest
@@ -319,6 +320,35 @@ class StrategyResource @Inject constructor(
             ok(adaptiveBreakoutScannerService.scan(watchlist.orEmpty()))
         } catch (error: IllegalArgumentException) {
             badRequest(error.message ?: "Invalid adaptive breakout request.")
+        }
+    }
+
+    @GET
+    @Path("/adaptive-breakout/buy-review")
+    fun getAdaptiveBreakoutBuyReview(
+        @QueryParam("symbol") symbol: String?,
+        @QueryParam("date") date: String?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        try {
+            val requestedDate = date?.takeIf(String::isNotBlank)?.let(LocalDate::parse)
+                ?: return@endpoint badRequest("date is required in YYYY-MM-DD format.")
+            ok(adaptiveBreakoutScannerService.reviewBreakoutDay(symbol.orEmpty(), requestedDate))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid breakout buy review request.")
+        } catch (error: java.time.format.DateTimeParseException) {
+            badRequest("date is required in YYYY-MM-DD format.")
+        }
+    }
+
+    @POST
+    @Path("/adaptive-breakout/backtest/run")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runAdaptiveBreakoutBacktest(request: AdaptiveBreakoutBacktestRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        try {
+            ok(adaptiveBreakoutScannerService.runBacktest(body))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid adaptive breakout backtest request.")
         }
     }
 

@@ -1,0 +1,33 @@
+.adaptive-breakout-backtest-page {
+  min-height: calc(100vh - 64px);
+  padding: 18px 22px;
+  background: #f7f8fa;
+}
+
+.adaptive-breakout-backtest-page > .ant-space {
+  width: 100%;
+}
+
+.adaptive-breakout-backtest-control,
+.adaptive-breakout-backtest-page .ant-card {
+  border-color: #e8eaed;
+  box-shadow: none;
+}
+
+.adaptive-breakout-backtest-search {
+  width: min(420px, 100%);
+}
+
+.adaptive-breakout-backtest-note {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 720px) {
+  .adaptive-breakout-backtest-page {
+    padding: 10px;
+  }
+
+  .adaptive-breakout-backtest-search {
+    width: 100%;
+  }
+}

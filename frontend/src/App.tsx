@@ -55,12 +55,16 @@ import { NetwebCycleTrackerPage } from "./pages/NetwebCycleTrackerPage";
 import { SummaryConsolePage } from "./pages/SummaryConsolePage";
 import { ShortHorizonSelectorPage } from "./pages/ShortHorizonSelectorPage";
 import { AdaptiveBreakoutScannerPage } from "./pages/AdaptiveBreakoutScannerPage";
+import { AdaptiveBreakoutBacktestPage } from "./pages/AdaptiveBreakoutBacktestPage";
+import { BreakoutBuyReviewPage } from "./pages/BreakoutBuyReviewPage";
 import type { AccumulationCaseSnapshot } from "./types";
 
 type V1PageKey =
   | "summary-console"
   | "short-horizon-selector"
   | "adaptive-breakout"
+  | "adaptive-breakout-backtest"
+  | "breakout-buy-review"
   | "trade"
   | "wyckoff-phase1"
   | "volume-shocker"
@@ -234,6 +238,16 @@ const menuItems: MenuProps["items"] = [
     icon: <LineChartOutlined />,
   },
   {
+    key: "adaptive-breakout-backtest",
+    label: "Breakout 6M Test",
+    icon: <LineChartOutlined />,
+  },
+  {
+    key: "breakout-buy-review",
+    label: "Breakout Buy Review",
+    icon: <LineChartOutlined />,
+  },
+  {
     key: "52w-momentum-rule5",
     label: "52W Momentum Rule 5",
     icon: <LineChartOutlined />,
@@ -287,6 +301,8 @@ const validPages: PageKey[] = [
   "summary-console",
   "short-horizon-selector",
   "adaptive-breakout",
+  "adaptive-breakout-backtest",
+  "breakout-buy-review",
   "trade",
   "wyckoff-phase1",
   "volume-shocker",
@@ -549,6 +565,8 @@ export default function App() {
             {route === "summary-console" && <SummaryConsolePage onOpenStockReview={openStockReview} />}
             {route === "short-horizon-selector" && <ShortHorizonSelectorPage onOpenCompactStockReview={openCompactStockReview} />}
             {route === "adaptive-breakout" && <AdaptiveBreakoutScannerPage />}
+            {route === "adaptive-breakout-backtest" && <AdaptiveBreakoutBacktestPage />}
+            {route === "breakout-buy-review" && <BreakoutBuyReviewPage />}
             {route === "wyckoff-phase1" && <WyckoffPhase1Page />}
             {route === "volume-shocker" && <VolumeShockerDashboardPage />}
             {route === "absolute-delivery" && <AbsoluteDeliveryBacktestPage />}
