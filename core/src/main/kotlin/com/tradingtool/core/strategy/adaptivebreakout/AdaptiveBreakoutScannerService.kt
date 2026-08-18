@@ -58,6 +58,32 @@ class AdaptiveBreakoutScannerService @Inject constructor(
         )
     }
 
+    suspend fun scanSymbol(
+        symbol: String,
+        requestedAsOfDate: LocalDate = LocalDate.now(),
+    ): AdaptiveBreakoutScanResponse {
+        val normalizedSymbol = symbol.trim().uppercase()
+        require(normalizedSymbol.isNotEmpty()) { "symbol is required." }
+        val token = instrumentTokenResolver.resolve("NSE", normalizedSymbol)
+            ?: throw IllegalArgumentException("Unknown NSE symbol: $normalizedSymbol")
+        val companyName = indexConstituentHandler.read { dao ->
+            dao.listAllActive().firstOrNull { member -> member.symbol.equals(normalizedSymbol, ignoreCase = true) }
+                ?.companyName
+        } ?: normalizedSymbol
+        val row = scanStock(normalizedSymbol, companyName, token, requestedAsOfDate)
+            ?: throw IllegalArgumentException("Not enough candle history to scan $normalizedSymbol.")
+
+        return AdaptiveBreakoutScanResponse(
+            watchlistKey = "STOCK:$normalizedSymbol",
+            requestedAsOfDate = requestedAsOfDate.toString(),
+            latestCandleDate = row.latestDate,
+            scannedStockCount = 1,
+            freshBreakoutCount = if (row.status == AdaptiveBreakoutStatus.FRESH_BREAKOUT) 1 else 0,
+            config = CONFIG,
+            rows = listOf(row),
+        )
+    }
+
     suspend fun reviewBreakoutDay(symbol: String, requestedDate: LocalDate): BreakoutDayQualityResponse {
         val normalizedSymbol = symbol.trim().uppercase()
         require(normalizedSymbol.isNotEmpty()) { "symbol is required." }
@@ -135,18 +161,30 @@ class AdaptiveBreakoutScannerService @Inject constructor(
     private suspend fun scanMember(
         member: IndexConstituentUpsertRow,
         requestedAsOfDate: LocalDate,
+    ): AdaptiveBreakoutScanRow? = scanStock(
+        symbol = member.symbol,
+        companyName = member.companyName,
+        instrumentToken = member.instrumentToken,
+        requestedAsOfDate = requestedAsOfDate,
+    )
+
+    private suspend fun scanStock(
+        symbol: String,
+        companyName: String,
+        instrumentToken: Long,
+        requestedAsOfDate: LocalDate,
     ): AdaptiveBreakoutScanRow? {
         val candles = candleCacheService.getDailyCandles(
-            token = member.instrumentToken,
-            symbol = member.symbol,
+            token = instrumentToken,
+            symbol = symbol,
             from = requestedAsOfDate.minusYears(HISTORY_YEARS),
             to = requestedAsOfDate,
         )
         val evaluation = AdaptiveBreakoutEngine.evaluate(candles, CONFIG) ?: return null
         return AdaptiveBreakoutScanRow(
-            symbol = member.symbol,
-            companyName = member.companyName,
-            instrumentToken = member.instrumentToken,
+            symbol = symbol,
+            companyName = companyName,
+            instrumentToken = instrumentToken,
             status = evaluation.status,
             latestDate = evaluation.latestDate,
             latestOpen = evaluation.latestOpen,

@@ -315,9 +315,19 @@ class StrategyResource @Inject constructor(
     @Path("/adaptive-breakout/scan")
     fun getAdaptiveBreakoutScan(
         @QueryParam("watchlist") watchlist: String?,
+        @QueryParam("symbol") symbol: String?,
     ): CompletableFuture<Response> = ioScope.endpoint {
         try {
-            ok(adaptiveBreakoutScannerService.scan(watchlist.orEmpty()))
+            val requestedWatchlist = watchlist?.trim().orEmpty()
+            val requestedSymbol = symbol?.trim().orEmpty()
+            if (requestedWatchlist.isNotEmpty() == requestedSymbol.isNotEmpty()) {
+                return@endpoint badRequest("Provide exactly one of watchlist or symbol.")
+            }
+            if (requestedSymbol.isNotEmpty()) {
+                ok(adaptiveBreakoutScannerService.scanSymbol(requestedSymbol))
+            } else {
+                ok(adaptiveBreakoutScannerService.scan(requestedWatchlist))
+            }
         } catch (error: IllegalArgumentException) {
             badRequest(error.message ?: "Invalid adaptive breakout request.")
         }

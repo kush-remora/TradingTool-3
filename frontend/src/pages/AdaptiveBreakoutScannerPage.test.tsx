@@ -31,6 +31,18 @@ function mockLatestScanApi(response: object = scanResponse): void {
     if (path === "/api/strategy/adaptive-breakout/scan?watchlist=leaders") {
       return Promise.resolve(response);
     }
+    if (path === "/api/strategy/adaptive-breakout/scan?symbol=ABC") {
+      return Promise.resolve(response);
+    }
+    if (path === "/api/stocks/instruments") {
+      return Promise.resolve([{
+        instrument_token: 123,
+        trading_symbol: "ABC",
+        company_name: "ABC Limited",
+        exchange: "NSE",
+        instrument_type: "EQ",
+      }]);
+    }
     if (path === "/api/stocks/quotes?symbols=ABC") {
       return Promise.resolve([{
         symbol: "ABC",
@@ -47,6 +59,26 @@ function mockLatestScanApi(response: object = scanResponse): void {
 }
 
 describe("AdaptiveBreakoutScannerPage", () => {
+  it("runs the same scanner for one selected NSE stock", async () => {
+    marketOpenMock.mockReturnValue(true);
+    mockLatestScanApi();
+
+    render(<AdaptiveBreakoutScannerPage />);
+    fireEvent.click(screen.getByRole("radio", { name: "Stock" }));
+    const stockSearch = await screen.findByRole("combobox");
+    fireEvent.change(stockSearch, { target: { value: "ABC" } });
+    const matches = await screen.findAllByText("ABC - ABC Limited");
+    fireEvent.click(matches[matches.length - 1]);
+    fireEvent.click(await screen.findByRole("button", { name: /Run ABC/ }));
+
+    const table = await screen.findByTestId("adaptive-breakout-table");
+    expect(await within(table).findByText("ABC")).toBeInTheDocument();
+    expect(getJsonMock).toHaveBeenCalledWith(
+      "/api/strategy/adaptive-breakout/scan?symbol=ABC",
+      { useCache: false },
+    );
+  });
+
   it("runs the latest watchlist scan and overlays LTP without changing completed-close evidence", async () => {
     marketOpenMock.mockReturnValue(true);
     mockLatestScanApi();

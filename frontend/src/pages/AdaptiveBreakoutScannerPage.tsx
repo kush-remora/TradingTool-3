@@ -14,7 +14,7 @@ import {
   ThunderboltFilled,
   VerticalAlignTopOutlined,
 } from "@ant-design/icons";
-import { Alert, Button, Card, Drawer, Empty, Modal, Select, Space, Spin, Table, Tag, Typography } from "antd";
+import { Alert, Button, Card, Drawer, Empty, Modal, Radio, Select, Space, Spin, Table, Tag, Typography } from "antd";
 import type { TableColumnsType } from "antd";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useStockQuotes } from "../hooks/useStockQuotes";
@@ -22,11 +22,14 @@ import { useStockDetail } from "../hooks/useStockDetail";
 import { RecentDailyEvidenceTable, type RecentDailyEvidenceRow } from "../components/RecentDailyEvidenceTable";
 import { DailyOhlcGlyph } from "../components/DailyOhlcGlyph";
 import { AtrTurnCheck } from "../components/AtrTurnCheck";
+import { InstrumentSearch } from "../components/InstrumentSearch";
+import { useInstrumentSearch } from "../hooks/useInstrumentSearch";
 import type {
   AdaptiveBreakoutRawStep,
   AdaptiveBreakoutScanResponse,
   AdaptiveBreakoutScanRow,
   AdaptiveBreakoutStatus,
+  InstrumentSearchResult,
   StockQuoteSnapshot,
   UniverseOptionsResponse,
 } from "../types";
@@ -39,6 +42,7 @@ const { Text, Title } = Typography;
 
 type DisplayStatus = AdaptiveBreakoutStatus | "LIVE_CANDIDATE";
 type StatusFilter = DisplayStatus | "ALL";
+type ScanMode = "WATCHLIST" | "STOCK";
 
 interface ConfirmationEvidence {
   closePositionPct: number | null;
@@ -643,8 +647,10 @@ function RawDecisionTable({ steps, config }: {
 }
 
 export function AdaptiveBreakoutScannerPage(): ReactNode {
+  const [scanMode, setScanMode] = useState<ScanMode>("WATCHLIST");
   const [watchlists, setWatchlists] = useState<UniverseOptionsResponse["options"]>([]);
   const [selectedWatchlist, setSelectedWatchlist] = useState<string | null>(null);
+  const [selectedInstrument, setSelectedInstrument] = useState<InstrumentSearchResult | null>(null);
   const [report, setReport] = useState<AdaptiveBreakoutScanResponse | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [auditRow, setAuditRow] = useState<AdaptiveBreakoutScanRow | null>(null);
@@ -652,6 +658,11 @@ export function AdaptiveBreakoutScannerPage(): ReactNode {
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [loadingScan, setLoadingScan] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { allInstruments, loading: instrumentsLoading, error: instrumentsError } = useInstrumentSearch();
+  const nseEquities = useMemo(
+    () => allInstruments.filter((instrument) => instrument.exchange === "NSE" && instrument.instrument_type === "EQ"),
+    [allInstruments],
+  );
   const symbols = useMemo(() => report?.rows.map((row) => row.symbol) ?? [], [report?.rows]);
   const { quotesBySymbol, loading: loadingQuotes, error: quoteError } = useStockQuotes(symbols);
   const {
@@ -681,12 +692,15 @@ export function AdaptiveBreakoutScannerPage(): ReactNode {
   }, []);
 
   const runScan = (): void => {
-    if (!selectedWatchlist) return;
+    const requestPath = scanMode === "WATCHLIST"
+      ? selectedWatchlist && `/api/strategy/adaptive-breakout/scan?watchlist=${encodeURIComponent(selectedWatchlist)}`
+      : selectedInstrument && `/api/strategy/adaptive-breakout/scan?symbol=${encodeURIComponent(selectedInstrument.trading_symbol)}`;
+    if (!requestPath) return;
     setLoadingScan(true);
     setError(null);
     setStatusFilter("ALL");
     void getJson<AdaptiveBreakoutScanResponse>(
-      `/api/strategy/adaptive-breakout/scan?watchlist=${encodeURIComponent(selectedWatchlist)}`,
+      requestPath,
       { useCache: false },
     )
       .then(setReport)
@@ -694,6 +708,13 @@ export function AdaptiveBreakoutScannerPage(): ReactNode {
         setError(requestError instanceof Error ? requestError.message : "Unable to run the breakout scan.");
       })
       .finally(() => setLoadingScan(false));
+  };
+
+  const changeScanMode = (nextMode: ScanMode): void => {
+    setScanMode(nextMode);
+    setReport(null);
+    setError(null);
+    setStatusFilter("ALL");
   };
 
   const displayedRows = useMemo(() => {
@@ -809,25 +830,54 @@ export function AdaptiveBreakoutScannerPage(): ReactNode {
           </div>
           <Space align="center" wrap>
             {report && <Text className="adaptive-breakout-session">Close {formatDate(report.latestCandleDate)} {loadingQuotes ? "· LTP refreshing" : "· LTP live"}</Text>}
-            <Select
-              aria-label="Watchlist"
+            <Radio.Group aria-label="Scan mode" buttonStyle="solid" size="small" value={scanMode} onChange={(event) => changeScanMode(event.target.value as ScanMode)}>
+              <Radio.Button value="WATCHLIST">Watchlist</Radio.Button>
+              <Radio.Button value="STOCK">Stock</Radio.Button>
+            </Radio.Group>
+            {scanMode === "WATCHLIST" ? (
+              <Select
+                aria-label="Watchlist"
+                size="small"
+                loading={loadingOptions}
+                value={selectedWatchlist}
+                onChange={setSelectedWatchlist}
+                placeholder="Select watchlist"
+                style={{ width: 240 }}
+                options={watchlists.map((watchlist) => ({ value: watchlist.value, label: `${watchlist.label} (${watchlist.count})` }))}
+              />
+            ) : (
+              <div className="adaptive-breakout-stock-search">
+                {instrumentsLoading ? <Spin size="small" /> : (
+                  <InstrumentSearch
+                    instruments={nseEquities}
+                    value={selectedInstrument}
+                    onSelect={setSelectedInstrument}
+                    placeholder="Search one NSE stock"
+                  />
+                )}
+              </div>
+            )}
+            <Button
+              type="primary"
               size="small"
-              loading={loadingOptions}
-              value={selectedWatchlist}
-              onChange={setSelectedWatchlist}
-              placeholder="Select watchlist"
-              style={{ width: 240 }}
-              options={watchlists.map((watchlist) => ({ value: watchlist.value, label: `${watchlist.label} (${watchlist.count})` }))}
-            />
-            <Button type="primary" size="small" icon={<ReloadOutlined />} disabled={!selectedWatchlist} loading={loadingScan} onClick={runScan}>Run scan</Button>
+              icon={<ReloadOutlined />}
+              disabled={scanMode === "WATCHLIST" ? !selectedWatchlist : !selectedInstrument}
+              loading={loadingScan}
+              onClick={runScan}
+            >
+              Run {scanMode === "STOCK" ? selectedInstrument?.trading_symbol ?? "stock" : "scan"}
+            </Button>
           </Space>
         </div>
       </Card>
 
       {error && <Alert type="error" showIcon message={error} />}
+      {scanMode === "STOCK" && instrumentsError && <Alert type="warning" showIcon message={`Stock search unavailable: ${instrumentsError}`} />}
       {quoteError && <Alert type="warning" showIcon message={`LTP unavailable: ${quoteError}`} />}
       {loadingScan && <div className="adaptive-breakout-loading"><Spin /><Text type="secondary">Reading price structure…</Text></div>}
-      {!report && !loadingScan && !loadingOptions && <Empty description="Select a watchlist and run the latest scan." />}
+      {!report && !loadingScan && !loadingOptions && (
+        <Empty description={scanMode === "WATCHLIST" ? "Select a watchlist and run the latest scan." : "Select one NSE stock and run the latest scan."} />
+      )}
       {report && !loadingScan && (
         <Card className="adaptive-breakout-results-card">
           <StatusStrip rows={report.rows} quotesBySymbol={quotesBySymbol} marketOpen={marketOpen} activeFilter={statusFilter} onFilter={setStatusFilter} />

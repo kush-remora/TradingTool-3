@@ -54,6 +54,10 @@
   white-space: nowrap;
 }
 
+.adaptive-breakout-stock-search {
+  width: 240px;
+}
+
 .adaptive-breakout-status-strip {
   display: grid;
   grid-template-columns: repeat(8, minmax(92px, 1fr));
