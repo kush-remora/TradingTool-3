@@ -18,6 +18,18 @@
   width: min(420px, 100%);
 }
 
+.adaptive-breakout-backtest-watchlist {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.adaptive-breakout-backtest-control label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .adaptive-breakout-backtest-note {
   margin-bottom: 12px;
 }

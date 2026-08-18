@@ -117,9 +117,11 @@ class AdaptiveBreakoutScannerService @Inject constructor(
     }
 
     suspend fun runBacktest(request: AdaptiveBreakoutBacktestRequest): AdaptiveBreakoutBacktestResponse {
-        val normalizedSymbol = request.symbol.trim().uppercase()
-        require(normalizedSymbol.isNotEmpty()) { "symbol is required." }
-        require(request.instrumentToken > 0) { "instrumentToken must be positive." }
+        val normalizedSymbol = request.symbol?.trim()?.uppercase().orEmpty()
+        val requestedWatchlist = request.watchlistKey?.trim().orEmpty()
+        val hasStockRequest = normalizedSymbol.isNotEmpty() || request.instrumentToken != null
+        val hasWatchlistRequest = requestedWatchlist.isNotEmpty()
+        require(hasStockRequest != hasWatchlistRequest) { "Provide exactly one of symbol/instrumentToken or watchlistKey." }
         require(request.months in 1..24) { "months must be between 1 and 24." }
         require(request.targetPct > 0.0 && request.targetPct <= 100.0) {
             "targetPct must be greater than 0 and no more than 100."
@@ -128,24 +130,123 @@ class AdaptiveBreakoutScannerService @Inject constructor(
             "stopLossPct must be greater than 0 and no more than 100."
         }
 
-        val candles = candleCacheService.getDailyCandles(
-            token = request.instrumentToken,
+        if (hasWatchlistRequest) {
+            return runWatchlistBacktest(
+                watchlistKey = requestedWatchlist,
+                months = request.months,
+                targetPct = request.targetPct,
+                stopLossPct = request.stopLossPct,
+            )
+        }
+
+        require(normalizedSymbol.isNotEmpty()) { "symbol is required." }
+        val instrumentToken = request.instrumentToken
+            ?: throw IllegalArgumentException("instrumentToken is required for a stock backtest.")
+        require(instrumentToken > 0) { "instrumentToken must be positive." }
+        return runStockBacktest(
             symbol = normalizedSymbol,
+            instrumentToken = instrumentToken,
+            months = request.months,
+            targetPct = request.targetPct,
+            stopLossPct = request.stopLossPct,
+        )
+    }
+
+    private suspend fun runStockBacktest(
+        symbol: String,
+        instrumentToken: Long,
+        months: Long,
+        targetPct: Double,
+        stopLossPct: Double,
+        companyName: String? = null,
+    ): AdaptiveBreakoutBacktestResponse {
+        val candles = candleCacheService.getDailyCandles(
+            token = instrumentToken,
+            symbol = symbol,
             from = LocalDate.now().minusYears(HISTORY_YEARS),
             to = LocalDate.now(),
         ).sortedBy { candle -> candle.candleDate }
-        require(candles.isNotEmpty()) { "No daily candle data is available for $normalizedSymbol." }
+        require(candles.isNotEmpty()) { "No daily candle data is available for $symbol." }
 
         val availableToDate = candles.last().candleDate
-        val requestedFromDate = availableToDate.minusMonths(request.months)
+        val requestedFromDate = availableToDate.minusMonths(months)
         val testedFromDate = maxOf(requestedFromDate, candles.first().candleDate)
-        return AdaptiveBreakoutBacktestEngine.run(
+        val response = AdaptiveBreakoutBacktestEngine.run(
             candles = candles,
             testFromDate = testedFromDate,
             testToDate = availableToDate,
-            targetPct = request.targetPct,
-            stopLossPct = request.stopLossPct,
-        ).copy(symbol = normalizedSymbol)
+            targetPct = targetPct,
+            stopLossPct = stopLossPct,
+        ).copy(symbol = symbol)
+        return response.copy(
+            symbols = listOf(
+                AdaptiveBreakoutBacktestSymbolReport(
+                    symbol = symbol,
+                    companyName = companyName,
+                    testedFromDate = response.testedFromDate,
+                    testedToDate = response.testedToDate,
+                    summary = response.summary,
+                    trades = response.trades,
+                ),
+            ),
+        )
+    }
+
+    private suspend fun runWatchlistBacktest(
+        watchlistKey: String,
+        months: Long,
+        targetPct: Double,
+        stopLossPct: Double,
+    ): AdaptiveBreakoutBacktestResponse {
+        val resolvedKey = resolveWatchlist(watchlistKey)
+        val members = indexConstituentHandler.read { dao -> dao.listActiveByIndex(resolvedKey) }
+            .filter { member -> member.instrumentToken > 0 && member.symbol.isNotBlank() }
+            .distinctBy { member -> member.symbol.trim().uppercase() }
+        require(members.isNotEmpty()) { "No stocks were found for this watchlist." }
+
+        val responses = coroutineScope {
+            val semaphore = Semaphore(MAX_PARALLEL_CANDLE_READS)
+            members.map { member ->
+                async(Dispatchers.IO) {
+                    semaphore.withPermit {
+                        runStockBacktest(
+                            symbol = member.symbol.trim().uppercase(),
+                            instrumentToken = member.instrumentToken,
+                            months = months,
+                            targetPct = targetPct,
+                            stopLossPct = stopLossPct,
+                            companyName = member.companyName,
+                        )
+                    }
+                }
+            }.awaitAll().sortedBy { response -> response.symbol }
+        }
+        val trades = responses.flatMap { response -> response.trades }
+        val completedTradeCount = responses.sumOf { response ->
+            response.summary.targetHitCount + response.summary.stopLossCount
+        }
+        val summary = AdaptiveBreakoutBacktestSummary(
+            freshBreakoutCount = responses.sumOf { response -> response.summary.freshBreakoutCount },
+            enteredTradeCount = responses.sumOf { response -> response.summary.enteredTradeCount },
+            targetHitCount = responses.sumOf { response -> response.summary.targetHitCount },
+            stopLossCount = responses.sumOf { response -> response.summary.stopLossCount },
+            endOfTestCount = responses.sumOf { response -> response.summary.endOfTestCount },
+            winRatePct = if (completedTradeCount == 0) null else responses.sumOf { response -> response.summary.targetHitCount } * 100.0 / completedTradeCount,
+            averageHoldingSessions = trades.map { trade -> trade.holdingSessions }.takeIf(List<Int>::isNotEmpty)?.average(),
+        )
+        return AdaptiveBreakoutBacktestResponse(
+            symbol = null,
+            watchlistKey = resolvedKey,
+            testedFromDate = responses.minOf { response -> response.testedFromDate },
+            testedToDate = responses.maxOf { response -> response.testedToDate },
+            targetPct = targetPct,
+            stopLossPct = stopLossPct,
+            entryRule = "Fresh breakout is known after its completed close; enter at the next available session open.",
+            ambiguousCandleRule = "If one daily candle touches both target and stop, stop is assumed first because daily OHLC has no intraday order.",
+            summary = summary,
+            trades = trades.sortedWith(compareBy<AdaptiveBreakoutBacktestTrade> { it.breakoutDate }.thenBy { it.symbol }),
+            symbols = responses.flatMap { response -> response.symbols },
+        )
     }
 
     private suspend fun resolveWatchlist(watchlistKey: String): String {

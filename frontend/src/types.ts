@@ -243,8 +243,9 @@ export interface AdaptiveBreakoutScanResponse {
 // ==================== Adaptive Breakout Six-Month Backtest ====================
 
 export interface AdaptiveBreakoutBacktestRequest {
-  symbol: string;
-  instrumentToken: number;
+  symbol?: string;
+  instrumentToken?: number;
+  watchlistKey?: string;
   months?: number;
   targetPct?: number;
   stopLossPct?: number;
@@ -257,6 +258,7 @@ export type AdaptiveBreakoutBacktestExitReason =
   | "END_OF_TEST";
 
 export interface AdaptiveBreakoutBacktestTrade {
+  symbol: string;
   breakoutDate: string;
   breakoutClose: number;
   entryDate: string;
@@ -272,7 +274,8 @@ export interface AdaptiveBreakoutBacktestTrade {
 }
 
 export interface AdaptiveBreakoutBacktestResponse {
-  symbol: string;
+  symbol: string | null;
+  watchlistKey: string | null;
   testedFromDate: string;
   testedToDate: string;
   targetPct: number;
@@ -288,6 +291,16 @@ export interface AdaptiveBreakoutBacktestResponse {
     winRatePct: number | null;
     averageHoldingSessions: number | null;
   };
+  trades: AdaptiveBreakoutBacktestTrade[];
+  symbols: AdaptiveBreakoutBacktestSymbolReport[];
+}
+
+export interface AdaptiveBreakoutBacktestSymbolReport {
+  symbol: string;
+  companyName: string | null;
+  testedFromDate: string;
+  testedToDate: string;
+  summary: AdaptiveBreakoutBacktestResponse["summary"];
   trades: AdaptiveBreakoutBacktestTrade[];
 }
 

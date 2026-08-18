@@ -1,8 +1,9 @@
 package com.tradingtool.core.strategy.adaptivebreakout
 
 data class AdaptiveBreakoutBacktestRequest(
-    val symbol: String,
-    val instrumentToken: Long,
+    val symbol: String? = null,
+    val instrumentToken: Long? = null,
+    val watchlistKey: String? = null,
     val months: Long = 6,
     val targetPct: Double = 5.0,
     val stopLossPct: Double = 5.0,
@@ -16,6 +17,7 @@ enum class AdaptiveBreakoutBacktestExitReason {
 }
 
 data class AdaptiveBreakoutBacktestTrade(
+    val symbol: String,
     val breakoutDate: String,
     val breakoutClose: Double,
     val entryDate: String,
@@ -41,13 +43,24 @@ data class AdaptiveBreakoutBacktestSummary(
 )
 
 data class AdaptiveBreakoutBacktestResponse(
-    val symbol: String,
+    val symbol: String?,
+    val watchlistKey: String? = null,
     val testedFromDate: String,
     val testedToDate: String,
     val targetPct: Double,
     val stopLossPct: Double,
     val entryRule: String,
     val ambiguousCandleRule: String,
+    val summary: AdaptiveBreakoutBacktestSummary,
+    val trades: List<AdaptiveBreakoutBacktestTrade>,
+    val symbols: List<AdaptiveBreakoutBacktestSymbolReport> = emptyList(),
+)
+
+data class AdaptiveBreakoutBacktestSymbolReport(
+    val symbol: String,
+    val companyName: String?,
+    val testedFromDate: String,
+    val testedToDate: String,
     val summary: AdaptiveBreakoutBacktestSummary,
     val trades: List<AdaptiveBreakoutBacktestTrade>,
 )

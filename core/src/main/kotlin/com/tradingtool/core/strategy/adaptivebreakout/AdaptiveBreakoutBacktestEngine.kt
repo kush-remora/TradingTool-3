@@ -141,6 +141,7 @@ internal object AdaptiveBreakoutBacktestEngine {
         holdingSessions: Int,
         ambiguousSameCandle: Boolean,
     ): AdaptiveBreakoutBacktestTrade = AdaptiveBreakoutBacktestTrade(
+        symbol = entryCandle.symbol,
         breakoutDate = breakoutStep.date,
         breakoutClose = breakoutStep.close,
         entryDate = entryCandle.candleDate.toString(),
