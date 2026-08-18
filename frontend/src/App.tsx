@@ -127,6 +127,11 @@ type Route = PageKey | ForwardAccumulationTimelineRoute | WeeklyLowLimitDailyVal
 const menuItems: MenuProps["items"] = [
   { key: "summary-console", label: "Summary Console", icon: <FundOutlined /> },
   { key: "short-horizon-selector", label: "5-Day Stock Selector", icon: <LineChartOutlined /> },
+  {
+    key: "adaptive-breakout-backtest",
+    label: "Breakout 6M Test",
+    icon: <LineChartOutlined />,
+  },
   { key: "volume-shocker", label: "Volume Shocker", icon: <FundOutlined /> },
   {
     key: "absolute-delivery",
@@ -235,11 +240,6 @@ const menuItems: MenuProps["items"] = [
   {
     key: "adaptive-breakout",
     label: "Adaptive Breakout Scanner",
-    icon: <LineChartOutlined />,
-  },
-  {
-    key: "adaptive-breakout-backtest",
-    label: "Breakout 6M Test",
     icon: <LineChartOutlined />,
   },
   {
