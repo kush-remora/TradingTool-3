@@ -70,6 +70,26 @@ class AdaptiveBreakoutBacktestEngineTest {
         assertEquals(1, trade.holdingSessions)
     }
 
+    @Test
+    fun `skips a locked next session and enters on the first tradable open`() {
+        val lockedSession = candle(29, open = 94.0, high = 94.0, low = 94.0, close = 94.0)
+        val firstTradableSession = candle(30, open = 92.0, high = 94.0, low = 91.0, close = 93.0)
+        val candles = breakoutPath(nextSession = lockedSession) + firstTradableSession
+
+        val result = AdaptiveBreakoutBacktestEngine.run(
+            candles = candles,
+            testFromDate = DATE_START,
+            testToDate = DATE_START.plusDays(30),
+            targetPct = 5.0,
+            stopLossPct = 5.0,
+        )
+
+        val trade = result.trades.single()
+        assertEquals("2026-01-31", trade.entryDate)
+        assertEquals(92.0, trade.entryPrice)
+        assertTrue(result.entryRule.contains("Locked zero-range sessions are skipped"))
+    }
+
     private fun breakoutPath(nextSession: DailyCandle): List<DailyCandle> {
         val warmup = (0 until 20).map { index -> candle(index, 80.0, 80.0, 79.0, 80.0) }
         val path = listOf(

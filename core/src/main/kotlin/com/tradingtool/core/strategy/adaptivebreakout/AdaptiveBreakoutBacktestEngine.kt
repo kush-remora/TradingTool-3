@@ -28,8 +28,9 @@ internal object AdaptiveBreakoutBacktestEngine {
         val trades = mutableListOf<AdaptiveBreakoutBacktestTrade>()
         var nextEntryIndex = 0
         breakoutSteps.forEach { indexedStep ->
-            val entryIndex = indexedStep.index + 1
-            if (entryIndex >= orderedCandles.size || entryIndex < nextEntryIndex) return@forEach
+            val entryIndex = orderedCandles.indices.firstOrNull { index ->
+                index > indexedStep.index && index >= nextEntryIndex && orderedCandles[index].hasTradableRange()
+            } ?: return@forEach
             val entryCandle = orderedCandles[entryIndex]
             if (entryCandle.candleDate.isAfter(testToDate)) return@forEach
 
@@ -59,7 +60,7 @@ internal object AdaptiveBreakoutBacktestEngine {
             testedToDate = testToDate.toString(),
             targetPct = targetPct,
             stopLossPct = stopLossPct,
-            entryRule = "Fresh breakout is known after its completed close; enter at the next available session open.",
+            entryRule = "Fresh breakout is known after its completed close; enter at the first later session open with a tradable range. Locked zero-range sessions are skipped.",
             ambiguousCandleRule = "If one daily candle touches both target and stop, stop is assumed first because daily OHLC has no intraday order.",
             summary = AdaptiveBreakoutBacktestSummary(
                 freshBreakoutCount = breakoutSteps.size,
@@ -160,4 +161,6 @@ internal object AdaptiveBreakoutBacktestEngine {
         candles.indexOfFirst { candle -> candle.candleDate.toString() == trade.exitDate }
 
     private fun List<Int>.averageOrNull(): Double? = if (isEmpty()) null else average()
+
+    private fun DailyCandle.hasTradableRange(): Boolean = high > low
 }

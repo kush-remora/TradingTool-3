@@ -93,18 +93,23 @@ export type AdaptiveBreakoutDecision =
   | "AMBIGUOUS_OUTSIDE_DAY"
   | "BELOW_CEILING"
   | "CEILING_TEST"
+  | "FAILED_BREAKOUT"
+  | "CEILING_RECLAIM"
   | "STRONG_REBOUND"
   | "EARLY_BREAKOUT"
   | "FRESH_BREAKOUT"
   | "BREAKOUT_CONTINUATION";
 
-export type AdaptiveBreakoutCeilingType = "STRONG_REJECTION" | "COMPACT_RANGE";
+export type AdaptiveBreakoutCeilingType = "STRONG_REJECTION" | "COMPACT_RANGE" | "POST_BREAKOUT_SWING";
 
 export interface AdaptiveBreakoutCeiling {
   anchorDate: string;
   confirmedDate: string;
   anchorPrice: number;
+  baseUpperBoundary?: number;
   upperBoundary: number;
+  failedAttemptHigh?: number | null;
+  lastFailedAttemptDate?: string | null;
   atrAtAnchor: number;
   type: AdaptiveBreakoutCeilingType;
   testCount: number;
@@ -121,11 +126,14 @@ export interface AdaptiveBreakoutRawStep {
   volume: number;
   atr: number;
   candidateFloor: number;
+  candidateFloorDate?: string;
   candidateFloorAtr: number;
   candidatePeak: number;
   candidatePeakAtr: number;
   ceilingAnchor: number | null;
+  ceilingBaseUpperBoundary?: number | null;
   ceilingUpperBoundary: number | null;
+  ceilingFailedAttemptHigh?: number | null;
   majorCeilingUpperBoundary: number | null;
   ceilingTestCount: number | null;
   ceilingType: AdaptiveBreakoutCeilingType | null;
@@ -194,6 +202,11 @@ export interface AdaptiveBreakoutConfirmationEvidence {
   closePositionPct: number | null;
   volumeVsTenDayAverage: number | null;
   distanceFromFiftyTwoWeekHighPct: number | null;
+  floorDate?: string;
+  floorPrice?: number;
+  floorToBreakoutPct?: number;
+  floorToBreakoutAtr?: number | null;
+  rangeLocked?: boolean;
 }
 
 export interface AdaptiveBreakoutScanRow {

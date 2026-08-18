@@ -47,7 +47,7 @@ internal object AdaptiveBreakoutEngine {
             volumeVsTenDayAverage = volumeVsTenDayAverage(orderedCandles),
             fiftyTwoWeekHigh = latestFiftyTwoWeekHigh,
             distanceFromFiftyTwoWeekHighPct = latestFiftyTwoWeekHigh?.percentageDifference(latest.close),
-            breakoutEvidence = breakoutEvidence(orderedCandles, state.latestBreakoutDate),
+            breakoutEvidence = breakoutEvidence(orderedCandles, steps, state.latestBreakoutDate),
             rawSteps = steps,
         )
     }
@@ -72,8 +72,15 @@ internal object AdaptiveBreakoutEngine {
                 AdaptiveBreakoutDecision.FRESH_BREAKOUT,
                 "First close above the active ceiling; the previous close was not above it.",
             )
+        } else {
+            detectFailedBreakout(candle, ceilingAtStart)?.let { failedAttempt ->
+                state.ceiling = ceilingAtStart?.withFailedAttempt(candle.high, candle.candleDate.toString())
+                removeOverlappingMajorCeiling(state)
+                events += failedAttempt
+            }
+            detectCeilingReclaim(index, candles, ceilingAtStart)?.let(events::add)
         }
-        if (!freshBreakout) {
+        if (!freshBreakout && state.ceiling?.breakoutDate == null) {
             detectEarlyBreakout(index, candle, candles, atrValues, config, state.compactCeilingCandidate)
                 ?.let(events::add)
         }
@@ -116,11 +123,14 @@ internal object AdaptiveBreakoutEngine {
             volume = candle.volume,
             atr = atr,
             candidateFloor = candles[state.lowIndex].low,
+            candidateFloorDate = candles[state.lowIndex].candleDate.toString(),
             candidateFloorAtr = atrValues[state.lowIndex],
             candidatePeak = candles[state.highIndex].high,
             candidatePeakAtr = atrValues[state.highIndex],
             ceilingAnchor = state.ceiling?.anchorPrice,
+            ceilingBaseUpperBoundary = state.ceiling?.baseUpperBoundary,
             ceilingUpperBoundary = state.ceiling?.upperBoundary,
+            ceilingFailedAttemptHigh = state.ceiling?.failedAttemptHigh,
             majorCeilingUpperBoundary = state.majorCeiling?.upperBoundary,
             ceilingTestCount = state.ceiling?.testCount,
             ceilingType = state.ceiling?.type,
@@ -151,6 +161,39 @@ internal object AdaptiveBreakoutEngine {
     ): Boolean {
         if (index == 0 || ceiling == null || ceiling.breakoutDate != null) return false
         return candles[index].close > ceiling.upperBoundary && candles[index - 1].close <= ceiling.upperBoundary
+    }
+
+    private fun detectFailedBreakout(
+        candle: DailyCandle,
+        ceiling: ReplayCeiling?,
+    ): ReplayEvent? {
+        if (ceiling == null || ceiling.breakoutDate != null) return null
+        if (candle.high <= ceiling.upperBoundary || candle.close > ceiling.upperBoundary) return null
+        return ReplayEvent(
+            decision = AdaptiveBreakoutDecision.FAILED_BREAKOUT,
+            explanation = "Price traded above ${ceiling.upperBoundary} but closed below it. " +
+                "The original ${ceiling.baseUpperBoundary} line stays visible, while ${candle.high} becomes the strict cap for confirmation without another ATR buffer.",
+            breakoutBoundary = candle.high,
+        )
+    }
+
+    private fun detectCeilingReclaim(
+        index: Int,
+        candles: List<DailyCandle>,
+        ceiling: ReplayCeiling?,
+    ): ReplayEvent? {
+        if (index == 0 || ceiling?.failedAttemptHigh == null || ceiling.breakoutDate != null) return null
+        val candle = candles[index]
+        val previousClose = candles[index - 1].close
+        if (candle.high > ceiling.upperBoundary || candle.close <= ceiling.baseUpperBoundary ||
+            candle.close > ceiling.upperBoundary || previousClose > ceiling.baseUpperBoundary
+        ) return null
+        return ReplayEvent(
+            decision = AdaptiveBreakoutDecision.CEILING_RECLAIM,
+            explanation = "Watch only: the close reclaimed the original ${ceiling.baseUpperBoundary} line, " +
+                "but ${ceiling.upperBoundary} remains the failed-attempt cap required for a Fresh Breakout.",
+            breakoutBoundary = ceiling.baseUpperBoundary,
+        )
     }
 
     private fun detectEarlyBreakout(
@@ -240,7 +283,12 @@ internal object AdaptiveBreakoutEngine {
             )
             return ReplayEvent(
                 AdaptiveBreakoutDecision.CEILING_CONFIRMED,
-                "Price rejected $highPrice by at least ${config.peakRejectionAtrMultiple} ATR using the peak-day ATR $peakAtr; the peak is now the active ceiling and later returns increase its test count.",
+                ceilingConfirmationExplanation(
+                    highPrice,
+                    config.peakRejectionAtrMultiple,
+                    peakAtr,
+                    state.ceiling,
+                ),
             )
         }
         return null
@@ -320,7 +368,12 @@ internal object AdaptiveBreakoutEngine {
         )
         return ReplayEvent(
             AdaptiveBreakoutDecision.CEILING_CONFIRMED,
-            "Price rejected $highPrice by at least ${config.peakRejectionAtrMultiple} ATR using the peak-day ATR $peakAtr; the peak is now the active strong-rejection ceiling.",
+            ceilingConfirmationExplanation(
+                highPrice,
+                config.peakRejectionAtrMultiple,
+                peakAtr,
+                state.ceiling,
+            ),
         )
     }
 
@@ -365,7 +418,11 @@ internal object AdaptiveBreakoutEngine {
         )
         return ReplayEvent(
             decision = AdaptiveBreakoutDecision.CEILING_CONFIRMED,
-            explanation = "$highPrice is now a compact ceiling: the first rejection was at least ${config.compactPeakRejectionAtrMultiple} ATR and $confirmationCount later sessions stayed below that peak.",
+            explanation = if (state.ceiling?.type == AdaptiveBreakoutCeilingType.POST_BREAKOUT_SWING) {
+                "$highPrice is the next post-breakout swing cap: the compact rejection was confirmed by $confirmationCount contained sessions, so no additional ATR buffer is added."
+            } else {
+                "$highPrice is now a compact ceiling: the first rejection was at least ${config.compactPeakRejectionAtrMultiple} ATR and $confirmationCount later sessions stayed below that peak."
+            },
             compactCandidateAnchor = highPrice,
             compactConfirmationCount = confirmationCount,
         )
@@ -422,7 +479,10 @@ internal object AdaptiveBreakoutEngine {
             confirmedIndex = confirmedIndex,
             confirmedDate = candles[confirmedIndex].candleDate.toString(),
             anchorPrice = anchor.high,
+            baseUpperBoundary = anchor.high + atrAtAnchor * config.ceilingWidthAtrMultiple,
             upperBoundary = anchor.high + atrAtAnchor * config.ceilingWidthAtrMultiple,
+            failedAttemptHigh = null,
+            lastFailedAttemptDate = null,
             atrAtAnchor = atrAtAnchor,
             type = type,
             testCount = 1,
@@ -435,28 +495,60 @@ internal object AdaptiveBreakoutEngine {
         state: ReplayState,
     ) {
         val currentCeiling = state.ceiling
-        val shouldMerge = currentCeiling != null && currentCeiling.breakoutDate == null &&
-            currentCeiling.overlaps(newCeiling)
-        state.ceiling = if (currentCeiling != null && shouldMerge) {
-            mergeCeilings(currentCeiling, newCeiling)
-        } else {
-            state.majorCeiling = nearestHigherCeiling(
-                newCeiling.upperBoundary,
-                state.majorCeiling,
-                currentCeiling,
-            )
-            newCeiling
+        val postBreakoutSwing = currentCeiling?.breakoutDate != null &&
+            newCeiling.anchorPrice > currentCeiling.upperBoundary
+        val shouldPreserveActiveLine = currentCeiling != null && currentCeiling.breakoutDate == null &&
+            (currentCeiling.overlaps(newCeiling) || newCeiling.anchorPrice > currentCeiling.baseUpperBoundary)
+        state.ceiling = when {
+            postBreakoutSwing -> newCeiling.asPostBreakoutSwing()
+            currentCeiling != null && shouldPreserveActiveLine -> mergeCeilings(currentCeiling, newCeiling)
+            else -> {
+                state.majorCeiling = nearestHigherCeiling(
+                    newCeiling.upperBoundary,
+                    state.majorCeiling,
+                    currentCeiling,
+                )
+                newCeiling
+            }
         }
+        removeOverlappingMajorCeiling(state)
     }
 
     private fun mergeCeilings(current: ReplayCeiling, incoming: ReplayCeiling): ReplayCeiling {
-        val strongerAnchor = if (incoming.anchorPrice >= current.anchorPrice) incoming else current
-        return strongerAnchor.copy(
-            testCount = current.testCount + 1,
-            lastTestDate = incoming.confirmedDate,
-            readyForRetest = false,
-            breakoutDate = null,
-        )
+        val failedAttemptHigh = incoming.anchorPrice
+            .takeIf { anchorPrice -> anchorPrice > current.baseUpperBoundary }
+        return if (failedAttemptHigh == null) {
+            current
+        } else {
+            current.withFailedAttempt(failedAttemptHigh, incoming.anchorDate).copy(
+                readyForRetest = false,
+            )
+        }
+    }
+
+    private fun removeOverlappingMajorCeiling(state: ReplayState) {
+        val activeCeiling = state.ceiling ?: return
+        val majorCeiling = state.majorCeiling ?: return
+        if (majorCeiling.upperBoundary <= activeCeiling.upperBoundary || majorCeiling.overlaps(activeCeiling)) {
+            state.majorCeiling = null
+        }
+    }
+
+    private fun ceilingConfirmationExplanation(
+        highPrice: Double,
+        rejectionAtrMultiple: Double,
+        peakAtr: Double,
+        activeCeiling: ReplayCeiling?,
+    ): String = when {
+        activeCeiling?.type == AdaptiveBreakoutCeilingType.POST_BREAKOUT_SWING ->
+            "Price rejected $highPrice by at least $rejectionAtrMultiple ATR using the peak-day ATR $peakAtr. " +
+                "Because the previous ceiling was already broken, $highPrice itself is the next swing cap; no additional ATR buffer is added."
+        activeCeiling?.failedAttemptHigh != null && activeCeiling.failedAttemptHigh >= highPrice ->
+            "Price rejected $highPrice by at least $rejectionAtrMultiple ATR using the peak-day ATR $peakAtr. " +
+                "The original ${activeCeiling.baseUpperBoundary} line remains stable and ${activeCeiling.upperBoundary} remains the strict failed-attempt cap."
+        else ->
+            "Price rejected $highPrice by at least $rejectionAtrMultiple ATR using the peak-day ATR $peakAtr; " +
+                "the peak is now the active strong-rejection ceiling."
     }
 
     private fun updateCeilingTest(
@@ -554,12 +646,14 @@ internal object AdaptiveBreakoutEngine {
 
     private fun breakoutEvidence(
         candles: List<DailyCandle>,
+        steps: List<AdaptiveBreakoutRawStep>,
         breakoutDate: String?,
     ): AdaptiveBreakoutConfirmationEvidence? {
         if (breakoutDate == null) return null
         val breakoutIndex = candles.indexOfFirst { candle -> candle.candleDate.toString() == breakoutDate }
         if (breakoutIndex < 0) return null
         val breakoutCandle = candles[breakoutIndex]
+        val breakoutStep = steps.firstOrNull { step -> step.date == breakoutDate } ?: return null
         val priorTen = candles.subList(maxOf(0, breakoutIndex - 10), breakoutIndex)
         val averageVolume = priorTen.takeIf { it.size == 10 }?.map(DailyCandle::volume)?.average()
         val volumeMultiple = averageVolume?.takeIf { it > 0.0 }?.let { breakoutCandle.volume / it }
@@ -571,6 +665,13 @@ internal object AdaptiveBreakoutEngine {
             closePositionPct = closePositionPct(breakoutCandle),
             volumeVsTenDayAverage = volumeMultiple,
             distanceFromFiftyTwoWeekHighPct = periodHigh?.percentageDifference(breakoutCandle.close),
+            floorDate = breakoutStep.candidateFloorDate,
+            floorPrice = breakoutStep.candidateFloor,
+            floorToBreakoutPct = breakoutStep.candidateFloor.percentageDifference(breakoutCandle.close) ?: 0.0,
+            floorToBreakoutAtr = breakoutStep.candidateFloorAtr
+                .takeIf { floorAtr -> floorAtr.isUsableAtr() }
+                ?.let { floorAtr -> (breakoutCandle.close - breakoutStep.candidateFloor) / floorAtr },
+            rangeLocked = breakoutCandle.high <= breakoutCandle.low,
         )
     }
 
@@ -629,7 +730,10 @@ internal object AdaptiveBreakoutEngine {
         val confirmedIndex: Int,
         val confirmedDate: String,
         val anchorPrice: Double,
+        val baseUpperBoundary: Double,
         val upperBoundary: Double,
+        val failedAttemptHigh: Double?,
+        val lastFailedAttemptDate: String?,
         val atrAtAnchor: Double,
         val type: AdaptiveBreakoutCeilingType,
         val testCount: Int,
@@ -638,16 +742,38 @@ internal object AdaptiveBreakoutEngine {
         val breakoutDate: String? = null,
     ) {
         val lowerBoundary: Double
-            get() = anchorPrice - (upperBoundary - anchorPrice)
+            get() = anchorPrice - (baseUpperBoundary - anchorPrice)
 
         fun overlaps(other: ReplayCeiling): Boolean =
             lowerBoundary <= other.upperBoundary && other.lowerBoundary <= upperBoundary
+
+        fun withFailedAttempt(high: Double, date: String): ReplayCeiling {
+            val strictCap = maxOf(upperBoundary, high)
+            return copy(
+                upperBoundary = strictCap,
+                failedAttemptHigh = maxOf(failedAttemptHigh ?: Double.NEGATIVE_INFINITY, high),
+                lastFailedAttemptDate = date,
+            )
+        }
+
+        fun asPostBreakoutSwing(): ReplayCeiling = copy(
+            baseUpperBoundary = anchorPrice,
+            upperBoundary = anchorPrice,
+            failedAttemptHigh = null,
+            lastFailedAttemptDate = null,
+            type = AdaptiveBreakoutCeilingType.POST_BREAKOUT_SWING,
+            testCount = 1,
+            breakoutDate = null,
+        )
 
         fun toModel(): AdaptiveBreakoutCeiling = AdaptiveBreakoutCeiling(
             anchorDate = anchorDate,
             confirmedDate = confirmedDate,
             anchorPrice = anchorPrice,
+            baseUpperBoundary = baseUpperBoundary,
             upperBoundary = upperBoundary,
+            failedAttemptHigh = failedAttemptHigh,
+            lastFailedAttemptDate = lastFailedAttemptDate,
             atrAtAnchor = atrAtAnchor,
             type = type,
             testCount = testCount,
@@ -667,13 +793,15 @@ internal object AdaptiveBreakoutEngine {
     private val AdaptiveBreakoutDecision.priority: Int
         get() = when (this) {
             AdaptiveBreakoutDecision.FRESH_BREAKOUT -> 0
-            AdaptiveBreakoutDecision.EARLY_BREAKOUT -> 1
-            AdaptiveBreakoutDecision.AMBIGUOUS_OUTSIDE_DAY -> 2
-            AdaptiveBreakoutDecision.CEILING_CONFIRMED -> 3
-            AdaptiveBreakoutDecision.FLOOR_CONFIRMED -> 4
-            AdaptiveBreakoutDecision.COMPACT_CEILING_CANDIDATE -> 5
-            AdaptiveBreakoutDecision.CEILING_TEST -> 6
-            else -> 6
+            AdaptiveBreakoutDecision.FAILED_BREAKOUT -> 1
+            AdaptiveBreakoutDecision.CEILING_RECLAIM -> 2
+            AdaptiveBreakoutDecision.EARLY_BREAKOUT -> 3
+            AdaptiveBreakoutDecision.AMBIGUOUS_OUTSIDE_DAY -> 4
+            AdaptiveBreakoutDecision.CEILING_CONFIRMED -> 5
+            AdaptiveBreakoutDecision.FLOOR_CONFIRMED -> 6
+            AdaptiveBreakoutDecision.COMPACT_CEILING_CANDIDATE -> 7
+            AdaptiveBreakoutDecision.CEILING_TEST -> 8
+            else -> 8
         }
 
     private const val FIFTY_TWO_WEEK_SESSIONS = 252

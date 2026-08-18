@@ -30,6 +30,8 @@ enum class AdaptiveBreakoutDecision {
     AMBIGUOUS_OUTSIDE_DAY,
     BELOW_CEILING,
     CEILING_TEST,
+    FAILED_BREAKOUT,
+    CEILING_RECLAIM,
     STRONG_REBOUND,
     EARLY_BREAKOUT,
     FRESH_BREAKOUT,
@@ -39,13 +41,17 @@ enum class AdaptiveBreakoutDecision {
 enum class AdaptiveBreakoutCeilingType {
     STRONG_REJECTION,
     COMPACT_RANGE,
+    POST_BREAKOUT_SWING,
 }
 
 data class AdaptiveBreakoutCeiling(
     val anchorDate: String,
     val confirmedDate: String,
     val anchorPrice: Double,
+    val baseUpperBoundary: Double,
     val upperBoundary: Double,
+    val failedAttemptHigh: Double?,
+    val lastFailedAttemptDate: String?,
     val atrAtAnchor: Double,
     val type: AdaptiveBreakoutCeilingType,
     val testCount: Int,
@@ -62,11 +68,14 @@ data class AdaptiveBreakoutRawStep(
     val volume: Long,
     val atr: Double,
     val candidateFloor: Double,
+    val candidateFloorDate: String,
     val candidateFloorAtr: Double,
     val candidatePeak: Double,
     val candidatePeakAtr: Double,
     val ceilingAnchor: Double?,
+    val ceilingBaseUpperBoundary: Double?,
     val ceilingUpperBoundary: Double?,
+    val ceilingFailedAttemptHigh: Double?,
     val majorCeilingUpperBoundary: Double?,
     val ceilingTestCount: Int?,
     val ceilingType: AdaptiveBreakoutCeilingType?,
@@ -146,6 +155,11 @@ data class AdaptiveBreakoutConfirmationEvidence(
     val closePositionPct: Double?,
     val volumeVsTenDayAverage: Double?,
     val distanceFromFiftyTwoWeekHighPct: Double?,
+    val floorDate: String,
+    val floorPrice: Double,
+    val floorToBreakoutPct: Double,
+    val floorToBreakoutAtr: Double?,
+    val rangeLocked: Boolean,
 )
 
 data class AdaptiveBreakoutEvaluation(

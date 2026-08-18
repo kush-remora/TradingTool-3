@@ -26,6 +26,7 @@ import { InstrumentSearch } from "../components/InstrumentSearch";
 import { useInstrumentSearch } from "../hooks/useInstrumentSearch";
 import type {
   AdaptiveBreakoutRawStep,
+  AdaptiveBreakoutCeilingType,
   AdaptiveBreakoutScanResponse,
   AdaptiveBreakoutScanRow,
   AdaptiveBreakoutStatus,
@@ -48,6 +49,11 @@ interface ConfirmationEvidence {
   closePositionPct: number | null;
   volumeVsTenDayAverage: number | null;
   distanceFromFiftyTwoWeekHighPct: number | null;
+  floorDate: string | null;
+  floorPrice: number | null;
+  floorToBreakoutPct: number | null;
+  floorToBreakoutAtr: number | null;
+  rangeLocked: boolean;
   sourceLabel: string;
 }
 
@@ -179,6 +185,12 @@ function latestFloor(row: AdaptiveBreakoutScanRow): number | null {
   return row.rawSteps[row.rawSteps.length - 1]?.candidateFloor ?? null;
 }
 
+function ceilingTypeLabel(type: AdaptiveBreakoutCeilingType): string {
+  if (type === "COMPACT_RANGE") return "Compact range";
+  if (type === "POST_BREAKOUT_SWING") return "Post-breakout swing";
+  return "Strong rejection";
+}
+
 function quoteSessionDate(quote: StockQuoteSnapshot | undefined): string | null {
   if (!quote?.updated_at) return null;
   const value = new Date(quote.updated_at);
@@ -231,6 +243,13 @@ function evidenceFromRawStep(
     closePositionPct: calculateClosePosition(target.close, target.high, target.low),
     volumeVsTenDayAverage: averageVolume != null && averageVolume > 0 ? target.volume / averageVolume : null,
     distanceFromFiftyTwoWeekHighPct: calculatePercentageFrom(fiftyTwoWeekHigh, target.close),
+    floorDate: target.candidateFloorDate ?? null,
+    floorPrice: target.candidateFloor,
+    floorToBreakoutPct: calculatePercentageFrom(target.candidateFloor, target.close),
+    floorToBreakoutAtr: target.candidateFloorAtr > 0
+      ? (target.close - target.candidateFloor) / target.candidateFloorAtr
+      : null,
+    rangeLocked: target.high <= target.low,
     sourceLabel,
   };
 }
@@ -263,6 +282,11 @@ function evidenceFromQuote(
       ? quote.volume / averageVolume
       : row.volumeVsTenDayAverage,
     distanceFromFiftyTwoWeekHighPct: calculatePercentageFrom(effectiveHigh, quote.ltp),
+    floorDate: null,
+    floorPrice: null,
+    floorToBreakoutPct: null,
+    floorToBreakoutAtr: null,
+    rangeLocked: quote.day_high != null && quote.day_low != null && quote.day_high <= quote.day_low,
     sourceLabel,
   };
 }
@@ -280,6 +304,11 @@ function confirmationEvidence(
         closePositionPct: row.breakoutEvidence.closePositionPct,
         volumeVsTenDayAverage: row.breakoutEvidence.volumeVsTenDayAverage,
         distanceFromFiftyTwoWeekHighPct: row.breakoutEvidence.distanceFromFiftyTwoWeekHighPct,
+        floorDate: row.breakoutEvidence.floorDate ?? null,
+        floorPrice: row.breakoutEvidence.floorPrice ?? null,
+        floorToBreakoutPct: row.breakoutEvidence.floorToBreakoutPct ?? null,
+        floorToBreakoutAtr: row.breakoutEvidence.floorToBreakoutAtr ?? null,
+        rangeLocked: row.breakoutEvidence.rangeLocked ?? false,
         sourceLabel: `Breakout close · ${formatDate(breakoutDate)}`,
       };
     }
@@ -289,6 +318,11 @@ function confirmationEvidence(
       closePositionPct: null,
       volumeVsTenDayAverage: null,
       distanceFromFiftyTwoWeekHighPct: null,
+      floorDate: null,
+      floorPrice: null,
+      floorToBreakoutPct: null,
+      floorToBreakoutAtr: null,
+      rangeLocked: false,
       sourceLabel: `Breakout close · ${formatDate(breakoutDate)} · evidence unavailable`,
     };
   }
@@ -304,6 +338,11 @@ function confirmationEvidence(
     closePositionPct: row.closePositionPct,
     volumeVsTenDayAverage: row.volumeVsTenDayAverage,
     distanceFromFiftyTwoWeekHighPct: row.distanceFromFiftyTwoWeekHighPct,
+    floorDate: null,
+    floorPrice: null,
+    floorToBreakoutPct: null,
+    floorToBreakoutAtr: null,
+    rangeLocked: row.latestHigh <= row.latestLow,
     sourceLabel: `Latest close · ${formatDate(row.latestDate)}`,
   };
 }
@@ -490,18 +529,21 @@ function StructureCell({
   }
 
   const progress = structureProgress(row, quote);
+  const baseBoundary = row.ceiling.baseUpperBoundary ?? row.ceiling.upperBoundary;
+  const hasFailedAttemptCap = row.ceiling.failedAttemptHigh != null && row.ceiling.upperBoundary > baseBoundary;
   return (
     <div className="adaptive-breakout-structure" aria-label={`Price is ${progress.toFixed(0)}% of the way from floor to ceiling`}>
       <div className="adaptive-breakout-structure-labels">
         <span>Floor {formatPrice(floor)}</span>
-        <strong>Ceiling {formatPrice(row.ceiling.upperBoundary)}</strong>
+        <strong>{hasFailedAttemptCap ? "Strict cap" : "Ceiling"} {formatPrice(row.ceiling.upperBoundary)}</strong>
       </div>
       <div className="adaptive-breakout-track">
         <span className="adaptive-breakout-track-fill" style={{ width: `${progress}%` }} />
         <span className="adaptive-breakout-price-marker" style={{ left: `${progress}%` }} />
       </div>
       <span className="adaptive-breakout-structure-age">
-        {row.ceiling.type === "COMPACT_RANGE" ? "Compact range" : "Strong rejection"} · {row.ceilingAgeSessions ?? "—"} sessions · {row.ceiling.testCount} test{row.ceiling.testCount === 1 ? "" : "s"} · confirmed {formatDate(row.ceiling.confirmedDate)}
+        {ceilingTypeLabel(row.ceiling.type)} · {row.ceilingAgeSessions ?? "—"} sessions · {row.ceiling.testCount} test{row.ceiling.testCount === 1 ? "" : "s"} · confirmed {formatDate(row.ceiling.confirmedDate)}
+        {hasFailedAttemptCap ? ` · base ${formatPrice(baseBoundary)} reclaimed first` : ""}
         {row.majorCeiling ? ` · major ${formatPrice(row.majorCeiling.upperBoundary)}` : ""}
       </span>
     </div>
@@ -521,7 +563,10 @@ function EvidenceCell({ evidence }: { evidence: ConfirmationEvidence }): ReactNo
   const highTone = evidence.distanceFromFiftyTwoWeekHighPct != null && evidence.distanceFromFiftyTwoWeekHighPct >= -15 ? "near" : "neutral";
   return (
     <div className="adaptive-breakout-evidence-wrap" aria-label={`Confirmation evidence from ${evidence.sourceLabel}; does not decide breakout`}>
-      <span className="adaptive-breakout-evidence-source">{evidence.sourceLabel}</span>
+      <span className="adaptive-breakout-evidence-source">
+        {evidence.sourceLabel}
+        {evidence.rangeLocked && <b className="adaptive-breakout-locked">Locked range · next-open fill uncertain</b>}
+      </span>
       <div className="adaptive-breakout-evidence">
         <span className={finishTone} title="Close position within that candle's low-high range">
           <VerticalAlignTopOutlined /><strong>{evidence.closePositionPct == null ? "—" : `${evidence.closePositionPct.toFixed(0)}%`}</strong><small>finish</small>
@@ -533,6 +578,12 @@ function EvidenceCell({ evidence }: { evidence: ConfirmationEvidence }): ReactNo
           <RadarChartOutlined /><strong>{formatPercent(evidence.distanceFromFiftyTwoWeekHighPct, 0)}</strong><small>52W high</small>
         </span>
       </div>
+      {evidence.floorToBreakoutPct != null && (
+        <span className="adaptive-breakout-floor-distance">
+          From floor {formatPrice(evidence.floorPrice)} · {formatDate(evidence.floorDate)} · {formatPercent(evidence.floorToBreakoutPct)}
+          {evidence.floorToBreakoutAtr != null ? ` / ${evidence.floorToBreakoutAtr.toFixed(1)} ATR` : ""}
+        </span>
+      )}
     </div>
   );
 }
@@ -546,10 +597,12 @@ function rawDecisionSummary(
     BUILDING_STRUCTURE: "No reliable floor-and-ceiling story exists yet.",
     FLOOR_CONFIRMED: `The close moved meaningfully away from the ${formatPrice(step.candidateFloor)} floor.`,
     COMPACT_CEILING_CANDIDATE: `${formatPrice(step.compactCeilingCandidate)} may be a compact ceiling; containment is ${step.compactCeilingConfirmationCount ?? 0}/${config.compactCeilingConfirmationSessions}.`,
-    CEILING_CONFIRMED: `${ceiling} is now the active ${step.ceilingType === "COMPACT_RANGE" ? "compact" : "strong-rejection"} line to beat.`,
+    CEILING_CONFIRMED: `${ceiling} is now the active ${step.ceilingType === "COMPACT_RANGE" ? "compact" : step.ceilingType === "POST_BREAKOUT_SWING" ? "post-breakout swing" : "strong-rejection"} line to beat.`,
     AMBIGUOUS_OUTSIDE_DAY: "This candle supports both directions; daily OHLC cannot prove the order, so the structure waits.",
     BELOW_CEILING: `The ${formatPrice(step.close)} close remains below the ${ceiling} line.`,
     CEILING_TEST: `The ${formatPrice(step.close)} close is testing ${ceiling}; ${step.ceilingTestCount ?? 0} confirmed failure${step.ceilingTestCount === 1 ? "" : "s"} so far.`,
+    FAILED_BREAKOUT: `High crossed the prior cap, but the ${formatPrice(step.close)} close failed; ${formatPrice(step.ceilingFailedAttemptHigh ?? step.high)} is now the strict cap.`,
+    CEILING_RECLAIM: `The ${formatPrice(step.close)} close reclaimed the base line ${formatPrice(step.ceilingBaseUpperBoundary)}; the strict cap still remains.`,
     STRONG_REBOUND: "Price has risen strongly from the floor, but no resistance is confirmed yet.",
     EARLY_BREAKOUT: `The ${formatPrice(step.close)} close cleared the provisional ${formatPrice(step.breakoutBoundary)} watch line; the confirmed ceiling is unchanged.`,
     FRESH_BREAKOUT: `The ${formatPrice(step.close)} close crossed ${ceiling} for the first time.`,
@@ -569,13 +622,15 @@ function RawReplayGuide(): ReactNode {
         <span className="candidate">Compact candidate</span><b>→</b>
         <span className="early">Early watch</span><b>or</b>
         <span className="confirmed">Ceiling confirmed</span><b>→</b>
+        <span className="failed">Failed wick = strict cap</span><b>→</b>
         <span className="testing">More tests = stronger</span><b>→</b>
         <span className="breakout">Fresh breakout</span>
       </div>
       <div className="adaptive-breakout-raw-keys">
         <span><strong>Day shape</strong> = positions, not time order</span>
         <span><strong>Turn check</strong> = movement ÷ ATR from the floor/peak day; ✓ means rule passed</span>
-        <span><strong>Ceiling</strong> = line to beat</span>
+        <span><strong>Base</strong> = reclaim/watch line</span>
+        <span><strong>Strict cap</strong> = highest failed wick; close above it confirms</span>
         <span><strong>Major</strong> = later obstacle only</span>
         <span><strong>ATR</strong> = the stock's movement ruler</span>
       </div>
@@ -603,7 +658,8 @@ function RawDecisionTable({ steps, config }: {
     { title: "ATR", dataIndex: "atr", key: "atr", width: 64, render: formatPrice },
     { title: <span className="adaptive-breakout-raw-header">Floor<small>journey start</small></span>, dataIndex: "candidateFloor", key: "candidateFloor", width: 76, render: formatPrice },
     { title: <span className="adaptive-breakout-raw-header">Peak<small>highest seen</small></span>, dataIndex: "candidatePeak", key: "candidatePeak", width: 76, render: formatPrice },
-    { title: <span className="adaptive-breakout-raw-header">Ceiling<small>line to beat</small></span>, dataIndex: "ceilingUpperBoundary", key: "ceilingUpperBoundary", width: 82, render: formatPrice },
+    { title: <span className="adaptive-breakout-raw-header">Base<small>reclaim/watch</small></span>, dataIndex: "ceilingBaseUpperBoundary", key: "ceilingBaseUpperBoundary", width: 82, render: formatPrice },
+    { title: <span className="adaptive-breakout-raw-header">Cap<small>close must clear</small></span>, dataIndex: "ceilingUpperBoundary", key: "ceilingUpperBoundary", width: 82, render: formatPrice },
     { title: <span className="adaptive-breakout-raw-header">Major<small>later obstacle</small></span>, dataIndex: "majorCeilingUpperBoundary", key: "majorCeilingUpperBoundary", width: 82, render: formatPrice },
     {
       title: "Decision",
@@ -639,7 +695,7 @@ function RawDecisionTable({ steps, config }: {
         columns={columns}
         dataSource={[...steps].reverse()}
         pagination={{ pageSize: 25, hideOnSinglePage: true }}
-        scroll={{ x: 1220, y: "calc(100vh - 345px)" }}
+        scroll={{ x: 1300, y: "calc(100vh - 345px)" }}
         rowClassName={(step) => `adaptive-breakout-raw-row-${step.decision.toLowerCase()}`}
       />
     </div>

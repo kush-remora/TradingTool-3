@@ -166,6 +166,47 @@ describe("AdaptiveBreakoutScannerPage", () => {
     expect(screen.getByRole("button", { name: "Fresh breakout 1" })).toBeInTheDocument();
   });
 
+  it("shows the original ceiling and failed-attempt cap as separate levels", async () => {
+    marketOpenMock.mockReturnValue(true);
+    const latestStep = scanResponse.rows[0].rawSteps.at(-1)!;
+    mockLatestScanApi({
+      ...scanResponse,
+      rows: [{
+        ...scanResponse.rows[0],
+        latestClose: 88,
+        ceiling: {
+          ...scanResponse.rows[0].ceiling,
+          baseUpperBoundary: 86,
+          upperBoundary: 89,
+          failedAttemptHigh: 89,
+          lastFailedAttemptDate: "2026-08-13",
+        },
+        rawSteps: [{
+          ...latestStep,
+          close: 88,
+          ceilingBaseUpperBoundary: 86,
+          ceilingUpperBoundary: 89,
+          ceilingFailedAttemptHigh: 89,
+          decision: "CEILING_RECLAIM",
+          explanation: "The close reclaimed the original line; the strict cap remains.",
+        }],
+      }],
+    });
+
+    render(<AdaptiveBreakoutScannerPage />);
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Watchlist" }));
+    fireEvent.click(await screen.findByText("leaders (1)"));
+    fireEvent.click(screen.getByRole("button", { name: /Run scan/i }));
+
+    const table = await screen.findByTestId("adaptive-breakout-table");
+    expect(within(table).getByText("Strict cap ₹89.00")).toBeInTheDocument();
+    expect(within(table).getByText(/base ₹86\.00 reclaimed first/)).toBeInTheDocument();
+    fireEvent.click(within(table).getByRole("button", { name: "Audit ABC" }));
+    const auditDrawer = document.querySelector(".adaptive-breakout-audit-drawer-root") as HTMLElement;
+    expect(await within(auditDrawer).findByText("CEILING RECLAIM")).toBeInTheDocument();
+    expect(within(auditDrawer).getByText(/reclaimed the base line ₹86\.00/)).toBeInTheDocument();
+  });
+
   it("shows compact ceiling type and containment progress", async () => {
     marketOpenMock.mockReturnValue(true);
     mockLatestScanApi({
@@ -245,6 +286,11 @@ describe("AdaptiveBreakoutScannerPage", () => {
           closePositionPct: 90,
           volumeVsTenDayAverage: 2.1,
           distanceFromFiftyTwoWeekHighPct: -5,
+          floorDate: "2026-07-30",
+          floorPrice: 80,
+          floorToBreakoutPct: 12.5,
+          floorToBreakoutAtr: 4.2,
+          rangeLocked: true,
         },
         rawSteps: [],
       }],
@@ -261,6 +307,8 @@ describe("AdaptiveBreakoutScannerPage", () => {
     expect(within(table).getByText("Breakout close · 05 Aug")).toBeInTheDocument();
     expect(within(table).getByText("90%")).toBeInTheDocument();
     expect(within(table).getByText("2.10×")).toBeInTheDocument();
+    expect(within(table).getByText(/From floor ₹80\.00 · 30 Jul · \+12\.5% \/ 4\.2 ATR/)).toBeInTheDocument();
+    expect(within(table).getByText("Locked range · next-open fill uncertain")).toBeInTheDocument();
     expect(within(table).queryByText(/Latest close/)).not.toBeInTheDocument();
   });
 

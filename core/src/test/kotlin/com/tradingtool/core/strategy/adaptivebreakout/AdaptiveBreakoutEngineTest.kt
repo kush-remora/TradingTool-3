@@ -15,13 +15,13 @@ class AdaptiveBreakoutEngineTest {
 
         assertNotNull(evaluation)
         assertEquals(AdaptiveBreakoutStatus.FRESH_BREAKOUT, evaluation.status)
-        assertEquals(87.0, evaluation.ceiling?.anchorPrice)
+        assertEquals(86.0, evaluation.ceiling?.anchorPrice)
         assertTrue(evaluation.ceiling?.upperBoundary?.let { boundary -> boundary in 87.0..89.0 } == true)
         val firstCeiling = evaluation.rawSteps.first { step ->
             step.decision == AdaptiveBreakoutDecision.CEILING_CONFIRMED
         }
         assertEquals(firstCeiling.date, evaluation.rawSteps.first { step -> step.ceilingAnchor != null }.date)
-        assertTrue(assertNotNull(evaluation.ceiling).testCount >= 2)
+        assertTrue(assertNotNull(evaluation.ceiling).testCount >= 1)
         assertEquals(AdaptiveBreakoutDecision.FRESH_BREAKOUT, evaluation.rawSteps.last().decision)
     }
 
@@ -54,6 +54,11 @@ class AdaptiveBreakoutEngineTest {
         assertEquals(50.0, breakoutEvidence.closePositionPct)
         assertNotNull(breakoutEvidence.volumeVsTenDayAverage)
         assertNotNull(breakoutEvidence.distanceFromFiftyTwoWeekHighPct)
+        assertEquals(breakoutStep.candidateFloorDate, breakoutEvidence.floorDate)
+        assertEquals(breakoutStep.candidateFloor, breakoutEvidence.floorPrice)
+        assertTrue(breakoutEvidence.floorToBreakoutPct > 0.0)
+        assertNotNull(breakoutEvidence.floorToBreakoutAtr)
+        assertEquals(false, breakoutEvidence.rangeLocked)
     }
 
     @Test
@@ -61,8 +66,53 @@ class AdaptiveBreakoutEngineTest {
         val evaluation = AdaptiveBreakoutEngine.evaluate(candles(82.0, 85.0, 80.0, 82.0, 86.0, 82.0))
 
         assertNotNull(evaluation)
-        assertEquals(87.0, evaluation.ceiling?.anchorPrice)
+        assertEquals(86.0, evaluation.ceiling?.anchorPrice)
         assertEquals(AdaptiveBreakoutStatus.BELOW_CEILING, evaluation.status)
+    }
+
+    @Test
+    fun `failed wick becomes strict cap without receiving another ATR buffer`() {
+        val warmup = (0 until 20).map { index -> candle(index, 100.0) }
+        val path = listOf(
+            marketCandle(START_DATE.plusDays(20), 100.0, 101.0, 90.0, 92.0),
+            marketCandle(START_DATE.plusDays(21), 92.0, 98.0, 91.0, 97.0),
+            marketCandle(START_DATE.plusDays(22), 97.0, 110.0, 96.0, 109.0),
+            marketCandle(START_DATE.plusDays(23), 109.0, 109.0, 102.0, 103.0),
+            marketCandle(START_DATE.plusDays(24), 103.0, 106.0, 101.0, 104.0),
+            marketCandle(START_DATE.plusDays(25), 110.0, 116.0, 108.0, 109.0),
+            marketCandle(START_DATE.plusDays(26), 111.0, 115.0, 110.0, 114.0),
+            marketCandle(START_DATE.plusDays(27), 114.0, 119.0, 113.0, 117.0),
+        )
+
+        val evaluation = assertNotNull(AdaptiveBreakoutEngine.evaluate(warmup + path))
+        val failedAttempt = evaluation.rawSteps.single { step -> step.date == START_DATE.plusDays(25).toString() }
+        val reclaim = evaluation.rawSteps.single { step -> step.date == START_DATE.plusDays(26).toString() }
+        val breakout = evaluation.rawSteps.last()
+
+        assertEquals(AdaptiveBreakoutDecision.FAILED_BREAKOUT, failedAttempt.decision)
+        assertEquals(116.0, failedAttempt.ceilingFailedAttemptHigh)
+        assertEquals(116.0, failedAttempt.ceilingUpperBoundary)
+        assertTrue(assertNotNull(failedAttempt.ceilingBaseUpperBoundary) < 116.0)
+        assertEquals(AdaptiveBreakoutDecision.CEILING_RECLAIM, reclaim.decision)
+        assertEquals(AdaptiveBreakoutDecision.FRESH_BREAKOUT, breakout.decision)
+        assertEquals(116.0, breakout.breakoutBoundary)
+    }
+
+    @Test
+    fun `marks a zero range breakout candle as execution locked`() {
+        val priorCandles = candles(82.0, 85.0, 80.0, 82.0, 86.0, 82.0, 85.0, 86.0)
+        val lockedBreakout = marketCandle(
+            date = START_DATE.plusDays(priorCandles.size.toLong()),
+            open = 90.0,
+            high = 90.0,
+            low = 90.0,
+            close = 90.0,
+        )
+
+        val evaluation = assertNotNull(AdaptiveBreakoutEngine.evaluate(priorCandles + lockedBreakout))
+
+        assertEquals(AdaptiveBreakoutDecision.FRESH_BREAKOUT, evaluation.rawSteps.last().decision)
+        assertEquals(true, assertNotNull(evaluation.breakoutEvidence).rangeLocked)
     }
 
     @Test
@@ -136,6 +186,8 @@ class AdaptiveBreakoutEngineTest {
         assertEquals(AdaptiveBreakoutStatus.FRESH_BREAKOUT, evaluation.status)
         assertEquals(AdaptiveBreakoutDecision.FRESH_BREAKOUT, evaluation.rawSteps.last().decision)
         assertEquals(95.0, evaluation.ceiling?.anchorPrice)
+        assertEquals(95.0, evaluation.ceiling?.upperBoundary)
+        assertEquals(AdaptiveBreakoutCeilingType.POST_BREAKOUT_SWING, evaluation.ceiling?.type)
         assertNull(evaluation.ceiling?.breakoutDate)
         assertEquals(breakoutDate.toString(), evaluation.breakoutEvidence?.date)
     }

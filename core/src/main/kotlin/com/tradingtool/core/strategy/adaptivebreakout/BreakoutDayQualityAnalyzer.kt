@@ -90,7 +90,13 @@ internal object BreakoutDayQualityAnalyzer {
     }
 
     private fun closePositionRule(position: Double?): BreakoutQualityRuleResult {
-        if (position == null) return unavailable("close-position", "Close position", "Daily range is zero.")
+        if (position == null) {
+            return unavailable(
+                "close-position",
+                "Close position",
+                "Daily range is zero, usually because the stock was circuit-locked; next-open execution is uncertain.",
+            )
+        }
         val verdict = when {
             position >= 0.80 -> BreakoutQualityVerdict.PASS
             position >= 0.60 -> BreakoutQualityVerdict.WAIT

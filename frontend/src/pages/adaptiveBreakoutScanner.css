@@ -457,6 +457,19 @@
   white-space: nowrap;
 }
 
+.adaptive-breakout-locked {
+  margin-left: 6px;
+  color: #b42318;
+  text-transform: none;
+}
+
+.adaptive-breakout-floor-distance {
+  color: #566273;
+  font-size: 8px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
 .adaptive-breakout-evidence > span {
   display: grid;
   min-width: 0;
@@ -583,6 +596,7 @@
 .adaptive-breakout-raw-flow .early { color: #2768a8; background: #edf6fd; }
 .adaptive-breakout-raw-flow .confirmed { color: #654bb0; background: #f2edff; }
 .adaptive-breakout-raw-flow .testing { color: #a15f08; background: #fff7e6; }
+.adaptive-breakout-raw-flow .failed { color: #a63b3b; background: #fff0f0; }
 .adaptive-breakout-raw-flow .breakout { color: #087658; background: #e7f7f1; }
 
 .adaptive-breakout-raw-keys {
@@ -660,6 +674,8 @@
 .adaptive-breakout-decision-ceiling_confirmed { color: #654bb0; border-color: #dcd0fb; background: #f2edff; }
 .adaptive-breakout-decision-ambiguous_outside_day { color: #6f5c25; border-color: #e8d9aa; background: #fff9e8; }
 .adaptive-breakout-decision-ceiling_test { color: #a15f08; border-color: #f0d49b; background: #fff7e6; }
+.adaptive-breakout-decision-failed_breakout { color: #a63b3b; border-color: #efc1c1; background: #fff0f0; }
+.adaptive-breakout-decision-ceiling_reclaim { color: #2768a8; border-color: #bfd8ee; background: #edf6fd; }
 .adaptive-breakout-decision-strong_rebound { color: #087987; border-color: #bce4e8; background: #eaf8fa; }
 .adaptive-breakout-decision-early_breakout { color: #2768a8; border-color: #bfd8ee; background: #edf6fd; }
 .adaptive-breakout-decision-fresh_breakout { color: #087658; border-color: #bee8d7; background: #e7f7f1; }
@@ -735,6 +751,10 @@
 .adaptive-breakout-raw-row-compact_ceiling_candidate > td:first-child { box-shadow: inset 3px 0 #dda937; }
 .adaptive-breakout-raw-row-ceiling_confirmed > td:first-child { box-shadow: inset 3px 0 #8b6fd1; }
 .adaptive-breakout-raw-row-ceiling_test > td:first-child { box-shadow: inset 3px 0 #d9962f; }
+.adaptive-breakout-raw-row-failed_breakout > td { background: #fff7f7 !important; }
+.adaptive-breakout-raw-row-failed_breakout > td:first-child { box-shadow: inset 3px 0 #cf5c5c; }
+.adaptive-breakout-raw-row-ceiling_reclaim > td { background: #f4f8ff !important; }
+.adaptive-breakout-raw-row-ceiling_reclaim > td:first-child { box-shadow: inset 3px 0 #4c82c2; }
 .adaptive-breakout-raw-row-strong_rebound > td:first-child { box-shadow: inset 3px 0 #35a5b2; }
 .adaptive-breakout-raw-row-early_breakout > td { background: #f2f8fd !important; }
 .adaptive-breakout-raw-row-early_breakout > td:first-child { box-shadow: inset 3px 0 #3d82bd; }
