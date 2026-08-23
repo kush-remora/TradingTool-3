@@ -150,6 +150,45 @@ describe("AdaptiveBreakoutScannerPage", () => {
     await waitFor(() => expect(getJsonMock).toHaveBeenCalledWith("/api/stocks/quotes?symbols=ABC"));
   });
 
+  it("runs multiple selected watchlists concurrently and merges duplicate stocks", async () => {
+    getJsonMock.mockImplementation((path: string) => {
+      if (path === "/api/strategy/adaptive-breakout/watchlists") {
+        return Promise.resolve({ options: [
+          { label: "leaders", value: "leaders", count: 1 },
+          { label: "momentum", value: "momentum", count: 1 },
+        ] });
+      }
+      if (path === "/api/strategy/adaptive-breakout/scan?watchlist=leaders") return Promise.resolve(scanResponse);
+      if (path === "/api/strategy/adaptive-breakout/scan?watchlist=momentum") {
+        return Promise.resolve({ ...scanResponse, rows: [{ ...scanResponse.rows[0], symbol: "XYZ" }] });
+      }
+      if (path === "/api/stocks/quotes?symbols=ABC%2CXYZ") return Promise.resolve([]);
+      return Promise.reject(new Error(`Unexpected path: ${path}`));
+    });
+
+    render(<AdaptiveBreakoutScannerPage />);
+    const watchlistSelect = screen.getByRole("combobox", { name: "Watchlist" });
+    fireEvent.mouseDown(watchlistSelect);
+    fireEvent.click(await screen.findByText("leaders (1)"));
+    fireEvent.mouseDown(watchlistSelect);
+    fireEvent.click(await screen.findByText("momentum (1)"));
+    fireEvent.click(screen.getByRole("button", { name: /Run scan/i }));
+
+    await waitFor(() => {
+      expect(getJsonMock).toHaveBeenCalledWith(
+        "/api/strategy/adaptive-breakout/scan?watchlist=leaders",
+        { useCache: false },
+      );
+      expect(getJsonMock).toHaveBeenCalledWith(
+        "/api/strategy/adaptive-breakout/scan?watchlist=momentum",
+        { useCache: false },
+      );
+    });
+    const table = await screen.findByTestId("adaptive-breakout-table");
+    expect(within(table).getByText("ABC")).toBeInTheDocument();
+    expect(within(table).getByText("XYZ")).toBeInTheDocument();
+  });
+
   it("treats the final Kite snapshot as the completed close after market hours", async () => {
     marketOpenMock.mockReturnValue(false);
     mockLatestScanApi();

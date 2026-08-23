@@ -1,0 +1,16 @@
+.ema-continuation-page {
+  padding: 16px;
+  background: #f7f8fa;
+  min-height: calc(100vh - 64px);
+}
+
+.ema-continuation-page .ant-card { border-color: #e4e7ec; }
+.ema-continuation-controls { margin-bottom: 12px; }
+.ema-continuation-chart { width: 100%; min-height: 380px; }
+.ema-continuation-metric { min-height: 76px; }
+.ema-continuation-muted { color: #667085; font-size: 12px; }
+.ema-continuation-current-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+
+@media (max-width: 900px) {
+  .ema-continuation-current-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

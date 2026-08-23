@@ -9,6 +9,10 @@ data class AdaptiveBreakoutConfig(
     val earlyBreakoutBufferAtrMultiple: Double = 0.1,
     val ceilingWidthAtrMultiple: Double = 0.5,
     val maximumLocalCeilingDistanceAtrMultiple: Double = 3.0,
+    /** Expire an active ceiling after this many sessions without a new structure generation. */
+    val maximumCeilingAgeSessions: Int = 252,
+    /** Stop moving the strict failed-attempt cap after this many ratchets. */
+    val maximumFailedAttemptRatchets: Int = 3,
     val strongReboundAtrMultiple: Double = 2.0,
 )
 
@@ -52,6 +56,7 @@ data class AdaptiveBreakoutCeiling(
     val upperBoundary: Double,
     val failedAttemptHigh: Double?,
     val lastFailedAttemptDate: String?,
+    val failedAttemptCount: Int,
     val atrAtAnchor: Double,
     val type: AdaptiveBreakoutCeilingType,
     val testCount: Int,
@@ -124,6 +129,69 @@ data class BreakoutChartContext(
     val rules: List<BreakoutQualityRuleResult>,
 )
 
+/**
+ * Delivery footprint for the reviewed day, compared against the stock's own history.
+ * Context only — never scored (delivery % shrinks mechanically when breakout-day volume
+ * expands, so a fixed % bar punishes exactly the sessions we care about).
+ */
+data class BreakoutDeliveryContext(
+    val deliveryPercentage: Double?,
+    val deliveredQuantity: Long?,
+    /** Mean delivery % over the 20 sessions before the reviewed day (excludes the day itself). */
+    val averageDeliveryPercentage: Double?,
+    /** Mean delivered quantity over the 20 sessions before the reviewed day. */
+    val averageDeliveredQuantity: Double?,
+    /** Today's delivered quantity ÷ 20-session average. The real institutional footprint. */
+    val deliveredQuantityMultiple: Double?,
+)
+
+data class BreakoutRecentVolumeDay(
+    val date: String,
+    val open: Double,
+    val high: Double,
+    val low: Double,
+    val close: Double,
+    val volume: Long,
+    val volumeVsQuietAveragePct: Double,
+    val lowToHighPct: Double?,
+    val openToClosePct: Double?,
+)
+
+data class BreakoutTrendAlignmentResult(
+    val available: Boolean,
+    val marketAligned: Boolean?,
+    val stockAligned: Boolean?,
+    val aligned: Boolean?,
+    val marketClose: Double?,
+    val marketSma200: Double?,
+    val marketSma200SlopePct: Double?,
+    val stockClose: Double?,
+    val stockSma200: Double?,
+    val stockSma200SlopePct: Double?,
+    val stockRelativeStrength3mPct: Double?,
+    val stockRelativeStrength6mPct: Double?,
+    val explanation: String,
+)
+
+enum class BreakoutVolumeFootprintDecision {
+    PASS,
+    WAIT,
+    REJECT,
+    UNAVAILABLE,
+}
+
+data class BreakoutVolumeFootprintResult(
+    val decision: BreakoutVolumeFootprintDecision,
+    val footprintDate: String?,
+    val footprintVolumeRatio: Double?,
+    val footprintPriceRankPct: Double?,
+    val footprintLowHeld: Boolean?,
+    val distributionWarningDate: String?,
+    val distributionWarningVolumeRatio: Double?,
+    val breakoutClosePositionPct: Double?,
+    val explanation: String,
+)
+
 data class BreakoutDayQualityResponse(
     val symbol: String,
     val date: String,
@@ -137,6 +205,16 @@ data class BreakoutDayQualityResponse(
     val low: Double,
     val close: Double,
     val volume: Long,
+    /** Average of the five lowest volumes in the prior 20 sessions. */
+    val twentyDayQuietAverageVolume: Double?,
+    /** Breakout-day volume as a percentage of the average volume of the prior 10 sessions. */
+    val volumeVsTenDayAveragePct: Double?,
+    /** Breakout-day volume as a percentage of the average of the five lowest volumes in the prior 20 sessions. */
+    val volumeVsTwentyDayQuietAveragePct: Double?,
+    /** Breakout-day volume change versus the highest volume in the prior 20 sessions. */
+    val volumeVsPriorTwentyDayHighChangePct: Double?,
+    /** Prior 20-session days whose volume is at least five times the quiet baseline. */
+    val recentAbnormalVolumeDays: List<BreakoutRecentVolumeDay>,
     val atr: Double,
     val floor: Double,
     val peak: Double,
@@ -144,8 +222,8 @@ data class BreakoutDayQualityResponse(
     val majorCeiling: Double?,
     val sma50: Double?,
     val sma200: Double?,
-    val deliveryPercentage: Double?,
-    val deliveredQuantity: Long?,
+    val deliveryContext: BreakoutDeliveryContext?,
+    val volumeFootprint: BreakoutVolumeFootprintResult,
     val rules: List<BreakoutQualityRuleResult>,
     val chartContext: BreakoutChartContext,
 )

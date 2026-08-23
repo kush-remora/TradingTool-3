@@ -35,9 +35,9 @@ data class WyckoffPhase1RuntimeConfig(
 data class WyckoffPhase1TrackAConfig(
     val deliveryThresholdByCap: Map<String, Double> = mapOf(
         "MID_CAP" to 55.0,
-        "SMALL_CAP" to 55.0,
-        "MICRO_CAP" to 55.0,
-        "NANO_CAP" to 55.0,
+        "SMALL_CAP" to 70.0,
+        "MICRO_CAP" to 85.0,
+        "NANO_CAP" to 92.0,
     ),
     val rollingDensity: WyckoffPhase1RollingDensityConfig = WyckoffPhase1RollingDensityConfig(),
     val deliveryVolumeZScore: WyckoffPhase1ZScoreConfig = WyckoffPhase1ZScoreConfig(),

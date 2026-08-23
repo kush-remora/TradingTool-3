@@ -99,6 +99,63 @@ class AdaptiveBreakoutEngineTest {
     }
 
     @Test
+    fun `expires an active ceiling after the configured age`() {
+        val evaluation = AdaptiveBreakoutEngine.evaluate(
+            krnCompactCeilingCandles(),
+            AdaptiveBreakoutConfig(maximumCeilingAgeSessions = 2),
+        )
+
+        assertNotNull(evaluation)
+        val expiredStep = evaluation.rawSteps.single { step -> step.date == "2026-08-11" }
+        assertNull(expiredStep.ceilingAnchor)
+        assertEquals(AdaptiveBreakoutStatus.NO_CEILING, evaluation.status)
+        assertNull(evaluation.ceiling)
+    }
+
+    @Test
+    fun `stops moving the strict cap after the configured ratchet count`() {
+        val warmup = (0 until 20).map { index -> candle(index, 100.0) }
+        val path = listOf(
+            marketCandle(START_DATE.plusDays(20), 100.0, 101.0, 90.0, 92.0),
+            marketCandle(START_DATE.plusDays(21), 92.0, 98.0, 91.0, 97.0),
+            marketCandle(START_DATE.plusDays(22), 97.0, 110.0, 96.0, 109.0),
+            marketCandle(START_DATE.plusDays(23), 109.0, 109.0, 102.0, 103.0),
+            marketCandle(START_DATE.plusDays(24), 103.0, 106.0, 101.0, 104.0),
+            marketCandle(START_DATE.plusDays(25), 110.0, 116.0, 108.0, 109.0),
+            marketCandle(START_DATE.plusDays(26), 111.0, 120.0, 110.0, 114.0),
+            marketCandle(START_DATE.plusDays(27), 114.0, 123.0, 113.0, 117.0),
+        )
+
+        val evaluation = assertNotNull(
+            AdaptiveBreakoutEngine.evaluate(
+                warmup + path,
+                AdaptiveBreakoutConfig(maximumFailedAttemptRatchets = 1),
+            ),
+        )
+        val laterSteps = evaluation.rawSteps.filter { step -> step.date >= START_DATE.plusDays(25).toString() }
+
+        assertTrue(laterSteps.all { step -> (step.ceilingUpperBoundary ?: 0.0) <= 116.0 })
+        assertTrue(laterSteps.any { step -> step.ceilingFailedAttemptHigh == 116.0 })
+    }
+
+    @Test
+    fun `supports the documented ATR threshold sensitivity points`() {
+        val thresholds = listOf(0.75, 1.0, 1.5, 2.0)
+        val ceilingCounts = thresholds.map { threshold ->
+            AdaptiveBreakoutEngine.evaluate(
+                candles(82.0, 85.0, 80.0, 82.0, 86.0, 82.0, 85.0, 86.0, 89.0),
+                AdaptiveBreakoutConfig(
+                    peakRejectionAtrMultiple = threshold,
+                    compactPeakRejectionAtrMultiple = threshold / 2.0,
+                ),
+            )?.rawSteps?.count { step -> step.decision == AdaptiveBreakoutDecision.CEILING_CONFIRMED } ?: 0
+        }
+
+        assertEquals(4, ceilingCounts.size)
+        assertTrue(ceilingCounts.first() >= ceilingCounts.last())
+    }
+
+    @Test
     fun `marks a zero range breakout candle as execution locked`() {
         val priorCandles = candles(82.0, 85.0, 80.0, 82.0, 86.0, 82.0, 85.0, 86.0)
         val lockedBreakout = marketCandle(

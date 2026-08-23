@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BreakoutBuyReviewPage } from "./BreakoutBuyReviewPage";
 
@@ -8,35 +8,37 @@ vi.mock("../utils/api", () => ({
   getJson: (...args: unknown[]) => getJsonMock(...args),
 }));
 
-vi.mock("../hooks/useStockDetail", () => ({
-  useStockDetail: () => ({ data: null, loading: false, error: null }),
-}));
-
 describe("BreakoutBuyReviewPage", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/TradingTool-3/console/breakout-buy-review?symbol=KRN&date=2026-08-11");
     getJsonMock.mockResolvedValue(report);
   });
 
-  it("shows the rule card before the selected-day evidence and decision", async () => {
+  it("shows only raw breakout-day data", async () => {
     render(<BreakoutBuyReviewPage />);
 
-    expect(screen.getByRole("table", { name: "Breakout day quality rules" })).toHaveTextContent("Close near the high");
-    expect(screen.getByRole("table", { name: "Breakout day quality rules" })).toHaveTextContent("≥1.5×");
-    expect(await screen.findByText("Fresh breakout with all five quality checks passed.")).toBeInTheDocument();
+    expect(await screen.findByText("Breakout-day raw data")).toBeInTheDocument();
     expect(getJsonMock).toHaveBeenCalledWith(
       "/api/strategy/adaptive-breakout/buy-review?symbol=KRN&date=2026-08-11",
       { useCache: false },
     );
 
-    const resultTable = screen.getAllByRole("table")[1];
-    expect(within(resultTable).getByText("2.1×")).toBeInTheDocument();
-    expect(screen.getByText("₹1,254.53")).toBeInTheDocument();
-    expect(screen.getByText(/First close above the active ceiling/)).toBeInTheDocument();
-    expect(screen.getByText("2 · Chart context")).toBeInTheDocument();
-    expect(screen.getByText("Major ceiling")).toBeInTheDocument();
-    expect(screen.getByLabelText("Next session open price")).toBeInTheDocument();
-    expect(screen.getByText("Quick price calculator")).toBeInTheDocument();
+    expect(screen.getByText("₹1,240")).toBeInTheDocument();
+    expect(screen.getAllByText("₹1,287.7")).toHaveLength(2);
+    expect(screen.getByText("₹1,233.4")).toBeInTheDocument();
+    expect(screen.getByText("2,50,000")).toBeInTheDocument();
+    expect(screen.getByText("125.0%")).toBeInTheDocument();
+    expect(screen.getByText("1250.0%")).toBeInTheDocument();
+    expect(screen.getByText("+20.0%")).toBeInTheDocument();
+    expect(screen.getByText("+4.40%")).toBeInTheDocument();
+    expect(screen.getByText("+3.85%")).toBeInTheDocument();
+    expect(screen.getByText("Recent abnormal-volume days")).toBeInTheDocument();
+    expect(screen.getByText("01 Aug 2026")).toBeInTheDocument();
+    expect(screen.getByText("500.0%")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Close position" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Close 77.6% between low and high")).toBeInTheDocument();
+    expect(screen.queryByText("Fresh breakout with 4 context checks passed.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Quick price calculator")).not.toBeInTheDocument();
   });
 });
 
@@ -47,12 +49,29 @@ const report = {
   structureDecision: "FRESH_BREAKOUT",
   structureExplanation: "First close above the active ceiling.",
   overallDecision: "PASS",
-  decisionSummary: "Fresh breakout with all five quality checks passed.",
+  decisionSummary: "Fresh breakout with 4 context checks passed.",
   open: 1240,
   high: 1287.7,
   low: 1233.4,
   close: 1287.7,
   volume: 250000,
+  twentyDayQuietAverageVolume: 20000,
+  volumeVsTenDayAveragePct: 125,
+  volumeVsTwentyDayQuietAveragePct: 1250,
+  volumeVsPriorTwentyDayHighChangePct: 20,
+  recentAbnormalVolumeDays: [
+    {
+      date: "2026-08-01",
+      open: 1200,
+      high: 1248,
+      low: 1190,
+      close: 1235,
+      volume: 100000,
+      volumeVsQuietAveragePct: 500,
+      lowToHighPct: 4.87,
+      openToClosePct: 2.92,
+    },
+  ],
   atr: 49.05,
   floor: 1150,
   peak: 1287.7,
@@ -60,14 +79,18 @@ const report = {
   majorCeiling: 1343.53,
   sma50: 1200,
   sma200: 975.37,
-  deliveryPercentage: 62.5,
-  deliveredQuantity: 156250,
+  deliveryContext: {
+    deliveryPercentage: 62.5,
+    deliveredQuantity: 156250,
+    averageDeliveryPercentage: 54.2,
+    averageDeliveredQuantity: 112000,
+    deliveredQuantityMultiple: 1.4,
+  },
   rules: [
-    { key: "close-position", label: "Close near the high", rule: "Pass ≥80%", actual: "100% of the daily range", verdict: "PASS", explanation: "Buyers held control." },
-    { key: "volume", label: "Volume vs prior 10D", rule: "Pass ≥1.5×", actual: "2.1×", verdict: "PASS", explanation: "Strong volume." },
-    { key: "delivery", label: "Delivered quantity vs prior 20D", rule: "Pass ≥1.25×", actual: "1.4×", verdict: "PASS", explanation: "Strong delivery." },
-    { key: "breakout-line", label: "Close above breakout line", rule: "Pass", actual: "+0.68 ATR", verdict: "PASS", explanation: "Clear close." },
-    { key: "extension", label: "Close not too extended", rule: "Pass", actual: "+0.48 ATR", verdict: "PASS", explanation: "Not stretched." },
+    { key: "buyer-days", label: "Buyer days (5D pre-breakout)", rule: "Pass ≥4/5 days", actual: "5 / 5 sessions closed above open", verdict: "PASS", explanation: "Buyers held control." },
+    { key: "close-position-trend", label: "Close position trend (5D pre-breakout)", rule: "Pass avg ≥65%", actual: "78.0% avg of 5 sessions", verdict: "PASS", explanation: "Buyers held control." },
+    { key: "volume-dry-up", label: "Volume dry-up (5D vs prior 10D)", rule: "Pass ≤0.85× baseline", actual: "0.75× baseline", verdict: "PASS", explanation: "Volume contracted." },
+    { key: "breakout-day-close", label: "Breakout day close position", rule: "Pass ≥75%", actual: "100% of day's range", verdict: "PASS", explanation: "Buyers held control." },
   ],
   chartContext: {
     overallDecision: "PASS",

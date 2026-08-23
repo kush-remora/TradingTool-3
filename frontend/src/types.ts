@@ -110,6 +110,7 @@ export interface AdaptiveBreakoutCeiling {
   upperBoundary: number;
   failedAttemptHigh?: number | null;
   lastFailedAttemptDate?: string | null;
+  failedAttemptCount?: number;
   atrAtAnchor: number;
   type: AdaptiveBreakoutCeilingType;
   testCount: number;
@@ -171,6 +172,26 @@ export interface BreakoutChartContext {
   rules: BreakoutQualityRuleResult[];
 }
 
+export interface BreakoutDeliveryContext {
+  deliveryPercentage: number | null;
+  deliveredQuantity: number | null;
+  averageDeliveryPercentage: number | null;
+  averageDeliveredQuantity: number | null;
+  deliveredQuantityMultiple: number | null;
+}
+
+export interface BreakoutRecentVolumeDay {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  volumeVsQuietAveragePct: number;
+  lowToHighPct: number | null;
+  openToClosePct: number | null;
+}
+
 export interface BreakoutDayQualityResponse {
   symbol: string;
   date: string;
@@ -184,6 +205,11 @@ export interface BreakoutDayQualityResponse {
   low: number;
   close: number;
   volume: number;
+  twentyDayQuietAverageVolume: number | null;
+  volumeVsTenDayAveragePct: number | null;
+  volumeVsTwentyDayQuietAveragePct: number | null;
+  volumeVsPriorTwentyDayHighChangePct: number | null;
+  recentAbnormalVolumeDays: BreakoutRecentVolumeDay[];
   atr: number;
   floor: number;
   peak: number;
@@ -191,8 +217,7 @@ export interface BreakoutDayQualityResponse {
   majorCeiling: number | null;
   sma50: number | null;
   sma200: number | null;
-  deliveryPercentage: number | null;
-  deliveredQuantity: number | null;
+  deliveryContext: BreakoutDeliveryContext | null;
   rules: BreakoutQualityRuleResult[];
   chartContext: BreakoutChartContext;
 }
@@ -248,6 +273,8 @@ export interface AdaptiveBreakoutScanResponse {
     earlyBreakoutBufferAtrMultiple: number;
     ceilingWidthAtrMultiple: number;
     maximumLocalCeilingDistanceAtrMultiple: number;
+    maximumCeilingAgeSessions: number;
+    maximumFailedAttemptRatchets: number;
     strongReboundAtrMultiple: number;
   };
   rows: AdaptiveBreakoutScanRow[];
@@ -259,53 +286,143 @@ export interface AdaptiveBreakoutBacktestRequest {
   symbol?: string;
   instrumentToken?: number;
   watchlistKey?: string;
-  months?: number;
-  targetPct?: number;
-  stopLossPct?: number;
+  months: number;
+  targetPct: number;
+  stopLossPct: number;
+  entryTrigger?: "FRESH_BREAKOUT" | "CEILING_RECLAIM";
+  qualityFilter?: AdaptiveBreakoutQualityFilter;
+  maxEntryGapPct?: number;
+  transactionCostPct?: number;
+  slippagePct?: number;
 }
 
 export type AdaptiveBreakoutBacktestExitReason =
   | "TARGET_HIT"
   | "STOP_LOSS"
   | "STOP_LOSS_SAME_CANDLE"
-  | "END_OF_TEST";
+  | "END_OF_TEST"
+  | "SKIPPED_ENTRY_GAP"
+  | "FILTERED_BY_QUALITY";
+
+export type AdaptiveBreakoutQualityFilter =
+  | "NONE"
+  | "BASE_QUALITY";
 
 export interface AdaptiveBreakoutBacktestTrade {
   symbol: string;
   breakoutDate: string;
   breakoutClose: number;
-  entryDate: string;
-  entryPrice: number;
-  targetPrice: number;
-  stopPrice: number;
-  exitDate: string;
-  exitPrice: number;
+  entryDate: string | null;
+  entryPrice: number | null;
+  entryGapPct: number | null;
+  targetPrice: number | null;
+  stopPrice: number | null;
+  exitDate: string | null;
+  exitPrice: number | null;
   exitReason: AdaptiveBreakoutBacktestExitReason;
-  holdingSessions: number;
-  returnPct: number;
+  holdingSessions: number | null;
+  returnPct: number | null;
   ambiguousSameCandle: boolean;
+  gapThroughExit: boolean;
+  grossReturnPct: number | null;
+  qualityDecision: BreakoutQualityDecision;
+  qualitySummary: string;
+  qualityChecks: BreakoutQualityRuleResult[];
+  trendAlignment?: BreakoutTrendAlignmentResult | null;
+  nextSessionBehavior?: AdaptiveBreakoutNextSessionBehavior | null;
+  volumeFootprint?: BreakoutVolumeFootprintResult | null;
+  forwardOutcomes?: AdaptiveBreakoutForwardOutcome[];
+}
+
+export interface BreakoutTrendAlignmentResult {
+  available: boolean;
+  marketAligned: boolean | null;
+  stockAligned: boolean | null;
+  aligned: boolean | null;
+  marketClose: number | null;
+  marketSma200: number | null;
+  marketSma200SlopePct: number | null;
+  stockClose: number | null;
+  stockSma200: number | null;
+  stockSma200SlopePct: number | null;
+  stockRelativeStrength3mPct: number | null;
+  stockRelativeStrength6mPct: number | null;
+  explanation: string;
+}
+
+export interface AdaptiveBreakoutNextSessionBehavior {
+  sessionDate: string;
+  open: number;
+  low: number;
+  close: number;
+  breakoutDayMovePct?: number | null;
+  lowVsBreakoutClosePct: number;
+  lowVsBreakoutLowPct: number;
+  closeVsBreakoutClosePct: number;
+  lowVsOpenPct: number;
+}
+
+export interface BreakoutVolumeFootprintResult {
+  decision: "PASS" | "WAIT" | "REJECT" | "UNAVAILABLE";
+  footprintDate: string | null;
+  footprintVolumeRatio: number | null;
+  footprintPriceRankPct: number | null;
+  footprintLowHeld: boolean | null;
+  distributionWarningDate: string | null;
+  distributionWarningVolumeRatio: number | null;
+  breakoutClosePositionPct: number | null;
+  explanation: string;
+}
+
+export interface AdaptiveBreakoutForwardOutcome {
+  sessions: number;
+  closeReturnPct: number;
+  maxHighReturnPct: number;
+  targetReached: boolean;
 }
 
 export interface AdaptiveBreakoutBacktestResponse {
   symbol: string | null;
   watchlistKey: string | null;
+  entryTrigger: "FRESH_BREAKOUT" | "CEILING_RECLAIM";
+  qualityFilter?: AdaptiveBreakoutQualityFilter;
   testedFromDate: string;
   testedToDate: string;
   targetPct: number;
   stopLossPct: number;
+  transactionCostPct: number;
+  slippagePct: number;
   entryRule: string;
   ambiguousCandleRule: string;
   summary: {
-    freshBreakoutCount: number;
+    signalCount: number;
     enteredTradeCount: number;
+    skippedEntryGapCount: number;
+    qualityFilteredCount?: number;
     targetHitCount: number;
     stopLossCount: number;
     endOfTestCount: number;
     winRatePct: number | null;
     averageHoldingSessions: number | null;
+    expectancyPct: number | null;
+    averageWinningReturnPct: number | null;
+    averageLosingReturnPct: number | null;
+    payoffRatio: number | null;
+    profitFactor: number | null;
+    forwardMetrics?: AdaptiveBreakoutForwardSummary[];
   };
   trades: AdaptiveBreakoutBacktestTrade[];
   symbols: AdaptiveBreakoutBacktestSymbolReport[];
+}
+
+export interface AdaptiveBreakoutForwardSummary {
+  sessions: number;
+  observations: number;
+  positiveCloseCount: number;
+  positiveCloseRatePct: number | null;
+  targetReachedCount: number;
+  targetReachedRatePct: number | null;
+  averageCloseReturnPct: number | null;
 }
 
 export interface AdaptiveBreakoutBacktestSymbolReport {
@@ -778,6 +895,62 @@ export interface TwoDayCloseStrengthBacktestReport {
   targetPct: number;
   summary: TwoDayCloseStrengthBacktestSummary;
   observations: TwoDayCloseStrengthObservation[];
+}
+
+// ==================== Four-Day Close-Strength Backtest ====================
+
+export interface FourDayCloseStrengthBacktestRequest {
+  symbol?: string;
+  instrumentToken?: number;
+  watchlistKey?: string;
+  closePositionThresholdPct: number;
+}
+
+export interface FourDayCloseStrengthCandle {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  dailyChangePct: number | null;
+  greenDay: boolean;
+  openToClosePct: number | null;
+  closeLocationPct: number | null;
+}
+
+export interface FourDayCloseStrengthSignal {
+  symbol: string;
+  companyName: string | null;
+  instrumentToken: number;
+  signalDate: string;
+  patternStartDate: string;
+  patternEndDate: string;
+  patternClosePositionPct: number[];
+  lastTwentyTradingDays: FourDayCloseStrengthCandle[];
+}
+
+export interface FourDayCloseStrengthSymbolReport {
+  symbol: string;
+  companyName: string | null;
+  instrumentToken: number;
+  testedFromDate: string;
+  testedToDate: string;
+  signalCount: number;
+  signals: FourDayCloseStrengthSignal[];
+}
+
+export interface FourDayCloseStrengthBacktestResponse {
+  symbol: string | null;
+  watchlistKey: string | null;
+  testedFromDate: string;
+  testedToDate: string;
+  closePositionThresholdPct: number;
+  patternSessions: number;
+  detailSessions: number;
+  signalCount: number;
+  signals: FourDayCloseStrengthSignal[];
+  symbols: FourDayCloseStrengthSymbolReport[];
 }
 
 // ==================== Weekly Low Retest Backtest ====================
@@ -2841,6 +3014,69 @@ export interface WyckoffPhase1RunResponse {
   };
 }
 
+// ==================== Wyckoff Raw Observation V1 ====================
+
+export interface WyckoffRawObservationResponse {
+  asOfDate: string;
+  lookbackCalendarDays: number;
+  watchlist: string | null;
+  stocks: WyckoffRawObservationStock[];
+}
+
+export interface WyckoffRawObservationStock {
+  symbol: string;
+  companyName: string;
+  watchlists: string[];
+  startDate: string;
+  endDate: string;
+  firstClose: number | null;
+  latestClose: number | null;
+  periodReturnPct: number | null;
+  periodHigh: number | null;
+  periodLow: number | null;
+  averageAtrPct: number | null;
+  lowestAtrPct: number | null;
+  averageVolume: number | null;
+  periods: WyckoffRawObservationPeriod[];
+  observations: WyckoffRawObservationRow[];
+}
+
+export type WyckoffRawObservationPhase =
+  | "PRIOR_DECLINE"
+  | "CANDIDATE_ACCUMULATION"
+  | "ORDERLY_ADVANCE"
+  | "POSSIBLE_PHASE_D"
+  | "UNCLASSIFIED";
+
+export interface WyckoffRawObservationPeriod {
+  phase: WyckoffRawObservationPhase;
+  startDate: string;
+  endDate: string;
+  observationCount: number;
+  explanation: string;
+}
+
+export interface WyckoffRawObservationRow {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  closeChangePct: number | null;
+  rangePct: number | null;
+  trueRange: number | null;
+  atr14: number | null;
+  atrPct: number | null;
+  movementVsAtr: number | null;
+  volumeVs20dAverage: number | null;
+  priceChange20dPct: number | null;
+  twentyDayRangePct: number | null;
+  priorTwentyDayHigh: number | null;
+  phase: WyckoffRawObservationPhase;
+  annotation: string | null;
+}
+
 // ==================== Volume Shocker Dashboard ====================
 
 export interface VolumeShockerDatesResponse {
@@ -4128,4 +4364,129 @@ export interface PriceAcceptanceScanResponse {
   scannedStockCount: number;
   resultCount: number;
   rows: PriceAcceptanceRow[];
+}
+
+export interface EmaContinuationDailyCandle {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  closeNearHighPct: number | null;
+  closeAboveEma20Atr: number | null;
+  volumeVs20SessionAverageRatio: number | null;
+  volumeConfirmed: boolean;
+  ema10: number | null;
+  ema20: number | null;
+  sma200: number | null;
+  emaProximityPct: number | null;
+  emaCross: boolean;
+  baseBreakout: boolean;
+}
+
+export type EmaContinuationSignalType = "EMA_CROSS" | "BASE_BREAKOUT";
+
+export interface EmaContinuationSignal {
+  type: EmaContinuationSignalType;
+  date: string;
+  setupDate: string;
+  baseStartDate: string | null;
+  baseEndDate: string | null;
+  baseHigh: number | null;
+  baseLow: number | null;
+  baseWidthPct: number | null;
+  close: number;
+  ema10: number;
+  ema20: number;
+  sma200: number;
+  closeNearHighPct: number | null;
+  closeAboveEma20Atr: number | null;
+  volumeVs20SessionAverageRatio: number | null;
+  volumeConfirmed: boolean;
+  entryDate: string | null;
+  entryPrice: number | null;
+  daysTo5PctTarget: number | null;
+  daysTo10PctTarget: number | null;
+  daysTo20PctTarget: number | null;
+}
+
+export interface EmaContinuationTargetPerformance {
+  targetPct: number;
+  observations: number;
+  hitCount: number;
+  hitRatePct: number | null;
+  averageDaysToHit: number | null;
+}
+
+export interface EmaContinuationStudyResponse {
+  symbol: string;
+  watchlistKey: string;
+  testedFromDate: string;
+  testedToDate: string;
+  warmupSessions: number;
+  minimumBaseSessions: number;
+  maximumBaseSessions: number;
+  maximumBaseWidthPct: number;
+  atrPeriodSessions: number;
+  volumeLookbackSessions: number;
+  minimumVolumeRatio: number;
+  entryRule: string;
+  baseRule: string;
+  summary: {
+    emaCrossCount: number;
+    baseBreakoutCount: number;
+    latestSignalDate: string | null;
+    latestSignalType: EmaContinuationSignalType | null;
+  };
+  candles: EmaContinuationDailyCandle[];
+  signals: EmaContinuationSignal[];
+  targetPerformance: EmaContinuationTargetPerformance[];
+}
+
+export type EmaContinuationWatchlistStudyStatus = "ANALYZED" | "ERROR";
+
+export interface EmaContinuationWatchlistRow {
+  symbol: string;
+  companyName: string;
+  instrumentToken: number;
+  status: EmaContinuationWatchlistStudyStatus;
+  errorMessage: string | null;
+  emaCrossCount: number;
+  baseBreakoutCount: number;
+  totalEntryCount: number;
+  latestSignalDate: string | null;
+  latestSignalType: EmaContinuationSignalType | null;
+}
+
+export interface EmaContinuationWatchlistStudyResponse {
+  watchlistKey: string;
+  testedFromDate: string;
+  testedToDate: string;
+  stockCount: number;
+  analyzedCount: number;
+  rows: EmaContinuationWatchlistRow[];
+}
+
+export interface EmaContinuationCurrentResponse {
+  symbol: string;
+  asOfDate: string;
+  latestCompletedCandleDate: string;
+  price: number;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  volume: number | null;
+  changePct: number | null;
+  ema10: number;
+  ema20: number;
+  sma200: number;
+  closeNearHighPct: number | null;
+  closeAboveEma20Atr: number | null;
+  distanceToEma10Pct: number;
+  distanceToEma20Pct: number;
+  distanceToSma200Pct: number;
+  state: string;
+  isLiveQuote: boolean;
+  updatedAt: string | null;
 }

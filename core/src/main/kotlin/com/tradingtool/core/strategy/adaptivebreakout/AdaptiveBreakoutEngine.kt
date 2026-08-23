@@ -28,7 +28,7 @@ internal object AdaptiveBreakoutEngine {
             else -> currentStatus(latest, orderedCandles, atrValues, state, config)
         }
         val ceilingAgeSessions = state.ceiling?.let { ceiling -> orderedCandles.lastIndex - ceiling.confirmedIndex }
-        val latestFiftyTwoWeekHigh = fiftyTwoWeekHigh(orderedCandles)
+        val latestFiftyTwoWeekHigh = fiftyTwoWeekHighIncludingLatest(orderedCandles)
 
         return AdaptiveBreakoutEvaluation(
             status = status,
@@ -61,7 +61,14 @@ internal object AdaptiveBreakoutEngine {
         state: ReplayState,
     ): AdaptiveBreakoutRawStep {
         val atr = atrValues[index]
-        val ceilingAtStart = state.ceiling
+        val existingCeiling = state.ceiling
+        val ceilingAtStart = existingCeiling?.takeUnless { ceiling ->
+            index - ceiling.confirmedIndex > config.maximumCeilingAgeSessions
+        }
+        if (existingCeiling != null && ceilingAtStart == null) {
+            state.majorCeiling = nearestHigherCeiling(candle.close, state.majorCeiling, existingCeiling)
+            state.ceiling = null
+        }
         val freshBreakout = detectFreshBreakout(index, candles, ceilingAtStart)
         val events = mutableListOf<ReplayEvent>()
         if (freshBreakout) {
@@ -74,7 +81,11 @@ internal object AdaptiveBreakoutEngine {
             )
         } else {
             detectFailedBreakout(candle, ceilingAtStart)?.let { failedAttempt ->
-                state.ceiling = ceilingAtStart?.withFailedAttempt(candle.high, candle.candleDate.toString())
+                state.ceiling = ceilingAtStart?.withFailedAttempt(
+                    high = candle.high,
+                    date = candle.candleDate.toString(),
+                    maximumRatchets = config.maximumFailedAttemptRatchets,
+                )
                 removeOverlappingMajorCeiling(state)
                 events += failedAttempt
             }
@@ -109,7 +120,7 @@ internal object AdaptiveBreakoutEngine {
         val explanation = events
             .takeIf { recordedEvents -> recordedEvents.isNotEmpty() }
             ?.joinToString(" Also: ") { event -> event.explanation }
-            ?: status.explanation()
+            ?: status.explanation(config)
         val compactEvent = events.firstOrNull { event -> event.decision == AdaptiveBreakoutDecision.EARLY_BREAKOUT }
             ?: events.lastOrNull { event -> event.compactCandidateAnchor != null }
         val compactCandidate = state.compactCeilingCandidate
@@ -279,6 +290,7 @@ internal object AdaptiveBreakoutEngine {
                     atrValues,
                     config,
                 ),
+                config = config,
                 state,
             )
             return ReplayEvent(
@@ -364,6 +376,7 @@ internal object AdaptiveBreakoutEngine {
                 atrValues,
                 config,
             ),
+            config = config,
             state,
         )
         return ReplayEvent(
@@ -414,6 +427,7 @@ internal object AdaptiveBreakoutEngine {
                 atrValues,
                 config,
             ),
+            config = config,
             state,
         )
         return ReplayEvent(
@@ -483,6 +497,7 @@ internal object AdaptiveBreakoutEngine {
             upperBoundary = anchor.high + atrAtAnchor * config.ceilingWidthAtrMultiple,
             failedAttemptHigh = null,
             lastFailedAttemptDate = null,
+            failedAttemptCount = 0,
             atrAtAnchor = atrAtAnchor,
             type = type,
             testCount = 1,
@@ -492,6 +507,7 @@ internal object AdaptiveBreakoutEngine {
 
     private fun activateCeiling(
         newCeiling: ReplayCeiling,
+        config: AdaptiveBreakoutConfig,
         state: ReplayState,
     ) {
         val currentCeiling = state.ceiling
@@ -501,7 +517,11 @@ internal object AdaptiveBreakoutEngine {
             (currentCeiling.overlaps(newCeiling) || newCeiling.anchorPrice > currentCeiling.baseUpperBoundary)
         state.ceiling = when {
             postBreakoutSwing -> newCeiling.asPostBreakoutSwing()
-            currentCeiling != null && shouldPreserveActiveLine -> mergeCeilings(currentCeiling, newCeiling)
+            currentCeiling != null && shouldPreserveActiveLine -> mergeCeilings(
+                current = currentCeiling,
+                incoming = newCeiling,
+                maximumRatchets = config.maximumFailedAttemptRatchets,
+            )
             else -> {
                 state.majorCeiling = nearestHigherCeiling(
                     newCeiling.upperBoundary,
@@ -514,13 +534,17 @@ internal object AdaptiveBreakoutEngine {
         removeOverlappingMajorCeiling(state)
     }
 
-    private fun mergeCeilings(current: ReplayCeiling, incoming: ReplayCeiling): ReplayCeiling {
+    private fun mergeCeilings(
+        current: ReplayCeiling,
+        incoming: ReplayCeiling,
+        maximumRatchets: Int,
+    ): ReplayCeiling {
         val failedAttemptHigh = incoming.anchorPrice
             .takeIf { anchorPrice -> anchorPrice > current.baseUpperBoundary }
         return if (failedAttemptHigh == null) {
             current
         } else {
-            current.withFailedAttempt(failedAttemptHigh, incoming.anchorDate).copy(
+            current.withFailedAttempt(failedAttemptHigh, incoming.anchorDate, maximumRatchets).copy(
                 readyForRetest = false,
             )
         }
@@ -623,11 +647,11 @@ internal object AdaptiveBreakoutEngine {
         AdaptiveBreakoutStatus.BREAKOUT_CONTINUATION -> AdaptiveBreakoutDecision.BREAKOUT_CONTINUATION
     }
 
-    private fun AdaptiveBreakoutStatus.explanation(): String = when (this) {
+    private fun AdaptiveBreakoutStatus.explanation(config: AdaptiveBreakoutConfig): String = when (this) {
         AdaptiveBreakoutStatus.NO_CEILING -> "No rejected rebound has created a ceiling yet."
         AdaptiveBreakoutStatus.BELOW_CEILING -> "Close remains below the active ceiling area."
         AdaptiveBreakoutStatus.TESTING_CEILING -> "Close is inside the active ceiling area but has not cleared its upper boundary."
-        AdaptiveBreakoutStatus.STRONG_REBOUND -> "Price has advanced at least two ATR from the floor, but no local ceiling is confirmed."
+        AdaptiveBreakoutStatus.STRONG_REBOUND -> "Price has advanced at least ${config.strongReboundAtrMultiple} ATR from the floor, but no local ceiling is confirmed."
         AdaptiveBreakoutStatus.EARLY_BREAKOUT -> "A completed close cleared an unconfirmed compact ceiling; watch only until the main structure confirms."
         AdaptiveBreakoutStatus.FRESH_BREAKOUT -> "First completed close above the active ceiling."
         AdaptiveBreakoutStatus.BREAKOUT_CONTINUATION -> "The active ceiling was already broken on an earlier session."
@@ -675,7 +699,7 @@ internal object AdaptiveBreakoutEngine {
         )
     }
 
-    private fun fiftyTwoWeekHigh(candles: List<DailyCandle>): Double? =
+    private fun fiftyTwoWeekHighIncludingLatest(candles: List<DailyCandle>): Double? =
         candles.takeLast(FIFTY_TWO_WEEK_SESSIONS).maxOfOrNull(DailyCandle::high)
 
     private fun Double.percentageDifference(value: Double): Double? =
@@ -702,6 +726,10 @@ internal object AdaptiveBreakoutEngine {
         require(config.ceilingWidthAtrMultiple >= 0.0) { "ceilingWidthAtrMultiple must not be negative." }
         require(config.maximumLocalCeilingDistanceAtrMultiple > 0.0) {
             "maximumLocalCeilingDistanceAtrMultiple must be greater than zero."
+        }
+        require(config.maximumCeilingAgeSessions > 0) { "maximumCeilingAgeSessions must be greater than zero." }
+        require(config.maximumFailedAttemptRatchets > 0) {
+            "maximumFailedAttemptRatchets must be greater than zero."
         }
         require(config.strongReboundAtrMultiple > 0.0) { "strongReboundAtrMultiple must be greater than zero." }
     }
@@ -734,6 +762,7 @@ internal object AdaptiveBreakoutEngine {
         val upperBoundary: Double,
         val failedAttemptHigh: Double?,
         val lastFailedAttemptDate: String?,
+        val failedAttemptCount: Int,
         val atrAtAnchor: Double,
         val type: AdaptiveBreakoutCeilingType,
         val testCount: Int,
@@ -747,12 +776,15 @@ internal object AdaptiveBreakoutEngine {
         fun overlaps(other: ReplayCeiling): Boolean =
             lowerBoundary <= other.upperBoundary && other.lowerBoundary <= upperBoundary
 
-        fun withFailedAttempt(high: Double, date: String): ReplayCeiling {
-            val strictCap = maxOf(upperBoundary, high)
+        fun withFailedAttempt(high: Double, date: String, maximumRatchets: Int): ReplayCeiling {
+            val nextFailedAttemptCount = failedAttemptCount + 1
+            val canRatchet = failedAttemptCount < maximumRatchets
+            val strictCap = if (canRatchet) maxOf(upperBoundary, high) else upperBoundary
             return copy(
                 upperBoundary = strictCap,
-                failedAttemptHigh = maxOf(failedAttemptHigh ?: Double.NEGATIVE_INFINITY, high),
+                failedAttemptHigh = if (canRatchet) maxOf(failedAttemptHigh ?: Double.NEGATIVE_INFINITY, high) else failedAttemptHigh,
                 lastFailedAttemptDate = date,
+                failedAttemptCount = nextFailedAttemptCount,
             )
         }
 
@@ -761,6 +793,7 @@ internal object AdaptiveBreakoutEngine {
             upperBoundary = anchorPrice,
             failedAttemptHigh = null,
             lastFailedAttemptDate = null,
+            failedAttemptCount = 0,
             type = AdaptiveBreakoutCeilingType.POST_BREAKOUT_SWING,
             testCount = 1,
             breakoutDate = null,
@@ -774,6 +807,7 @@ internal object AdaptiveBreakoutEngine {
             upperBoundary = upperBoundary,
             failedAttemptHigh = failedAttemptHigh,
             lastFailedAttemptDate = lastFailedAttemptDate,
+            failedAttemptCount = failedAttemptCount,
             atrAtAnchor = atrAtAnchor,
             type = type,
             testCount = testCount,

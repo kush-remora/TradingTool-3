@@ -21,6 +21,7 @@ import { Sma200BacktestPage } from "./pages/Sma200BacktestPage";
 import { RsiOversoldPage } from "./pages/RsiOversoldPage";
 import { TwoDayGreenCandleBacktestPage } from "./pages/TwoDayGreenCandleBacktestPage";
 import { WyckoffPhase1Page } from "./pages/WyckoffPhase1Page";
+import { WyckoffRawObservationPage } from "./pages/WyckoffRawObservationPage";
 import { TradePage } from "./pages/TradePage";
 import { PhaseDScannerPage } from "./pages/PhaseDScannerPage";
 import { ChartinkFiftyTwoWeekHighPage } from "./pages/ChartinkFiftyTwoWeekHighPage";
@@ -42,6 +43,7 @@ import { CompactStockReviewPage } from "./pages/compactStockReview/CompactStockR
 import { WeeklyLowAlignmentSummaryPage } from "./pages/WeeklyLowAlignmentSummaryPage";
 import { WeeklyLowAlignmentBacktestPage } from "./pages/WeeklyLowAlignmentBacktestPage";
 import { TwoDayCloseStrengthBacktestPage } from "./pages/TwoDayCloseStrengthBacktestPage";
+import { FourDayCloseStrengthBacktestPage } from "./pages/FourDayCloseStrengthBacktestPage";
 import { WeeklyLowRetestBacktestPage } from "./pages/WeeklyLowRetestBacktestPage";
 import { BaseRetestBacktestPage } from "./pages/BaseRetestBacktestPage";
 import { VolumeEventReviewPage } from "./pages/VolumeEventReviewPage";
@@ -56,6 +58,7 @@ import { SummaryConsolePage } from "./pages/SummaryConsolePage";
 import { ShortHorizonSelectorPage } from "./pages/ShortHorizonSelectorPage";
 import { AdaptiveBreakoutScannerPage } from "./pages/AdaptiveBreakoutScannerPage";
 import { AdaptiveBreakoutBacktestPage } from "./pages/AdaptiveBreakoutBacktestPage";
+import { EmaContinuationStudyPage } from "./pages/EmaContinuationStudyPage";
 import { BreakoutBuyReviewPage } from "./pages/BreakoutBuyReviewPage";
 import type { AccumulationCaseSnapshot } from "./types";
 
@@ -64,9 +67,11 @@ type V1PageKey =
   | "short-horizon-selector"
   | "adaptive-breakout"
   | "adaptive-breakout-backtest"
+  | "ema-continuation"
   | "breakout-buy-review"
   | "trade"
   | "wyckoff-phase1"
+  | "wyckoff-observation"
   | "volume-shocker"
   | "absolute-delivery"
   | "delivery-breakout"
@@ -92,6 +97,7 @@ type V1PageKey =
   | "weekly-low-alignment"
   | "weekly-low-alignment-backtest"
   | "two-day-close-strength-backtest"
+  | "four-day-close-strength-backtest"
   | "weekly-low-retest-backtest"
   | "base-retest-backtest"
   | "volume-event-review"
@@ -129,9 +135,10 @@ const menuItems: MenuProps["items"] = [
   { key: "short-horizon-selector", label: "5-Day Stock Selector", icon: <LineChartOutlined /> },
   {
     key: "adaptive-breakout-backtest",
-    label: "Breakout 6M Test",
+    label: "Adaptive Breakout Backtest",
     icon: <LineChartOutlined />,
   },
+  { key: "ema-continuation", label: "EMA Continuation Study", icon: <LineChartOutlined /> },
   { key: "volume-shocker", label: "Volume Shocker", icon: <FundOutlined /> },
   {
     key: "absolute-delivery",
@@ -175,6 +182,11 @@ const menuItems: MenuProps["items"] = [
   {
     key: "two-day-close-strength-backtest",
     label: "Two-Day Close-Strength Backtest",
+    icon: <LineChartOutlined />,
+  },
+  {
+    key: "four-day-close-strength-backtest",
+    label: "Four-Day Close-Strength Backtest",
     icon: <LineChartOutlined />,
   },
   {
@@ -272,6 +284,11 @@ const menuItems: MenuProps["items"] = [
     label: "Wyckoff Phase-1",
     icon: <BarChartOutlined />,
   },
+  {
+    key: "wyckoff-observation",
+    label: "Wyckoff Raw Observation",
+    icon: <BarChartOutlined />,
+  },
   { key: "phase-d", label: "Phase D Scanner", icon: <FundOutlined /> },
   {
     key: "chartink-evidence",
@@ -302,9 +319,11 @@ const validPages: PageKey[] = [
   "short-horizon-selector",
   "adaptive-breakout",
   "adaptive-breakout-backtest",
+  "ema-continuation",
   "breakout-buy-review",
   "trade",
   "wyckoff-phase1",
+  "wyckoff-observation",
   "volume-shocker",
   "absolute-delivery",
   "delivery-breakout",
@@ -319,6 +338,7 @@ const validPages: PageKey[] = [
   "weekly-low-limit-backtest",
   "weekly-low-alignment-backtest",
   "two-day-close-strength-backtest",
+  "four-day-close-strength-backtest",
   "weekly-low-retest-backtest",
   "base-retest-backtest",
   "weekly-base-definition",
@@ -566,8 +586,10 @@ export default function App() {
             {route === "short-horizon-selector" && <ShortHorizonSelectorPage onOpenCompactStockReview={openCompactStockReview} />}
             {route === "adaptive-breakout" && <AdaptiveBreakoutScannerPage />}
             {route === "adaptive-breakout-backtest" && <AdaptiveBreakoutBacktestPage />}
+            {route === "ema-continuation" && <EmaContinuationStudyPage />}
             {route === "breakout-buy-review" && <BreakoutBuyReviewPage />}
             {route === "wyckoff-phase1" && <WyckoffPhase1Page />}
+            {route === "wyckoff-observation" && <WyckoffRawObservationPage />}
             {route === "volume-shocker" && <VolumeShockerDashboardPage />}
             {route === "absolute-delivery" && <AbsoluteDeliveryBacktestPage />}
             {route === "delivery-breakout" && <DeliveryBreakoutScannerPage />}
@@ -582,6 +604,7 @@ export default function App() {
             {route === "weekly-low-limit-backtest" && <WeeklyLowLimitBacktestPage />}
             {route === "weekly-low-alignment-backtest" && <WeeklyLowAlignmentBacktestPage />}
             {route === "two-day-close-strength-backtest" && <TwoDayCloseStrengthBacktestPage />}
+            {route === "four-day-close-strength-backtest" && <FourDayCloseStrengthBacktestPage />}
             {route === "weekly-low-retest-backtest" && <WeeklyLowRetestBacktestPage />}
             {route === "base-retest-backtest" && <BaseRetestBacktestPage />}
             {typeof route !== "string" && route.page === "weekly-low-limit-validation" && (

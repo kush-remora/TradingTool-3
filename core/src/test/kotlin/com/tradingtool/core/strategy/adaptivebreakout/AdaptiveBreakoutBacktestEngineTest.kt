@@ -15,10 +15,12 @@ class AdaptiveBreakoutBacktestEngineTest {
 
         val result = AdaptiveBreakoutBacktestEngine.run(
             candles = candles,
+            deliveries = emptyList(),
             testFromDate = DATE_START,
             testToDate = DATE_START.plusDays(29),
             targetPct = 5.0,
             stopLossPct = 5.0,
+            maxEntryGapPct = 0.0,
         )
 
         val trade = result.trades.single()
@@ -28,6 +30,8 @@ class AdaptiveBreakoutBacktestEngineTest {
         assertEquals(AdaptiveBreakoutBacktestExitReason.TARGET_HIT, trade.exitReason)
         assertEquals(1, trade.holdingSessions)
         assertEquals(1, result.summary.targetHitCount)
+        assertEquals(1.7441860, trade.nextSessionBehavior?.breakoutDayMovePct!!, 0.000001)
+        assertEquals(1.7142857, trade.nextSessionBehavior.lowVsBreakoutClosePct, 0.000001)
     }
 
     @Test
@@ -38,16 +42,19 @@ class AdaptiveBreakoutBacktestEngineTest {
 
         val result = AdaptiveBreakoutBacktestEngine.run(
             candles = candles,
+            deliveries = emptyList(),
             testFromDate = DATE_START,
             testToDate = DATE_START.plusDays(29),
             targetPct = 5.0,
             stopLossPct = 5.0,
+            maxEntryGapPct = 0.0,
         )
 
         val trade = result.trades.single()
         assertEquals(AdaptiveBreakoutBacktestExitReason.STOP_LOSS_SAME_CANDLE, trade.exitReason)
         assertTrue(trade.ambiguousSameCandle)
-        assertEquals(-5.0, trade.returnPct, 0.000001)
+        assertEquals(-5.5, trade.returnPct!!, 0.000001)
+        assertEquals(-5.0, trade.grossReturnPct!!, 0.000001)
     }
 
     @Test
@@ -58,10 +65,12 @@ class AdaptiveBreakoutBacktestEngineTest {
 
         val result = AdaptiveBreakoutBacktestEngine.run(
             candles = candles,
+            deliveries = emptyList(),
             testFromDate = DATE_START,
             testToDate = DATE_START.plusDays(29),
             targetPct = 5.0,
             stopLossPct = 5.0,
+            maxEntryGapPct = 0.0,
         )
 
         val trade = result.trades.single()
@@ -78,6 +87,72 @@ class AdaptiveBreakoutBacktestEngineTest {
 
         val result = AdaptiveBreakoutBacktestEngine.run(
             candles = candles,
+            deliveries = emptyList(),
+            testFromDate = DATE_START,
+            testToDate = DATE_START.plusDays(30),
+            targetPct = 5.0,
+            stopLossPct = 5.0,
+            maxEntryGapPct = 0.0,
+        )
+
+        val trade = result.trades.single()
+        assertEquals("2026-01-31", trade.entryDate)
+        assertEquals(92.0, trade.entryPrice)
+    }
+
+    @Test
+    fun `skips entry when first tradable open gaps above maxEntryGapPct`() {
+        // Breakout close is 87.5; first tradable open is 91.0 → gap = (91/87.5 - 1)*100 = 4.0% > 2.5% threshold
+        val candles = breakoutPath(
+            nextSession = candle(29, open = 91.0, high = 95.0, low = 90.0, close = 93.0),
+        )
+
+        val result = AdaptiveBreakoutBacktestEngine.run(
+            candles = candles,
+            deliveries = emptyList(),
+            testFromDate = DATE_START,
+            testToDate = DATE_START.plusDays(29),
+            targetPct = 5.0,
+            stopLossPct = 5.0,
+            maxEntryGapPct = 2.5,
+        )
+
+        val trade = result.trades.single()
+        assertEquals(AdaptiveBreakoutBacktestExitReason.SKIPPED_ENTRY_GAP, trade.exitReason)
+        assertEquals(1, result.summary.skippedEntryGapCount)
+        assertEquals(0, result.summary.enteredTradeCount)
+    }
+
+    @Test
+    fun `enters normally when first tradable open gap is within maxEntryGapPct`() {
+        // Breakout close is 87.5; first tradable open is 88.5 → gap = (88.5/87.5 - 1)*100 = 1.14% < 2.5%
+        val candles = breakoutPath(
+            nextSession = candle(29, open = 88.5, high = 95.0, low = 87.0, close = 93.0),
+        )
+
+        val result = AdaptiveBreakoutBacktestEngine.run(
+            candles = candles,
+            deliveries = emptyList(),
+            testFromDate = DATE_START,
+            testToDate = DATE_START.plusDays(29),
+            targetPct = 5.0,
+            stopLossPct = 5.0,
+            maxEntryGapPct = 2.5,
+        )
+
+        val trade = result.trades.single()
+        assertEquals(AdaptiveBreakoutBacktestExitReason.TARGET_HIT, trade.exitReason)
+        assertEquals(0, result.summary.skippedEntryGapCount)
+        assertEquals(1, result.summary.enteredTradeCount)
+    }
+
+    @Test
+    fun `fills a gap-through target at the session open and reports net return`() {
+        val entrySession = candle(29, open = 88.0, high = 89.0, low = 87.0, close = 88.0)
+        val gapTargetSession = candle(30, open = 100.0, high = 101.0, low = 99.0, close = 100.0)
+        val result = AdaptiveBreakoutBacktestEngine.run(
+            candles = breakoutPath(nextSession = entrySession) + gapTargetSession,
+            deliveries = emptyList(),
             testFromDate = DATE_START,
             testToDate = DATE_START.plusDays(30),
             targetPct = 5.0,
@@ -85,9 +160,32 @@ class AdaptiveBreakoutBacktestEngineTest {
         )
 
         val trade = result.trades.single()
-        assertEquals("2026-01-31", trade.entryDate)
-        assertEquals(92.0, trade.entryPrice)
-        assertTrue(result.entryRule.contains("Locked zero-range sessions are skipped"))
+        assertEquals(AdaptiveBreakoutBacktestExitReason.TARGET_HIT, trade.exitReason)
+        assertEquals(100.0, trade.exitPrice)
+        assertTrue(trade.gapThroughExit)
+        assertEquals(13.6363636, trade.grossReturnPct!!, 0.000001)
+        assertEquals(13.1363636, trade.returnPct!!, 0.000001)
+        assertEquals(13.1363636, result.summary.expectancyPct!!, 0.000001)
+    }
+
+    @Test
+    fun `fills a gap-through stop at the session open`() {
+        val entrySession = candle(29, open = 88.0, high = 89.0, low = 87.0, close = 88.0)
+        val gapStopSession = candle(30, open = 80.0, high = 82.0, low = 79.0, close = 81.0)
+        val result = AdaptiveBreakoutBacktestEngine.run(
+            candles = breakoutPath(nextSession = entrySession) + gapStopSession,
+            deliveries = emptyList(),
+            testFromDate = DATE_START,
+            testToDate = DATE_START.plusDays(30),
+            targetPct = 5.0,
+            stopLossPct = 5.0,
+        )
+
+        val trade = result.trades.single()
+        assertEquals(AdaptiveBreakoutBacktestExitReason.STOP_LOSS, trade.exitReason)
+        assertEquals(80.0, trade.exitPrice)
+        assertTrue(trade.gapThroughExit)
+        assertEquals(-9.0909091, trade.grossReturnPct!!, 0.000001)
     }
 
     private fun breakoutPath(nextSession: DailyCandle): List<DailyCandle> {
@@ -101,7 +199,7 @@ class AdaptiveBreakoutBacktestEngineTest {
             candle(25, 82.0, 83.0, 81.0, 82.0),
             candle(26, 85.0, 86.0, 84.0, 85.0),
             candle(27, 86.0, 87.0, 85.0, 86.0),
-            candle(28, 89.0, 90.0, 88.0, 89.0),
+            candle(28, 86.0, 87.5, 85.5, 87.5),
             nextSession,
         )
         return warmup + path

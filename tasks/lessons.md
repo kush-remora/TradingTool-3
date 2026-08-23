@@ -119,3 +119,12 @@
 - Never replace a stable breakout threshold with each failed higher wick and then add a new volatility buffer. Preserve the original line as a reclaim/watch level, use the failed wick itself as the strict confirmation cap, and require a close above that cap.
 - Once an official ceiling has broken, a separately confirmed higher swing defines the next exact structural cap; adding another ATR allowance to that post-breakout swing recreates the moving-goalpost delay.
 - Keep ceiling test counts within one anchor lineage, remove Major resistance that duplicates or sits below the active ceiling, and expose floor-to-breakout extension plus locked-range execution risk directly in the evidence.
+
+## 2026-08-21
+
+- When a backend response introduces nullable or new enum states, update the frontend types, labels, fixtures, and summary wording in the same change; otherwise the production build can pass while the UI mislabels valid API responses.
+
+## 2026-08-22
+
+- For a watchlist-wide study with one detailed chart, keep the batch response summary-only and retain the existing single-stock response for candles and indicators; this avoids transferring large candle payloads for every member.
+- When a long-running watchlist request can overlap a watchlist selection change, invalidate stale responses in the hook so an older run cannot overwrite the newly selected universe.

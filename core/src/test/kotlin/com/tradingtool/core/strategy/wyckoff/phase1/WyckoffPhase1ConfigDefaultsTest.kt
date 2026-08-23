@@ -6,13 +6,13 @@ import org.junit.jupiter.api.Test
 class WyckoffPhase1ConfigDefaultsTest {
 
     @Test
-    fun `uses uniform 55 percent delivery threshold across cap buckets`() {
+    fun `uses cap adaptive delivery thresholds`() {
         val thresholds = WyckoffPhase1Config().trackA.deliveryThresholdByCap
 
         assertEquals(55.0, thresholds["MID_CAP"])
-        assertEquals(55.0, thresholds["SMALL_CAP"])
-        assertEquals(55.0, thresholds["MICRO_CAP"])
-        assertEquals(55.0, thresholds["NANO_CAP"])
+        assertEquals(70.0, thresholds["SMALL_CAP"])
+        assertEquals(85.0, thresholds["MICRO_CAP"])
+        assertEquals(92.0, thresholds["NANO_CAP"])
     }
 
     @Test

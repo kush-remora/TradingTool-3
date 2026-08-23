@@ -48,6 +48,8 @@ import com.tradingtool.core.strategy.weeklylowalignmentbacktest.WeeklyLowAlignme
 import com.tradingtool.core.strategy.weeklylowalignmentbacktest.WeeklyLowAlignmentBacktestService
 import com.tradingtool.core.strategy.twodayclosestrengthbacktest.TwoDayCloseStrengthBacktestEngine
 import com.tradingtool.core.strategy.twodayclosestrengthbacktest.TwoDayCloseStrengthBacktestService
+import com.tradingtool.core.strategy.fourdayclosestrengthbacktest.FourDayCloseStrengthBacktestEngine
+import com.tradingtool.core.strategy.fourdayclosestrengthbacktest.FourDayCloseStrengthBacktestService
 import com.tradingtool.core.strategy.weeklylowretestbacktest.WeeklyLowRetestBacktestEngine
 import com.tradingtool.core.strategy.weeklylowretestbacktest.WeeklyLowRetestBacktestService
 import com.tradingtool.core.strategy.baseretestbacktest.BaseRetestBacktestEngine
@@ -397,6 +399,22 @@ class ServiceModule(
     ): TwoDayCloseStrengthBacktestService = TwoDayCloseStrengthBacktestService(
         indexConstituentHandler = indexConstituentHandler,
         candleCacheService = candleCacheService,
+        engine = engine,
+    )
+
+    @Provides @Singleton
+    fun provideFourDayCloseStrengthBacktestEngine(): FourDayCloseStrengthBacktestEngine = FourDayCloseStrengthBacktestEngine()
+
+    @Provides @Singleton
+    fun provideFourDayCloseStrengthBacktestService(
+        indexConstituentHandler: IndexConstituentJdbiHandler,
+        candleCacheService: CandleCacheService,
+        instrumentTokenResolver: InstrumentTokenResolverService,
+        engine: FourDayCloseStrengthBacktestEngine,
+    ): FourDayCloseStrengthBacktestService = FourDayCloseStrengthBacktestService(
+        indexConstituentHandler = indexConstituentHandler,
+        candleCacheService = candleCacheService,
+        instrumentTokenResolver = instrumentTokenResolver,
         engine = engine,
     )
 

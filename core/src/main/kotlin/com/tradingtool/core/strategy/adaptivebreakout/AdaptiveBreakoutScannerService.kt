@@ -2,6 +2,7 @@ package com.tradingtool.core.strategy.adaptivebreakout
 
 import com.google.inject.Inject
 import com.google.inject.Singleton
+import com.tradingtool.core.candle.DailyCandle
 import com.tradingtool.core.candle.CandleCacheService
 import com.tradingtool.core.database.IndexConstituentJdbiHandler
 import com.tradingtool.core.database.StockDeliveryJdbiHandler
@@ -129,6 +130,15 @@ class AdaptiveBreakoutScannerService @Inject constructor(
         require(request.stopLossPct > 0.0 && request.stopLossPct <= 100.0) {
             "stopLossPct must be greater than 0 and no more than 100."
         }
+        require(request.maxEntryGapPct >= 0.0) {
+            "maxEntryGapPct must not be negative."
+        }
+        require(request.transactionCostPct >= 0.0) {
+            "transactionCostPct must not be negative."
+        }
+        require(request.slippagePct >= 0.0) {
+            "slippagePct must not be negative."
+        }
 
         if (hasWatchlistRequest) {
             return runWatchlistBacktest(
@@ -136,6 +146,11 @@ class AdaptiveBreakoutScannerService @Inject constructor(
                 months = request.months,
                 targetPct = request.targetPct,
                 stopLossPct = request.stopLossPct,
+                entryTrigger = request.entryTrigger,
+                qualityFilter = request.qualityFilter,
+                maxEntryGapPct = request.maxEntryGapPct,
+                transactionCostPct = request.transactionCostPct,
+                slippagePct = request.slippagePct,
             )
         }
 
@@ -149,6 +164,11 @@ class AdaptiveBreakoutScannerService @Inject constructor(
             months = request.months,
             targetPct = request.targetPct,
             stopLossPct = request.stopLossPct,
+            entryTrigger = request.entryTrigger,
+            qualityFilter = request.qualityFilter,
+            maxEntryGapPct = request.maxEntryGapPct,
+            transactionCostPct = request.transactionCostPct,
+            slippagePct = request.slippagePct,
         )
     }
 
@@ -158,7 +178,13 @@ class AdaptiveBreakoutScannerService @Inject constructor(
         months: Long,
         targetPct: Double,
         stopLossPct: Double,
+        entryTrigger: AdaptiveBreakoutBacktestEntryTrigger,
+        qualityFilter: AdaptiveBreakoutQualityFilter,
+        maxEntryGapPct: Double,
+        transactionCostPct: Double,
+        slippagePct: Double,
         companyName: String? = null,
+        marketCandles: List<DailyCandle>? = null,
     ): AdaptiveBreakoutBacktestResponse {
         val candles = candleCacheService.getDailyCandles(
             token = instrumentToken,
@@ -171,12 +197,34 @@ class AdaptiveBreakoutScannerService @Inject constructor(
         val availableToDate = candles.last().candleDate
         val requestedFromDate = availableToDate.minusMonths(months)
         val testedFromDate = maxOf(requestedFromDate, candles.first().candleDate)
+        val orderedMarketCandles = marketCandles ?: candleCacheService.getDailyCandles(
+            token = MARKET_INSTRUMENT_TOKEN,
+            symbol = MARKET_SYMBOL,
+            from = candles.first().candleDate,
+            to = availableToDate,
+        )
+
+        val deliveries = stockDeliveryHandler.read { dao ->
+            dao.findByInstrumentTokenBetweenDates(
+                instrumentToken = instrumentToken,
+                fromDate = testedFromDate.minusMonths(6),
+                toDate = availableToDate,
+            )
+        }
+
         val response = AdaptiveBreakoutBacktestEngine.run(
             candles = candles,
+            deliveries = deliveries,
             testFromDate = testedFromDate,
             testToDate = availableToDate,
             targetPct = targetPct,
             stopLossPct = stopLossPct,
+            entryTrigger = entryTrigger,
+            qualityFilter = qualityFilter,
+            maxEntryGapPct = maxEntryGapPct,
+            transactionCostPct = transactionCostPct,
+            slippagePct = slippagePct,
+            marketCandles = orderedMarketCandles,
         ).copy(symbol = symbol)
         return response.copy(
             symbols = listOf(
@@ -197,12 +245,23 @@ class AdaptiveBreakoutScannerService @Inject constructor(
         months: Long,
         targetPct: Double,
         stopLossPct: Double,
+        entryTrigger: AdaptiveBreakoutBacktestEntryTrigger,
+        qualityFilter: AdaptiveBreakoutQualityFilter,
+        maxEntryGapPct: Double,
+        transactionCostPct: Double,
+        slippagePct: Double,
     ): AdaptiveBreakoutBacktestResponse {
         val resolvedKey = resolveWatchlist(watchlistKey)
         val members = indexConstituentHandler.read { dao -> dao.listActiveByIndex(resolvedKey) }
             .filter { member -> member.instrumentToken > 0 && member.symbol.isNotBlank() }
             .distinctBy { member -> member.symbol.trim().uppercase() }
         require(members.isNotEmpty()) { "No stocks were found for this watchlist." }
+        val marketCandles = candleCacheService.getDailyCandles(
+            token = MARKET_INSTRUMENT_TOKEN,
+            symbol = MARKET_SYMBOL,
+            from = LocalDate.now().minusYears(HISTORY_YEARS),
+            to = LocalDate.now(),
+        )
 
         val responses = coroutineScope {
             val semaphore = Semaphore(MAX_PARALLEL_CANDLE_READS)
@@ -215,33 +274,36 @@ class AdaptiveBreakoutScannerService @Inject constructor(
                             months = months,
                             targetPct = targetPct,
                             stopLossPct = stopLossPct,
+                            entryTrigger = entryTrigger,
+                            qualityFilter = qualityFilter,
+                            maxEntryGapPct = maxEntryGapPct,
+                            transactionCostPct = transactionCostPct,
+                            slippagePct = slippagePct,
                             companyName = member.companyName,
+                            marketCandles = marketCandles,
                         )
                     }
                 }
             }.awaitAll().sortedBy { response -> response.symbol }
         }
         val trades = responses.flatMap { response -> response.trades }
-        val completedTradeCount = responses.sumOf { response ->
-            response.summary.targetHitCount + response.summary.stopLossCount
-        }
-        val summary = AdaptiveBreakoutBacktestSummary(
-            freshBreakoutCount = responses.sumOf { response -> response.summary.freshBreakoutCount },
-            enteredTradeCount = responses.sumOf { response -> response.summary.enteredTradeCount },
-            targetHitCount = responses.sumOf { response -> response.summary.targetHitCount },
-            stopLossCount = responses.sumOf { response -> response.summary.stopLossCount },
-            endOfTestCount = responses.sumOf { response -> response.summary.endOfTestCount },
-            winRatePct = if (completedTradeCount == 0) null else responses.sumOf { response -> response.summary.targetHitCount } * 100.0 / completedTradeCount,
-            averageHoldingSessions = trades.map { trade -> trade.holdingSessions }.takeIf(List<Int>::isNotEmpty)?.average(),
+        val summary = summarizeAdaptiveBreakoutTrades(
+            signalCount = responses.sumOf { response -> response.summary.signalCount },
+            trades = trades,
         )
         return AdaptiveBreakoutBacktestResponse(
             symbol = null,
             watchlistKey = resolvedKey,
+            entryTrigger = entryTrigger,
+            qualityFilter = qualityFilter,
             testedFromDate = responses.minOf { response -> response.testedFromDate },
             testedToDate = responses.maxOf { response -> response.testedToDate },
             targetPct = targetPct,
             stopLossPct = stopLossPct,
-            entryRule = "Fresh breakout is known after its completed close; enter at the next available session open.",
+            transactionCostPct = transactionCostPct,
+            slippagePct = slippagePct,
+            entryRule = "${entryTrigger.displayName()} with ${qualityFilter.displayName()} quality filter. " +
+                describeEntryGapGuard(maxEntryGapPct) + " Returns subtract ${transactionCostPct}% round-trip costs and ${slippagePct}% slippage.",
             ambiguousCandleRule = "If one daily candle touches both target and stop, stop is assumed first because daily OHLC has no intraday order.",
             summary = summary,
             trades = trades.sortedWith(compareBy<AdaptiveBreakoutBacktestTrade> { it.breakoutDate }.thenBy { it.symbol }),
@@ -323,5 +385,7 @@ class AdaptiveBreakoutScannerService @Inject constructor(
         const val HISTORY_YEARS = 5L
         const val RAW_HISTORY_SESSIONS = 260
         const val MAX_PARALLEL_CANDLE_READS = 12
+        const val MARKET_INSTRUMENT_TOKEN = 256265L
+        const val MARKET_SYMBOL = "NIFTY 50"
     }
 }

@@ -41,7 +41,7 @@ import "./adaptiveBreakoutScanner.css";
 
 const { Text, Title } = Typography;
 
-type DisplayStatus = AdaptiveBreakoutStatus | "LIVE_CANDIDATE";
+type DisplayStatus = AdaptiveBreakoutStatus | "LIVE_CANDIDATE" | "RECENT_RECLAIM";
 type StatusFilter = DisplayStatus | "ALL";
 type ScanMode = "WATCHLIST" | "STOCK";
 
@@ -61,6 +61,7 @@ const STATUS_ORDER: DisplayStatus[] = [
   "LIVE_CANDIDATE",
   "FRESH_BREAKOUT",
   "EARLY_BREAKOUT",
+  "RECENT_RECLAIM",
   "TESTING_CEILING",
   "STRONG_REBOUND",
   "BELOW_CEILING",
@@ -128,6 +129,7 @@ function statusLabel(status: DisplayStatus): string {
   if (status === "LIVE_CANDIDATE") return "Live candidate";
   if (status === "FRESH_BREAKOUT") return "Fresh breakout";
   if (status === "EARLY_BREAKOUT") return "Early breakout";
+  if (status === "RECENT_RECLAIM") return "Recent reclaim";
   if (status === "TESTING_CEILING") return "At ceiling";
   if (status === "STRONG_REBOUND") return "Strong rebound";
   if (status === "BELOW_CEILING") return "Below ceiling";
@@ -139,6 +141,7 @@ function statusIcon(status: DisplayStatus): ReactNode {
   if (status === "LIVE_CANDIDATE") return <ThunderboltFilled />;
   if (status === "FRESH_BREAKOUT") return <CheckCircleFilled />;
   if (status === "EARLY_BREAKOUT") return <EyeOutlined />;
+  if (status === "RECENT_RECLAIM") return <HistoryOutlined />;
   if (status === "TESTING_CEILING") return <AimOutlined />;
   if (status === "STRONG_REBOUND") return <RiseOutlined />;
   if (status === "BELOW_CEILING") return <RiseOutlined />;
@@ -162,6 +165,13 @@ function displayStatus(
     if (marketOpen) return "LIVE_CANDIDATE";
     return canUseQuoteAsCompletedClose(row, quote) ? "FRESH_BREAKOUT" : row.status;
   }
+
+  if (row.status === "BELOW_CEILING" || row.status === "TESTING_CEILING") {
+    const recentSteps = row.rawSteps.slice(-5);
+    const hasRecentReclaim = recentSteps.some(step => step.decision === "CEILING_RECLAIM");
+    if (hasRecentReclaim) return "RECENT_RECLAIM";
+  }
+
   return row.status;
 }
 
@@ -544,6 +554,7 @@ function StructureCell({
       <span className="adaptive-breakout-structure-age">
         {ceilingTypeLabel(row.ceiling.type)} · {row.ceilingAgeSessions ?? "—"} sessions · {row.ceiling.testCount} test{row.ceiling.testCount === 1 ? "" : "s"} · confirmed {formatDate(row.ceiling.confirmedDate)}
         {hasFailedAttemptCap ? ` · base ${formatPrice(baseBoundary)} reclaimed first` : ""}
+        {hasFailedAttemptCap && row.ceiling.failedAttemptCount != null ? ` · ${row.ceiling.failedAttemptCount} failed attempt${row.ceiling.failedAttemptCount === 1 ? "" : "s"}` : ""}
         {row.majorCeiling ? ` · major ${formatPrice(row.majorCeiling.upperBoundary)}` : ""}
       </span>
     </div>
@@ -602,9 +613,9 @@ function rawDecisionSummary(
     BELOW_CEILING: `The ${formatPrice(step.close)} close remains below the ${ceiling} line.`,
     CEILING_TEST: `The ${formatPrice(step.close)} close is testing ${ceiling}; ${step.ceilingTestCount ?? 0} confirmed failure${step.ceilingTestCount === 1 ? "" : "s"} so far.`,
     FAILED_BREAKOUT: `High crossed the prior cap, but the ${formatPrice(step.close)} close failed; ${formatPrice(step.ceilingFailedAttemptHigh ?? step.high)} is now the strict cap.`,
-    CEILING_RECLAIM: `The ${formatPrice(step.close)} close reclaimed the base line ${formatPrice(step.ceilingBaseUpperBoundary)}; the strict cap still remains.`,
+    CEILING_RECLAIM: `The ${formatPrice(step.close)} close reclaimed the base line ${formatPrice(step.ceilingBaseUpperBoundary ?? null)}; the strict cap still remains.`,
     STRONG_REBOUND: "Price has risen strongly from the floor, but no resistance is confirmed yet.",
-    EARLY_BREAKOUT: `The ${formatPrice(step.close)} close cleared the provisional ${formatPrice(step.breakoutBoundary)} watch line; the confirmed ceiling is unchanged.`,
+    EARLY_BREAKOUT: `The ${formatPrice(step.close)} close cleared the provisional ${formatPrice(step.breakoutBoundary ?? null)} watch line; the confirmed ceiling is unchanged.`,
     FRESH_BREAKOUT: `The ${formatPrice(step.close)} close crossed ${ceiling} for the first time.`,
     BREAKOUT_CONTINUATION: `The ${ceiling} line was broken earlier; this is no longer the first breakout day.`,
   }[step.decision];
@@ -705,7 +716,7 @@ function RawDecisionTable({ steps, config }: {
 export function AdaptiveBreakoutScannerPage(): ReactNode {
   const [scanMode, setScanMode] = useState<ScanMode>("WATCHLIST");
   const [watchlists, setWatchlists] = useState<UniverseOptionsResponse["options"]>([]);
-  const [selectedWatchlist, setSelectedWatchlist] = useState<string | null>(null);
+  const [selectedWatchlists, setSelectedWatchlists] = useState<string[]>([]);
   const [selectedInstrument, setSelectedInstrument] = useState<InstrumentSearchResult | null>(null);
   const [report, setReport] = useState<AdaptiveBreakoutScanResponse | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
@@ -748,18 +759,29 @@ export function AdaptiveBreakoutScannerPage(): ReactNode {
   }, []);
 
   const runScan = (): void => {
-    const requestPath = scanMode === "WATCHLIST"
-      ? selectedWatchlist && `/api/strategy/adaptive-breakout/scan?watchlist=${encodeURIComponent(selectedWatchlist)}`
-      : selectedInstrument && `/api/strategy/adaptive-breakout/scan?symbol=${encodeURIComponent(selectedInstrument.trading_symbol)}`;
-    if (!requestPath) return;
+    const requestPaths = scanMode === "WATCHLIST"
+      ? selectedWatchlists.map((watchlist) => `/api/strategy/adaptive-breakout/scan?watchlist=${encodeURIComponent(watchlist)}`)
+      : selectedInstrument
+        ? [`/api/strategy/adaptive-breakout/scan?symbol=${encodeURIComponent(selectedInstrument.trading_symbol)}`]
+        : [];
+    if (requestPaths.length === 0) return;
     setLoadingScan(true);
     setError(null);
     setStatusFilter("ALL");
-    void getJson<AdaptiveBreakoutScanResponse>(
-      requestPath,
-      { useCache: false },
-    )
-      .then(setReport)
+    void Promise.all(requestPaths.map((requestPath) => getJson<AdaptiveBreakoutScanResponse>(requestPath, { useCache: false })))
+      .then((responses) => {
+        const rowsBySymbol = new Map(responses.flatMap((response) => response.rows).map((row) => [row.symbol, row]));
+        const rows = [...rowsBySymbol.values()];
+        const firstResponse = responses[0];
+        setReport({
+          ...firstResponse,
+          watchlistKey: scanMode === "WATCHLIST" ? selectedWatchlists.join(", ") : firstResponse.watchlistKey,
+          latestCandleDate: rows.map((row) => row.latestDate).sort().at(-1) ?? null,
+          scannedStockCount: responses.reduce((total, response) => total + response.scannedStockCount, 0),
+          freshBreakoutCount: rows.filter((row) => row.status === "FRESH_BREAKOUT").length,
+          rows,
+        });
+      })
       .catch((requestError: unknown) => {
         setError(requestError instanceof Error ? requestError.message : "Unable to run the breakout scan.");
       })
@@ -771,6 +793,7 @@ export function AdaptiveBreakoutScannerPage(): ReactNode {
     setReport(null);
     setError(null);
     setStatusFilter("ALL");
+    if (nextMode === "STOCK") setSelectedWatchlists([]);
   };
 
   const displayedRows = useMemo(() => {
@@ -895,9 +918,11 @@ export function AdaptiveBreakoutScannerPage(): ReactNode {
                 aria-label="Watchlist"
                 size="small"
                 loading={loadingOptions}
-                value={selectedWatchlist}
-                onChange={setSelectedWatchlist}
-                placeholder="Select watchlist"
+                mode="multiple"
+                value={selectedWatchlists}
+                onChange={setSelectedWatchlists}
+                placeholder="Select watchlists"
+                maxTagCount="responsive"
                 style={{ width: 240 }}
                 options={watchlists.map((watchlist) => ({ value: watchlist.value, label: `${watchlist.label} (${watchlist.count})` }))}
               />
@@ -917,7 +942,7 @@ export function AdaptiveBreakoutScannerPage(): ReactNode {
               type="primary"
               size="small"
               icon={<ReloadOutlined />}
-              disabled={scanMode === "WATCHLIST" ? !selectedWatchlist : !selectedInstrument}
+              disabled={scanMode === "WATCHLIST" ? selectedWatchlists.length === 0 : !selectedInstrument}
               loading={loadingScan}
               onClick={runScan}
             >

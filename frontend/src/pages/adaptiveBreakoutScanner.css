@@ -118,6 +118,11 @@
   color: #2768a8;
 }
 
+.adaptive-breakout-summary-recent_reclaim svg,
+.adaptive-breakout-status-recent_reclaim {
+  color: #9c27b0;
+}
+
 .adaptive-breakout-summary-testing_ceiling svg,
 .adaptive-breakout-status-testing_ceiling {
   color: #ad6800;
@@ -201,6 +206,7 @@
 
 .adaptive-breakout-row-live_candidate > td:first-child { box-shadow: inset 3px 0 #00a0a8; }
 .adaptive-breakout-row-early_breakout > td:first-child { box-shadow: inset 3px 0 #3d82bd; }
+.adaptive-breakout-row-recent_reclaim > td:first-child { box-shadow: inset 3px 0 #ba68c8; }
 .adaptive-breakout-row-fresh_breakout > td:first-child { box-shadow: inset 3px 0 #16a36f; }
 .adaptive-breakout-row-testing_ceiling > td:first-child { box-shadow: inset 3px 0 #d49a20; }
 .adaptive-breakout-row-strong_rebound > td:first-child { box-shadow: inset 3px 0 #1595a3; }

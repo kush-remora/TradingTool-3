@@ -1,4 +1,6 @@
-# CSV Breakout Quality Checklist — Proposal
+# CSV Breakout Quality Checklist — Superseded
+
+> Superseded by [`breakout-quality-redesign.md`](breakout-quality-redesign.md). This older checklist must not be implemented or tuned; it is retained only as historical context.
 
 ## Objective
 

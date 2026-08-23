@@ -28,7 +28,7 @@ function report(): BreakoutDayQualityResponse {
     symbol: "TEST", date: "2026-08-11", structureStatus: "FRESH_BREAKOUT", structureDecision: "FRESH_BREAKOUT",
     structureExplanation: "Fresh breakout.", overallDecision: "PASS", decisionSummary: "Pass", open: 99, high: 104,
     low: 98, close: 103, volume: 1000, atr: 10, floor: 90, peak: 104, breakoutLine: 100, majorCeiling: 130,
-    sma50: 95, sma200: 90, deliveryPercentage: null, deliveredQuantity: null, rules: [],
+    sma50: 95, sma200: 90, deliveryContext: null, rules: [],
     chartContext: {
       overallDecision: "PASS", decisionSummary: "Context passes.", sma50: 95, sma200: 90, sma50ChangePctFiveSessions: 1,
       sma200ChangePctTwentySessions: 1, priorFiftyTwoWeekHigh: 130, nextObstaclePrice: 130,

@@ -1,41 +1,85 @@
 package com.tradingtool.core.strategy.adaptivebreakout
 
 import com.tradingtool.core.candle.DailyCandle
-import com.tradingtool.core.delivery.model.DeliveryReconciliationStatus
-import com.tradingtool.core.delivery.model.StockDeliveryDaily
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 class BreakoutDayQualityAnalyzerTest {
+
     @Test
-    fun `passes a fresh breakout when all five selected-day checks pass`() {
-        val candles = candles()
-        val report = BreakoutDayQualityAnalyzer.analyze(
-            symbol = SYMBOL,
-            candles = candles,
-            deliveries = deliveries(candles.last().candleDate),
-            evaluation = evaluation(candles.last(), AdaptiveBreakoutDecision.FRESH_BREAKOUT),
-        )
+    fun `passes a long tight base and a contained breakout move`() {
+        val candles = buildCandles(baseSessions = 45, baseWidthPct = 10.0, breakoutMovePct = 2.0)
+        val report = analyze(candles, AdaptiveBreakoutDecision.FRESH_BREAKOUT)
 
         assertEquals(BreakoutQualityDecision.PASS, report.overallDecision)
-        assertEquals(5, report.rules.size)
-        assertEquals(listOf(BreakoutQualityVerdict.PASS), report.rules.map(BreakoutQualityRuleResult::verdict).distinct())
-        assertEquals(100.0, report.breakoutLine)
-        assertNotNull(report.sma200)
-        assertEquals(6, report.chartContext.rules.size)
-        assertNotNull(report.chartContext.sma200ChangePctTwentySessions)
-        assertEquals("Major ceiling", report.chartContext.nextObstacleLabel)
-        assertEquals(
-            BreakoutQualityVerdict.PASS,
-            report.chartContext.rules.single { rule -> rule.key == "sma200-direction" }.verdict,
-        )
+        assertEquals(2, report.rules.size)
+        assertEquals(BreakoutQualityVerdict.PASS, report.rules.single { it.key == "base-quality" }.verdict)
+        assertEquals(BreakoutQualityVerdict.PASS, report.rules.single { it.key == "breakout-day-move" }.verdict)
+        assertEquals(100.0, report.volumeVsTenDayAveragePct)
+        assertEquals(0.0, report.volumeVsPriorTwentyDayHighChangePct)
     }
 
     @Test
-    fun `waits rather than inventing delivery confirmation when delivery is missing`() {
-        val candles = candles()
+    fun `shows average volume, quiet volume, and change versus the prior twenty day high`() {
+        val original = buildCandles(baseSessions = 45, baseWidthPct = 10.0, breakoutMovePct = 2.0)
+        val breakoutIndex = original.lastIndex
+        val candles = original.mapIndexed { index, candle ->
+            when {
+                index == breakoutIndex -> candle.copy(volume = 12_000L)
+                index == breakoutIndex - 1 -> candle.copy(volume = 10_000L)
+                index == breakoutIndex - 11 -> candle.copy(volume = 6_000L)
+                index >= breakoutIndex - 10 -> candle.copy(volume = 2_000L)
+                else -> candle
+            }
+        }
+
+        val report = analyze(candles, AdaptiveBreakoutDecision.FRESH_BREAKOUT)
+
+        assertEquals(428.57, report.volumeVsTenDayAveragePct)
+        assertEquals(1200.0, report.volumeVsTwentyDayQuietAveragePct)
+        assertEquals(20.0, report.volumeVsPriorTwentyDayHighChangePct)
+        assertEquals(2, report.recentAbnormalVolumeDays.size)
+        assertEquals("2025-02-14", report.recentAbnormalVolumeDays[0].date)
+        assertEquals("2025-02-04", report.recentAbnormalVolumeDays[1].date)
+        assertEquals(1000.0, report.recentAbnormalVolumeDays[0].volumeVsQuietAveragePct)
+    }
+
+    @Test
+    fun `waits for a moderate base or breakout move`() {
+        val candles = buildCandles(baseSessions = 25, baseWidthPct = 25.0, breakoutMovePct = 4.0)
+        val report = analyze(candles, AdaptiveBreakoutDecision.FRESH_BREAKOUT)
+
+        assertEquals(BreakoutQualityDecision.WAIT, report.overallDecision)
+        assertEquals(BreakoutQualityVerdict.WAIT, report.rules.single { it.key == "base-quality" }.verdict)
+        assertEquals(BreakoutQualityVerdict.WAIT, report.rules.single { it.key == "breakout-day-move" }.verdict)
+    }
+
+    @Test
+    fun `rejects a short wide base and an excessively large breakout move`() {
+        val candles = buildCandles(baseSessions = 10, baseWidthPct = 35.0, breakoutMovePct = 8.0)
+        val report = analyze(candles, AdaptiveBreakoutDecision.FRESH_BREAKOUT)
+
+        assertEquals(BreakoutQualityDecision.REJECT, report.overallDecision)
+        assertEquals(BreakoutQualityVerdict.REJECT, report.rules.single { it.key == "base-quality" }.verdict)
+        assertEquals(BreakoutQualityVerdict.REJECT, report.rules.single { it.key == "breakout-day-move" }.verdict)
+    }
+
+    @Test
+    fun `keeps non-fresh signals as context only`() {
+        val report = analyze(
+            buildCandles(baseSessions = 45, baseWidthPct = 10.0, breakoutMovePct = 2.0),
+            AdaptiveBreakoutDecision.BREAKOUT_CONTINUATION,
+        )
+
+        assertEquals(BreakoutQualityDecision.CONTEXT_ONLY, report.overallDecision)
+    }
+
+    @Test
+    fun `delivery remains context and does not create a quality rule`() {
+        val candles = buildCandles(baseSessions = 45, baseWidthPct = 10.0, breakoutMovePct = 2.0)
         val report = BreakoutDayQualityAnalyzer.analyze(
             symbol = SYMBOL,
             candles = candles,
@@ -43,148 +87,197 @@ class BreakoutDayQualityAnalyzerTest {
             evaluation = evaluation(candles.last(), AdaptiveBreakoutDecision.FRESH_BREAKOUT),
         )
 
-        assertEquals(BreakoutQualityDecision.WAIT, report.overallDecision)
-        assertEquals(
-            BreakoutQualityVerdict.UNAVAILABLE,
-            report.rules.single { rule -> rule.key == "delivery" }.verdict,
-        )
+        assertNull(report.deliveryContext)
+        assert(report.rules.none { rule -> rule.key.contains("delivery") })
+        assertNotNull(report.chartContext)
     }
 
     @Test
-    fun `labels a non-breakout session as context only even when its candle is strong`() {
-        val candles = candles()
-        val report = BreakoutDayQualityAnalyzer.analyze(
-            symbol = SYMBOL,
-            candles = candles,
-            deliveries = deliveries(candles.last().candleDate),
-            evaluation = evaluation(candles.last(), AdaptiveBreakoutDecision.BREAKOUT_CONTINUATION),
-        )
+    fun `identifies a cheap high-volume footprint with no later rejection`() {
+        val candles = footprintCandles(distributionWarning = false)
+        val report = analyze(candles, AdaptiveBreakoutDecision.FRESH_BREAKOUT)
 
-        assertEquals(BreakoutQualityDecision.CONTEXT_ONLY, report.overallDecision)
+        assertEquals(BreakoutVolumeFootprintDecision.PASS, report.volumeFootprint.decision)
+        assertEquals("2025-01-31", report.volumeFootprint.footprintDate)
+        assertEquals(6.0, report.volumeFootprint.footprintVolumeRatio)
+        assertEquals(true, report.volumeFootprint.footprintLowHeld)
+        assertNull(report.volumeFootprint.distributionWarningDate)
     }
 
     @Test
-    fun `labels early breakout as watch-only context`() {
-        val candles = candles()
-        val report = BreakoutDayQualityAnalyzer.analyze(
-            symbol = SYMBOL,
-            candles = candles,
-            deliveries = deliveries(candles.last().candleDate),
-            evaluation = evaluation(candles.last(), AdaptiveBreakoutDecision.EARLY_BREAKOUT),
+    fun `rejects a footprint followed by a high-volume weak candle`() {
+        val report = analyze(
+            footprintCandles(distributionWarning = true),
+            AdaptiveBreakoutDecision.FRESH_BREAKOUT,
         )
 
-        assertEquals(AdaptiveBreakoutStatus.EARLY_BREAKOUT, report.structureStatus)
-        assertEquals(BreakoutQualityDecision.CONTEXT_ONLY, report.overallDecision)
-        assertEquals(
-            "Early breakout is a watch-only signal from an unconfirmed compact ceiling. Use the checks as context; it is not a fresh-breakout entry day.",
-            report.decisionSummary,
-        )
+        assertEquals(BreakoutVolumeFootprintDecision.REJECT, report.volumeFootprint.decision)
+        assertNotNull(report.volumeFootprint.distributionWarningDate)
     }
 
-    private fun candles(): List<DailyCandle> {
-        val start = LocalDate.of(2025, 10, 1)
-        val history = (0 until 230).map { index ->
-            candle(start.plusDays(index.toLong()), close = 100.0, volume = 1_000L)
+    private fun analyze(
+        candles: List<DailyCandle>,
+        decision: AdaptiveBreakoutDecision,
+    ): BreakoutDayQualityResponse = BreakoutDayQualityAnalyzer.analyze(
+        symbol = SYMBOL,
+        candles = candles,
+        deliveries = emptyList(),
+        evaluation = evaluation(candles.last(), decision),
+    )
+
+    private fun buildCandles(
+        baseSessions: Int,
+        baseWidthPct: Double,
+        breakoutMovePct: Double,
+    ): List<DailyCandle> {
+        val start = LocalDate.of(2025, 1, 1)
+        val floorPrice = 100.0
+        val baseHigh = floorPrice * (1.0 + baseWidthPct / 100.0)
+        val base = (0 until baseSessions).map { index ->
+            candle(
+                date = start.plusDays(index.toLong()),
+                open = floorPrice + 1.0,
+                high = baseHigh,
+                low = floorPrice,
+                close = floorPrice + 2.0,
+            )
         }
-        return history + DailyCandle(
-            instrumentToken = 1L,
-            symbol = SYMBOL,
-            candleDate = start.plusDays(230),
-            open = 100.0,
-            high = 105.0,
-            low = 100.0,
-            close = 104.0,
-            volume = 2_000L,
+        val previousClose = base.last().close
+        val breakoutClose = previousClose * (1.0 + breakoutMovePct / 100.0)
+        return base + candle(
+            date = start.plusDays(baseSessions.toLong()),
+            open = previousClose,
+            high = breakoutClose,
+            low = previousClose,
+            close = breakoutClose,
         )
     }
 
     private fun evaluation(
         latest: DailyCandle,
         decision: AdaptiveBreakoutDecision,
-    ): AdaptiveBreakoutEvaluation {
-        val step = AdaptiveBreakoutRawStep(
-            date = latest.candleDate.toString(),
-            open = latest.open,
-            high = latest.high,
-            low = latest.low,
-            close = latest.close,
-            volume = latest.volume,
-            atr = 10.0,
-            candidateFloor = 90.0,
-            candidateFloorDate = latest.candleDate.toString(),
-            candidateFloorAtr = 10.0,
-            candidatePeak = 105.0,
-            candidatePeakAtr = 10.0,
-            ceilingAnchor = 95.0,
-            ceilingBaseUpperBoundary = 100.0,
-            ceilingUpperBoundary = 100.0,
-            ceilingFailedAttemptHigh = null,
-            majorCeilingUpperBoundary = 120.0,
-            ceilingTestCount = 2,
-            ceilingType = AdaptiveBreakoutCeilingType.STRONG_REJECTION,
-            breakoutBoundary = 100.0,
-            compactCeilingCandidate = null,
-            compactCeilingConfirmationCount = null,
-            decision = decision,
-            explanation = "Selected-day structure explanation.",
-        )
-        return AdaptiveBreakoutEvaluation(
-            status = when (decision) {
-                AdaptiveBreakoutDecision.FRESH_BREAKOUT -> AdaptiveBreakoutStatus.FRESH_BREAKOUT
-                AdaptiveBreakoutDecision.EARLY_BREAKOUT -> AdaptiveBreakoutStatus.EARLY_BREAKOUT
-                else -> AdaptiveBreakoutStatus.BREAKOUT_CONTINUATION
-            },
-            latestDate = latest.candleDate.toString(),
-            latestOpen = latest.open,
-            latestHigh = latest.high,
-            latestLow = latest.low,
-            latestClose = latest.close,
-            latestVolume = latest.volume,
-            latestAtr = 10.0,
-            ceiling = null,
-            majorCeiling = null,
-            ceilingAgeSessions = null,
-            closeVsCeilingPct = null,
-            closePositionPct = 80.0,
-            volumeVsTenDayAverage = 2.0,
-            fiftyTwoWeekHigh = 120.0,
-            distanceFromFiftyTwoWeekHighPct = -13.33,
-            breakoutEvidence = null,
-            rawSteps = listOf(step),
-        )
-    }
-
-    private fun deliveries(selectedDate: LocalDate): List<StockDeliveryDaily> {
-        val prior = (20 downTo 1).map { daysBefore ->
-            delivery(selectedDate.minusDays(daysBefore.toLong()), 100L)
-        }
-        return prior + delivery(selectedDate, 150L)
-    }
-
-    private fun delivery(date: LocalDate, quantity: Long): StockDeliveryDaily = StockDeliveryDaily(
-        instrumentToken = 1L,
-        symbol = SYMBOL,
-        exchange = "NSE",
-        universe = "test",
-        tradingDate = date,
-        reconciliationStatus = DeliveryReconciliationStatus.PRESENT,
-        series = "EQ",
-        ttlTrdQnty = 200L,
-        delivQty = quantity,
-        delivPer = quantity / 2.0,
-        sourceFileName = null,
-        sourceUrl = null,
+    ): AdaptiveBreakoutEvaluation = AdaptiveBreakoutEvaluation(
+        status = AdaptiveBreakoutStatus.FRESH_BREAKOUT,
+        latestDate = latest.candleDate.toString(),
+        latestOpen = latest.open,
+        latestHigh = latest.high,
+        latestLow = latest.low,
+        latestClose = latest.close,
+        latestVolume = latest.volume,
+        latestAtr = 1.0,
+        ceiling = null,
+        majorCeiling = null,
+        ceilingAgeSessions = null,
+        closeVsCeilingPct = null,
+        closePositionPct = null,
+        volumeVsTenDayAverage = null,
+        fiftyTwoWeekHigh = null,
+        distanceFromFiftyTwoWeekHighPct = null,
+        breakoutEvidence = null,
+        rawSteps = listOf(
+            AdaptiveBreakoutRawStep(
+                date = latest.candleDate.toString(),
+                open = latest.open,
+                high = latest.high,
+                low = latest.low,
+                close = latest.close,
+                volume = latest.volume,
+                atr = 1.0,
+                candidateFloor = 100.0,
+                candidateFloorDate = "2025-01-01",
+                candidateFloorAtr = 1.0,
+                candidatePeak = latest.high,
+                candidatePeakAtr = 1.0,
+                ceilingAnchor = null,
+                ceilingBaseUpperBoundary = null,
+                ceilingUpperBoundary = null,
+                ceilingFailedAttemptHigh = null,
+                majorCeilingUpperBoundary = null,
+                ceilingTestCount = null,
+                ceilingType = null,
+                breakoutBoundary = null,
+                compactCeilingCandidate = null,
+                compactCeilingConfirmationCount = null,
+                decision = decision,
+                explanation = "test",
+            ),
+        ),
     )
 
-    private fun candle(date: LocalDate, close: Double, volume: Long): DailyCandle = DailyCandle(
+    private fun footprintCandles(distributionWarning: Boolean): List<DailyCandle> {
+        val start = LocalDate.of(2025, 1, 1)
+        val warmup = (0 until 30).map { index ->
+            candleWithVolume(
+                date = start.plusDays(index.toLong()),
+                open = 101.0,
+                high = 104.0,
+                low = 98.0,
+                close = 101.0,
+                volume = 1_000L,
+            )
+        }
+        val footprint = candleWithVolume(
+            date = start.plusDays(30),
+            open = 99.0,
+            high = 102.0,
+            low = 98.0,
+            close = 101.0,
+            volume = 6_000L,
+        )
+        val followThrough = (31 until 39).map { index ->
+            candleWithVolume(
+                date = start.plusDays(index.toLong()),
+                open = 102.0,
+                high = 105.0,
+                low = if (distributionWarning && index == 34) 97.0 else 101.0,
+                close = if (distributionWarning && index == 34) 98.0 else 103.0,
+                volume = if (distributionWarning && index == 34) 3_000L else 1_000L,
+            )
+        }
+        val breakout = candleWithVolume(
+            date = start.plusDays(39),
+            open = 105.0,
+            high = 110.0,
+            low = 104.0,
+            close = 109.0,
+            volume = 3_000L,
+        )
+        return warmup + footprint + followThrough + breakout
+    }
+
+    private fun candleWithVolume(
+        date: LocalDate,
+        open: Double,
+        high: Double,
+        low: Double,
+        close: Double,
+        volume: Long,
+    ): DailyCandle = DailyCandle(
         instrumentToken = 1L,
         symbol = SYMBOL,
         candleDate = date,
-        open = close,
-        high = close + 1.0,
-        low = close - 1.0,
+        open = open,
+        high = high,
+        low = low,
         close = close,
         volume = volume,
+    )
+
+    private fun candle(
+        date: LocalDate,
+        open: Double,
+        high: Double,
+        low: Double,
+        close: Double,
+    ): DailyCandle = DailyCandle(
+        instrumentToken = 1L,
+        symbol = SYMBOL,
+        candleDate = date,
+        open = open,
+        high = high,
+        low = low,
+        close = close,
+        volume = 1_000L,
     )
 
     private companion object {

@@ -25,7 +25,7 @@ vi.mock("../utils/api", async (importOriginal) => {
         return Promise.resolve({
           enabled: true,
           trackA: {
-            deliveryThresholdByCap: { MID_CAP: 55, SMALL_CAP: 55, MICRO_CAP: 55, NANO_CAP: 55 },
+            deliveryThresholdByCap: { MID_CAP: 55, SMALL_CAP: 70, MICRO_CAP: 85, NANO_CAP: 92 },
             rollingDensity: { enabled: true, lookbackDays: 15, minThresholdBreaches: 4 },
             deliveryVolumeZScore: { enabled: true, baselineDays: 60, minZScore: 2 },
             lvqDq: { enabled: true, rollingMinDays: 63, nearMinPctOfRollingMin: 95, lookbackDays: 15, requireDeliveryPass: true },

@@ -1,36 +1,12 @@
-import {
-  ArrowRightOutlined,
-  CheckCircleFilled,
-  ClockCircleFilled,
-  CloseCircleFilled,
-  InfoCircleFilled,
-  SearchOutlined,
-} from "@ant-design/icons";
-import { Alert, Button, Card, DatePicker, Input, InputNumber, Space, Spin, Table, Tag, Typography } from "antd";
-import type { TableColumnsType } from "antd";
+import { SearchOutlined } from "@ant-design/icons";
+import { Alert, Button, Card, DatePicker, Input, Space, Spin, Typography } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { BuySellChangeCalculator } from "../components/BuySellChangeCalculator";
-import { useStockDetail } from "../hooks/useStockDetail";
-import type {
-  BreakoutDayQualityResponse,
-  BreakoutQualityDecision,
-  BreakoutQualityRuleResult,
-  BreakoutQualityVerdict,
-} from "../types";
+import { useEffect, useState, type ReactNode } from "react";
+import type { BreakoutDayQualityResponse } from "../types";
 import { getJson } from "../utils/api";
-import { evaluateNextMorningOpen } from "../utils/breakoutExecution";
 import "./breakoutBuyReview.css";
 
 const { Text, Title } = Typography;
-
-const RULE_GUIDE = [
-  { key: "close", check: "Close near the high", pass: "≥80%", wait: "60–79%", reject: "<60%" },
-  { key: "volume", check: "Volume vs prior 10D", pass: "≥1.5×", wait: "1.0–1.49×", reject: "<1.0×" },
-  { key: "delivery", check: "Delivered qty vs prior 20D", pass: "≥1.25×", wait: "1.0–1.24×", reject: "<1.0×" },
-  { key: "line", check: "Close above breakout line", pass: "≥0.10 ATR", wait: "0–0.09 ATR", reject: "At/below" },
-  { key: "extension", check: "Not too extended", pass: "0–0.50 ATR", wait: "0.51–1.0 ATR", reject: ">1.0 ATR" },
-];
 
 function formatPrice(value: number | null): string {
   return value == null ? "—" : `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -40,19 +16,54 @@ function formatNumber(value: number | null): string {
   return value == null ? "—" : value.toLocaleString("en-IN", { maximumFractionDigits: 0 });
 }
 
-function label(value: string): string {
-  return value.toLowerCase().replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
+function formatMovement(from: number, to: number): string {
+  if (from <= 0) return "—";
+  const movementPct = (to / from - 1) * 100;
+  return `${movementPct >= 0 ? "+" : ""}${movementPct.toFixed(2)}%`;
 }
 
-function verdictIcon(verdict: BreakoutQualityVerdict | BreakoutQualityDecision): ReactNode {
-  if (verdict === "PASS") return <CheckCircleFilled />;
-  if (verdict === "REJECT") return <CloseCircleFilled />;
-  if (verdict === "WAIT") return <ClockCircleFilled />;
-  return <InfoCircleFilled />;
+function formatSignedPercent(value: number | null): string {
+  return value == null ? "—" : `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
 }
 
-function VerdictTag({ verdict }: { verdict: BreakoutQualityVerdict | BreakoutQualityDecision }): ReactNode {
-  return <Tag className={`breakout-buy-verdict breakout-buy-verdict-${verdict.toLowerCase()}`}>{verdictIcon(verdict)} {label(verdict)}</Tag>;
+function formatDate(value: string): string {
+  return dayjs(value).format("DD MMM YYYY");
+}
+
+function closePositionPct(low: number, high: number, close: number): number | null {
+  const range = high - low;
+  return range > 0 ? ((close - low) / range) * 100 : null;
+}
+
+function closePositionBand(value: number): "HIGH" | "MID" | "LOW" {
+  if (value >= 70) return "HIGH";
+  if (value <= 30) return "LOW";
+  return "MID";
+}
+
+function ClosePositionCell({ low, high, close }: { low: number; high: number; close: number }): ReactNode {
+  const value = closePositionPct(low, high, close);
+  if (value == null) return <span>—</span>;
+  const boundedValue = Math.max(0, Math.min(100, value));
+  const band = closePositionBand(value);
+  return (
+    <div
+      aria-label={`Close ${value.toFixed(1)}% between low and high`}
+      className={`breakout-buy-close-position breakout-buy-close-position-${band.toLowerCase()}`}
+    >
+      <div className="breakout-buy-close-position-heading">
+        <span className="breakout-buy-close-position-band">{band}</span>
+        <span className="breakout-buy-close-position-value">{value.toFixed(1)}%</span>
+      </div>
+      <div className="breakout-buy-close-position-scale">
+        <span>L</span>
+        <span className="breakout-buy-close-position-track">
+          <span className="breakout-buy-close-position-marker" style={{ left: `${boundedValue}%` }} />
+        </span>
+        <span>H</span>
+      </div>
+    </div>
+  );
 }
 
 function queryDefaults(): { symbol: string; date: Dayjs | null } {
@@ -71,15 +82,6 @@ export function BreakoutBuyReviewPage(): ReactNode {
   const [report, setReport] = useState<BreakoutDayQualityResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [nextOpen, setNextOpen] = useState<number | null>(null);
-  const { data: stockDetail } = useStockDetail(report?.symbol ?? null, 75);
-  const execution = useMemo(() => report ? evaluateNextMorningOpen(report, nextOpen) : null, [report, nextOpen]);
-  const deliveryFallback = useMemo(
-    () => stockDetail?.delivery_days.find((day) => day.date === report?.date),
-    [report?.date, stockDetail?.delivery_days],
-  );
-  const displayedDeliveryPercentage = report?.deliveryPercentage ?? deliveryFallback?.delivery_percentage ?? null;
-  const displayedDeliveredQuantity = report?.deliveredQuantity ?? deliveryFallback?.delivered_quantity ?? null;
 
   const runReview = (requestedSymbol: string = symbol, requestedDate: Dayjs | null = date): void => {
     const normalizedSymbol = requestedSymbol.trim().toUpperCase();
@@ -89,7 +91,6 @@ export function BreakoutBuyReviewPage(): ReactNode {
     }
     const formattedDate = requestedDate.format("YYYY-MM-DD");
     setLoading(true);
-    setNextOpen(null);
     setError(null);
     const params = new URLSearchParams({ symbol: normalizedSymbol, date: formattedDate });
     window.history.replaceState({}, "", `${window.location.pathname}?${params}`);
@@ -97,7 +98,7 @@ export function BreakoutBuyReviewPage(): ReactNode {
       .then(setReport)
       .catch((requestError: unknown) => {
         setReport(null);
-        setError(requestError instanceof Error ? requestError.message : "Unable to review this session.");
+        setError(requestError instanceof Error ? requestError.message : "Unable to load breakout-day data.");
       })
       .finally(() => setLoading(false));
   };
@@ -108,21 +109,13 @@ export function BreakoutBuyReviewPage(): ReactNode {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const resultColumns: TableColumnsType<BreakoutQualityRuleResult> = [
-    { title: "Check", dataIndex: "label", key: "label", width: 190, render: (value: string) => <strong>{value}</strong> },
-    { title: "Rule", dataIndex: "rule", key: "rule", width: 285 },
-    { title: "This day", dataIndex: "actual", key: "actual", width: 190, render: (value: string) => <strong>{value}</strong> },
-    { title: "Result", dataIndex: "verdict", key: "verdict", width: 115, render: (value: BreakoutQualityVerdict) => <VerdictTag verdict={value} /> },
-    { title: "Meaning", dataIndex: "explanation", key: "explanation" },
-  ];
-
   return (
     <main className="breakout-buy-page">
       <header className="breakout-buy-header">
         <div>
-          <Text className="breakout-buy-eyebrow">Historical · causal replay</Text>
+          <Text className="breakout-buy-eyebrow">Historical · raw session data</Text>
           <Title level={3}>Breakout Buy Review</Title>
-          <Text type="secondary">Pick any completed session. Later candles are never used.</Text>
+          <Text type="secondary">Select a completed session to inspect its breakout-day candle.</Text>
         </div>
         <Space.Compact className="breakout-buy-search">
           <Input
@@ -143,117 +136,85 @@ export function BreakoutBuyReviewPage(): ReactNode {
         </Space.Compact>
       </header>
 
-      <Card className="breakout-buy-rule-card" size="small">
-        <div className="breakout-buy-section-title"><strong>1A · Breakout-day rules</strong><Text type="secondary">Read this first; baselines exclude the selected day.</Text></div>
-        <table className="breakout-buy-rule-grid" aria-label="Breakout day quality rules">
-          <thead><tr><th>Check</th><th className="pass">Pass</th><th className="wait">Wait</th><th className="reject">Reject</th></tr></thead>
-          <tbody>{RULE_GUIDE.map((rule) => <tr key={rule.key}>
-            <th scope="row">{rule.check}</th><td className="pass">{rule.pass}</td><td className="wait">{rule.wait}</td><td className="reject">{rule.reject}</td>
-          </tr>)}</tbody>
-        </table>
-      </Card>
-
       {error && <Alert closable message={error} onClose={() => setError(null)} showIcon type="error" />}
-      {loading && <div className="breakout-buy-loading"><Spin /><Text type="secondary">Replaying structure through the selected date…</Text></div>}
+      {loading && <div className="breakout-buy-loading"><Spin /><Text type="secondary">Loading breakout-day data…</Text></div>}
 
-      {report && !loading && <>
-        <Card className={`breakout-buy-decision-card decision-${report.overallDecision.toLowerCase()}`} size="small">
-          <div className="breakout-buy-decision">
-            <div>
-              <Text className="breakout-buy-eyebrow">1B · {report.symbol} · {dayjs(report.date).format("DD MMM YYYY")}</Text>
-              <div className="breakout-buy-decision-line"><VerdictTag verdict={report.overallDecision} /><Title level={4}>{report.decisionSummary}</Title></div>
-              <Text>{label(report.structureDecision)} <ArrowRightOutlined /> {report.structureExplanation}</Text>
+      {report && !loading && (
+        <Card
+          className="breakout-buy-raw-card"
+          size="small"
+          title={
+            <div className="breakout-buy-raw-title">
+              <strong>Breakout-day raw data</strong>
+              <Text type="secondary">{report.symbol} · {dayjs(report.date).format("DD MMM YYYY")}</Text>
             </div>
-            <div className="breakout-buy-candle">
-              <span>O <b>{formatPrice(report.open)}</b></span><span>H <b>{formatPrice(report.high)}</b></span>
-              <span>L <b>{formatPrice(report.low)}</b></span><span>C <b>{formatPrice(report.close)}</b></span>
+          }
+        >
+          <div className="breakout-buy-raw-grid">
+            <div className="breakout-buy-raw-metric"><span>Open</span><strong>{formatPrice(report.open)}</strong></div>
+            <div className="breakout-buy-raw-metric"><span>High</span><strong>{formatPrice(report.high)}</strong></div>
+            <div className="breakout-buy-raw-metric"><span>Low</span><strong>{formatPrice(report.low)}</strong></div>
+            <div className="breakout-buy-raw-metric"><span>Close</span><strong>{formatPrice(report.close)}</strong></div>
+            <div className="breakout-buy-raw-metric"><span>Volume</span><strong>{formatNumber(report.volume)}</strong></div>
+            <div className="breakout-buy-raw-metric">
+              <span>Volume vs prior 10D avg</span>
+              <strong>{report.volumeVsTenDayAveragePct == null ? "—" : `${report.volumeVsTenDayAveragePct.toFixed(1)}%`}</strong>
             </div>
+            <div className="breakout-buy-raw-metric">
+              <span>Volume vs 20D quiet avg</span>
+              <strong>{report.volumeVsTwentyDayQuietAveragePct == null ? "—" : `${report.volumeVsTwentyDayQuietAveragePct.toFixed(1)}%`}</strong>
+            </div>
+            <div className="breakout-buy-raw-metric"><span>Vs prior 20D high</span><strong>{formatSignedPercent(report.volumeVsPriorTwentyDayHighChangePct)}</strong></div>
+            <div className="breakout-buy-raw-metric"><span>Low → High</span><strong>{formatMovement(report.low, report.high)}</strong></div>
+            <div className="breakout-buy-raw-metric"><span>Open → Close</span><strong>{formatMovement(report.open, report.close)}</strong></div>
           </div>
-          <div className="breakout-buy-metrics">
-            <span>Floor <b>{formatPrice(report.floor)}</b></span><span>Peak <b>{formatPrice(report.peak)}</b></span>
-            <span>Breakout line <b>{formatPrice(report.breakoutLine)}</b></span><span>ATR <b>{formatPrice(report.atr)}</b></span>
-            <span>SMA 50 <b>{formatPrice(report.sma50)}</b></span><span>SMA 200 <b>{formatPrice(report.sma200)}</b></span>
-            <span>Volume <b>{formatNumber(report.volume)}</b></span>
-            <span>Delivery % <b>{displayedDeliveryPercentage == null ? "—" : `${displayedDeliveryPercentage.toFixed(1)}%`}</b></span>
-            <span>Delivered qty <b>{formatNumber(displayedDeliveredQuantity)}</b></span>
-          </div>
+          <Text className="breakout-buy-raw-note" type="secondary">The 10D average and 20D quiet/high comparisons exclude the selected day. Quiet average = {report.twentyDayQuietAverageVolume == null ? "—" : formatNumber(report.twentyDayQuietAverageVolume)} shares, calculated from the five lowest volumes in the prior 20 sessions.</Text>
         </Card>
+      )}
 
-        <Card className="breakout-buy-results-card" size="small">
-          <div className="breakout-buy-section-title"><strong>1C · What this day actually did</strong><Text type="secondary">A missing input stays unavailable; it is never guessed.</Text></div>
-          <Table<BreakoutQualityRuleResult>
-            columns={resultColumns}
-            dataSource={report.rules}
-            pagination={false}
-            rowClassName={(rule) => `breakout-buy-result-${rule.verdict.toLowerCase()}`}
-            rowKey="key"
-            scroll={{ x: 980 }}
-            size="small"
-          />
-        </Card>
-
-        <Card className={`breakout-buy-results-card breakout-chart-card decision-${report.chartContext.overallDecision.toLowerCase()}`} size="small">
-          <div className="breakout-buy-context-heading">
-            <div>
-              <div className="breakout-buy-section-title"><strong>2 · Chart context</strong><Text type="secondary">Trend is context, not the breakout trigger.</Text></div>
-              <div className="breakout-buy-decision-line">
-                <VerdictTag verdict={report.chartContext.overallDecision} />
-                <Text strong>{report.chartContext.decisionSummary}</Text>
-              </div>
+      {report && !loading && (
+        <Card
+          className="breakout-buy-volume-card"
+          size="small"
+          title={
+            <div className="breakout-buy-raw-title">
+              <strong>Recent abnormal-volume days</strong>
+              <Text type="secondary">Prior 20 sessions · ≥5× quiet baseline</Text>
             </div>
-            <div className="breakout-buy-context-summary">
-              <span>Next obstacle<b>{report.chartContext.nextObstacleLabel ?? "Clear runway"}</b></span>
-              <span>Level<b>{formatPrice(report.chartContext.nextObstaclePrice)}</b></span>
-              <span>Room<b>{report.chartContext.roomToObstacleAtr == null ? "Clear" : `${report.chartContext.roomToObstacleAtr.toFixed(2)} ATR · ${report.chartContext.roomToObstaclePct?.toFixed(1)}%`}</b></span>
+          }
+        >
+          {report.recentAbnormalVolumeDays.length === 0 ? (
+            <Text type="secondary">No session reached 5× the quiet-volume baseline.</Text>
+          ) : (
+            <div className="breakout-buy-volume-table-wrap">
+              <table className="breakout-buy-volume-table">
+                <thead>
+                  <tr>
+                    <th>Date</th><th>Open</th><th>High</th><th>Low</th><th>Close</th>
+                    <th>Volume</th><th>Vs quiet avg</th><th>Close position</th><th>L → H</th><th>O → C</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.recentAbnormalVolumeDays.map((day) => (
+                    <tr key={day.date}>
+                      <td>{formatDate(day.date)}</td>
+                      <td>{formatPrice(day.open)}</td>
+                      <td>{formatPrice(day.high)}</td>
+                      <td>{formatPrice(day.low)}</td>
+                      <td>{formatPrice(day.close)}</td>
+                      <td>{formatNumber(day.volume)}</td>
+                      <td>{day.volumeVsQuietAveragePct.toFixed(1)}%</td>
+                      <td><ClosePositionCell close={day.close} high={day.high} low={day.low} /></td>
+                      <td>{formatSignedPercent(day.lowToHighPct)}</td>
+                      <td>{formatSignedPercent(day.openToClosePct)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
-          <Table<BreakoutQualityRuleResult>
-            columns={resultColumns}
-            dataSource={report.chartContext.rules}
-            pagination={false}
-            rowClassName={(rule) => `breakout-buy-result-${rule.verdict.toLowerCase()}`}
-            rowKey="key"
-            scroll={{ x: 980 }}
-            size="small"
-          />
+          )}
         </Card>
-
-        <Card className="breakout-buy-execution-card" size="small">
-          <div className="breakout-buy-execution-heading">
-            <div>
-              <div className="breakout-buy-section-title"><strong>3 · Next-morning execution</strong><Text type="secondary">Enter the next session's actual or expected open.</Text></div>
-              <div className="breakout-buy-entry-zones">
-                <span className="pass">Consider ≤0.25 ATR <b>{formatPrice(report.breakoutLine == null ? null : report.breakoutLine + 0.25 * report.atr)}</b></span>
-                <span className="wait">Wait 0.25–0.50 ATR</span>
-                <span className="reject">Do not chase &gt;0.50 ATR <b>{formatPrice(report.breakoutLine == null ? null : report.breakoutLine + 0.5 * report.atr)}</b></span>
-              </div>
-            </div>
-            <InputNumber
-              aria-label="Next session open price"
-              className="breakout-buy-open-input"
-              min={0.01}
-              onChange={setNextOpen}
-              placeholder="Next open"
-              precision={2}
-              prefix="₹"
-              value={nextOpen}
-            />
-          </div>
-
-          {execution ? <div className={`breakout-buy-execution-result execution-${execution.decision.toLowerCase()}`}>
-            <VerdictTag verdict={execution.decision} />
-            <strong>{execution.summary}</strong>
-            <span>Open vs line <b>{execution.openingExtensionAtr == null ? "—" : `${execution.openingExtensionAtr.toFixed(2)} ATR`}</b></span>
-            <span>Room left <b>{execution.roomToObstacleAtr == null ? "Clear" : `${execution.roomToObstacleAtr.toFixed(2)} ATR`}</b></span>
-          </div> : <Text className="breakout-buy-open-prompt" type="secondary">Enter the open price to see Pass, Wait, or Reject. This does not place an order.</Text>}
-
-          <div className="breakout-buy-inline-calculator">
-            <Text strong>Quick price calculator</Text>
-            <BuySellChangeCalculator />
-            <Text type="secondary">Enter any two: buy, sell, or change %.</Text>
-          </div>
-        </Card>
-      </>}
+      )}
     </main>
   );
 }

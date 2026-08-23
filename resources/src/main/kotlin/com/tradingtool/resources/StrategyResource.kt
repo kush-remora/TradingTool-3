@@ -5,6 +5,9 @@ import com.tradingtool.core.di.ResourceScope
 import com.tradingtool.core.strategy.absolutedelivery.AbsoluteDeliveryBacktestService
 import com.tradingtool.core.strategy.adaptivebreakout.AdaptiveBreakoutScannerService
 import com.tradingtool.core.strategy.adaptivebreakout.AdaptiveBreakoutBacktestRequest
+import com.tradingtool.core.strategy.emacontinuation.EmaContinuationStudyRequest
+import com.tradingtool.core.strategy.emacontinuation.EmaContinuationStudyService
+import com.tradingtool.core.strategy.emacontinuation.EmaContinuationWatchlistStudyRequest
 import com.tradingtool.core.strategy.fiftytwohigh.ChartinkFiftyTwoWeekHighReportService
 import com.tradingtool.core.strategy.hotsma.HotSmaRunConfig
 import com.tradingtool.core.strategy.hotsma.HotSmaRunRequest
@@ -23,6 +26,7 @@ import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1ConfigService
 import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1RunConfig
 import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1RunRequest
 import com.tradingtool.core.strategy.wyckoff.phase1.WyckoffPhase1ScannerService
+import com.tradingtool.core.strategy.wyckoff.observation.WyckoffRawObservationService
 import com.tradingtool.core.volumeshocker.groww.GrowwVolumeShockerDashboardService
 import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceService
 import com.tradingtool.core.strategy.chartinkevidence.ChartinkEvidenceUploadRequest
@@ -42,6 +46,8 @@ import com.tradingtool.core.strategy.weeklylowalignmentbacktest.WeeklyLowAlignme
 import com.tradingtool.core.strategy.twodayclosestrengthbacktest.TwoDayCloseStrengthBacktestRequest
 import com.tradingtool.core.strategy.twodayclosestrengthbacktest.TwoDayCloseStrengthBacktestRunConfig
 import com.tradingtool.core.strategy.twodayclosestrengthbacktest.TwoDayCloseStrengthBacktestService
+import com.tradingtool.core.strategy.fourdayclosestrengthbacktest.FourDayCloseStrengthBacktestRequest
+import com.tradingtool.core.strategy.fourdayclosestrengthbacktest.FourDayCloseStrengthBacktestService
 import com.tradingtool.core.strategy.weeklylowretestbacktest.WeeklyLowRetestBacktestRequest
 import com.tradingtool.core.strategy.weeklylowretestbacktest.WeeklyLowRetestBacktestRunConfig
 import com.tradingtool.core.strategy.weeklylowretestbacktest.WeeklyLowRetestBacktestService
@@ -85,9 +91,11 @@ class StrategyResource @Inject constructor(
     private val volumeEventConfirmationBacktestService: VolumeEventConfirmationBacktestService,
     private val absoluteDeliveryBacktestService: AbsoluteDeliveryBacktestService,
     private val adaptiveBreakoutScannerService: AdaptiveBreakoutScannerService,
+    private val emaContinuationStudyService: EmaContinuationStudyService,
     private val deliveryBreakoutScannerService: DeliveryBreakoutScannerService,
     private val wyckoffPhase1ScannerService: WyckoffPhase1ScannerService,
     private val wyckoffPhase1ConfigService: WyckoffPhase1ConfigService,
+    private val wyckoffRawObservationService: WyckoffRawObservationService,
     private val growwVolumeShockerDashboardService: GrowwVolumeShockerDashboardService,
     private val chartinkFiftyTwoWeekHighReportService: ChartinkFiftyTwoWeekHighReportService,
     private val phaseCWatchlistService: com.tradingtool.core.strategy.phasedbreakout.PhaseCWatchlistService,
@@ -102,6 +110,7 @@ class StrategyResource @Inject constructor(
     private val weeklyLowLimitBacktestService: WeeklyLowLimitBacktestService,
     private val weeklyLowAlignmentBacktestService: WeeklyLowAlignmentBacktestService,
     private val twoDayCloseStrengthBacktestService: TwoDayCloseStrengthBacktestService,
+    private val fourDayCloseStrengthBacktestService: FourDayCloseStrengthBacktestService,
     private val weeklyLowRetestBacktestService: WeeklyLowRetestBacktestService,
     private val baseRetestBacktestService: BaseRetestBacktestService,
     private val weeklyBaseDefinitionService: WeeklyBaseDefinitionService,
@@ -300,6 +309,41 @@ class StrategyResource @Inject constructor(
     }
 
     @GET
+    @Path("/wyckoff/observation/watchlists")
+    fun getWyckoffObservationWatchlists(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(wyckoffRawObservationService.listWatchlists())
+    }
+
+    @GET
+    @Path("/wyckoff/observation")
+    fun getWyckoffRawObservation(
+        @QueryParam("watchlist") watchlist: String?,
+        @QueryParam("symbol") symbol: String?,
+        @QueryParam("asOfDate") asOfDate: String?,
+        @QueryParam("days") days: Int?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val parsedAsOfDate = try {
+            asOfDate?.takeIf(String::isNotBlank)?.let(LocalDate::parse) ?: LocalDate.now()
+        } catch (_: Exception) {
+            return@endpoint badRequest("asOfDate must be a valid ISO date in YYYY-MM-DD format.")
+        }
+        try {
+            ok(
+                wyckoffRawObservationService.observe(
+                    watchlist = watchlist,
+                    symbol = symbol,
+                    asOfDate = parsedAsOfDate,
+                    lookbackCalendarDays = days ?: 180,
+                ),
+            )
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid Wyckoff observation request.")
+        } catch (error: IllegalStateException) {
+            notFound(error.message ?: "No daily candle data available.")
+        }
+    }
+
+    @GET
     @Path("/weekly-price-review/watchlists")
     fun getWeeklyPriceReviewWatchlists(): CompletableFuture<Response> = ioScope.endpoint {
         ok(weeklyPriceWatchlistScannerService.listWatchlists())
@@ -309,6 +353,52 @@ class StrategyResource @Inject constructor(
     @Path("/adaptive-breakout/watchlists")
     fun getAdaptiveBreakoutWatchlists(): CompletableFuture<Response> = ioScope.endpoint {
         ok(adaptiveBreakoutScannerService.listWatchlists())
+    }
+
+    @GET
+    @Path("/ema-continuation/watchlists")
+    fun getEmaContinuationWatchlists(): CompletableFuture<Response> = ioScope.endpoint {
+        ok(emaContinuationStudyService.listWatchlists())
+    }
+
+    @POST
+    @Path("/ema-continuation/study")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runEmaContinuationStudy(request: EmaContinuationStudyRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        try {
+            ok(emaContinuationStudyService.study(validateEmaContinuationStudyRequest(body)))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid EMA continuation study request.")
+        } catch (error: IllegalStateException) {
+            notFound(error.message ?: "No daily candle data available.")
+        }
+    }
+
+    @POST
+    @Path("/ema-continuation/watchlist-study")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runEmaContinuationWatchlistStudy(request: EmaContinuationWatchlistStudyRequest?): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        try {
+            ok(emaContinuationStudyService.studyWatchlist(validateEmaContinuationWatchlistStudyRequest(body)))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid EMA continuation watchlist study request.")
+        } catch (error: IllegalStateException) {
+            notFound(error.message ?: "No daily candle data available.")
+        }
+    }
+
+    @GET
+    @Path("/ema-continuation/current")
+    fun getEmaContinuationCurrent(@QueryParam("symbol") symbol: String?): CompletableFuture<Response> = ioScope.endpoint {
+        try {
+            ok(emaContinuationStudyService.current(symbol.orEmpty()))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid EMA continuation current request.")
+        } catch (error: IllegalStateException) {
+            notFound(error.message ?: "No daily candle data available.")
+        }
     }
 
     @GET
@@ -714,6 +804,20 @@ class StrategyResource @Inject constructor(
             )
         } catch (error: IllegalArgumentException) {
             badRequest(error.message ?: "Invalid two-day close-strength backtest request.")
+        }
+    }
+
+    @POST
+    @Path("/four-day-close-strength-backtest/run")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun runFourDayCloseStrengthBacktest(
+        request: FourDayCloseStrengthBacktestRequest?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val body = request ?: return@endpoint badRequest("Request body is required.")
+        try {
+            ok(fourDayCloseStrengthBacktestService.run(body))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid four-day close-strength backtest request.")
         }
     }
 

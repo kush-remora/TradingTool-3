@@ -1,0 +1,5 @@
+# Breakout Buy Review: raw breakout-day data
+
+The review screen is an inspection surface, not a decision engine. It should show the selected breakout day's OHLC, traded volume, two volume baselines, and Low→High/Open→Close price movement, followed by a compact table of abnormal-volume sessions in the prior 20 sessions. Existing quality verdicts, delivery context, chart interpretation, execution guidance, and calculators are intentionally out of scope for this screen.
+
+The API exposes `volumeVsTenDayAveragePct` as the selected day's volume divided by the average volume of the prior 10 completed sessions, multiplied by 100. It also exposes `twentyDayQuietAverageVolume`, `volumeVsTwentyDayQuietAveragePct`, and `volumeVsPriorTwentyDayHighChangePct`. The quiet baseline is the average of the five lowest volumes in the prior 20 sessions; the abnormal-volume table lists prior-20-session days at least 5× that baseline, newest first. Each row also shows the close position between its low and high, plus Low→High and Open→Close movement. The selected day is excluded from all baselines; fewer than 20 prior sessions returns the 20-day fields and table as unavailable.
