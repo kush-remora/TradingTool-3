@@ -131,13 +131,23 @@ interface WeeklyLowLimitDailyValidationRoute {
 type Route = PageKey | ForwardAccumulationTimelineRoute | WeeklyLowLimitDailyValidationRoute;
 
 const menuItems: MenuProps["items"] = [
-  { key: "summary-console", label: "Summary Console", icon: <FundOutlined /> },
-  { key: "short-horizon-selector", label: "5-Day Stock Selector", icon: <LineChartOutlined /> },
+  { key: "adaptive-breakout", label: "Adaptive Breakout Scanner", icon: <LineChartOutlined /> },
+  { key: "breakout-buy-review", label: "Breakout Buy Review", icon: <LineChartOutlined /> },
+  { key: "breakout-tracker", label: "Breakout Tracker", icon: <LineChartOutlined /> },
+  { key: "stock-history-download", label: "Stock History CSV", icon: <DownloadOutlined /> },
+  {
+    key: "three-week-watchlist-review",
+    label: "Three-Week Stock Review + Current Week",
+    icon: <LineChartOutlined />,
+  },
+  { key: "compact-stock-review", label: "Compact Stock Review (New)", icon: <LineChartOutlined /> },
   {
     key: "adaptive-breakout-backtest",
     label: "Adaptive Breakout Backtest",
     icon: <LineChartOutlined />,
   },
+  { key: "summary-console", label: "Summary Console", icon: <FundOutlined /> },
+  { key: "short-horizon-selector", label: "5-Day Stock Selector", icon: <LineChartOutlined /> },
   { key: "ema-continuation", label: "EMA Continuation Study", icon: <LineChartOutlined /> },
   { key: "volume-shocker", label: "Volume Shocker", icon: <FundOutlined /> },
   {
@@ -215,16 +225,6 @@ const menuItems: MenuProps["items"] = [
     icon: <LineChartOutlined />,
   },
   {
-    key: "compact-stock-review",
-    label: "Compact Stock Review (New)",
-    icon: <LineChartOutlined />,
-  },
-  {
-    key: "three-week-watchlist-review",
-    label: "Three-Week Stock Review + Current Week",
-    icon: <LineChartOutlined />,
-  },
-  {
     key: "weekly-low-alignment",
     label: "Weekly Low Alignment Summary",
     icon: <LineChartOutlined />,
@@ -248,16 +248,6 @@ const menuItems: MenuProps["items"] = [
     key: "price-acceptance",
     label: "Price Acceptance Scanner",
     icon: <BarChartOutlined />,
-  },
-  {
-    key: "adaptive-breakout",
-    label: "Adaptive Breakout Scanner",
-    icon: <LineChartOutlined />,
-  },
-  {
-    key: "breakout-buy-review",
-    label: "Breakout Buy Review",
-    icon: <LineChartOutlined />,
   },
   {
     key: "52w-momentum-rule5",
@@ -301,17 +291,11 @@ const menuItems: MenuProps["items"] = [
     icon: <BarChartOutlined />,
   },
   {
-    key: "breakout-tracker",
-    label: "Breakout Tracker",
-    icon: <LineChartOutlined />,
-  },
-  {
     key: "netweb-cycle",
     label: "NETWEB Cycle Tracker",
     icon: <LineChartOutlined />,
   },
   { key: "trade", label: "Trade Book", icon: <BookOutlined /> },
-  { key: "stock-history-download", label: "Stock History CSV", icon: <DownloadOutlined /> },
 ];
 
 const validPages: PageKey[] = [
