@@ -1,11 +1,16 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DeliveryBreakoutScannerPage } from "./DeliveryBreakoutScannerPage";
 
 const useDeliveryBreakoutScannerMock = vi.fn();
+const useStockQuotesMock = vi.fn();
 
 vi.mock("../hooks/useDeliveryBreakoutScanner", () => ({
   useDeliveryBreakoutScanner: () => useDeliveryBreakoutScannerMock(),
+}));
+
+vi.mock("../hooks/useStockQuotes", () => ({
+  useStockQuotes: () => useStockQuotesMock(),
 }));
 
 const response = {
@@ -29,6 +34,8 @@ const response = {
       event_date: "2026-06-23",
       event_type: "BOTH",
       close: 1540.5,
+      event_high: 1570,
+      event_low: 1480,
       prev_close: 1492.74,
       close_pct_change: 3.2,
       fifty_two_week_high: 1600,
@@ -47,6 +54,8 @@ const response = {
       event_date: "2026-06-22",
       event_type: "DELIVERY_ONLY",
       close: 3000,
+      event_high: 3020,
+      event_low: 2970,
       prev_close: 2990,
       close_pct_change: 0.33,
       fifty_two_week_high: 3500,
@@ -65,6 +74,8 @@ const response = {
       event_date: "2026-06-20",
       event_type: "VOLUME_ONLY",
       close: 500,
+      event_high: 510,
+      event_low: 490,
       prev_close: 495,
       close_pct_change: 1.01,
       fifty_two_week_high: 600,
@@ -83,10 +94,21 @@ const response = {
 describe("DeliveryBreakoutScannerPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useStockQuotesMock.mockReturnValue({
+      quotesBySymbol: {
+        INFY: { symbol: "INFY", ltp: 1600 },
+        TCS: { symbol: "TCS", ltp: 2980 },
+        WIPRO: { symbol: "WIPRO", ltp: 505 },
+      },
+      loading: false,
+      error: null,
+    });
   });
 
   it("loads a selected watchlist and renders all event types", async () => {
     const loadDashboard = vi.fn().mockResolvedValue(response);
+    const loadDashboards = vi.fn().mockResolvedValue({ dashboards: [response], errors: [] });
+    const clear = vi.fn();
     const loadWatchlists = vi.fn().mockResolvedValue({
       options: [{ label: "growth_watchlist", value: "growth_watchlist", count: 3 }],
     });
@@ -98,6 +120,8 @@ describe("DeliveryBreakoutScannerPage", () => {
       error: null,
       loadWatchlists,
       loadDashboard,
+      loadDashboards,
+      clear,
     });
 
     render(<DeliveryBreakoutScannerPage />);
@@ -112,6 +136,10 @@ describe("DeliveryBreakoutScannerPage", () => {
     expect(screen.getByText("BOTH")).toBeInTheDocument();
     expect(screen.getByText("DELIVERY_ONLY")).toBeInTheDocument();
     expect(screen.getByText("VOLUME_ONLY")).toBeInTheDocument();
+    expect(screen.getAllByText("Price Context").length).toBeGreaterThan(0);
+    expect(screen.getByText("₹1,600.00")).toBeInTheDocument();
+    expect(screen.getByText("+3.86% vs event")).toBeInTheDocument();
+    expect(screen.getAllByText("Close→High")).toHaveLength(3);
     expect(screen.getByRole("link", { name: "Open INFY three-week review" })).toHaveAttribute(
       "href",
       "/TradingTool-3/console/three-week-stock-review?symbol=INFY",
@@ -136,10 +164,47 @@ describe("DeliveryBreakoutScannerPage", () => {
       error: null,
       loadWatchlists: vi.fn().mockResolvedValue({ options: [] }),
       loadDashboard: vi.fn().mockResolvedValue(emptyResponse),
+      loadDashboards: vi.fn().mockResolvedValue({ dashboards: [], errors: [] }),
+      clear: vi.fn(),
     });
 
     render(<DeliveryBreakoutScannerPage />);
 
     expect(screen.getByText("No unusual volume or delivery events matched this window.")).toBeInTheDocument();
+  });
+
+  it("runs multiple selected watchlists together", async () => {
+    const loadDashboard = vi.fn().mockResolvedValue(response);
+    const loadDashboards = vi.fn().mockResolvedValue({ dashboards: [response], errors: [] });
+    useDeliveryBreakoutScannerMock.mockReturnValue({
+      watchlists: [
+        { label: "growth_watchlist", value: "growth_watchlist", count: 3 },
+        { label: "core", value: "core", count: 5 },
+      ],
+      data: response,
+      multiData: null,
+      loadingWatchlists: false,
+      loading: false,
+      error: null,
+      loadWatchlists: vi.fn().mockResolvedValue({
+        options: [
+          { label: "growth_watchlist", value: "growth_watchlist", count: 3 },
+          { label: "core", value: "core", count: 5 },
+        ],
+      }),
+      loadDashboard,
+      loadDashboards,
+      clear: vi.fn(),
+    });
+
+    render(<DeliveryBreakoutScannerPage />);
+
+    const watchlist = await screen.findByRole("combobox", { name: "Watchlist" });
+    fireEvent.mouseDown(watchlist);
+    fireEvent.click(await screen.findByText("core (5)"));
+
+    await waitFor(() => {
+      expect(loadDashboards).toHaveBeenCalledWith(["growth_watchlist", "core"], undefined);
+    });
   });
 });

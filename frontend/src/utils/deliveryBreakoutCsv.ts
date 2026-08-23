@@ -1,6 +1,7 @@
 import type { DeliveryBreakoutDashboardRow } from "../types";
 
 const CSV_HEADERS = [
+  "Watchlist",
   "Symbol",
   "Instrument Token",
   "Event Date",
@@ -32,6 +33,7 @@ export function buildDeliveryBreakoutCsv(rows: DeliveryBreakoutDashboardRow[]): 
   const csvRows = rows.map((row) => {
     const price = row.close;
     return [
+      row.watchlist_key,
       row.symbol,
       row.instrument_token,
       row.event_date,

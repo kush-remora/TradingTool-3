@@ -2,11 +2,10 @@ import dayjs, { type Dayjs } from "dayjs";
 import { DownloadOutlined } from "@ant-design/icons";
 import { Alert, Button, Card, DatePicker, Empty, InputNumber, Select, Space, Spin, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useDeliveryBreakoutScanner } from "../hooks/useDeliveryBreakoutScanner";
 import { useStockQuotes } from "../hooks/useStockQuotes";
-import { resolveMarketChangePercent } from "../components/liveMarketCell";
-import type { DeliveryBreakoutDashboardRow } from "../types";
+import type { DeliveryBreakoutDashboardMeta, DeliveryBreakoutDashboardRow } from "../types";
 import { buildDeliveryBreakoutCsv } from "../utils/deliveryBreakoutCsv";
 
 function formatNumber(value: number | null | undefined, fractionDigits: number = 2): string {
@@ -26,8 +25,50 @@ function formatPercent(value: number | null | undefined): string {
   return value == null ? "-" : `${formatNumber(value)}%`;
 }
 
+function formatPrice(value: number | null | undefined): string {
+  return value == null ? "-" : `₹${formatNumber(value)}`;
+}
+
+function formatSignedPercent(value: number | null | undefined): string {
+  if (value == null) return "-";
+  return `${value > 0 ? "+" : ""}${formatNumber(value)}%`;
+}
+
 function formatRatio(value: number | null | undefined): string {
   return value == null ? "-" : `${formatNumber(value)}x`;
+}
+
+function calculatePercentDifference(value: number | null, reference: number | null): number | null {
+  if (value == null || reference == null || reference === 0) return null;
+  return ((value - reference) / reference) * 100;
+}
+
+function calculateLowToHighPercent(low: number | null, high: number | null): number | null {
+  if (low == null || high == null || low <= 0) return null;
+  return ((high - low) / low) * 100;
+}
+
+function calculateCloseNearHighPercent(low: number | null, high: number | null, close: number | null): number | null {
+  if (low == null || high == null || close == null || high <= low) return null;
+  return Math.max(0, Math.min(100, ((close - low) / (high - low)) * 100));
+}
+
+function signedMetricColor(value: number | null): string {
+  if (value == null || value === 0) return "#8c8c8c";
+  return value > 0 ? "#237804" : "#cf1322";
+}
+
+function closeNearHighColor(value: number | null): string {
+  if (value == null) return "#8c8c8c";
+  if (value >= 70) return "#237804";
+  if (value <= 30) return "#cf1322";
+  return "#ad6800";
+}
+
+function sortNullableNumbers(left: number | null, right: number | null): number {
+  if (left == null) return right == null ? 0 : 1;
+  if (right == null) return -1;
+  return left - right;
 }
 
 function eventColor(eventType: string): string {
@@ -44,30 +85,103 @@ function buildKiteChartUrl(symbol: string, instrumentToken: number): string {
   return `https://kite.zerodha.com/chart/web/tvc/NSE/${encodeURIComponent(symbol)}/${instrumentToken}`;
 }
 
+function PriceContextCell({ row, ltp }: { row: DeliveryBreakoutDashboardRow; ltp: number | null }): ReactNode {
+  const ltpVsEvent = calculatePercentDifference(ltp, row.close);
+  const eventRange = calculateLowToHighPercent(row.event_low, row.event_high);
+  const closeNearHigh = calculateCloseNearHighPercent(row.event_low, row.event_high, row.close);
+
+  return (
+    <div
+      title="LTP is the latest traded price. Close→High is the event-day close position from low (0%) to high (100%)."
+      style={{ minWidth: 215, fontSize: 12, lineHeight: 1.45 }}
+    >
+      <div>
+        <span style={{ color: "#8c8c8c" }}>LTP </span>
+        <strong>{formatPrice(ltp)}</strong>
+        <span style={{ color: signedMetricColor(ltpVsEvent), marginLeft: 8 }}>
+          {formatSignedPercent(ltpVsEvent)} vs event
+        </span>
+      </div>
+      <div>
+        <span style={{ color: "#8c8c8c" }}>Event </span>
+        <strong>{formatPrice(row.close)}</strong>
+        <span style={{ color: "#8c8c8c", marginLeft: 8 }}>Prev→Event </span>
+        <span style={{ color: signedMetricColor(row.close_pct_change), fontWeight: 600 }}>
+          {formatSignedPercent(row.close_pct_change)}
+        </span>
+      </div>
+      <div style={{ color: "#595959" }}>
+        Low→High <span style={{ fontWeight: 600 }}>{formatPercent(eventRange)}</span>
+        <span style={{ color: "#8c8c8c", marginLeft: 8 }}>Close→High </span>
+        <span style={{ color: closeNearHighColor(closeNearHigh), fontWeight: 600 }}>
+          {formatPercent(closeNearHigh)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function DeliveryBreakoutScannerPage() {
   const {
     watchlists,
     data,
+    multiData,
     loadingWatchlists,
     loading,
     error,
     loadWatchlists,
     loadDashboard,
+    loadDashboards,
+    clear,
   } = useDeliveryBreakoutScanner();
-  const [selectedWatchlist, setSelectedWatchlist] = useState<string | null>(null);
+  const [selectedWatchlists, setSelectedWatchlists] = useState<string[]>([]);
   const [selectedTradeDate, setSelectedTradeDate] = useState<string | null>(null);
   const [eventType, setEventType] = useState<string | null>(null);
   const [minVolumeRatio, setMinVolumeRatio] = useState<number | null>(null);
   const [minDeliveryRatio, setMinDeliveryRatio] = useState<number | null>(null);
-  const quoteSymbols = useMemo(() => (data?.rows ?? []).map((row) => row.symbol), [data?.rows]);
+  const reports = useMemo(
+    () => multiData?.dashboards ?? (data ? [data] : []),
+    [data, multiData],
+  );
+  const tableRows = useMemo(() => reports.flatMap((report) => report.rows.map((row) => ({
+    ...row,
+    watchlist_key: report.meta.watchlist_key,
+  }))), [reports]);
+  const summaryMeta = useMemo<DeliveryBreakoutDashboardMeta | null>(() => {
+    if (reports.length === 0) return null;
+    const first = reports[0].meta;
+    return {
+      watchlist_key: reports.map((report) => report.meta.watchlist_key).join(", "),
+      trade_date: reports.map((report) => report.meta.trade_date).sort().at(-1) ?? first.trade_date,
+      window_start_date: reports.map((report) => report.meta.window_start_date).sort().at(0) ?? first.window_start_date,
+      window_end_date: reports.map((report) => report.meta.window_end_date).sort().at(-1) ?? first.window_end_date,
+      scanned_count: reports.reduce((total, report) => total + report.meta.scanned_count, 0),
+      data_available_count: reports.reduce((total, report) => total + report.meta.data_available_count, 0),
+      event_count: reports.reduce((total, report) => total + report.meta.event_count, 0),
+      both_count: reports.reduce((total, report) => total + report.meta.both_count, 0),
+      delivery_only_count: reports.reduce((total, report) => total + report.meta.delivery_only_count, 0),
+      volume_only_count: reports.reduce((total, report) => total + report.meta.volume_only_count, 0),
+      no_event_count: reports.reduce((total, report) => total + report.meta.no_event_count, 0),
+    };
+  }, [reports]);
+  const quoteSymbols = useMemo(() => tableRows.map((row) => row.symbol), [tableRows]);
   const { quotesBySymbol } = useStockQuotes(quoteSymbols);
+
+  const runSelectedScan = useCallback((): void => {
+    if (selectedWatchlists.length === 0) return;
+    if (selectedWatchlists.length === 1) {
+      void loadDashboard(selectedWatchlists[0], selectedTradeDate ?? undefined).catch(() => undefined);
+      return;
+    }
+    void loadDashboards(selectedWatchlists, selectedTradeDate ?? undefined).catch(() => undefined);
+  }, [loadDashboard, loadDashboards, selectedTradeDate, selectedWatchlists]);
 
   useEffect(() => {
     let active = true;
     void loadWatchlists()
       .then((result) => {
         if (active && result.options.length > 0) {
-          setSelectedWatchlist(result.options[0].value);
+          setSelectedWatchlists([result.options[0].value]);
         }
       })
       .catch(() => undefined);
@@ -77,20 +191,30 @@ export function DeliveryBreakoutScannerPage() {
   }, [loadWatchlists]);
 
   useEffect(() => {
-    if (!selectedWatchlist) return;
-    void loadDashboard(selectedWatchlist, selectedTradeDate ?? undefined).catch(() => undefined);
-  }, [loadDashboard, selectedTradeDate, selectedWatchlist]);
+    runSelectedScan();
+  }, [runSelectedScan, selectedWatchlists.length]);
 
   const filteredRows = useMemo(() => {
-    return (data?.rows ?? []).filter((row) => {
+    return tableRows.filter((row) => {
       if (eventType && row.event_type !== eventType) return false;
       if (minVolumeRatio !== null && (row.volume_ratio ?? 0) < minVolumeRatio) return false;
       if (minDeliveryRatio !== null && (row.delivery_ratio ?? 0) < minDeliveryRatio) return false;
       return true;
     });
-  }, [data?.rows, eventType, minDeliveryRatio, minVolumeRatio]);
+  }, [eventType, minDeliveryRatio, minVolumeRatio, tableRows]);
 
   const columns = useMemo<ColumnsType<DeliveryBreakoutDashboardRow>>(() => [
+    {
+      title: "Watchlist",
+      dataIndex: "watchlist_key",
+      key: "watchlist_key",
+      sorter: (left, right) => (left.watchlist_key ?? "").localeCompare(right.watchlist_key ?? ""),
+      filters: Array.from(new Set(tableRows.map((row) => row.watchlist_key).filter((value): value is string => value != null)))
+        .sort()
+        .map((value) => ({ text: value, value })),
+      onFilter: (value, row) => row.watchlist_key === String(value),
+      render: (value: string | undefined) => value ?? "-",
+    },
     {
       title: "Symbol",
       dataIndex: "symbol",
@@ -139,25 +263,13 @@ export function DeliveryBreakoutScannerPage() {
       onFilter: (value, row) => row.event_type === String(value),
     },
     {
-      title: "Price Context",
+      title: <span title="Click to sort by previous close → event-day close percentage">Price Context</span>,
       key: "price",
       render: (_value: unknown, row: DeliveryBreakoutDashboardRow) => {
         const quote = quotesBySymbol[row.symbol.toUpperCase()];
-        const price = quote?.ltp ?? row.close;
-        const change = quote?.change_percent ?? row.close_pct_change;
-        return (
-          <div>
-            <Typography.Text strong>₹{formatNumber(price)}</Typography.Text>
-            <div style={{ color: change == null ? "inherit" : change >= 0 ? "green" : "red", fontSize: 12 }}>
-              Event day: {formatPercent(change)}
-            </div>
-            <div style={{ fontSize: 11, color: "gray" }}>Prev close: ₹{formatNumber(row.prev_close)}</div>
-          </div>
-        );
+        return <PriceContextCell row={row} ltp={quote?.ltp ?? null} />;
       },
-      sorter: (left, right) =>
-        (resolveMarketChangePercent(left.symbol, quotesBySymbol[left.symbol.toUpperCase()], left.close_pct_change) ?? Number.NEGATIVE_INFINITY) -
-        (resolveMarketChangePercent(right.symbol, quotesBySymbol[right.symbol.toUpperCase()], right.close_pct_change) ?? Number.NEGATIVE_INFINITY),
+      sorter: (left, right) => sortNullableNumbers(left.close_pct_change, right.close_pct_change),
     },
     {
       title: "Volume Evidence",
@@ -193,11 +305,12 @@ export function DeliveryBreakoutScannerPage() {
         return <div style={{ fontSize: 12 }}>High: {formatPercent(highDistance)}<br />Low: {formatPercent(lowDistance)}</div>;
       },
     },
-  ], [quotesBySymbol]);
+  ], [quotesBySymbol, tableRows]);
 
-  const handleWatchlistChange = (value: string): void => {
-    setSelectedWatchlist(value);
+  const handleWatchlistChange = (values: string[]): void => {
+    setSelectedWatchlists(values);
     setSelectedTradeDate(null);
+    clear();
   };
 
   const handleDateChange = (value: Dayjs | null): void => {
@@ -211,13 +324,13 @@ export function DeliveryBreakoutScannerPage() {
   };
 
   const downloadCsv = (): void => {
-    if (!data || data.rows.length === 0) return;
+    if (tableRows.length === 0 || !summaryMeta) return;
 
-    const blob = new Blob(["\uFEFF", buildDeliveryBreakoutCsv(data.rows)], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob(["\uFEFF", buildDeliveryBreakoutCsv(tableRows)], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `delivery_breakout_${data.meta.watchlist_key}_${data.meta.trade_date}.csv`;
+    link.download = `delivery_breakout_${summaryMeta.watchlist_key.replace(/[^a-zA-Z0-9_-]+/g, "_")}_${summaryMeta.trade_date}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -231,10 +344,10 @@ export function DeliveryBreakoutScannerPage() {
           title="Delivery Breakout Validation"
           extra={(
             <Space>
-              <Button icon={<DownloadOutlined />} disabled={!data || data.rows.length === 0} onClick={downloadCsv}>
+              <Button icon={<DownloadOutlined />} disabled={tableRows.length === 0} onClick={downloadCsv}>
                 Download CSV
               </Button>
-              <Button onClick={() => selectedWatchlist && void loadDashboard(selectedWatchlist, selectedTradeDate ?? undefined)} loading={loading}>
+              <Button onClick={runSelectedScan} loading={loading} disabled={selectedWatchlists.length === 0}>
                 Reload
               </Button>
             </Space>
@@ -242,31 +355,39 @@ export function DeliveryBreakoutScannerPage() {
         >
           <Space orientation="vertical" size={12} style={{ width: "100%" }}>
             <Typography.Text type="secondary">
-              Select a watchlist to find unusual volume, unusual delivery, or both across the last 10 trading sessions.
+              Select one or more watchlists to find unusual volume, unusual delivery, or both across the last 10 trading sessions.
             </Typography.Text>
-            {error && <Alert type="error" message={error} showIcon />}
+            {(error || multiData?.errors.length) ? (
+              <Alert
+                type="error"
+                message={error ?? multiData?.errors.map((item) => `${item.watchlist_key}: ${item.message}`).join(" · ")}
+                showIcon
+              />
+            ) : null}
             <Space wrap>
               <Select
                 aria-label="Watchlist"
+                mode="multiple"
                 showSearch
                 loading={loadingWatchlists}
-                value={selectedWatchlist ?? undefined}
+                value={selectedWatchlists}
                 onChange={handleWatchlistChange}
-                placeholder="Select a watchlist"
-                style={{ width: 320 }}
+                placeholder="Select one or more watchlists"
+                maxTagCount="responsive"
+                style={{ width: 420 }}
                 options={watchlists.map((option) => ({ value: option.value, label: `${option.label} (${option.count})` }))}
               />
               <DatePicker
                 aria-label="End date"
-                value={selectedTradeDate ? dayjs(selectedTradeDate) : data ? dayjs(data.meta.trade_date) : null}
+                value={selectedTradeDate ? dayjs(selectedTradeDate) : summaryMeta ? dayjs(summaryMeta.trade_date) : null}
                 onChange={handleDateChange}
                 allowClear={false}
               />
               <Button
                 type="primary"
-                disabled={!selectedWatchlist || loading}
+                disabled={selectedWatchlists.length === 0 || loading}
                 loading={loading}
-                onClick={() => selectedWatchlist && void loadDashboard(selectedWatchlist, selectedTradeDate ?? undefined)}
+                onClick={runSelectedScan}
               >
                 Run Scan
               </Button>
@@ -274,24 +395,24 @@ export function DeliveryBreakoutScannerPage() {
           </Space>
         </Card>
 
-        {loadingWatchlists && !data ? <Spin /> : null}
-        {data ? (
+        {loadingWatchlists && !summaryMeta ? <Spin /> : null}
+        {summaryMeta ? (
           <Card size="small">
             <Space wrap>
-              <Tag color="blue">{data.meta.watchlist_key}</Tag>
-              <Tag>{data.meta.window_start_date} → {data.meta.window_end_date}</Tag>
-              <Tag>Scanned {formatInteger(data.meta.scanned_count)}</Tag>
-              <Tag>Data available {formatInteger(data.meta.data_available_count)}</Tag>
-              <Tag color="green">Both {formatInteger(data.meta.both_count)}</Tag>
-              <Tag color="blue">Delivery only {formatInteger(data.meta.delivery_only_count)}</Tag>
-              <Tag color="orange">Volume only {formatInteger(data.meta.volume_only_count)}</Tag>
-              <Tag>No event {formatInteger(data.meta.no_event_count)}</Tag>
+              <Tag color="blue">{summaryMeta.watchlist_key}</Tag>
+              <Tag>{summaryMeta.window_start_date} → {summaryMeta.window_end_date}</Tag>
+              <Tag>Scanned {formatInteger(summaryMeta.scanned_count)}</Tag>
+              <Tag>Data available {formatInteger(summaryMeta.data_available_count)}</Tag>
+              <Tag color="green">Both {formatInteger(summaryMeta.both_count)}</Tag>
+              <Tag color="blue">Delivery only {formatInteger(summaryMeta.delivery_only_count)}</Tag>
+              <Tag color="orange">Volume only {formatInteger(summaryMeta.volume_only_count)}</Tag>
+              <Tag>No event {formatInteger(summaryMeta.no_event_count)}</Tag>
             </Space>
           </Card>
         ) : null}
 
-        {data ? (
-          <Card size="small" title={`Event days (${filteredRows.length} of ${data.meta.event_count})`}>
+        {summaryMeta ? (
+          <Card size="small" title={`Event days (${filteredRows.length} of ${summaryMeta.event_count})`}>
             <Space wrap style={{ marginBottom: 12 }}>
               <Select
                 aria-label="Event type"
@@ -312,7 +433,7 @@ export function DeliveryBreakoutScannerPage() {
             </Space>
             {filteredRows.length > 0 ? (
               <Table<DeliveryBreakoutDashboardRow>
-                rowKey={(row) => `${row.symbol}-${row.event_date}`}
+                rowKey={(row) => `${row.watchlist_key ?? "single"}-${row.symbol}-${row.event_date}`}
                 columns={columns}
                 dataSource={filteredRows}
                 pagination={{ pageSize: 50, showSizeChanger: true }}
@@ -324,7 +445,7 @@ export function DeliveryBreakoutScannerPage() {
             )}
           </Card>
         ) : !loading && !loadingWatchlists ? (
-          <Empty description="Select a watchlist to scan the last 10 trading sessions." />
+          <Empty description="Select one or more watchlists to scan the last 10 trading sessions." />
         ) : null}
       </Space>
     </div>

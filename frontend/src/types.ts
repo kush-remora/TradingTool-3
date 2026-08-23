@@ -3149,11 +3149,14 @@ export interface DeliveryBreakoutDashboardMeta {
 }
 
 export interface DeliveryBreakoutDashboardRow {
+  watchlist_key?: string;
   symbol: string;
   instrument_token: number;
   event_date: string;
   event_type: "BOTH" | "DELIVERY_ONLY" | "VOLUME_ONLY" | string;
   close: number | null;
+  event_high: number | null;
+  event_low: number | null;
   prev_close: number | null;
   close_pct_change: number | null;
   fifty_two_week_high: number | null;
@@ -3170,6 +3173,16 @@ export interface DeliveryBreakoutDashboardRow {
 export interface DeliveryBreakoutDashboardResponse {
   meta: DeliveryBreakoutDashboardMeta;
   rows: DeliveryBreakoutDashboardRow[];
+}
+
+export interface DeliveryBreakoutWatchlistError {
+  watchlist_key: string;
+  message: string;
+}
+
+export interface DeliveryBreakoutMultiDashboardResponse {
+  dashboards: DeliveryBreakoutDashboardResponse[];
+  errors: DeliveryBreakoutWatchlistError[];
 }
 
 // ==================== Absolute Delivery Backtest ====================

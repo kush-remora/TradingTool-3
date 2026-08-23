@@ -174,6 +174,33 @@ class StrategyResource @Inject constructor(
     }
 
     @GET
+    @Path("/delivery-breakout/dashboard/multi")
+    fun getDeliveryBreakoutMultiDashboard(
+        @QueryParam("watchlistKeys") watchlistKeys: String?,
+        @QueryParam("tradeDate") tradeDate: String?,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val requestedWatchlists = watchlistKeys.orEmpty()
+            .split(",")
+            .map { key -> key.trim() }
+            .filter { key -> key.isNotEmpty() }
+        if (requestedWatchlists.isEmpty()) {
+            return@endpoint badRequest("At least one watchlistKey is required.")
+        }
+        val parsedTradeDate = try {
+            tradeDate?.takeIf { value -> value.isNotBlank() }?.let(LocalDate::parse)
+        } catch (_: Exception) {
+            return@endpoint badRequest("tradeDate must be a valid ISO date in YYYY-MM-DD format.")
+        }
+        try {
+            ok(deliveryBreakoutScannerService.getDashboards(requestedWatchlists, parsedTradeDate))
+        } catch (error: IllegalArgumentException) {
+            badRequest(error.message ?: "Invalid delivery-breakout request.")
+        } catch (error: IllegalStateException) {
+            notFound(error.message ?: "No delivery data available for the selected request.")
+        }
+    }
+
+    @GET
     @Path("/chartink-fiftytwo-week-high/report")
     fun getChartinkFiftyTwoWeekHighReport(): CompletableFuture<Response> = ioScope.endpoint {
         try {

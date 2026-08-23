@@ -5,6 +5,16 @@ data class DeliveryBreakoutDashboardResponse(
     val rows: List<DeliveryBreakoutDashboardRow>,
 )
 
+data class DeliveryBreakoutMultiDashboardResponse(
+    val dashboards: List<DeliveryBreakoutDashboardResponse>,
+    val errors: List<DeliveryBreakoutWatchlistError>,
+)
+
+data class DeliveryBreakoutWatchlistError(
+    val watchlist_key: String,
+    val message: String,
+)
+
 data class DeliveryBreakoutDashboardMeta(
     val watchlist_key: String,
     val trade_date: String,
@@ -25,6 +35,8 @@ data class DeliveryBreakoutDashboardRow(
     val event_date: String,
     val event_type: String,
     val close: Double?,
+    val event_high: Double?,
+    val event_low: Double?,
     val prev_close: Double?,
     val close_pct_change: Double?,
     val fifty_two_week_high: Double?,

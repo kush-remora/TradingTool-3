@@ -9,6 +9,7 @@ import com.tradingtool.core.database.StockDeliveryJdbiHandler
 import com.tradingtool.core.delivery.model.StockDeliveryDaily
 import com.tradingtool.core.indexconstituents.dao.IndexConstituentUpsertRow
 import com.tradingtool.core.technical.roundTo2
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -109,6 +110,44 @@ class DeliveryBreakoutScannerService @Inject constructor(
         )
     }
 
+    suspend fun getDashboards(
+        watchlistKeys: List<String>,
+        requestedTradeDate: LocalDate?,
+    ): DeliveryBreakoutMultiDashboardResponse {
+        val normalizedKeys = watchlistKeys
+            .map { key -> key.trim() }
+            .filter { key -> key.isNotEmpty() }
+            .distinctBy { key -> key.lowercase() }
+        require(normalizedKeys.isNotEmpty()) { "At least one watchlistKey is required." }
+
+        val results = coroutineScope {
+            val semaphore = Semaphore(MAX_PARALLEL_WATCHLIST_LOADS)
+            normalizedKeys.map { watchlistKey ->
+                async(Dispatchers.IO) {
+                    semaphore.withPermit {
+                        try {
+                            MultiDashboardResult.Success(getDashboard(watchlistKey, requestedTradeDate))
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (error: Exception) {
+                            MultiDashboardResult.Failure(
+                                DeliveryBreakoutWatchlistError(
+                                    watchlist_key = watchlistKey,
+                                    message = error.message ?: "Unable to scan this watchlist.",
+                                ),
+                            )
+                        }
+                    }
+                }
+            }.awaitAll()
+        }
+
+        return DeliveryBreakoutMultiDashboardResponse(
+            dashboards = results.filterIsInstance<MultiDashboardResult.Success>().map { result -> result.dashboard },
+            errors = results.filterIsInstance<MultiDashboardResult.Failure>().map { result -> result.error },
+        )
+    }
+
     private suspend fun resolveWatchlist(requestedKey: String): ResolvedWatchlist {
         val normalizedKey = requestedKey.trim()
         require(normalizedKey.isNotEmpty()) { "watchlistKey is required." }
@@ -186,7 +225,8 @@ class DeliveryBreakoutScannerService @Inject constructor(
     ): DeliveryBreakoutDashboardRow {
         val eventDate = LocalDate.parse(event.eventDate)
         val candleIndex = candles.indexOfFirst { candle -> candle.candleDate == eventDate }
-        val close = candles.getOrNull(candleIndex)?.close?.roundTo2()
+        val eventCandle = candles.getOrNull(candleIndex)
+        val close = eventCandle?.close?.roundTo2()
         val prevClose = if (candleIndex > 0) candles[candleIndex - 1].close.roundTo2() else null
 
         return DeliveryBreakoutDashboardRow(
@@ -195,6 +235,8 @@ class DeliveryBreakoutScannerService @Inject constructor(
             event_date = event.eventDate,
             event_type = event.eventType,
             close = close,
+            event_high = eventCandle?.high?.roundTo2(),
+            event_low = eventCandle?.low?.roundTo2(),
             prev_close = prevClose,
             close_pct_change = DeliveryBreakoutAnalyzer.calculatePctChange(candles, eventDate),
             fifty_two_week_high = candles.maxOfOrNull { candle -> candle.high }?.roundTo2(),
@@ -220,12 +262,18 @@ class DeliveryBreakoutScannerService @Inject constructor(
         val members: List<IndexConstituentUpsertRow>,
     )
 
+    private sealed interface MultiDashboardResult {
+        data class Success(val dashboard: DeliveryBreakoutDashboardResponse) : MultiDashboardResult
+        data class Failure(val error: DeliveryBreakoutWatchlistError) : MultiDashboardResult
+    }
+
     private companion object {
         private const val EVENT_BOTH = "BOTH"
         private const val EVENT_DELIVERY_ONLY = "DELIVERY_ONLY"
         private const val EVENT_VOLUME_ONLY = "VOLUME_ONLY"
         private const val TRADING_DATE_LOOKBACK_CALENDAR_DAYS = 90L
         private const val CANDLE_HISTORY_CALENDAR_DAYS = 370L
+        private const val MAX_PARALLEL_WATCHLIST_LOADS = 3
         private const val MAX_PARALLEL_SYMBOL_LOADS = 16
     }
 }
