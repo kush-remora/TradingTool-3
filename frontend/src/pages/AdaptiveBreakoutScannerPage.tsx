@@ -42,8 +42,10 @@ import "./adaptiveBreakoutScanner.css";
 const { Text, Title } = Typography;
 
 type DisplayStatus = AdaptiveBreakoutStatus | "LIVE_CANDIDATE" | "RECENT_RECLAIM";
-type StatusFilter = DisplayStatus | "ALL";
+type StatusFilter = DisplayStatus | "BROKEN_LAST_30_DAYS" | "ALL";
 type ScanMode = "WATCHLIST" | "STOCK";
+
+const RECENT_BROKEN_DAYS = 30;
 
 interface ConfirmationEvidence {
   closePositionPct: number | null;
@@ -117,6 +119,27 @@ function formatDateWithYear(value: string | null): string {
 
 function lastFreshBreakoutDate(row: AdaptiveBreakoutScanRow): string | null {
   return row.ceiling?.breakoutDate ?? row.breakoutEvidence?.date ?? null;
+}
+
+function breakoutAgeDays(row: AdaptiveBreakoutScanRow): number | null {
+  const breakoutDate = lastFreshBreakoutDate(row);
+  if (!breakoutDate) return null;
+  const latest = new Date(`${row.latestDate}T00:00:00Z`).getTime();
+  const breakout = new Date(`${breakoutDate}T00:00:00Z`).getTime();
+  if (!Number.isFinite(latest) || !Number.isFinite(breakout) || breakout > latest) return null;
+  return Math.round((latest - breakout) / 86_400_000);
+}
+
+function brokeWithinDays(row: AdaptiveBreakoutScanRow, days: number): boolean {
+  if (row.status !== "BREAKOUT_CONTINUATION") return false;
+  const age = breakoutAgeDays(row);
+  return age != null && age <= days;
+}
+
+function formatBreakoutAge(row: AdaptiveBreakoutScanRow): string {
+  const age = breakoutAgeDays(row);
+  if (age == null) return "age unavailable";
+  return age === 0 ? "today" : `${age}d ago`;
 }
 
 function buildBuyReviewUrl(row: AdaptiveBreakoutScanRow): string {
@@ -436,12 +459,22 @@ function StatusStrip({
     const status = displayStatus(row, quotesBySymbol[row.symbol], marketOpen);
     countByStatus.set(status, (countByStatus.get(status) ?? 0) + 1);
   });
+  const recentBrokenCount = rows.filter((row) => brokeWithinDays(row, RECENT_BROKEN_DAYS)).length;
 
   return (
     <div className="adaptive-breakout-status-strip" aria-label="Breakout status summary">
       <button aria-label={`All stocks ${rows.length}`} className={activeFilter === "ALL" ? "active" : ""} onClick={() => onFilter("ALL")} type="button">
         <span>All stocks</span>
         <strong>{rows.length}</strong>
+      </button>
+      <button
+        aria-label={`Broken in last ${RECENT_BROKEN_DAYS} days ${recentBrokenCount}`}
+        className={`adaptive-breakout-summary-broken-last-30-days ${activeFilter === "BROKEN_LAST_30_DAYS" ? "active" : ""}`}
+        onClick={() => onFilter("BROKEN_LAST_30_DAYS")}
+        type="button"
+      >
+        <span><HistoryOutlined /> Broken ≤30d</span>
+        <strong>{recentBrokenCount}</strong>
       </button>
       {STATUS_ORDER.map((status) => {
         const count = countByStatus.get(status) ?? 0;
@@ -799,7 +832,11 @@ export function AdaptiveBreakoutScannerPage(): ReactNode {
   const displayedRows = useMemo(() => {
     const rows = report?.rows ?? [];
     return [...rows]
-      .filter((row) => statusFilter === "ALL" || displayStatus(row, quotesBySymbol[row.symbol], marketOpen) === statusFilter)
+      .filter((row) => {
+        if (statusFilter === "ALL") return true;
+        if (statusFilter === "BROKEN_LAST_30_DAYS") return brokeWithinDays(row, RECENT_BROKEN_DAYS);
+        return displayStatus(row, quotesBySymbol[row.symbol], marketOpen) === statusFilter;
+      })
       .sort((left, right) => {
         const statusDifference = STATUS_ORDER.indexOf(displayStatus(left, quotesBySymbol[left.symbol], marketOpen))
           - STATUS_ORDER.indexOf(displayStatus(right, quotesBySymbol[right.symbol], marketOpen));
@@ -865,7 +902,7 @@ export function AdaptiveBreakoutScannerPage(): ReactNode {
             <StatusBadge status={status} />
             {status === "BREAKOUT_CONTINUATION" && (
               <span className="adaptive-breakout-last-breakout">
-                <CheckCircleFilled /> Last fresh breakout · {formatDateWithYear(lastFreshBreakoutDate(row))}
+                <CheckCircleFilled /> Last fresh breakout · {formatBreakoutAge(row)} · {formatDateWithYear(lastFreshBreakoutDate(row))}
               </span>
             )}
           </div>

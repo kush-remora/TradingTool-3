@@ -342,7 +342,11 @@ describe("AdaptiveBreakoutScannerPage", () => {
 
     const table = await screen.findByTestId("adaptive-breakout-table");
     expect(await within(table).findByText("Already broken")).toBeInTheDocument();
-    expect(within(table).getByText("Last fresh breakout · 05 Aug 2026")).toBeInTheDocument();
+    expect(within(table).getByText("Last fresh breakout · 9d ago · 05 Aug 2026")).toBeInTheDocument();
+    const recentBrokenBucket = screen.getByRole("button", { name: "Broken in last 30 days 1" });
+    fireEvent.click(recentBrokenBucket);
+    expect(within(table).getByText("ABC")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "All stocks 1" }));
     expect(within(table).getByText("Breakout close · 05 Aug")).toBeInTheDocument();
     expect(within(table).getByText("90%")).toBeInTheDocument();
     expect(within(table).getByText("2.10×")).toBeInTheDocument();

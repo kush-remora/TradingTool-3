@@ -148,6 +148,10 @@
   color: #4d667d;
 }
 
+.adaptive-breakout-summary-broken-last-30-days svg {
+  color: #0f766e;
+}
+
 .adaptive-breakout-legend {
   display: flex;
   min-height: 24px;
