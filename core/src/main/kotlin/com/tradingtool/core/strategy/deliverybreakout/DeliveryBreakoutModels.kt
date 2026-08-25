@@ -48,6 +48,11 @@ data class DeliveryBreakoutDashboardRow(
     val average_delivery_quantity_10d: Double?,
     val volume_ratio: Double?,
     val delivery_ratio: Double?,
+    val quiet_days_20d: Int?,
+    val range_20d_pct: Double?,
+    val pre_event_change_10d_pct: Double?,
+    val pre_event_upward_10d: Boolean,
+    val accumulation_candidate_20d: Boolean,
 )
 
 internal data class DeliveryBreakoutEvent(

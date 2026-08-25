@@ -3178,6 +3178,11 @@ export interface DeliveryBreakoutDashboardRow {
   average_delivery_quantity_10d: number | null;
   volume_ratio: number | null;
   delivery_ratio: number | null;
+  quiet_days_20d: number | null;
+  range_20d_pct: number | null;
+  pre_event_change_10d_pct: number | null;
+  pre_event_upward_10d: boolean;
+  accumulation_candidate_20d: boolean;
 }
 
 export interface DeliveryBreakoutDashboardResponse {

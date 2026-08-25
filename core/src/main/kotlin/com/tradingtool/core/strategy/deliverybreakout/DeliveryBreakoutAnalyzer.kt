@@ -6,6 +6,11 @@ import com.tradingtool.core.technical.roundTo2
 import java.time.LocalDate
 
 internal object DeliveryBreakoutAnalyzer {
+    private const val ACCUMULATION_LOOKBACK_SESSIONS = 20
+    private const val ACCUMULATION_MIN_QUIET_DAYS = 10
+    private const val TREND_LOOKBACK_SESSIONS = 10
+    private const val QUIET_DAY_RANGE_MAX_PCT = 2.0
+    private const val ACCUMULATION_RANGE_MAX_PCT = 10.0
 
     fun buildEvents(
         symbol: String,
@@ -89,4 +94,57 @@ internal object DeliveryBreakoutAnalyzer {
         return (((candles[candleIndex].close - previousClose) / previousClose) * 100.0).roundTo2()
     }
 
+    fun calculatePreEventAccumulationMetrics(
+        candles: List<DailyCandle>,
+        eventDate: LocalDate,
+    ): PreEventAccumulationMetrics {
+        val sortedPreEventCandles = candles
+            .sortedBy { candle -> candle.candleDate }
+            .filter { candle -> candle.candleDate.isBefore(eventDate) }
+        val accumulationCandles = sortedPreEventCandles.takeLast(ACCUMULATION_LOOKBACK_SESSIONS)
+        val trendCandles = sortedPreEventCandles.takeLast(TREND_LOOKBACK_SESSIONS)
+
+        val lowestLow = accumulationCandles.minOfOrNull { candle -> candle.low }
+        val highestHigh = accumulationCandles.maxOfOrNull { candle -> candle.high }
+        val rawRangePct = if (lowestLow != null && lowestLow > 0.0 && highestHigh != null) {
+            ((highestHigh - lowestLow) / lowestLow) * 100.0
+        } else {
+            null
+        }
+        val rangePct = rawRangePct?.roundTo2()
+        val quietDays = accumulationCandles.count { candle ->
+            candle.low > 0.0 && (((candle.high - candle.low) / candle.low) * 100.0) <= QUIET_DAY_RANGE_MAX_PCT
+        }
+        val firstTrendClose = trendCandles.firstOrNull()?.close
+        val lastTrendClose = trendCandles.lastOrNull()?.close
+        val hasTrendWindow = trendCandles.size == TREND_LOOKBACK_SESSIONS
+        val rawTrendChangePct = if (hasTrendWindow) {
+            firstTrendClose
+                ?.takeIf { close -> close > 0.0 }
+                ?.let { firstClose ->
+                    lastTrendClose?.let { lastClose ->
+                        ((lastClose - firstClose) / firstClose) * 100.0
+                    }
+                }
+        } else null
+
+        return PreEventAccumulationMetrics(
+            quietDays20d = quietDays.takeIf { accumulationCandles.size == ACCUMULATION_LOOKBACK_SESSIONS },
+            range20dPct = rangePct.takeIf { accumulationCandles.size == ACCUMULATION_LOOKBACK_SESSIONS },
+            preEventChange10dPct = rawTrendChangePct?.roundTo2(),
+            preEventUpward10d = rawTrendChangePct != null && rawTrendChangePct > 0.0,
+            isCandidate20d = accumulationCandles.size == ACCUMULATION_LOOKBACK_SESSIONS &&
+                quietDays >= ACCUMULATION_MIN_QUIET_DAYS &&
+                rawRangePct != null && rawRangePct <= ACCUMULATION_RANGE_MAX_PCT,
+        )
+    }
+
 }
+
+internal data class PreEventAccumulationMetrics(
+    val quietDays20d: Int? = null,
+    val range20dPct: Double? = null,
+    val preEventChange10dPct: Double? = null,
+    val preEventUpward10d: Boolean = false,
+    val isCandidate20d: Boolean = false,
+)

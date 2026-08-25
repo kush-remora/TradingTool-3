@@ -228,6 +228,7 @@ class DeliveryBreakoutScannerService @Inject constructor(
         val eventCandle = candles.getOrNull(candleIndex)
         val close = eventCandle?.close?.roundTo2()
         val prevClose = if (candleIndex > 0) candles[candleIndex - 1].close.roundTo2() else null
+        val preEventAccumulation = DeliveryBreakoutAnalyzer.calculatePreEventAccumulationMetrics(candles, eventDate)
 
         return DeliveryBreakoutDashboardRow(
             symbol = event.symbol,
@@ -248,6 +249,11 @@ class DeliveryBreakoutScannerService @Inject constructor(
             average_delivery_quantity_10d = event.averageDeliveryQuantity10d?.roundTo2(),
             volume_ratio = event.volumeRatio,
             delivery_ratio = event.deliveryRatio,
+            quiet_days_20d = preEventAccumulation.quietDays20d,
+            range_20d_pct = preEventAccumulation.range20dPct,
+            pre_event_change_10d_pct = preEventAccumulation.preEventChange10dPct,
+            pre_event_upward_10d = preEventAccumulation.preEventUpward10d,
+            accumulation_candidate_20d = preEventAccumulation.isCandidate20d,
         )
     }
 

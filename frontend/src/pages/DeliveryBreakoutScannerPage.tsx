@@ -1,6 +1,6 @@
 import dayjs, { type Dayjs } from "dayjs";
 import { DownloadOutlined } from "@ant-design/icons";
-import { Alert, Button, Card, DatePicker, Empty, InputNumber, Select, Space, Spin, Table, Tag, Typography } from "antd";
+import { Alert, Button, Card, DatePicker, Empty, InputNumber, Select, Space, Spin, Table, Tabs, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useDeliveryBreakoutScanner } from "../hooks/useDeliveryBreakoutScanner";
@@ -64,6 +64,8 @@ function closeNearHighColor(value: number | null): string {
   if (value <= 30) return "#cf1322";
   return "#ad6800";
 }
+
+type DeliveryBreakoutTab = "all" | "result-vs-effort" | "below-52w-high" | "accumulation-20d";
 
 function sortNullableNumbers(left: number | null, right: number | null): number {
   if (left == null) return right == null ? 0 : 1;
@@ -136,6 +138,7 @@ export function DeliveryBreakoutScannerPage() {
   } = useDeliveryBreakoutScanner();
   const [selectedWatchlists, setSelectedWatchlists] = useState<string[]>([]);
   const [selectedTradeDate, setSelectedTradeDate] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<DeliveryBreakoutTab>("all");
   const [eventType, setEventType] = useState<string | null>(null);
   const [minVolumeRatio, setMinVolumeRatio] = useState<number | null>(null);
   const [minDeliveryRatio, setMinDeliveryRatio] = useState<number | null>(null);
@@ -147,6 +150,18 @@ export function DeliveryBreakoutScannerPage() {
     ...row,
     watchlist_key: report.meta.watchlist_key,
   }))), [reports]);
+  const resultVsEffortRows = useMemo(
+    () => tableRows.filter((row) => {
+      const lowToHighPercent = calculateLowToHighPercent(row.event_low, row.event_high);
+      const preEventChange = row.pre_event_change_10d_pct;
+      return lowToHighPercent != null &&
+        lowToHighPercent < 3 &&
+        row.pre_event_upward_10d &&
+        preEventChange != null &&
+        preEventChange < 10;
+    }),
+    [tableRows],
+  );
   const summaryMeta = useMemo<DeliveryBreakoutDashboardMeta | null>(() => {
     if (reports.length === 0) return null;
     const first = reports[0].meta;
@@ -166,6 +181,25 @@ export function DeliveryBreakoutScannerPage() {
   }, [reports]);
   const quoteSymbols = useMemo(() => tableRows.map((row) => row.symbol), [tableRows]);
   const { quotesBySymbol } = useStockQuotes(quoteSymbols);
+  const below52WeekHighRows = useMemo(
+    () => resultVsEffortRows.filter((row) => {
+      const currentPrice = quotesBySymbol[row.symbol.toUpperCase()]?.ltp ?? row.close;
+      const distanceFromHigh = calculatePercentDifference(currentPrice, row.fifty_two_week_high);
+      return distanceFromHigh != null && distanceFromHigh <= -10;
+    }),
+    [quotesBySymbol, resultVsEffortRows],
+  );
+  const accumulationRows = useMemo(
+    () => below52WeekHighRows.filter((row) => row.accumulation_candidate_20d),
+    [below52WeekHighRows],
+  );
+  const activeTabRows = activeTab === "all"
+    ? tableRows
+    : activeTab === "result-vs-effort"
+      ? resultVsEffortRows
+      : activeTab === "below-52w-high"
+        ? below52WeekHighRows
+        : accumulationRows;
 
   const runSelectedScan = useCallback((): void => {
     if (selectedWatchlists.length === 0) return;
@@ -195,13 +229,13 @@ export function DeliveryBreakoutScannerPage() {
   }, [runSelectedScan, selectedWatchlists.length]);
 
   const filteredRows = useMemo(() => {
-    return tableRows.filter((row) => {
+    return activeTabRows.filter((row) => {
       if (eventType && row.event_type !== eventType) return false;
       if (minVolumeRatio !== null && (row.volume_ratio ?? 0) < minVolumeRatio) return false;
       if (minDeliveryRatio !== null && (row.delivery_ratio ?? 0) < minDeliveryRatio) return false;
       return true;
     });
-  }, [eventType, minDeliveryRatio, minVolumeRatio, tableRows]);
+  }, [activeTabRows, eventType, minDeliveryRatio, minVolumeRatio]);
 
   const columns = useMemo<ColumnsType<DeliveryBreakoutDashboardRow>>(() => [
     {
@@ -296,6 +330,36 @@ export function DeliveryBreakoutScannerPage() {
       sorter: (left, right) => (left.delivery_ratio ?? -1) - (right.delivery_ratio ?? -1),
     },
     {
+      title: "20D Accumulation",
+      key: "accumulation",
+      render: (_value: unknown, row: DeliveryBreakoutDashboardRow) => (
+        <div>
+          <Typography.Text strong>
+            {row.quiet_days_20d == null ? "-" : `${row.quiet_days_20d}/20 quiet days`}
+          </Typography.Text>
+          <div style={{ fontSize: 11, color: "gray" }}>
+            Range: {formatPercent(row.range_20d_pct)}
+          </div>
+        </div>
+      ),
+      sorter: (left, right) => (left.quiet_days_20d ?? -1) - (right.quiet_days_20d ?? -1),
+    },
+    {
+      title: "Pre-Event 10D Trend",
+      key: "preEventTrend",
+      render: (_value: unknown, row: DeliveryBreakoutDashboardRow) => (
+        <div>
+          <Typography.Text strong style={{ color: row.pre_event_upward_10d ? "#237804" : "#cf1322" }}>
+            {formatSignedPercent(row.pre_event_change_10d_pct)}
+          </Typography.Text>
+          <div style={{ fontSize: 11, color: "gray" }}>
+            {row.pre_event_upward_10d ? "Upward" : "Not upward"}
+          </div>
+        </div>
+      ),
+      sorter: (left, right) => (left.pre_event_change_10d_pct ?? -Infinity) - (right.pre_event_change_10d_pct ?? -Infinity),
+    },
+    {
       title: "52W Distance",
       key: "fiftyTwoWeekDistance",
       render: (_value: unknown, row: DeliveryBreakoutDashboardRow) => {
@@ -321,6 +385,12 @@ export function DeliveryBreakoutScannerPage() {
     setEventType(null);
     setMinVolumeRatio(null);
     setMinDeliveryRatio(null);
+  };
+
+  const handleTabChange = (key: string): void => {
+    if (key === "all" || key === "result-vs-effort" || key === "below-52w-high" || key === "accumulation-20d") {
+      setActiveTab(key);
+    }
   };
 
   const downloadCsv = (): void => {
@@ -412,7 +482,20 @@ export function DeliveryBreakoutScannerPage() {
         ) : null}
 
         {summaryMeta ? (
-          <Card size="small" title={`Event days (${filteredRows.length} of ${summaryMeta.event_count})`}>
+          <Card
+            size="small"
+            title={`Event days (${filteredRows.length} of ${activeTabRows.length})`}
+          >
+            <Tabs
+              activeKey={activeTab}
+              onChange={handleTabChange}
+              items={[
+                { key: "all", label: `All Stocks (${tableRows.length})` },
+                { key: "result-vs-effort", label: `Result vs Effort (<3% Low→High) (${resultVsEffortRows.length})` },
+                { key: "below-52w-high", label: `At Least 10% Below 52W High (${below52WeekHighRows.length})` },
+                { key: "accumulation-20d", label: `20D Accumulation Candidate (${accumulationRows.length})` },
+              ]}
+            />
             <Space wrap style={{ marginBottom: 12 }}>
               <Select
                 aria-label="Event type"

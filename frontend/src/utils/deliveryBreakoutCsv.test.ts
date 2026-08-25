@@ -21,6 +21,11 @@ describe("buildDeliveryBreakoutCsv", () => {
         average_delivery_quantity_10d: 70000,
         volume_ratio: 2,
         delivery_ratio: 2,
+        quiet_days_20d: 12,
+        range_20d_pct: 8,
+        pre_event_change_10d_pct: 4,
+        pre_event_upward_10d: true,
+        accumulation_candidate_20d: true,
       },
     ]);
 

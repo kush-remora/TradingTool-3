@@ -47,6 +47,11 @@ const response = {
       average_delivery_quantity_10d: 70000,
       volume_ratio: 2,
       delivery_ratio: 2,
+      quiet_days_20d: 12,
+      range_20d_pct: 8,
+      pre_event_change_10d_pct: 4,
+      pre_event_upward_10d: true,
+      accumulation_candidate_20d: true,
     },
     {
       symbol: "TCS",
@@ -67,6 +72,11 @@ const response = {
       average_delivery_quantity_10d: 60000,
       volume_ratio: 1,
       delivery_ratio: 2,
+      quiet_days_20d: 10,
+      range_20d_pct: 7,
+      pre_event_change_10d_pct: 6,
+      pre_event_upward_10d: true,
+      accumulation_candidate_20d: true,
     },
     {
       symbol: "WIPRO",
@@ -74,7 +84,7 @@ const response = {
       event_date: "2026-06-20",
       event_type: "VOLUME_ONLY",
       close: 500,
-      event_high: 510,
+      event_high: 500,
       event_low: 490,
       prev_close: 495,
       close_pct_change: 1.01,
@@ -87,6 +97,11 @@ const response = {
       average_delivery_quantity_10d: null,
       volume_ratio: 2.2,
       delivery_ratio: null,
+      quiet_days_20d: 6,
+      range_20d_pct: 12,
+      pre_event_change_10d_pct: -3,
+      pre_event_upward_10d: false,
+      accumulation_candidate_20d: false,
     },
   ],
 };
@@ -136,6 +151,10 @@ describe("DeliveryBreakoutScannerPage", () => {
     expect(screen.getByText("BOTH")).toBeInTheDocument();
     expect(screen.getByText("DELIVERY_ONLY")).toBeInTheDocument();
     expect(screen.getByText("VOLUME_ONLY")).toBeInTheDocument();
+    expect(screen.getByText("All Stocks (3)")).toBeInTheDocument();
+    expect(screen.getByText("Result vs Effort (<3% Low→High) (1)")).toBeInTheDocument();
+    expect(screen.getByText("At Least 10% Below 52W High (1)")).toBeInTheDocument();
+    expect(screen.getByText("20D Accumulation Candidate (1)")).toBeInTheDocument();
     expect(screen.getAllByText("Price Context").length).toBeGreaterThan(0);
     expect(screen.getByText("₹1,600.00")).toBeInTheDocument();
     expect(screen.getByText("+3.86% vs event")).toBeInTheDocument();
@@ -148,6 +167,42 @@ describe("DeliveryBreakoutScannerPage", () => {
       "href",
       "https://kite.zerodha.com/chart/web/tvc/NSE/INFY/408065",
     );
+  });
+
+  it("shows only quiet low-to-high event days in the Result vs Effort tab", async () => {
+    useDeliveryBreakoutScannerMock.mockReturnValue({
+      watchlists: [{ label: "growth_watchlist", value: "growth_watchlist", count: 3 }],
+      data: response,
+      loadingWatchlists: false,
+      loading: false,
+      error: null,
+      loadWatchlists: vi.fn().mockResolvedValue({ options: [] }),
+      loadDashboard: vi.fn().mockResolvedValue(response),
+      loadDashboards: vi.fn().mockResolvedValue({ dashboards: [], errors: [] }),
+      clear: vi.fn(),
+    });
+
+    render(<DeliveryBreakoutScannerPage />);
+
+    fireEvent.click(await screen.findByRole("tab", { name: "Result vs Effort (<3% Low→High) (1)" }));
+
+    expect(screen.getByText("TCS")).toBeInTheDocument();
+    expect(screen.queryByText("INFY")).not.toBeInTheDocument();
+    expect(screen.queryByText("WIPRO")).not.toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole("tab", { name: "At Least 10% Below 52W High (1)" }));
+
+    expect(screen.getByText("TCS")).toBeInTheDocument();
+    expect(screen.queryByText("WIPRO")).not.toBeInTheDocument();
+    expect(screen.queryByText("INFY")).not.toBeInTheDocument();
+
+    expect(screen.getByText("20D Accumulation Candidate (1)")).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole("tab", { name: "20D Accumulation Candidate (1)" }));
+
+    expect(screen.getByText("TCS")).toBeInTheDocument();
+    expect(screen.queryByText("WIPRO")).not.toBeInTheDocument();
+    expect(screen.queryByText("INFY")).not.toBeInTheDocument();
   });
 
   it("shows the no-event state when the selected window has no events", () => {
