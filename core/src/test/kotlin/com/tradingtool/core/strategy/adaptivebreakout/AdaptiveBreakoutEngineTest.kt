@@ -51,6 +51,9 @@ class AdaptiveBreakoutEngineTest {
         val breakoutStep = evaluation.rawSteps.single { step -> step.decision == AdaptiveBreakoutDecision.FRESH_BREAKOUT }
         val breakoutEvidence = assertNotNull(evaluation.breakoutEvidence)
         assertEquals(breakoutStep.date, breakoutEvidence.date)
+        assertEquals(breakoutStep.date, breakoutEvidence.breakoutDay?.date)
+        assertEquals(breakoutStep.close, breakoutEvidence.breakoutDay?.close)
+        assertNotNull(breakoutEvidence.highestVolumeAfterBreakout)
         assertEquals(50.0, breakoutEvidence.closePositionPct)
         assertNotNull(breakoutEvidence.volumeVsTenDayAverage)
         assertNotNull(breakoutEvidence.distanceFromFiftyTwoWeekHighPct)

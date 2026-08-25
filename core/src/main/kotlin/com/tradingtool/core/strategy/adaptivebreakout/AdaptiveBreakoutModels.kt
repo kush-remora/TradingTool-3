@@ -228,6 +228,14 @@ data class BreakoutDayQualityResponse(
     val chartContext: BreakoutChartContext,
 )
 
+data class AdaptiveBreakoutFollowThroughDay(
+    val date: String,
+    val close: Double,
+    val volume: Long,
+    val volumeVsTenDayAverage: Double?,
+    val closePositionPct: Double?,
+)
+
 data class AdaptiveBreakoutConfirmationEvidence(
     val date: String,
     val closePositionPct: Double?,
@@ -238,6 +246,8 @@ data class AdaptiveBreakoutConfirmationEvidence(
     val floorToBreakoutPct: Double,
     val floorToBreakoutAtr: Double?,
     val rangeLocked: Boolean,
+    val breakoutDay: AdaptiveBreakoutFollowThroughDay? = null,
+    val highestVolumeAfterBreakout: AdaptiveBreakoutFollowThroughDay? = null,
 )
 
 data class AdaptiveBreakoutEvaluation(

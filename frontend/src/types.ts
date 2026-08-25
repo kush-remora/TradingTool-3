@@ -232,6 +232,16 @@ export interface AdaptiveBreakoutConfirmationEvidence {
   floorToBreakoutPct?: number;
   floorToBreakoutAtr?: number | null;
   rangeLocked?: boolean;
+  breakoutDay?: AdaptiveBreakoutFollowThroughDay | null;
+  highestVolumeAfterBreakout?: AdaptiveBreakoutFollowThroughDay | null;
+}
+
+export interface AdaptiveBreakoutFollowThroughDay {
+  date: string;
+  close: number;
+  volume: number;
+  volumeVsTenDayAverage: number | null;
+  closePositionPct: number | null;
 }
 
 export interface AdaptiveBreakoutScanRow {

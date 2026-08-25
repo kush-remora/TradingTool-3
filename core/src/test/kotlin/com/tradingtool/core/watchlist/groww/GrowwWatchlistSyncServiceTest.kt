@@ -31,7 +31,7 @@ class GrowwWatchlistSyncServiceTest {
             }
 
             override suspend fun deactivateMissingGrowwStocks(indexKey: String, activeSymbols: List<String>): Int {
-                assertEquals("groww_HIGH_QUALITY", indexKey)
+                assertEquals("high_quality", indexKey)
                 capturedActiveSymbols = activeSymbols
                 return 0
             }
@@ -43,7 +43,7 @@ class GrowwWatchlistSyncServiceTest {
         assertEquals(2, result.fetchedCount)
         assertEquals(2, result.syncedCount)
         assertEquals(listOf("INFY", "TCS"), upsertedSymbols)
-        assertEquals(listOf("groww_HIGH_QUALITY", "groww_HIGH_QUALITY"), upsertedIndexKeys)
+        assertEquals(listOf("high_quality", "high_quality"), upsertedIndexKeys)
         assertEquals(listOf("INFY", "TCS"), capturedActiveSymbols)
     }
 

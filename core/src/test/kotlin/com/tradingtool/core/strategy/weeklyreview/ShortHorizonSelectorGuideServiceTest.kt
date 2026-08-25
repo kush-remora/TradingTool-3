@@ -11,7 +11,7 @@ class ShortHorizonSelectorGuideServiceTest {
 
         assertEquals("How to read Tab 1 · All Stocks", guide["title"].asText())
         assertTrue(guide["columns"].size() >= 8)
-        assertEquals("10D / 20D move", guide["columns"][0]["column"].asText())
+        assertEquals("Move now (Now 5D / Prior 5D / pace)", guide["columns"][0]["column"].asText())
         assertTrue(guide["importantNote"].asText().contains("Tab 2"))
     }
 }

@@ -22,11 +22,17 @@ import { useStockDetail } from "../hooks/useStockDetail";
 import { RecentDailyEvidenceTable, type RecentDailyEvidenceRow } from "../components/RecentDailyEvidenceTable";
 import { DailyOhlcGlyph } from "../components/DailyOhlcGlyph";
 import { AtrTurnCheck } from "../components/AtrTurnCheck";
+import {
+  BreakoutFollowThroughTable,
+  type BreakoutFollowThroughDay,
+  type BreakoutFollowThroughEntry,
+} from "../components/BreakoutFollowThroughTable";
 import { InstrumentSearch } from "../components/InstrumentSearch";
 import { useInstrumentSearch } from "../hooks/useInstrumentSearch";
 import type {
   AdaptiveBreakoutRawStep,
   AdaptiveBreakoutCeilingType,
+  AdaptiveBreakoutFollowThroughDay as AdaptiveBreakoutEvidenceDay,
   AdaptiveBreakoutScanResponse,
   AdaptiveBreakoutScanRow,
   AdaptiveBreakoutStatus,
@@ -423,6 +429,89 @@ function recentDailyEvidence(
       };
     })
     .reverse();
+}
+
+function breakoutFollowThroughDay(steps: AdaptiveBreakoutRawStep[], index: number): BreakoutFollowThroughDay {
+  const step = steps[index];
+  const previousTen = steps.slice(Math.max(0, index - 10), index);
+  const averageVolume = previousTen.length === 10
+    ? previousTen.reduce((total, previousStep) => total + previousStep.volume, 0) / previousTen.length
+    : null;
+  return {
+    date: step.date,
+    close: step.close,
+    volume: step.volume,
+    volumeMultiple: averageVolume != null && averageVolume > 0 ? step.volume / averageVolume : null,
+    closePositionPct: calculateClosePosition(step.close, step.high, step.low),
+  };
+}
+
+function followThroughDayFromEvidence(day: AdaptiveBreakoutEvidenceDay): BreakoutFollowThroughDay {
+  return {
+    date: day.date,
+    close: day.close,
+    volume: day.volume,
+    volumeMultiple: day.volumeVsTenDayAverage,
+    closePositionPct: day.closePositionPct,
+  };
+}
+
+function calendarDaysBetween(startDate: string, endDate: string): number | null {
+  const start = new Date(`${startDate}T00:00:00Z`).getTime();
+  const end = new Date(`${endDate}T00:00:00Z`).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
+  return Math.round((end - start) / 86_400_000);
+}
+
+function breakoutFollowThrough(
+  row: AdaptiveBreakoutScanRow,
+  quote: StockQuoteSnapshot | undefined,
+): BreakoutFollowThroughEntry | null {
+  const breakoutDate = lastFreshBreakoutDate(row);
+  if (!breakoutDate) return null;
+  const breakoutIndex = row.rawSteps.findIndex((step) => step.date === breakoutDate);
+  const evidence = row.breakoutEvidence;
+  const breakoutDay = evidence?.breakoutDay != null
+    ? followThroughDayFromEvidence(evidence.breakoutDay)
+    : breakoutIndex >= 0
+      ? breakoutFollowThroughDay(row.rawSteps, breakoutIndex)
+      : null;
+  if (breakoutDay == null) return null;
+
+  const highestVolumeStep = breakoutIndex >= 0
+    ? row.rawSteps
+      .slice(breakoutIndex + 1)
+      .reduce<AdaptiveBreakoutRawStep | null>(
+        (highest, step) => highest == null || step.volume > highest.volume ? step : highest,
+        null,
+      )
+    : null;
+  const highestVolumeDay = evidence?.highestVolumeAfterBreakout != null
+    ? followThroughDayFromEvidence(evidence.highestVolumeAfterBreakout)
+    : highestVolumeStep == null
+      ? null
+      : breakoutFollowThroughDay(row.rawSteps, row.rawSteps.findIndex((step) => step.date === highestVolumeStep.date));
+  const quoteDate = quoteSessionDate(quote);
+  const currentDate = quoteDate != null && quoteDate >= row.latestDate
+    ? quoteDate
+    : row.latestDate;
+  const currentPrice = currentPriceForFollowThrough(row, quote);
+
+  return {
+    symbol: row.symbol,
+    companyName: row.companyName,
+    breakoutDay,
+    highestVolumeDay,
+    currentPrice,
+    currentDate,
+    returnPct: calculatePercentageFrom(breakoutDay.close, currentPrice),
+    daysPassed: calendarDaysBetween(breakoutDay.date, currentDate),
+    stockDetailUrl: buildCompactReviewUrl(row.symbol),
+  };
+}
+
+function currentPriceForFollowThrough(row: AdaptiveBreakoutScanRow, quote: StockQuoteSnapshot | undefined): number {
+  return quote?.ltp ?? row.latestClose;
 }
 
 function structureProgress(row: AdaptiveBreakoutScanRow, quote: StockQuoteSnapshot | undefined): number {
@@ -843,8 +932,16 @@ export function AdaptiveBreakoutScannerPage(): ReactNode {
         if (statusDifference !== 0) return statusDifference;
         return (gapFromCeilingPct(right, quotesBySymbol[right.symbol]) ?? -Infinity)
           - (gapFromCeilingPct(left, quotesBySymbol[left.symbol]) ?? -Infinity);
-      });
+    });
   }, [marketOpen, quotesBySymbol, report?.rows, statusFilter]);
+
+  const breakoutFollowThroughRows = useMemo(() => {
+    return (report?.rows ?? [])
+      .filter((row) => row.status === "BREAKOUT_CONTINUATION")
+      .map((row) => breakoutFollowThrough(row, quotesBySymbol[row.symbol]))
+      .filter((entry): entry is BreakoutFollowThroughEntry => entry != null)
+      .sort((left, right) => right.breakoutDay.date.localeCompare(left.breakoutDay.date));
+  }, [quotesBySymbol, report?.rows]);
 
   const columns: TableColumnsType<AdaptiveBreakoutScanRow> = [
     {
@@ -997,27 +1094,30 @@ export function AdaptiveBreakoutScannerPage(): ReactNode {
         <Empty description={scanMode === "WATCHLIST" ? "Select a watchlist and run the latest scan." : "Select one NSE stock and run the latest scan."} />
       )}
       {report && !loadingScan && (
-        <Card className="adaptive-breakout-results-card">
-          <StatusStrip rows={report.rows} quotesBySymbol={quotesBySymbol} marketOpen={marketOpen} activeFilter={statusFilter} onFilter={setStatusFilter} />
-          <div className="adaptive-breakout-legend">
-            <span><i className="finish" /> Close near high</span>
-            <span><i className="volume" /> Volume vs 10D</span>
-            <span><i className="high" /> Distance from 52W high</span>
-            <em>Evidence only · completed close confirms breakout</em>
-          </div>
-          <Table<AdaptiveBreakoutScanRow>
-            data-testid="adaptive-breakout-table"
-            size="small"
-            rowKey="symbol"
-            columns={columns}
-            dataSource={displayedRows}
-            pagination={false}
-            scroll={{ x: 1020, y: "calc(100vh - 345px)" }}
-            sticky
-            rowClassName={(row) => `adaptive-breakout-row-${displayStatus(row, quotesBySymbol[row.symbol], marketOpen).toLowerCase()}`}
-            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No stocks in this state." /> }}
-          />
-        </Card>
+        <>
+          <BreakoutFollowThroughTable entries={breakoutFollowThroughRows} />
+          <Card className="adaptive-breakout-results-card">
+            <StatusStrip rows={report.rows} quotesBySymbol={quotesBySymbol} marketOpen={marketOpen} activeFilter={statusFilter} onFilter={setStatusFilter} />
+            <div className="adaptive-breakout-legend">
+              <span><i className="finish" /> Close near high</span>
+              <span><i className="volume" /> Volume vs 10D</span>
+              <span><i className="high" /> Distance from 52W high</span>
+              <em>Evidence only · completed close confirms breakout</em>
+            </div>
+            <Table<AdaptiveBreakoutScanRow>
+              data-testid="adaptive-breakout-table"
+              size="small"
+              rowKey="symbol"
+              columns={columns}
+              dataSource={displayedRows}
+              pagination={false}
+              scroll={{ x: 1020, y: "calc(100vh - 345px)" }}
+              sticky
+              rowClassName={(row) => `adaptive-breakout-row-${displayStatus(row, quotesBySymbol[row.symbol], marketOpen).toLowerCase()}`}
+              locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No stocks in this state." /> }}
+            />
+          </Card>
+        </>
       )}
 
       <Drawer

@@ -684,6 +684,9 @@ internal object AdaptiveBreakoutEngine {
         val periodHigh = candles
             .subList(maxOf(0, breakoutIndex - FIFTY_TWO_WEEK_SESSIONS + 1), breakoutIndex + 1)
             .maxOfOrNull(DailyCandle::high)
+        val highestVolumeAfterBreakout = candles
+            .drop(breakoutIndex + 1)
+            .maxByOrNull(DailyCandle::volume)
         return AdaptiveBreakoutConfirmationEvidence(
             date = breakoutDate,
             closePositionPct = closePositionPct(breakoutCandle),
@@ -696,6 +699,23 @@ internal object AdaptiveBreakoutEngine {
                 .takeIf { floorAtr -> floorAtr.isUsableAtr() }
                 ?.let { floorAtr -> (breakoutCandle.close - breakoutStep.candidateFloor) / floorAtr },
             rangeLocked = breakoutCandle.high <= breakoutCandle.low,
+            breakoutDay = followThroughDay(candles, breakoutIndex),
+            highestVolumeAfterBreakout = highestVolumeAfterBreakout?.let { candle ->
+                followThroughDay(candles, candles.indexOf(candle))
+            },
+        )
+    }
+
+    private fun followThroughDay(candles: List<DailyCandle>, index: Int): AdaptiveBreakoutFollowThroughDay {
+        val candle = candles[index]
+        val priorTen = candles.subList(maxOf(0, index - 10), index)
+        val averageVolume = priorTen.takeIf { it.size == 10 }?.map(DailyCandle::volume)?.average()
+        return AdaptiveBreakoutFollowThroughDay(
+            date = candle.candleDate.toString(),
+            close = candle.close,
+            volume = candle.volume,
+            volumeVsTenDayAverage = averageVolume?.takeIf { it > 0.0 }?.let { candle.volume / it },
+            closePositionPct = closePositionPct(candle),
         )
     }
 

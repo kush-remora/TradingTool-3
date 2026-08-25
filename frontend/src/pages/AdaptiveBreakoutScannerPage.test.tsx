@@ -330,6 +330,20 @@ describe("AdaptiveBreakoutScannerPage", () => {
           floorToBreakoutPct: 12.5,
           floorToBreakoutAtr: 4.2,
           rangeLocked: true,
+          breakoutDay: {
+            date: "2026-08-05",
+            close: 82,
+            volume: 1800,
+            volumeVsTenDayAverage: 2.1,
+            closePositionPct: 90,
+          },
+          highestVolumeAfterBreakout: {
+            date: "2026-08-08",
+            close: 84,
+            volume: 2400,
+            volumeVsTenDayAverage: 2.4,
+            closePositionPct: 75,
+          },
         },
         rawSteps: [],
       }],
@@ -353,6 +367,15 @@ describe("AdaptiveBreakoutScannerPage", () => {
     expect(within(table).getByText(/From floor ₹80\.00 · 30 Jul · \+12\.5% \/ 4\.2 ATR/)).toBeInTheDocument();
     expect(within(table).getByText("Locked range · next-open fill uncertain")).toBeInTheDocument();
     expect(within(table).queryByText(/Latest close/)).not.toBeInTheDocument();
+
+    const followThroughTable = await screen.findByTestId("adaptive-breakout-follow-through-table");
+    expect(within(followThroughTable).getByText("Breakout day")).toBeInTheDocument();
+    expect(within(followThroughTable).getByText("Highest volume after breakout")).toBeInTheDocument();
+    expect(within(followThroughTable).getByText("₹82.00")).toBeInTheDocument();
+    expect(within(followThroughTable).getByText("₹84.00")).toBeInTheDocument();
+    expect(within(followThroughTable).getByText("2.40×")).toBeInTheDocument();
+    expect(within(followThroughTable).getByText("+6.1%")).toBeInTheDocument();
+    expect(within(followThroughTable).getByText("10d")).toBeInTheDocument();
   });
 
   it("keeps breakout evidence when the breakout candle also creates a newer ceiling", async () => {
