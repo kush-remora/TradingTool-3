@@ -18,6 +18,7 @@ data class AppConfig(
     val deployment: DeploymentConfig,
     val kite: KiteConfig,
     val redis: RedisAppConfig,
+    val gemini: GeminiConfig = GeminiConfig(),
 )
 
 data class ServerConfig(
@@ -55,6 +56,10 @@ data class DeploymentConfig(
 
 data class RedisAppConfig(
     val url: String,
+)
+
+data class GeminiConfig(
+    val apiKey: String = "",
 )
 
 fun loadAppConfig(resourceName: String = defaultConfigFileName()): AppConfig {
@@ -193,6 +198,15 @@ fun loadAppConfig(resourceName: String = defaultConfigFileName()): AppConfig {
         ),
     )
 
+    val gemini = GeminiConfig(
+        apiKey = getString(
+            fileValues = fileValues,
+            yamlKey = "gemini.apiKey",
+            envVars = listOf("GEMINI_API_KEY"),
+            defaultValue = "",
+        ),
+    )
+
     return AppConfig(
         server = server,
         service = service,
@@ -202,6 +216,7 @@ fun loadAppConfig(resourceName: String = defaultConfigFileName()): AppConfig {
         deployment = deployment,
         kite = kite,
         redis = redis,
+        gemini = gemini,
     )
 }
 

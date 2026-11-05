@@ -43,6 +43,11 @@ class DropwizardConfig : Configuration() {
     @NotNull
     var redis: DropwizardRedisConfig = DropwizardRedisConfig()
 
+    @JsonProperty("gemini")
+    @Valid
+    @NotNull
+    var gemini: DropwizardGeminiConfig = DropwizardGeminiConfig()
+
     fun toAppConfig(): AppConfig {
         val defaultAllowedOrigins = "https://kush-remora.github.io,http://localhost:5173,http://127.0.0.1:5173"
         return AppConfig(
@@ -75,6 +80,12 @@ class DropwizardConfig : Configuration() {
             ),
             redis = RedisAppConfig(
                 url = redis.url ?: "redis://localhost:6379",
+            ),
+            gemini = GeminiConfig(
+                apiKey = System.getenv("GEMINI_API_KEY")
+                    ?.trim()
+                    ?.takeIf { apiKey -> apiKey.isNotEmpty() }
+                    ?: gemini.apiKey.orEmpty(),
             ),
         )
     }
@@ -156,4 +167,9 @@ class DropwizardKiteConfig {
 class DropwizardRedisConfig {
     @JsonProperty("url")
     var url: String? = "redis://localhost:6379"
+}
+
+class DropwizardGeminiConfig {
+    @JsonProperty("apiKey")
+    var apiKey: String? = ""
 }
