@@ -1,12 +1,12 @@
 # EY Visual Book Generator (EVI Module)
 
-An AI-assisted document transformation platform designed to eliminate the manual bottleneck in the handoff between technical content teams and visual designers.
+An AI-assisted visual book generator that creates the first typesetting pass for large, content-heavy marketing documents. Designers remain in the loop to review and refine the generated layouts.
 
 ---
 
 ## 1. Executive Summary & Problem Framing
 
-In enterprise technical documentation workflows, technical writers create detailed, structured documents (specifications, architecture guides, process manuals), and visual artists create diagrams and flowcharts. Traditionally, a graphic designer manually interprets where and how diagrams fit onto pages, reformatting text and reflowing layouts in Adobe InDesign or Figma to produce a polished deliverable.
+Marketing teams create large, content-heavy documents, sometimes up to 500 pages. Traditionally, a designer manually turns that content into a well-designed layout, going through multiple iterations before there is a usable first draft.
 
 This manual handoff is brittle and slow:
 * If the designer reflows the page, critical technical language can be accidentally modified, truncated, or divorced from its visual context.
@@ -36,7 +36,7 @@ The canonical system instructions, user templates, and JSON schemas for each mod
 evi/
 ├── backend/                  # Kotlin / Maven microservice module (package com.evi.*)
 │   ├── src/main/kotlin/com/evi/
-│   │   ├── client/           # JDK 21 HTTP Client for Gemini & Supabase APIs
+│   │   ├── client/           # JDK 21 HTTP Client for the LLM & Supabase APIs
 │   │   ├── database/         # Jdbi 3 Postgres DAOs and handlers
 │   │   ├── model/            # Folio and Authority Data Models
 │   │   ├── resource/         # JAX-RS REST Endpoints (/api/visual-book, /api/folios)
@@ -46,7 +46,7 @@ evi/
 │   ├── src/bookGenerator/    # Multi-page PDF reader, authority selection, and previews
 │   │   └── BookGeneratorPage.tsx
 │   └── package.json
-├── prompts/                  # Canonical Gemini authority prompt contracts
+├── prompts/                  # Canonical LLM authority prompt contracts
 │   ├── 1-preserve.md
 │   ├── 2-restructure.md
 │   └── 3-transform.md
@@ -56,14 +56,14 @@ evi/
 ```
 
 ### Backend Capabilities
-* **Resilient Multi-Model Cascade:** Automatically falls back across Gemini candidates (`gemini-3-flash-preview`, `gemini-3.1-flash-lite`, `gemini-3.8-flash`) and provides deterministic emergency fallbacks when provider demand spikes.
+* **Resilient Multi-Model Cascade:** Automatically falls back across provider model candidates and provides deterministic emergency fallbacks when the LLM provider is unavailable.
 * **Server-Side PDF Parsing:** Apache PDFBox 3.x extracts page-by-page text dynamically, isolates visual boundaries, and caches extracted text.
 * **Storage Isolation:** Private Supabase Storage bucket (`ey-books`) stores raw PDFs securely behind signed backend calls.
 * **Authority Contract Evaluation:** `POST /api/visual-book/authority` selects one of the three canonical prompt contracts and validates the mode-specific JSON envelope. Preserve must return exactly two additive page-placement variants.
 
 ### Frontend Capabilities
 * **Interactive Document Reader:** Real-time page flipping, extracted text view, and multimodal image uploads.
-* **Authority Mode Selection:** Lets the user choose Preserve, Restructure, or Transform. Preserve renders two visual placement choices instead of exposing raw Gemini JSON as the primary experience.
+* **Authority Mode Selection:** Lets the user choose Preserve, Restructure, or Transform. Preserve renders two visual placement choices instead of exposing raw LLM JSON as the primary experience.
 * **Preserve placement choices:** Preserve returns two additive page-placement variants while keeping the original PDF page rendering unchanged. The selected placement is shown with the original page rendered as an immutable image.
 * **PDF composition:** The renderer will consume the selected authority result in the next implementation slice.
 

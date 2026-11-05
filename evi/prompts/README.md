@@ -1,6 +1,6 @@
-# Gemini Prompt Library
+# LLM Prompt Library
 
-These files are the source of truth for the EY Visual Book Generator's Gemini authority modes.
+These files are the source of truth for the EY Visual Book Generator's LLM authority modes.
 
 ## Prompt files
 
@@ -22,7 +22,7 @@ The current application does not yet provide all of these inputs. At present, it
 ## Runtime rules
 
 1. Select exactly one prompt from the user's explicit authority mode.
-2. Pass the matching response schema to Gemini's structured-output configuration.
+2. Pass the matching response schema to the LLM provider's structured-output configuration.
 3. Validate the response against the selected mode before rendering it.
 4. Preserve source content application-side; do not rely on a model attestation alone.
 5. Keep prompt changes version-controlled and review them as product-contract changes.

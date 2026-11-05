@@ -212,7 +212,7 @@ const AUTHORITY_MODE_DETAILS: Record<AuthorityMode, { label: string; description
   },
   TRANSFORM: {
     label: "Transform",
-    description: "Give Gemini full editorial and design authority.",
+    description: "Give the LLM full editorial and design authority.",
   },
 };
 
@@ -679,7 +679,7 @@ function RestructureResultPreview({
         type="warning"
         showIcon
         message="A readable Restructure preview was not returned"
-        description="Generate again so Gemini returns sections with source coverage, verbatim content nodes, and layout instructions."
+        description="Generate again so the LLM returns sections with source coverage, verbatim content nodes, and layout instructions."
       />
     );
   }
@@ -810,7 +810,7 @@ function TransformResultPreview({
         type="warning"
         showIcon
         message="Two Transform layouts were not returned"
-        description="Generate again so Gemini returns two factually grounded variants with different structures and communication approaches."
+        description="Generate again so the LLM returns two factually grounded variants with different structures and communication approaches."
       />
     );
   }
@@ -1465,7 +1465,7 @@ export function BookGeneratorPage() {
                 <div className="book-generator-image-slot-header">
                   <div>
                     <span className="book-generator-sheet-kicker">AI AUTHORITY</span>
-                    <h3>How much may Gemini change?</h3>
+                    <h3>How much may the LLM change?</h3>
                     <p className="book-generator-image-hint">
                       This selection controls the document contract used for generation.
                     </p>
@@ -1530,12 +1530,12 @@ export function BookGeneratorPage() {
                         {currentDesign.authorityResult.authorityMode === "PRESERVE"
                           ? "Both options keep the original PDF page unchanged. The selected visual is added as a separate page before or after it."
                           : currentDesign.authorityResult.authorityMode === "RESTRUCTURE"
-                            ? "Gemini may change hierarchy and layout, but every source wording block remains verbatim."
+                            ? "The LLM may change hierarchy and layout, but every source wording block remains verbatim."
                             : "Choose between two genuinely different editorial and structural treatments, not just two image positions."}
                       </p>
                     </div>
-                    <Tag color={currentDesign.authorityResult.generationSource === "gemini" ? "blue" : "orange"}>
-                      {currentDesign.authorityResult.generationSource === "gemini" ? "Gemini" : "Fallback"}
+                    <Tag color={currentDesign.authorityResult.generationSource === "llm" ? "blue" : "orange"}>
+                      {currentDesign.authorityResult.generationSource === "llm" ? "LLM" : "Template fallback"}
                     </Tag>
                   </div>
                   {currentDesign.authorityResult.debug?.errorMessage && (

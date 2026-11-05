@@ -19,15 +19,15 @@ The EY Visual Book Generator is a separate active project in this repository. It
 
 The content team starts with a source document, usually a PDF containing structured text, and may have visual assets. A designer currently reads the document, understands its intent, decides how the visual belongs with the content, and manually produces a polished PDF. The product makes that handoff explicit by letting the user control how much authority the AI has over the source document.
 
-The central interaction is an authority selection made before Gemini is called:
+The central interaction is an authority selection made before the LLM is called:
 
 1. **Preserve** — protect the source text and original sequence verbatim (100% lexical fidelity; no rewriting, summarization, or invented headings). Incorporate the visual asset at a contextually relevant anchor (inline middle, side-by-side right/left, or section banner). Natural multi-page vertical flow (expanding from 1 to 1.5 or 2 pages) is expected and supported.
 2. **Restructure** — preserve the source language and meaning, but allow new headlines, subheadings, numbered lists, section order, hierarchy, and visual formatting. Do not rewrite or summarize the content.
 3. **Transform** — give the AI full editorial and design authority to summarize, rewrite in its own language, create new structure and headlines, integrate visuals, and propose genuinely different document layouts.
 
-These are permission contracts, not visual themes. The selected mode must determine the Gemini prompt, allowed output fields, UI language, and validation rules. React PDF rendering and Gemini are implementation tools; the user-visible value is controlled document transformation with clear boundaries. For the isolated assignment module, the canonical prompt files are under `evi/prompts/`; the older root `config/gemini-prompts/` copy is historical.
+These are permission contracts, not visual themes. The selected mode must determine the LLM prompt, allowed output fields, UI language, and validation rules. React PDF rendering and the LLM provider are implementation tools; the user-visible value is controlled document transformation with clear boundaries. For the isolated assignment module, the canonical prompt files are under `evi/prompts/`; the older root `config/gemini-prompts/` copy is historical.
 
-Intended workflow: `Upload source document + visual asset(s) → select Preserve, Restructure, or Transform → send the mode-specific Gemini prompt → receive a structured document/layout result → validate it against the selected authority level → preview and export the resulting PDF.`
+Intended workflow: `Upload source document + visual asset(s) → select Preserve, Restructure, or Transform → send the mode-specific LLM prompt → receive a structured document/layout result → validate it against the selected authority level → preview and export the resulting PDF.`
 
 Prompting alone is not sufficient for Preserve. The application should compare or otherwise validate the returned content against the source before claiming that the document was preserved. Two Transform layouts must differ in document structure and communication approach, not only image placement.
 

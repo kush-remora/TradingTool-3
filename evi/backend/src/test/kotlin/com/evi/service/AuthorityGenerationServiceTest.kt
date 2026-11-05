@@ -19,7 +19,7 @@ class AuthorityGenerationServiceTest {
     private val objectMapper = ObjectMapper().registerModule(KotlinModule.Builder().build())
 
     @Test
-    fun `returns the selected mode when Gemini is not configured`() = kotlinx.coroutines.runBlocking {
+    fun `returns the selected mode when the LLM is not configured`() = kotlinx.coroutines.runBlocking {
         val service = AuthorityGenerationService(
             apiKey = "",
             httpClient = FailingHttpClient,
@@ -57,7 +57,7 @@ class AuthorityGenerationServiceTest {
 
         val response = service.generate(request(AuthorityMode.TRANSFORM))
 
-        assertEquals("gemini", response.generationSource)
+        assertEquals("llm", response.generationSource)
         assertNotNull(response.result)
         assertTrue(httpClient.requestBody.contains("ACTIVE AUTHORITY MODE: TRANSFORM"))
         assertTrue(httpClient.requestBody.contains("The source content remains available"))
@@ -87,7 +87,7 @@ class AuthorityGenerationServiceTest {
 
         val response = service.generate(request(AuthorityMode.PRESERVE))
 
-        assertEquals("gemini", response.generationSource)
+        assertEquals("llm", response.generationSource)
         assertEquals(2, response.result?.path("preserve_variants")?.size())
         assertTrue(httpClient.requestBody.contains("additive page-placement variants"))
     }

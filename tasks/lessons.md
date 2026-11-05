@@ -136,4 +136,6 @@
 
 ## 2026-11-05
 
+- Keep the product vendor-neutral: say “LLM” in the UI, document cells, prompts, and product documentation. Provider names belong only in internal configuration and implementation details.
+- Keep the product problem precise: EVI automates the first typesetting/layout pass for large marketing documents, including documents up to 500 pages. It is not merely an image-placement tool or a replacement for the designer.
 - Preserve authority means source wording, sequence, and source formatting stay fixed; it does not mean the document cannot gain visual content or expand onto another page. Keep the prompt, backend validator, and preview vocabulary aligned around contextual image-placement strategies.

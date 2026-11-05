@@ -10,7 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.LoggerFactory
 import java.time.Duration
 
-private val AUTHORITY_GEMINI_MODELS = listOf(
+private val AUTHORITY_PROVIDER_MODELS = listOf(
     "gemini-3-flash-preview",
     "gemini-3.1-flash-lite",
     "gemini-3.8-flash",
@@ -19,7 +19,7 @@ private val PRESERVE_PLACEMENT_STRATEGIES = setOf(
     "ADDED_PAGE_BEFORE_SOURCE",
     "ADDED_PAGE_AFTER_SOURCE",
 )
-private val GEMINI_REQUEST_TIMEOUT: Duration = Duration.ofSeconds(60)
+private val LLM_REQUEST_TIMEOUT: Duration = Duration.ofSeconds(60)
 
 class AuthorityGenerationService(
     private val apiKey: String,
@@ -45,7 +45,7 @@ class AuthorityGenerationService(
                     startTime = startTime,
                     mode = mode,
                     providerStatus = "missing_api_key",
-                    errorMessage = "Gemini API key is not configured in environment or local config.",
+                    errorMessage = "LLM provider credentials are not configured in the environment or local config.",
                     promptSnippet = promptSnippet,
                 ),
             )
@@ -55,14 +55,14 @@ class AuthorityGenerationService(
         var lastStatus: Int? = null
         var lastResponseSnippet: String? = null
         var lastEndpoint: String? = null
-        var lastModel = AUTHORITY_GEMINI_MODELS.first()
+        var lastModel = AUTHORITY_PROVIDER_MODELS.first()
 
-        for (model in AUTHORITY_GEMINI_MODELS) {
+        for (model in AUTHORITY_PROVIDER_MODELS) {
             val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent"
             lastEndpoint = endpoint
             lastModel = model
             try {
-                val (rawBody, statusCode) = executeGeminiCall(
+                val (rawBody, statusCode) = executeLlmCall(
                     endpoint = endpoint,
                     contract = contract,
                     systemInstruction = systemInstruction,
@@ -75,7 +75,7 @@ class AuthorityGenerationService(
 
                 return AuthorityGenerationResponse(
                     authorityMode = mode,
-                    generationSource = "gemini",
+                    generationSource = "llm",
                     result = generated,
                     debug = debugInfo(
                         startTime = startTime,
@@ -102,7 +102,7 @@ class AuthorityGenerationService(
                 startTime = startTime,
                 mode = mode,
                 providerStatus = "error",
-                errorMessage = lastError?.message ?: "Gemini provider unavailable",
+                errorMessage = lastError?.message ?: "LLM provider unavailable",
                 model = lastModel,
                 endpoint = lastEndpoint,
                 promptSnippet = promptSnippet,
@@ -113,7 +113,7 @@ class AuthorityGenerationService(
         )
     }
 
-    private suspend fun executeGeminiCall(
+    private suspend fun executeLlmCall(
         endpoint: String,
         contract: AuthorityPromptContract,
         systemInstruction: String,
@@ -136,7 +136,7 @@ class AuthorityGenerationService(
             url = endpoint,
             body = objectMapper.writeValueAsString(payload),
             headers = mapOf("x-goog-api-key" to apiKey, "Accept" to "application/json"),
-            timeout = GEMINI_REQUEST_TIMEOUT,
+            timeout = LLM_REQUEST_TIMEOUT,
         )
         if (response.statusCode !in 200..299) {
             throw IllegalStateException("HTTP ${response.statusCode}: ${response.body.take(300)}")
@@ -176,14 +176,14 @@ class AuthorityGenerationService(
     private fun extractGeneratedJson(responseBody: String): JsonNode {
         val root = objectMapper.readTree(responseBody)
         val textNode = root.path("candidates").path(0).path("content").path("parts").path(0).path("text")
-        require(textNode.isTextual) { "Gemini response did not include an authority payload." }
+        require(textNode.isTextual) { "LLM response did not include an authority payload." }
         return objectMapper.readTree(textNode.asText())
     }
 
     private fun validateGeneratedPayload(mode: AuthorityMode, payload: JsonNode) {
-        require(payload.isObject) { "Gemini authority payload must be a JSON object." }
+        require(payload.isObject) { "LLM authority payload must be a JSON object." }
         require(payload.path("authority_mode").asText() == mode.name) {
-            "Gemini returned the wrong authority_mode."
+            "LLM returned the wrong authority_mode."
         }
         when (mode) {
             AuthorityMode.PRESERVE -> {
@@ -228,7 +228,7 @@ class AuthorityGenerationService(
         mode: AuthorityMode,
         providerStatus: String,
         errorMessage: String? = null,
-        model: String = AUTHORITY_GEMINI_MODELS.first(),
+        model: String = AUTHORITY_PROVIDER_MODELS.first(),
         endpoint: String? = null,
         promptSnippet: String? = null,
         responseStatusCode: Int? = null,
