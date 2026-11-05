@@ -54,3 +54,5 @@ The authority-aware backend path is now the only generation path. Preserve and T
 For local testing, the root `frontend/` Vite app on port 5173 is the single browser entry point. Its book-generator route contains the authority-mode previews; the separate EVI Vite server is not part of the testing workflow.
 
 The first screen is positioned as an EY internal EVI document studio, not a consumer-facing story or home. User-facing language should describe source documents, communication objectives, AI authority, and visual-page production. Internal API/domain names such as `folio` may remain in implementation code, but should not define the product's visible identity.
+
+For the temporary public demo period, the GitHub Pages build is configured with `VITE_PUBLIC_BOOK_GENERATOR_ONLY=true`. Every public path renders the Book Generator and is rewritten to its route; the trading UI remains available only in local development. This is presentation-level hiding, not authentication or backend security.

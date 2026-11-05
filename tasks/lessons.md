@@ -82,6 +82,7 @@
 ## 2026-11-06
 
 - For GitHub Pages SPA deep links, do not expose an internal redirect query parameter in user-facing URLs. Preserve the requested path in session storage, load the app shell, and restore the clean path before route detection.
+- For temporary public demos, gate the published frontend at build time instead of deleting private development screens. Route all public paths to the intended demo surface while keeping the full app available locally.
 
 ## 2026-08-10
 

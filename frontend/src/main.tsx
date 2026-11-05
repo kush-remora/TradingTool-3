@@ -5,6 +5,8 @@ import "./index.css";
 import App from "./App";
 import { BookGeneratorPage } from "./bookGenerator/BookGeneratorPage";
 
+const publicBookGeneratorOnly = import.meta.env.VITE_PUBLIC_BOOK_GENERATOR_ONLY === "true";
+
 function restoreGithubPagesRoute(): void {
   const pendingRoute = sessionStorage.getItem("tradingtool-github-pages-route");
   if (!pendingRoute) return;
@@ -23,6 +25,26 @@ function restoreGithubPagesRoute(): void {
     {},
     "",
     `${requestedUrl.pathname}${requestedUrl.search}${requestedUrl.hash}`,
+  );
+}
+
+function redirectPublicBuildToBookGenerator(): void {
+  if (!publicBookGeneratorOnly) return;
+
+  const baseUrl = import.meta.env.BASE_URL;
+  const normalizedPath = window.location.pathname
+    .replace(baseUrl, "")
+    .replace(/^\/+|\/+$/g, "");
+  if (normalizedPath === "book-generator") return;
+
+  const params = new URLSearchParams(window.location.search);
+  params.delete("redirect");
+  params.delete("route");
+  const search = params.toString();
+  window.history.replaceState(
+    {},
+    "",
+    `${baseUrl}book-generator${search ? `?${search}` : ""}${window.location.hash}`,
   );
 }
 
@@ -49,9 +71,10 @@ function isBookGeneratorRoute(): boolean {
 }
 
 restoreGithubPagesRoute();
+redirectPublicBuildToBookGenerator();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    {isBookGeneratorRoute() ? <BookGeneratorPage /> : <App />}
+    {publicBookGeneratorOnly || isBookGeneratorRoute() ? <BookGeneratorPage /> : <App />}
   </React.StrictMode>,
 );
