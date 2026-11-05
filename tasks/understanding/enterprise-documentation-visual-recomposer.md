@@ -50,3 +50,5 @@ The assignment code has now been isolated under `evi/` and is authority-mode awa
 The slice must not pretend that the current page-text-plus-image-metadata input provides the full structured source document or multimodal image analysis required by the prompt contracts. Those inputs remain follow-up work.
 
 The authority-aware backend path is now the only generation path. Preserve and Transform results can be selected through mode-specific previews; the model's self-attestation is not sufficient evidence of immutability or factual grounding, so deterministic validation and final renderer support remain required.
+
+For local testing, the root `frontend/` Vite app on port 5173 is the single browser entry point. Its book-generator route contains the authority-mode previews; the separate EVI Vite server is not part of the testing workflow.

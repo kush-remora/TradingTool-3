@@ -503,7 +503,7 @@ function getTransformResult(result: unknown): TransformResult | null {
     ];
   });
 
-  return variants.length > 0
+  return variants.length === 2
     ? {
         variant_divergence_summary: {
           structural_difference_explanation: rawSummary.structural_difference_explanation,
@@ -1183,6 +1183,19 @@ export function BookGeneratorPage() {
     }
   };
 
+  const handleAuthorityModeChange = (nextMode: AuthorityMode): void => {
+    setAuthorityMode(nextMode);
+    setAuthorityGenerationError(null);
+    setPageDesigns((prev) => ({
+      ...prev,
+      [currentPageNumber]: {
+        ...prev[currentPageNumber],
+        authorityResult: undefined,
+        selectedAuthorityVariantId: undefined,
+      },
+    }));
+  };
+
   const currentPreserveVariants =
     currentDesign?.authorityResult?.authorityMode === "PRESERVE"
       ? getPreserveVariants(currentDesign.authorityResult.result)
@@ -1464,7 +1477,7 @@ export function BookGeneratorPage() {
                 </div>
                 <Radio.Group
                   value={authorityMode}
-                  onChange={(event) => setAuthorityMode(event.target.value as AuthorityMode)}
+                  onChange={(event) => handleAuthorityModeChange(event.target.value as AuthorityMode)}
                   optionType="button"
                   buttonStyle="solid"
                   className="book-generator-authority-options"
@@ -1513,12 +1526,16 @@ export function BookGeneratorPage() {
                       <h3>
                         {currentDesign.authorityResult.authorityMode === "PRESERVE"
                           ? "Choose where to add the image"
-                          : `${AUTHORITY_MODE_DETAILS[currentDesign.authorityResult.authorityMode].label} result`}
+                          : currentDesign.authorityResult.authorityMode === "RESTRUCTURE"
+                            ? "Review the restructured document"
+                            : "Choose a transformed layout"}
                       </h3>
                       <p>
                         {currentDesign.authorityResult.authorityMode === "PRESERVE"
                           ? "Both options keep the original PDF page unchanged. The selected visual is added as a separate page before or after it."
-                          : "The authority contract has been generated. Its visual renderer will be added in the next mode-specific slice."}
+                          : currentDesign.authorityResult.authorityMode === "RESTRUCTURE"
+                            ? "Gemini may change hierarchy and layout, but every source wording block remains verbatim."
+                            : "Choose between two genuinely different editorial and structural treatments, not just two image positions."}
                       </p>
                     </div>
                     <Tag color={currentDesign.authorityResult.generationSource === "gemini" ? "blue" : "orange"}>
@@ -1566,7 +1583,24 @@ export function BookGeneratorPage() {
                         description="Generate again after selecting an image. Preserve requires two additive page placements without changing the original PDF page."
                       />
                     ))}
-                  {currentDesign.selectedAuthorityVariantId && (
+
+                  {currentDesign.authorityResult.authorityMode === "RESTRUCTURE" && (
+                    <RestructureResultPreview
+                      result={currentDesign.authorityResult.result}
+                      imageUrl={currentDesign.imageUrl}
+                    />
+                  )}
+
+                  {currentDesign.authorityResult.authorityMode === "TRANSFORM" && (
+                    <TransformResultPreview
+                      result={currentDesign.authorityResult.result}
+                      imageUrl={currentDesign.imageUrl}
+                      selectedVariantId={currentDesign.selectedAuthorityVariantId}
+                      onSelect={selectAuthorityVariant}
+                    />
+                  )}
+
+                  {hasReadyAuthorityResult && (
                     <div className="authority-variant-confirmation">
                       <Button type="primary" size="large" onClick={saveAndAdvancePage}>
                         {activePageData && currentPageNumber >= activePageData.totalPages
