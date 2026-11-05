@@ -5,6 +5,27 @@ import "./index.css";
 import App from "./App";
 import { BookGeneratorPage } from "./bookGenerator/BookGeneratorPage";
 
+function restoreGithubPagesRoute(): void {
+  const pendingRoute = sessionStorage.getItem("tradingtool-github-pages-route");
+  if (!pendingRoute) return;
+
+  sessionStorage.removeItem("tradingtool-github-pages-route");
+  const baseUrl = import.meta.env.BASE_URL;
+  const requestedUrl = new URL(pendingRoute, window.location.origin);
+  if (
+    requestedUrl.origin !== window.location.origin ||
+    !requestedUrl.pathname.startsWith(baseUrl)
+  ) {
+    return;
+  }
+
+  window.history.replaceState(
+    {},
+    "",
+    `${requestedUrl.pathname}${requestedUrl.search}${requestedUrl.hash}`,
+  );
+}
+
 function isBookGeneratorRoute(): boolean {
   const baseUrl = import.meta.env.BASE_URL;
   const path = window.location.pathname;
@@ -26,6 +47,8 @@ function isBookGeneratorRoute(): boolean {
   }
   return false;
 }
+
+restoreGithubPagesRoute();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

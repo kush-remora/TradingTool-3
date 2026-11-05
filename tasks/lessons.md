@@ -79,6 +79,10 @@
 - For rolling daily backtests, fetch at least one candle before the visible test window so the first setup candle can still receive a valid close-to-close return.
 - Keep engine-facing fixture/member types at the same visibility as the engine method; Kotlin rejects public methods that expose internal parameter types.
 
+## 2026-11-06
+
+- For GitHub Pages SPA deep links, do not expose an internal redirect query parameter in user-facing URLs. Preserve the requested path in session storage, load the app shell, and restore the clean path before route detection.
+
 ## 2026-08-10
 
 - When a trading rule says "the second green candle," confirm whether consecutive candles are intended before implementing the trigger; once specified, keep RSI evaluation separate from the post-signal candle confirmation.
