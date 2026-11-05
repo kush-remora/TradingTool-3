@@ -1,0 +1,143 @@
+/* Structured Technical Document Renderer */
+.structured-doc-root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #1f2937;
+  line-height: 1.65;
+  font-size: 14px;
+}
+
+.structured-doc-title {
+  margin: 0 0 4px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #111827;
+  text-align: left;
+}
+
+.structured-doc-subtitle {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #2b593f;
+  letter-spacing: 0.2px;
+}
+
+.structured-doc-contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.structured-contact-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.structured-contact-pill:not(:last-child)::after {
+  content: "•";
+  margin-left: 12px;
+  color: #9ca3af;
+}
+
+/* Major Section Headers */
+.structured-section-header {
+  margin: 24px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.structured-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #1b4d3e;
+  white-space: nowrap;
+}
+
+.structured-section-divider {
+  flex: 1;
+  height: 1.5px;
+  background: #cbd5e1;
+}
+
+/* Sub-headers (Roles / Companies / Dates) */
+.structured-sub-header {
+  margin: 14px 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  background: #f8fafc;
+  padding: 4px 8px;
+  border-left: 3px solid #1b4d3e;
+  border-radius: 0 4px 4px 0;
+}
+
+/* Key-Value Technical Specs */
+.structured-key-value {
+  margin: 6px 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #374151;
+}
+
+.structured-key {
+  font-weight: 600;
+  color: #111827;
+}
+
+.structured-value {
+  color: #4b5563;
+}
+
+/* Bullet Lists & Indentation */
+.structured-bullet-list {
+  margin: 8px 0 16px 0;
+  padding-left: 20px;
+  list-style-type: disc;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.structured-bullet-item {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #374151;
+  padding-left: 4px;
+}
+
+.structured-bullet-title {
+  font-weight: 600;
+  color: #111827;
+}
+
+.structured-bullet-body {
+  color: #374151;
+}
+
+.structured-paragraph {
+  margin: 6px 0 12px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: #374151;
+}
+
+.structured-doc-empty {
+  padding: 40px;
+  text-align: center;
+  color: #9ca3af;
+  font-style: italic;
+}

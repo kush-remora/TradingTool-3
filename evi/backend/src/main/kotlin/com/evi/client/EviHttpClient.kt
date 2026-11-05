@@ -31,6 +31,13 @@ interface EviHttpClient {
     suspend fun execute(request: EviHttpRequestData): EviHttpResponseData
     suspend fun executeBytes(request: EviHttpRequestData): EviHttpBinaryResponseData
     suspend fun post(url: String, body: String?, headers: Map<String, String> = emptyMap()): EviHttpResponseData
+
+    suspend fun postWithTimeout(
+        url: String,
+        body: String?,
+        headers: Map<String, String> = emptyMap(),
+        timeout: Duration,
+    ): EviHttpResponseData = post(url, body, headers)
 }
 
 class JdkEviHttpClient(
@@ -47,6 +54,22 @@ class JdkEviHttpClient(
             uri = URI.create(url),
             headers = headers,
             body = body?.toByteArray(Charsets.UTF_8),
+        )
+        return execute(requestData)
+    }
+
+    override suspend fun postWithTimeout(
+        url: String,
+        body: String?,
+        headers: Map<String, String>,
+        timeout: Duration,
+    ): EviHttpResponseData {
+        val requestData = EviHttpRequestData(
+            method = "POST",
+            uri = URI.create(url),
+            headers = headers,
+            body = body?.toByteArray(Charsets.UTF_8),
+            timeout = timeout,
         )
         return execute(requestData)
     }

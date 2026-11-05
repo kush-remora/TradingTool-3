@@ -539,6 +539,16 @@ export default function App() {
           <div className="app-header-calculator" data-testid="global-buy-sell-calculator">
             <BuySellChangeCalculator />
           </div>
+          <Button
+            type="primary"
+            icon={<BookOutlined />}
+            style={{ marginLeft: "auto" }}
+            onClick={() => {
+              window.location.href = `${import.meta.env.BASE_URL}book-generator`;
+            }}
+          >
+            EY Visual Book Generator
+          </Button>
         </Layout.Header>
         <Layout>
           <Layout.Sider

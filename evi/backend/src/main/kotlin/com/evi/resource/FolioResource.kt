@@ -82,6 +82,51 @@ class FolioResource @Inject constructor(
         }
     }
 
+    @GET
+    @Path("/{id}/pages/{pageNumber}/image")
+    @Produces("image/png", MediaType.APPLICATION_JSON)
+    fun getPageImage(
+        @PathParam("id") idString: String,
+        @PathParam("pageNumber") pageNumber: Int,
+    ): CompletableFuture<Response> = ioScope.endpoint {
+        val folioId = try {
+            UUID.fromString(idString.trim())
+        } catch (_: IllegalArgumentException) {
+            return@endpoint Response.status(400)
+                .type(MediaType.APPLICATION_JSON)
+                .entity(mapOf("detail" to "Invalid folio ID format."))
+                .build()
+        }
+        if (pageNumber < 1) {
+            return@endpoint Response.status(400)
+                .type(MediaType.APPLICATION_JSON)
+                .entity(mapOf("detail" to "Page number must be at least 1."))
+                .build()
+        }
+
+        try {
+            Response.ok(folioService.renderPage(folioId, pageNumber), "image/png")
+                .header("Cache-Control", "private, max-age=300")
+                .build()
+        } catch (error: FolioNotFoundException) {
+            notFound(error.message ?: "Folio not found.")
+        } catch (error: FolioPageOutOfBoundsException) {
+            badRequest(error.message ?: "Page out of bounds.")
+        } catch (_: FolioStorageNotConfiguredException) {
+            serviceUnavailable("PDF storage is not configured yet.")
+        } catch (error: FolioExtractionException) {
+            Response.status(422)
+                .entity(mapOf("detail" to (error.message ?: "Unable to render PDF page.")))
+                .type(MediaType.APPLICATION_JSON)
+                .build()
+        } catch (error: Exception) {
+            Response.status(500)
+                .entity(mapOf("detail" to (error.message ?: "Unable to render PDF page.")))
+                .type(MediaType.APPLICATION_JSON)
+                .build()
+        }
+    }
+
     @POST
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     fun createFolio(

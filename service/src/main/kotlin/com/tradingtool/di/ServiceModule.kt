@@ -83,20 +83,21 @@ import com.evi.client.JdkEviHttpClient
 import com.evi.database.EviJdbiHandler
 import com.evi.database.FolioReadDao
 import com.evi.database.FolioWriteDao
+import com.evi.resource.AuthorityGenerationResource
 import com.evi.resource.EviResourceScope
+import com.evi.service.AuthorityGenerationService
 import com.evi.service.FolioJdbiHandler
 import com.evi.service.FolioService
 import com.evi.service.FolioStorage
 import com.evi.service.FolioStore
 import com.evi.service.JdbiFolioStore
 import com.evi.service.SupabaseFolioStorage
-import com.evi.service.VisualBookLayoutService
 import com.tradingtool.eventservice.KiteTickerService
 import com.tradingtool.resources.ALL_RESOURCE_CLASSES
 
 val EVI_RESOURCE_CLASSES: List<Class<*>> = listOf(
-    com.evi.resource.VisualBookResource::class.java,
     com.evi.resource.FolioResource::class.java,
+    AuthorityGenerationResource::class.java,
 )
 
 class ServiceModule(
@@ -133,11 +134,11 @@ class ServiceModule(
 
     @Provides
     @Singleton
-    fun provideVisualBookLayoutService(
+    fun provideAuthorityGenerationService(
         config: AppConfig,
         httpClient: EviHttpClient,
         objectMapper: com.fasterxml.jackson.databind.ObjectMapper,
-    ): VisualBookLayoutService = VisualBookLayoutService(
+    ): AuthorityGenerationService = AuthorityGenerationService(
         apiKey = config.gemini.apiKey,
         httpClient = httpClient,
         objectMapper = objectMapper,

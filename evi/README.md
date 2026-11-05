@@ -22,7 +22,7 @@ Rather than treating layout as a visual theme or styling preset, the system impl
 
 | Authority Mode | Source Text | Structure & Flow | Visual Placement | Conflict Policy |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. Preserve** | Strictly protected (0% lexical mutation) | Unchanged original block sequence | Allowed only in designated empty slots or trailing whitespace without moving text | Blocks modification if insertion causes text reflow; reports explicit conflict |
+| **1. Preserve** | Strictly protected source PDF page rendering | Original PDF page remains unchanged; added pages may expand the document | Added visual page before or after the source page | Rejects rewrites, reordering, and source-page reflow |
 | **2. Restructure** | Verbatim text and meaning protected | Allowed to reorder sections, add headlines/subheadings, and convert into numbered lists | Context-aware inline placement matching restructured sections | Prohibits summarizing or rewriting source wording |
 | **3. Transform** | Full editorial rewrite & executive summarization | Completely redesigned document hierarchy | High-impact hero split, editorial banner, or visual-first composition | Generates meaningfully distinct layout variants |
 
@@ -38,15 +38,13 @@ evi/
 │   ├── src/main/kotlin/com/evi/
 │   │   ├── client/           # JDK 21 HTTP Client for Gemini & Supabase APIs
 │   │   ├── database/         # Jdbi 3 Postgres DAOs and handlers
-│   │   ├── model/            # Folio, Layout, and Authority Data Models
+│   │   ├── model/            # Folio and Authority Data Models
 │   │   ├── resource/         # JAX-RS REST Endpoints (/api/visual-book, /api/folios)
-│   │   └── service/          # VisualBookLayoutService & FolioService (PDFBox 3.x)
+│   │   └── service/          # AuthorityGenerationService, prompt loading & FolioService
 │   └── src/test/kotlin/      # Comprehensive unit & validation tests
 ├── frontend/                 # React 19 + TypeScript + Vite web client
-│   ├── src/bookGenerator/    # Multi-page PDF reader, layout picker, & PDF export
-│   │   ├── BookGeneratorPage.tsx
-│   │   ├── StructuredDocumentRenderer.tsx
-│   │   └── VisualBookPdfDocument.tsx (@react-pdf/renderer)
+│   ├── src/bookGenerator/    # Multi-page PDF reader, authority selection, and previews
+│   │   └── BookGeneratorPage.tsx
 │   └── package.json
 ├── prompts/                  # Canonical Gemini authority prompt contracts
 │   ├── 1-preserve.md
@@ -61,11 +59,13 @@ evi/
 * **Resilient Multi-Model Cascade:** Automatically falls back across Gemini candidates (`gemini-3-flash-preview`, `gemini-3.1-flash-lite`, `gemini-3.8-flash`) and provides deterministic emergency fallbacks when provider demand spikes.
 * **Server-Side PDF Parsing:** Apache PDFBox 3.x extracts page-by-page text dynamically, isolates visual boundaries, and caches extracted text.
 * **Storage Isolation:** Private Supabase Storage bucket (`ey-books`) stores raw PDFs securely behind signed backend calls.
+* **Authority Contract Evaluation:** `POST /api/visual-book/authority` selects one of the three canonical prompt contracts and validates the mode-specific JSON envelope. Preserve must return exactly two additive page-placement variants.
 
 ### Frontend Capabilities
 * **Interactive Document Reader:** Real-time page flipping, extracted text view, and multimodal image uploads.
-* **Side-by-Side Candidate Selection:** Renders candidate layout proposals (Hero-Split vs. Editorial Inline) with visual reasoning rationale.
-* **Client-Side PDF Generation:** Produces production-ready, downloadable PDFs directly via `@react-pdf/renderer`.
+* **Authority Mode Selection:** Lets the user choose Preserve, Restructure, or Transform. Preserve renders two visual placement choices instead of exposing raw Gemini JSON as the primary experience.
+* **Preserve placement choices:** Preserve returns two additive page-placement variants while keeping the original PDF page rendering unchanged. The selected placement is shown with the original page rendered as an immutable image.
+* **PDF composition:** The renderer will consume the selected authority result in the next implementation slice.
 
 ---
 

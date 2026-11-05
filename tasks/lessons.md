@@ -128,3 +128,7 @@
 
 - For a watchlist-wide study with one detailed chart, keep the batch response summary-only and retain the existing single-stock response for candles and indicators; this avoids transferring large candle payloads for every member.
 - When a long-running watchlist request can overlap a watchlist selection change, invalidate stale responses in the hook so an older run cannot overwrite the newly selected universe.
+
+## 2026-11-05
+
+- Preserve authority means source wording, sequence, and source formatting stay fixed; it does not mean the document cannot gain visual content or expand onto another page. Keep the prompt, backend validator, and preview vocabulary aligned around contextual image-placement strategies.

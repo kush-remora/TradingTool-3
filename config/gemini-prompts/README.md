@@ -4,7 +4,7 @@ These files are the source of truth for the EY Visual Book Generator's Gemini au
 
 ## Prompt files
 
-- `1-preserve.md` — strict source protection. Text, structure, order, and formatting cannot be changed.
+- `1-preserve.md` — strict source text & sequence protection with contextual visual insertion. Text and original order cannot be changed; multi-page natural flow is supported.
 - `2-restructure.md` — structural and layout freedom with zero lexical mutation. Source wording and meaning must remain unchanged.
 - `3-transform.md` — full editorial and design authority with strict factual grounding and genuinely different variants.
 

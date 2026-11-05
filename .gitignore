@@ -32,6 +32,8 @@ target/
 node_modules/
 frontend/dist/
 frontend/package-lock.json
+evi/frontend/dist/
+evi/frontend/package-lock.json
 service/src/main/resources/localconfig.yaml
 localconfig.yaml
 docs/kiteconnectKey

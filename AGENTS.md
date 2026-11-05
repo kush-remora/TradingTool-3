@@ -21,11 +21,11 @@ The content team starts with a source document, usually a PDF containing structu
 
 The central interaction is an authority selection made before Gemini is called:
 
-1. **Preserve** — protect the source. Do not change the document's text, language, order, structure, or formatting. Any visual addition must respect this constraint; if inserting it would modify the original page, treat that as a product decision rather than silently violating Preserve.
+1. **Preserve** — protect the source text and original sequence verbatim (100% lexical fidelity; no rewriting, summarization, or invented headings). Incorporate the visual asset at a contextually relevant anchor (inline middle, side-by-side right/left, or section banner). Natural multi-page vertical flow (expanding from 1 to 1.5 or 2 pages) is expected and supported.
 2. **Restructure** — preserve the source language and meaning, but allow new headlines, subheadings, numbered lists, section order, hierarchy, and visual formatting. Do not rewrite or summarize the content.
 3. **Transform** — give the AI full editorial and design authority to summarize, rewrite in its own language, create new structure and headlines, integrate visuals, and propose genuinely different document layouts.
 
-These are permission contracts, not visual themes. The selected mode must determine the Gemini prompt, allowed output fields, UI language, and validation rules. React PDF rendering and Gemini are implementation tools; the user-visible value is controlled document transformation with clear boundaries.
+These are permission contracts, not visual themes. The selected mode must determine the Gemini prompt, allowed output fields, UI language, and validation rules. React PDF rendering and Gemini are implementation tools; the user-visible value is controlled document transformation with clear boundaries. For the isolated assignment module, the canonical prompt files are under `evi/prompts/`; the older root `config/gemini-prompts/` copy is historical.
 
 Intended workflow: `Upload source document + visual asset(s) → select Preserve, Restructure, or Transform → send the mode-specific Gemini prompt → receive a structured document/layout result → validate it against the selected authority level → preview and export the resulting PDF.`
 

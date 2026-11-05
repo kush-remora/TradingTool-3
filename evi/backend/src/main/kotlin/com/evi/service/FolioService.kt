@@ -12,7 +12,11 @@ import com.evi.model.StoredFolio
 import com.evi.model.StoredFolioPage
 import com.evi.model.StoredFolioRecord
 import org.apache.pdfbox.Loader
+import org.apache.pdfbox.rendering.ImageType
+import org.apache.pdfbox.rendering.PDFRenderer
 import org.apache.pdfbox.text.PDFTextStripper
+import java.io.ByteArrayOutputStream
+import javax.imageio.ImageIO
 import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.time.Duration
@@ -142,6 +146,36 @@ class FolioService(
             extractedText = savedPage.extractedText.orEmpty(),
             status = savedPage.status,
         )
+    }
+
+    suspend fun renderPage(folioId: UUID, pageNumber: Int): ByteArray {
+        require(pageNumber >= 1) { "Page number must be at least 1." }
+
+        val folio = store.findById(folioId) ?: throw FolioNotFoundException(folioId)
+        val sourcePdfPath = folio.sourcePdfPath
+        check(!sourcePdfPath.isNullOrBlank()) { "Folio source PDF path is not set." }
+
+        val pdfBytes = storage.downloadPdf(sourcePdfPath)
+        try {
+            Loader.loadPDF(pdfBytes).use { document ->
+                if (pageNumber > document.numberOfPages) {
+                    throw FolioPageOutOfBoundsException(pageNumber, document.numberOfPages)
+                }
+                val image = PDFRenderer(document).renderImageWithDPI(
+                    pageNumber - 1,
+                    144f,
+                    ImageType.RGB,
+                )
+                return ByteArrayOutputStream().use { output ->
+                    check(ImageIO.write(image, "PNG", output)) { "Unable to encode rendered PDF page." }
+                    output.toByteArray()
+                }
+            }
+        } catch (error: FolioPageOutOfBoundsException) {
+            throw error
+        } catch (error: Exception) {
+            throw FolioExtractionException("Failed to render page $pageNumber: ${error.message}", error)
+        }
     }
 
     private fun storageFileName(title: String): String {

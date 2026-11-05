@@ -10,7 +10,7 @@ The new product is an AI-assisted handoff and document transformation workflow. 
 
 ### Preserve
 
-The source document is protected. Gemini must not change the text, language, order, structure, or formatting. A visual may be associated or inserted only if that does not violate the preservation rule. If adding it necessarily changes the page, the product must make that limitation explicit instead of silently changing the document.
+The source PDF page rendering is protected as an immutable artifact. Gemini must not change, summarize, rewrite, reorder, or reconstruct any source page. Preserve adds the visual as a separate page before or after the original source page; the document may therefore expand from one page to two or more without reflowing the source page.
 
 ### Restructure
 
@@ -30,14 +30,23 @@ The three prompts should share source context and output conventions, but explic
 
 The current code is an implementation slice, not the final product definition:
 
-- React uploads a source PDF, extracts/reads a page, accepts an optional page image, and calls `POST /api/visual-book/layout-options`.
-- The Kotlin service sends page text and image metadata to Gemini, currently asks for exactly two layout options, validates the JSON response, and falls back to deterministic options when Gemini is unavailable.
-- React renders the selected option and exports a PDF with `@react-pdf/renderer`.
+- React uploads a source PDF, extracts/reads a page, accepts an optional page image, and calls `POST /api/visual-book/authority`.
+- The Kotlin service sends page text and image metadata to the mode-specific Gemini contract and validates the structured response. Preserve now requires exactly two additive page-placement variants while protecting the source PDF page rendering.
+- React renders the two Preserve placement choices (image page before or after source); the preview uses a PDFBox-rendered source-page image so the original alignment is not reconstructed from extracted text.
+- `GET /api/folios/{id}/pages/{pageNumber}/image` renders the stored source page with PDFBox for the Preserve preview; the selected visual is composed as a separate page in the browser preview.
 
-This current flow is biased toward layout generation because it has no authority-mode selection and the prompt assumes that Gemini should extract a headline, write a summary, and propose visual layouts. The next design work should adapt this existing path to the three modes instead of treating the current prompt as the product contract.
+The old flow was biased toward layout generation because it assumed Gemini should extract a headline, write a summary, and propose visual layouts. That layout-only API and renderer have now been removed; the authority-mode flow is the product contract.
 
 ## 5. Decisions and next focus
 
-The current PDF extraction, image handling, Gemini integration, layout preview, and PDF rendering are useful implementation foundations. They should not be discarded solely because the product framing changed.
+The current PDF extraction, image handling, Gemini integration, and page preview are useful implementation foundations. The old layout-only API and renderer are not part of the corrected product and have been removed.
 
-The next implementation should first add the mode selection and mode-specific contracts. It should not begin by adding more layout templates or polishing existing visual styles. Preserve validation, Restructure language preservation, and Transform structural variation are the core correctness questions.
+The next implementation should add deterministic Preserve source-fidelity validation and final PDF composition. It should not reintroduce generic layout templates. Restructure and Transform now have structured frontend previews; the remaining correctness work is application-level lexical/factual validation and final PDF composition for those richer results.
+
+## 6. EVI module implementation slice
+
+The assignment code has now been isolated under `evi/` and is authority-mode aware end to end: the frontend selects a mode, the request carries it, the backend loads the matching contract from `evi/prompts/`, and the Gemini response is returned as a mode-tagged structured payload. Preserve now has two visual placement choices.
+
+The slice must not pretend that the current page-text-plus-image-metadata input provides the full structured source document or multimodal image analysis required by the prompt contracts. Those inputs remain follow-up work.
+
+The authority-aware backend path is now the only generation path. Preserve and Transform results can be selected through mode-specific previews; the model's self-attestation is not sufficient evidence of immutability or factual grounding, so deterministic validation and final renderer support remain required.
