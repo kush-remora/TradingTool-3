@@ -69,7 +69,15 @@ class DropwizardConfig : Configuration() {
                 errorRetrySleepSeconds = telegram.errorRetrySleepSeconds,
                 maxRetrySleepSeconds = telegram.maxRetrySleepSeconds,
             ),
-            supabase = SupabaseConfig(dbUrl = supabase.dbUrl ?: ""),
+            supabase = SupabaseConfig(
+                dbUrl = System.getenv("SUPABASE_DB_URL")?.trim()?.takeIf { it.isNotEmpty() } ?: supabase.dbUrl.orEmpty(),
+                url = System.getenv("SUPABASE_URL")?.trim()?.takeIf { it.isNotEmpty() } ?: supabase.url.orEmpty(),
+                serviceRoleKey = System.getenv("SUPABASE_SERVICE_ROLE_KEY")
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?: supabase.serviceRoleKey?.trim()?.takeIf { it.isNotEmpty() }
+                    ?: supabase.legacyServiceRoleKey.orEmpty(),
+            ),
             deployment = DeploymentConfig(
                 renderExternalUrl = deployment.renderExternalUrl ?: "",
                 githubPagesUrl = deployment.githubPagesUrl ?: "https://kush-remora.github.io/TradingTool-3/",
@@ -79,13 +87,14 @@ class DropwizardConfig : Configuration() {
                 apiSecret = kite.apiSecret ?: "",
             ),
             redis = RedisAppConfig(
-                url = redis.url ?: "redis://localhost:6379",
+                url = normalizeRedisUrl(redis.url),
             ),
             gemini = GeminiConfig(
                 apiKey = System.getenv("GEMINI_API_KEY")
                     ?.trim()
                     ?.takeIf { apiKey -> apiKey.isNotEmpty() }
-                    ?: gemini.apiKey.orEmpty(),
+                    ?: gemini.apiKey?.trim()?.takeIf { it.isNotEmpty() }
+                    ?: try { loadAppConfig().gemini.apiKey } catch (_: Exception) { "" },
             ),
         )
     }
@@ -102,6 +111,21 @@ class DropwizardConfig : Configuration() {
         return rawValue.split(",")
             .map { item -> item.trim() }
             .filter { item -> item.isNotEmpty() }
+    }
+
+    private fun normalizeRedisUrl(rawValue: String?): String {
+        val value = rawValue?.trim().orEmpty()
+        if (value.isEmpty()) {
+            return "redis://localhost:6379"
+        }
+
+        val isTemplateWrapped = value.startsWith("\${") && value.endsWith("}")
+        val unwrappedValue = if (isTemplateWrapped) value.substring(2, value.length - 1) else value
+        return if (unwrappedValue.startsWith("redis://") || unwrappedValue.startsWith("rediss://")) {
+            unwrappedValue
+        } else {
+            value
+        }
     }
 }
 
@@ -145,6 +169,15 @@ class DropwizardTelegramConfig {
 class DropwizardSupabaseConfig {
     @JsonProperty("dbUrl")
     var dbUrl: String? = ""
+
+    @JsonProperty("url")
+    var url: String? = ""
+
+    @JsonProperty("serviceRoleKey")
+    var serviceRoleKey: String? = ""
+
+    @JsonProperty("SUPABASE_SERVICE_ROLE_KEY")
+    var legacyServiceRoleKey: String? = ""
 }
 
 class DropwizardDeploymentConfig {

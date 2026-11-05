@@ -17,6 +17,7 @@
         <module>event-service</module>
         <module>service</module>
         <module>cron-job</module>
+        <module>evi/backend</module>
     </modules>
 
     <properties>

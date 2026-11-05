@@ -37,6 +37,11 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <groupId>com.evi</groupId>
+            <artifactId>evi-backend</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>com.tradingtool</groupId>
             <artifactId>event-service</artifactId>
             <version>${project.version}</version>

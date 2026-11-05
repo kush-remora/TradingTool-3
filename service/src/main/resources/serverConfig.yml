@@ -30,6 +30,8 @@ telegram:
 
 supabase:
   dbUrl: ${SUPABASE_DB_URL:-}
+  url: ${SUPABASE_URL:-}
+  serviceRoleKey: ${SUPABASE_SERVICE_ROLE_KEY:-}
 
 deployment:
   renderExternalUrl: ${RENDER_EXTERNAL_URL:-https://tradingtool-3-service.onrender.com}
@@ -41,3 +43,6 @@ kite:
 
 redis:
   url: ${REDIS_URL:-}
+
+gemini:
+  apiKey: ${GEMINI_API_KEY:-}

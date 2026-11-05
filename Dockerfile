@@ -8,6 +8,7 @@ COPY core core
 COPY resources resources
 COPY event-service event-service
 COPY cron-job cron-job
+COPY evi evi
 COPY service service
 
 RUN mvn -pl service -am clean package -DskipTests

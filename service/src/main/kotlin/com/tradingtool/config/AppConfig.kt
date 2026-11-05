@@ -47,6 +47,8 @@ data class TelegramConfig(
 
 data class SupabaseConfig(
     val dbUrl: String,
+    val url: String = "",
+    val serviceRoleKey: String = "",
 )
 
 data class DeploymentConfig(
@@ -156,6 +158,18 @@ fun loadAppConfig(resourceName: String = defaultConfigFileName()): AppConfig {
             yamlKey = "supabase.dbUrl",
             envVars = listOf("SUPABASE_DB_URL"),
             defaultValue = "",
+        ),
+        url = getString(
+            fileValues = fileValues,
+            yamlKey = "supabase.url",
+            envVars = listOf("SUPABASE_URL"),
+            defaultValue = "",
+        ),
+        serviceRoleKey = getString(
+            fileValues = fileValues,
+            yamlKey = "supabase.serviceRoleKey",
+            envVars = listOf("SUPABASE_SERVICE_ROLE_KEY"),
+            defaultValue = fileValues["supabase.SUPABASE_SERVICE_ROLE_KEY"].orEmpty(),
         ),
     )
 

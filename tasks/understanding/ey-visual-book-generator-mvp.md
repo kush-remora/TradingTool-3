@@ -12,3 +12,11 @@ With a maximum ten-hour window, preserve this repository and its deployment rath
 4. Add a small per-client rate limit and focused tests for validation, Gemini parsing, and fallback behaviour.
 5. Run module tests, package the service, and smoke-test the endpoint locally without printing the key.
 
+## Approved first vertical slice
+
+Build only the first-page path: a `/book-generator` React page that accepts book context, page text, and local image metadata; `POST /api/visual-book/layout-options`, which returns two typed Gemini layout options; and a local script that proves the configured Gemini key can call the API without leaking it. The UI will render those two options but will not yet support page selection, a completed-book view, persistence, image-byte analysis, or advanced editing.
+
+## Approved Folio upload slice
+
+Create a distinct Folio creation flow within the existing page. A user supplies title, objective, optional theme, and one PDF. The backend validates a PDF up to 50 MB, uploads it to the private `ey-books` bucket at a UUID-based path, then inserts its metadata into `folios` with status `uploaded`. A second tab lists recent folios and their status after page refresh. No PDF parsing, page generation, retry queue, or object downloads are in this slice. Storage access remains backend-only through locally ignored / Render-provided Supabase credentials.
+

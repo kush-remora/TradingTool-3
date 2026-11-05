@@ -15,3 +15,8 @@ data class HttpResponseData(
     val statusCode: Int,
     val body: String,
 )
+
+data class HttpBinaryResponseData(
+    val statusCode: Int,
+    val body: ByteArray,
+)

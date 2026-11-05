@@ -13,6 +13,24 @@ Optimize for **clarity, maintainability, and speed of iteration** over scalabili
 - Current status: **Phase 1 build**
 - Market scope: NSE-focused
 
+## EY Visual Book Generator — Current Product Definition
+
+The EY Visual Book Generator is a separate active project in this repository. Its purpose is to reduce the manual handoff between a content/documentation team and a visual designer.
+
+The content team starts with a source document, usually a PDF containing structured text, and may have visual assets. A designer currently reads the document, understands its intent, decides how the visual belongs with the content, and manually produces a polished PDF. The product makes that handoff explicit by letting the user control how much authority the AI has over the source document.
+
+The central interaction is an authority selection made before Gemini is called:
+
+1. **Preserve** — protect the source. Do not change the document's text, language, order, structure, or formatting. Any visual addition must respect this constraint; if inserting it would modify the original page, treat that as a product decision rather than silently violating Preserve.
+2. **Restructure** — preserve the source language and meaning, but allow new headlines, subheadings, numbered lists, section order, hierarchy, and visual formatting. Do not rewrite or summarize the content.
+3. **Transform** — give the AI full editorial and design authority to summarize, rewrite in its own language, create new structure and headlines, integrate visuals, and propose genuinely different document layouts.
+
+These are permission contracts, not visual themes. The selected mode must determine the Gemini prompt, allowed output fields, UI language, and validation rules. React PDF rendering and Gemini are implementation tools; the user-visible value is controlled document transformation with clear boundaries.
+
+Intended workflow: `Upload source document + visual asset(s) → select Preserve, Restructure, or Transform → send the mode-specific Gemini prompt → receive a structured document/layout result → validate it against the selected authority level → preview and export the resulting PDF.`
+
+Prompting alone is not sufficient for Preserve. The application should compare or otherwise validate the returned content against the source before claiming that the document was preserved. Two Transform layouts must differ in document structure and communication approach, not only image placement.
+
 ## Primary Product Philosophy (Wyckoff First)
 
 Treat Wyckoff as the main product lens for strategy decisions and implementation.

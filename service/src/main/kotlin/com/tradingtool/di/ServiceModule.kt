@@ -78,8 +78,26 @@ import com.tradingtool.core.trade.dao.TradeReadDao
 import com.tradingtool.core.trade.dao.TradeWriteDao
 import com.tradingtool.core.trade.service.TradeService
 import com.tradingtool.core.trade.service.TradeReadinessService
+import com.evi.client.EviHttpClient
+import com.evi.client.JdkEviHttpClient
+import com.evi.database.EviJdbiHandler
+import com.evi.database.FolioReadDao
+import com.evi.database.FolioWriteDao
+import com.evi.resource.EviResourceScope
+import com.evi.service.FolioJdbiHandler
+import com.evi.service.FolioService
+import com.evi.service.FolioStorage
+import com.evi.service.FolioStore
+import com.evi.service.JdbiFolioStore
+import com.evi.service.SupabaseFolioStorage
+import com.evi.service.VisualBookLayoutService
 import com.tradingtool.eventservice.KiteTickerService
 import com.tradingtool.resources.ALL_RESOURCE_CLASSES
+
+val EVI_RESOURCE_CLASSES: List<Class<*>> = listOf(
+    com.evi.resource.VisualBookResource::class.java,
+    com.evi.resource.FolioResource::class.java,
+)
 
 class ServiceModule(
     private val appConfig: AppConfig,
@@ -94,6 +112,8 @@ class ServiceModule(
 
         bind(AppConfig::class.java).toInstance(appConfig)
         bind(ResourceScope::class.java).`in`(Singleton::class.java)
+        bind(EviResourceScope::class.java).toInstance(EviResourceScope())
+        bind(EviHttpClient::class.java).to(JdkEviHttpClient::class.java).`in`(Singleton::class.java)
         bind(DeliveryConfigService::class.java).`in`(Singleton::class.java)
         bind(DeliveryUniverseService::class.java).`in`(Singleton::class.java)
         bind(DeliveryReconciliationService::class.java).`in`(Singleton::class.java)
@@ -103,13 +123,50 @@ class ServiceModule(
         bind(com.tradingtool.core.breakouttracker.BreakoutTrackerService::class.java).`in`(Singleton::class.java)
         bind(HttpRequestExecutor::class.java).to(JdkHttpRequestExecutor::class.java).`in`(Singleton::class.java)
 
-        ALL_RESOURCE_CLASSES.forEach { bind(it).`in`(Singleton::class.java) }
+        (ALL_RESOURCE_CLASSES + EVI_RESOURCE_CLASSES).forEach { bind(it).`in`(Singleton::class.java) }
     }
 
     @Provides
     @Singleton
     fun provideKiteConnectClient(config: AppConfig): KiteConnectClient =
         KiteConnectClient(config.kite)
+
+    @Provides
+    @Singleton
+    fun provideVisualBookLayoutService(
+        config: AppConfig,
+        httpClient: EviHttpClient,
+        objectMapper: com.fasterxml.jackson.databind.ObjectMapper,
+    ): VisualBookLayoutService = VisualBookLayoutService(
+        apiKey = config.gemini.apiKey,
+        httpClient = httpClient,
+        objectMapper = objectMapper,
+    )
+
+    @Provides
+    @Singleton
+    fun provideFolioJdbiHandler(config: DatabaseConfig): FolioJdbiHandler =
+        EviJdbiHandler.create(config.jdbcUrl, FolioReadDao::class.java, FolioWriteDao::class.java)
+
+    @Provides
+    @Singleton
+    fun provideFolioStorage(
+        config: AppConfig,
+        httpClient: EviHttpClient,
+    ): FolioStorage = SupabaseFolioStorage(
+        projectUrl = config.supabase.url,
+        serviceRoleKey = config.supabase.serviceRoleKey,
+        httpClient = httpClient,
+    )
+
+    @Provides
+    @Singleton
+    fun provideFolioStore(handler: FolioJdbiHandler): FolioStore = JdbiFolioStore(handler)
+
+    @Provides
+    @Singleton
+    fun provideFolioService(storage: FolioStorage, store: FolioStore): FolioService =
+        FolioService(storage, store)
 
     @Provides
     @Singleton

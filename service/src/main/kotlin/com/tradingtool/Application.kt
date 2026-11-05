@@ -8,6 +8,7 @@ import com.tradingtool.config.AppConfig
 import com.tradingtool.config.DropwizardConfig
 import com.tradingtool.core.http.Result
 import com.tradingtool.di.ServiceModule
+import com.tradingtool.di.EVI_RESOURCE_CLASSES
 import com.tradingtool.core.database.JdbiHandler
 import com.tradingtool.core.kite.KiteTokenReadDao
 import com.tradingtool.core.kite.KiteTokenWriteDao
@@ -172,8 +173,8 @@ class DropwizardApplication : Application<DropwizardConfig>() {
             }
         }.also { it.isDaemon = true }.start()
 
-        // Register all resources with Jersey (source of truth: ResourceRegistry)
-        ALL_RESOURCE_CLASSES.forEach { clazz ->
+        // Register all resources with Jersey (source of truth: ResourceRegistry + EVI)
+        (ALL_RESOURCE_CLASSES + EVI_RESOURCE_CLASSES).forEach { clazz ->
             environment.jersey().register(injector.getInstance(clazz))
         }
         environment.jersey().register(MultiPartFeature::class.java)

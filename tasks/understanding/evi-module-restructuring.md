@@ -1,0 +1,5 @@
+# EVI Module Restructuring — Understanding
+
+The EY Visual Book Generator ("EVI") is being decoupled from the trading tool into a self-contained top-level `evi/` module. This ensures all code related to the assignment (backend services, REST endpoints, authority-mode prompts, database schemas, and frontend UI) can be shared, exported, or submitted independently to evaluators without exposing any proprietary trading logic or `com.tradingtool` packages.
+
+The restructuring establishes an independent `evi/` directory housing `evi/backend/` (Kotlin Maven module under clean `com.evi.*` packaging), `evi/frontend/` (React/Vite visual book UI), `evi/prompts/` (the canonical authority-mode contracts: Preserve, Restructure, Transform), `evi/db/` (Supabase schema migrations), and a dedicated `README.md`. At the parent level, `TradingTool-3` integrates `evi/backend` via Maven and mounts the endpoints into Dropwizard, ensuring existing local runbooks and Render deployments remain 100% operational with zero service disruption.

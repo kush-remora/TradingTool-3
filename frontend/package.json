@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@antv/g6": "^5.0.51",
+    "@react-pdf/renderer": "^4.9.0",
     "antd": "^6.3.0",
     "lightweight-charts": "^5.1.0",
     "react": "^19.2.0",

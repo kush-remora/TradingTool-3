@@ -18,6 +18,9 @@ interface HttpRequestExecutor {
      * Includes automatic retry logic for transient failures.
      */
     suspend fun execute(request: HttpRequestData): HttpResponseData
+
+    /** Execute an HTTP request that returns binary content, such as a private PDF. */
+    suspend fun executeBytes(request: HttpRequestData): HttpBinaryResponseData
 }
 
 @Singleton
@@ -27,6 +30,10 @@ class JdkHttpRequestExecutor @Inject constructor(
 
     override suspend fun execute(request: HttpRequestData): HttpResponseData = withContext(Dispatchers.IO) {
         executeWithRetry(request, maxAttempts = 3)
+    }
+
+    override suspend fun executeBytes(request: HttpRequestData): HttpBinaryResponseData = withContext(Dispatchers.IO) {
+        executeBytesWithRetry(request, maxAttempts = 3)
     }
 
     private suspend fun executeWithRetry(
@@ -68,6 +75,39 @@ class JdkHttpRequestExecutor @Inject constructor(
         return HttpResponseData(
             statusCode = response.statusCode(),
             body = response.body().orEmpty(),
+        )
+    }
+
+    private suspend fun executeBytesWithRetry(
+        request: HttpRequestData,
+        maxAttempts: Int,
+    ): HttpBinaryResponseData {
+        var lastException: Exception? = null
+
+        repeat(maxAttempts) { attempt ->
+            try {
+                return executeBytesOnce(request)
+            } catch (error: Exception) {
+                lastException = error
+                if (isRetryableException(error) && attempt < maxAttempts - 1) {
+                    delay(calculateBackoffDelay(attempt))
+                } else {
+                    throw error
+                }
+            }
+        }
+
+        throw lastException ?: IOException("HTTP request failed after $maxAttempts attempts")
+    }
+
+    private suspend fun executeBytesOnce(request: HttpRequestData): HttpBinaryResponseData {
+        val response = httpClient
+            .sendAsync(buildHttpRequest(request), HttpResponse.BodyHandlers.ofByteArray())
+            .await()
+
+        return HttpBinaryResponseData(
+            statusCode = response.statusCode(),
+            body = response.body(),
         )
     }
 
