@@ -32,16 +32,31 @@
 }
 
 .book-generator-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-family: Georgia, serif;
   font-size: 24px;
   font-weight: 700;
   letter-spacing: -1px;
 }
 
+.book-generator-brand-ey {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--folio-green);
+  color: #fffefa;
+  font: 700 10px Arial, sans-serif;
+  letter-spacing: .2px;
+}
+
 .book-generator-progress { display: flex; gap: 8px; }
 .book-generator-progress span { color: #9b9b92; font-size: 11px; font-weight: 700; }
 .book-generator-progress .is-active { color: var(--folio-ink); }
-.book-generator-status { justify-self: end; color: #6f736b; font-size: 12px; }
+.book-generator-status { justify-self: end; color: #6f736b; font-size: 11px; letter-spacing: .5px; text-transform: uppercase; }
 
 .book-generator-intro { padding: 78px 0 52px; max-width: 1180px; }
 .book-generator-eyebrow { margin: 0 0 12px; color: var(--folio-green); font: 700 11px/1.2 Arial, sans-serif; letter-spacing: 1.5px; }

@@ -52,3 +52,5 @@ The slice must not pretend that the current page-text-plus-image-metadata input 
 The authority-aware backend path is now the only generation path. Preserve and Transform results can be selected through mode-specific previews; the model's self-attestation is not sufficient evidence of immutability or factual grounding, so deterministic validation and final renderer support remain required.
 
 For local testing, the root `frontend/` Vite app on port 5173 is the single browser entry point. Its book-generator route contains the authority-mode previews; the separate EVI Vite server is not part of the testing workflow.
+
+The first screen is positioned as an EY internal EVI document studio, not a consumer-facing story or home. User-facing language should describe source documents, communication objectives, AI authority, and visual-page production. Internal API/domain names such as `folio` may remain in implementation code, but should not define the product's visible identity.

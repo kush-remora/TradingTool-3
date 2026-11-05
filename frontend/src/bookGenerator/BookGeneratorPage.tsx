@@ -1250,7 +1250,7 @@ export function BookGeneratorPage() {
   const createFolio = async (): Promise<void> => {
     const sourcePdf = files[0]?.originFileObj;
     if (!title.trim() || !objective.trim() || !sourcePdf) {
-      message.error("Add a title, objective, and PDF before creating a folio.");
+      message.error("Add a title, communication objective, and source PDF before creating a visual book.");
       return;
     }
 
@@ -1269,9 +1269,9 @@ export function BookGeneratorPage() {
       setFiles([]);
       await loadFolios();
       setActiveTab("folios");
-      message.success("Folio uploaded and ready for page processing.");
+      message.success("Visual book created and ready for page processing.");
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "Unable to create folio.");
+      message.error(error instanceof Error ? error.message : "Unable to create visual book.");
     } finally {
       setIsCreating(false);
     }
@@ -1280,8 +1280,11 @@ export function BookGeneratorPage() {
   return (
     <main className="book-generator-page">
       <header className="book-generator-header">
-        <div className="book-generator-brand">Folio</div>
-        <span className="book-generator-status">Visual book workspace</span>
+        <div className="book-generator-brand">
+          <span className="book-generator-brand-ey">EY</span>
+          <span>EVI</span>
+        </div>
+        <span className="book-generator-status">Internal document visualization</span>
         <Button
           size="small"
           style={{ marginLeft: "auto" }}
@@ -1294,23 +1297,25 @@ export function BookGeneratorPage() {
       </header>
 
       <section className="book-generator-intro">
-        <p className="book-generator-eyebrow">AI-POWERED VISUAL BOOKS</p>
-        <h1>Give the story a home.</h1>
-        <p>Create a folio once, then step through its pages as the visual book takes shape.</p>
+        <p className="book-generator-eyebrow">EY INTERNAL TOOL · EVI DOCUMENT STUDIO</p>
+        <h1>Turn documents into visual books.</h1>
+        <p>
+          Convert structured enterprise content into polished visual communication with explicit control over how much AI may change.
+        </p>
       </section>
 
       {selectedFolio ? (
-        <section className="book-generator-reader" aria-label="Folio reader">
+        <section className="book-generator-reader" aria-label="Visual book workspace">
           <div className="book-generator-reader-header">
             <Button
               className="book-generator-back-btn"
               icon={<ArrowLeftOutlined />}
               onClick={closeReader}
             >
-              All folios
+              All visual books
             </Button>
             <div className="book-generator-reader-meta">
-              <span className="book-generator-eyebrow">FOLIO READER</span>
+              <span className="book-generator-eyebrow">VISUAL BOOK WORKSPACE</span>
               <h2>{selectedFolio.title}</h2>
               {selectedFolio.objective && (
                 <p className="book-generator-reader-objective">{selectedFolio.objective}</p>
@@ -1622,27 +1627,27 @@ export function BookGeneratorPage() {
           </div>
         </section>
       ) : (
-        <section className="book-generator-tabs" aria-label="Folio workspace">
+        <section className="book-generator-tabs" aria-label="Visual book workspace">
           <Tabs
             activeKey={activeTab}
             onChange={setActiveTab}
             items={[
               {
                 key: "create",
-                label: "New folio",
+                label: "New visual book",
                 children: (
                   <div className="book-generator-workspace">
                     <div className="book-generator-form">
                       <div className="book-generator-section-heading">
                         <span>01</span>
                         <div>
-                          <h2>Set the context</h2>
-                          <p>These details guide every page we generate later.</p>
+                          <h2>Define the source</h2>
+                          <p>Set the communication brief before EVI processes the document.</p>
                         </div>
                       </div>
 
                       <label>
-                        <span>Book title</span>
+                        <span>Visual book title</span>
                         <Input
                           value={title}
                           onChange={(event) => setTitle(event.target.value)}
@@ -1651,7 +1656,7 @@ export function BookGeneratorPage() {
                         />
                       </label>
                       <label>
-                        <span>Objective</span>
+                        <span>Communication objective</span>
                         <TextArea
                           value={objective}
                           onChange={(event) => setObjective(event.target.value)}
@@ -1711,11 +1716,11 @@ export function BookGeneratorPage() {
                         loading={isCreating}
                         onClick={createFolio}
                       >
-                        Create folio
+                        Create visual book
                       </Button>
                     </div>
 
-                    <aside className="book-generator-preview" aria-label="Folio creation guide">
+                    <aside className="book-generator-preview" aria-label="Visual book creation guide">
                       <div className="book-generator-preview-topline">
                         <span>WHAT HAPPENS NEXT</span>
                         <span>01 / 03</span>
@@ -1724,16 +1729,16 @@ export function BookGeneratorPage() {
                         <span className="book-generator-guide-icon">
                           <FolderOpenOutlined />
                         </span>
-                        <p className="book-generator-sheet-kicker">YOUR FOLIO</p>
+                        <p className="book-generator-sheet-kicker">EVI WORKSPACE</p>
                         <h2>{title || "Your book title"}</h2>
                         <p>
                           {objective ||
-                            "The source PDF and its context will be ready when you start creating visual pages."}
+                            "The source PDF and its communication brief will be ready for controlled visual processing."}
                         </p>
                         <ol>
-                          <li>Upload once</li>
-                          <li>Step through each page</li>
-                          <li>Resume anytime</li>
+                            <li>Upload the source document</li>
+                            <li>Choose AI authority</li>
+                            <li>Build visual pages</li>
                         </ol>
                       </div>
                     </aside>
@@ -1742,13 +1747,13 @@ export function BookGeneratorPage() {
               },
               {
                 key: "folios",
-                label: `Your folios${folios.length ? ` (${folios.length})` : ""}`,
+                label: `Visual books${folios.length ? ` (${folios.length})` : ""}`,
                 children: (
                   <section className="book-generator-folio-list" aria-live="polite">
                     <div className="book-generator-list-heading">
                       <div>
                         <p className="book-generator-eyebrow">SAVED WORK</p>
-                        <h2>Pick up where you left off.</h2>
+                        <h2>Continue a document project.</h2>
                       </div>
                       <Button onClick={() => void loadFolios()} loading={isLoadingFolios}>
                         Refresh
@@ -1757,7 +1762,7 @@ export function BookGeneratorPage() {
 
                     {isLoadingFolios && (
                       <div className="book-generator-list-state">
-                        <Spin /> Loading folios…
+                        <Spin /> Loading visual books…
                       </div>
                     )}
                     {folioError && (
@@ -1767,7 +1772,7 @@ export function BookGeneratorPage() {
                       </div>
                     )}
                     {!isLoadingFolios && !folioError && folios.length === 0 && (
-                      <Empty description="No folios yet. Create your first one." />
+                      <Empty description="No visual books yet. Create your first document project." />
                     )}
                     {!isLoadingFolios && !folioError && folios.length > 0 && (
                       <div className="book-generator-folio-grid">
@@ -1802,7 +1807,7 @@ export function BookGeneratorPage() {
                               <span>{formatCreatedAt(folio.updatedAt)}</span>
                             </footer>
                             <div className="book-generator-folio-card-action">
-                              <span>Read pages →</span>
+                              <span>Open workspace →</span>
                             </div>
                           </article>
                         ))}
